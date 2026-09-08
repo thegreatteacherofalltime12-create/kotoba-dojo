@@ -1357,8 +1357,26 @@ h1, h2, h3 { font-family: var(--display); text-transform: none; letter-spacing: 
 
 #btn-wallet { border: 2px solid #C6A664 !important; color: #C6A664 !important; background: rgba(4,20,13,.6) !important; }
 #btn-wallet:hover { background: #C6A664 !important; color: #0C2118 !important; }
-#btn-casino-bank { border: 2px solid #4ADE80 !important; color: #4ADE80 !important; }
-#btn-casino-bank:hover { background: #4ADE80 !important; color: #062B14 !important; }
+/* Ending the match is the destructive one, so it wears red; the rules wear
+   green. This is the block that decides it — an id with !important beats any
+   class rule, so the colours have to be set here rather than fought with
+   somewhere further down the sheet. */
+#btn-casino-bank {
+  border: 2px solid #FF2D4F !important; color: #FF2D4F !important;
+  background: #16020A !important;
+  text-shadow: 0 0 6px rgba(255, 45, 79, .9);
+  box-shadow: 0 0 9px rgba(255, 45, 79, .5), inset 0 0 6px rgba(255, 45, 79, .22);
+}
+#btn-casino-bank:hover { background: #FF2D4F !important; color: #16020A !important; text-shadow: none; }
+
+#btn-casino-rules {
+  border: 2px solid #39FF8B !important; color: #39FF8B !important;
+  background: #03170D !important;
+  text-shadow: 0 0 6px rgba(57, 255, 139, .9);
+  box-shadow: 0 0 9px rgba(57, 255, 139, .5), inset 0 0 6px rgba(57, 255, 139, .22);
+}
+#btn-casino-rules:hover { background: #39FF8B !important; color: #03170D !important; text-shadow: none; }
+
 #btn-casino-quit { border: 2px solid #FF8A3D !important; color: #FF8A3D !important; }
 #btn-casino-quit:hover { background: #FF8A3D !important; color: #2A1408 !important; }
 
@@ -2458,3 +2476,77 @@ body.panel-open { overflow: hidden; }
   .fbar-gap { flex: 0 0 .5rem; height: auto; }
   .fbar-stat { flex: none; white-space: nowrap; }
 }
+
+/* ── the roulette felt ────────────────────────────────────────────────── */
+
+.rl-head { text-align: center; margin: .2rem 0 .7rem; }
+.rl-title { margin: 0; font-size: .84rem; font-weight: 800; letter-spacing: .14em; }
+.rl-staked { font-size: 1.35rem; color: #7DD3FC; }
+
+.rl-l { font-size: .64rem; font-weight: 800; letter-spacing: .12em; color: rgba(255,255,255,.7); }
+.rl-chips, .rl-types { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; margin-bottom: .6rem; }
+
+.rl-chip {
+  font: inherit; font-size: .72rem; font-weight: 800; cursor: pointer;
+  padding: .3rem .7rem; border-radius: 999px;
+  background: rgba(0,0,0,.3); border: 1px solid rgba(255,255,255,.25); color: #E5E7EB;
+}
+.rl-chip.on { background: #F4CE5A; border-color: #C9A23C; color: #241B00; }
+.rl-chip.all { background: #B91C1C; border-color: #EF4444; color: #FFE4E6; }
+.rl-chip.all.on { background: #F4CE5A; border-color: #C9A23C; color: #241B00; }
+.rl-custom {
+  width: 5rem; padding: .25rem .4rem; font: inherit; font-size: .8rem;
+  background: rgba(0,0,0,.35); border: 1px solid rgba(255,255,255,.25);
+  border-radius: 6px; color: inherit;
+}
+
+.rl-type {
+  font: inherit; font-size: .7rem; cursor: pointer; padding: .22rem .6rem;
+  border-radius: 5px; background: rgba(0,0,0,.28);
+  border: 1px solid rgba(255,255,255,.22); color: rgba(255,255,255,.8);
+}
+.rl-type.on { background: #0E7490; border-color: #22D3EE; color: #CFFAFE; }
+.rl-type.soon { opacity: .4; cursor: not-allowed; }
+
+.rl-cell {
+  font: inherit; font-size: .76rem; font-weight: 700; cursor: pointer;
+  padding: .4rem .2rem; border: 1px solid rgba(0,0,0,.5); color: #fff;
+  background: #1F2937; line-height: 1.1;
+}
+.rl-cell.red { background: #C1121F; }
+.rl-cell.black { background: #14161A; }
+.rl-cell.green { background: #15803D; }
+.rl-cell.side, .rl-cell.wide { background: #0F3D2A; }
+.rl-cell:hover { outline: 2px solid #F4CE5A; outline-offset: -2px; }
+.rl-cell.picked { outline: 3px solid #F4CE5A; outline-offset: -3px; box-shadow: 0 0 12px rgba(244,206,90,.7); }
+.rl-cell.isred::before, .rl-cell.isblack::before { margin-right: .25rem; }
+
+.rl-zeros { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; margin-bottom: 2px; }
+.rl-zeros .rl-cell { padding: .5rem; }
+.rl-grid { display: grid; grid-template-columns: repeat(12, 1fr) .8fr; gap: 2px; }
+.rl-dozens, .rl-outside { display: grid; gap: 2px; margin-top: 2px; }
+.rl-dozens { grid-template-columns: repeat(3, 1fr); }
+.rl-outside { grid-template-columns: repeat(6, 1fr); }
+
+.rl-acts { display: flex; gap: .5rem; margin-top: .8rem; }
+.rl-spin {
+  flex: 1; padding: .6rem; font: inherit; font-size: .92rem; font-weight: 800;
+  letter-spacing: .1em; cursor: pointer; border-radius: 6px;
+  background: #166534; border: 1px solid #14532D; color: #DCFCE7;
+}
+.rl-spin:hover:not(:disabled) { background: #16A34A; }
+.rl-spin:disabled { opacity: .45; cursor: not-allowed; }
+.rl-clear {
+  flex: none; padding: .6rem 1.2rem; font: inherit; font-weight: 800; cursor: pointer;
+  border-radius: 6px; background: #7F1D1D; border: 1px solid #991B1B; color: #FEE2E2;
+}
+.rl-clear:hover { background: #991B1B; }
+
+@media (max-width: 560px) {
+  .rl-cell { font-size: .62rem; padding: .3rem .1rem; }
+  .rl-outside { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* Champion, second and third, marked where the standings already are. */
+.slot .medal { font-size: 1rem; line-height: 1; }
+.slot.lead { background: color-mix(in srgb, var(--gold, #F4CE5A) 10%, var(--surface)); }

@@ -1040,26 +1040,147 @@ function drawGame(id) {
   const play = (extra) => send({ type: "TABLE_PLAY", game: id, amount: K.stake, ...extra });
 
   if (id === "roulette") {
-    const num = el("input", "arc-answer tnum");
-    num.type = "number"; num.min = "0"; num.max = "36"; num.placeholder = "0-36";
-    for (const b of ROULETTE_UI) {
-      if (b.pick === "number") {
-        const wrap = el("div", "tbet");
-        wrap.append(el("span", "tbet-n", b.name));
-        wrap.append(el("span", "tbet-p", `pays ${b.pays}:1`));
-        wrap.append(num);
-        const go = el("button", "fbtn fbtn-go", "Bet");
-        go.onclick = () => {
-          const n = num.value === "00" ? 37 : Number(num.value);
-          if (!(n >= 0 && n <= 37)) return say("Pick a pocket from 0 to 36, or 00.");
-          play({ pick: "straight", number: n });
-        };
-        wrap.append(go);
-        host.append(wrap);
-      } else {
-        host.append(betRow(b.name, () => play({ pick: b.id }), `pays ${b.pays}:1`));
-      }
+    const cash = K.mine?.table || 0;
+    // Selection only — the wheel is spun by the server on one bet, exactly as
+    // before. The felt is a nicer way to choose it, not a new game.
+    let pick = null, number = null;
+
+    const RED = new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
+    const staked = el("span", "rl-staked", money(0));
+
+    const head = el("div", "rl-head");
+    head.append(el("p", "rl-title", "PLACE YOUR BETS"));
+    host.append(head);
+
+    // ── chip ────────────────────────────────────────────────────────
+    const chipRow = el("div", "rl-chips");
+    chipRow.append(el("span", "rl-l", "CHIP:"));
+    const custom = el("input", "rl-custom");
+    custom.type = "number"; custom.min = "1"; custom.value = String(Math.min(5, cash) || 1);
+
+    const chipBtns = [];
+    const setChip = (v) => {
+      K.stake = Math.max(1, Math.min(cash, Math.round(v) || 1));
+      custom.value = String(K.stake);
+      chipBtns.forEach(([amount, b]) => b.classList.toggle("on", amount === K.stake));
+      refresh();
+    };
+    for (const amount of [1, 5, 25, 100].filter((n) => n <= Math.max(1, cash))) {
+      const b = el("button", "rl-chip", money(amount));
+      b.onclick = () => setChip(amount);
+      chipBtns.push([amount, b]);
+      chipRow.append(b);
     }
+    const allIn = el("button", "rl-chip all", "ALL IN");
+    allIn.onclick = () => setChip(cash);
+    chipRow.append(allIn);
+    chipRow.append(el("span", "rl-l", "CUSTOM $"));
+    custom.oninput = () => { K.stake = Math.max(1, Math.min(cash, Number(custom.value) || 1)); refresh(); };
+    chipRow.append(custom);
+    host.append(chipRow);
+
+    // ── bet type ────────────────────────────────────────────────────
+    // Only straight is wired: split, street, corner and line need the server
+    // to understand multi-number slips, which it does not yet. They are shown
+    // rather than hidden so the felt is complete, and disabled rather than
+    // silently broken.
+    const typeRow = el("div", "rl-types");
+    typeRow.append(el("span", "rl-l", "BET:"));
+    for (const [id2, label, ready] of [
+      ["straight", "straight", true], ["split", "split", false],
+      ["street", "street", false], ["corner", "corner", false], ["line", "line", false],
+    ]) {
+      const b = el("button", `rl-type${id2 === "straight" ? " on" : ""}${ready ? "" : " soon"}`, label);
+      if (!ready) b.title = "Not built yet \u2014 single numbers and the outside bets are live";
+      b.disabled = !ready;
+      typeRow.append(b);
+    }
+    host.append(typeRow);
+
+    // ── the felt ────────────────────────────────────────────────────
+    const cellFor = (label, cls, onPick) => {
+      const c = el("button", `rl-cell ${cls}`, label);
+      c.onclick = onPick;
+      return c;
+    };
+    const choose = (id2, n, node) => {
+      pick = id2; number = n;
+      host.querySelectorAll(".rl-cell.picked").forEach((x) => x.classList.remove("picked"));
+      node.classList.add("picked");
+      refresh();
+    };
+
+    const zeros = el("div", "rl-zeros");
+    for (const [label, n] of [["0", 0], ["00", 37]]) {
+      const c = cellFor(label, "green", () => choose("straight", n, c));
+      zeros.append(c);
+    }
+    host.append(zeros);
+
+    const grid = el("div", "rl-grid");
+    // Top row is the third column, as it is on a real layout.
+    for (const [start2, col] of [[3, "col3"], [2, "col2"], [1, "col1"]]) {
+      for (let i = 0; i < 12; i++) {
+        const n = start2 + i * 3;
+        const c = cellFor(String(n), RED.has(n) ? "red" : "black", () => choose("straight", n, c));
+        grid.append(c);
+      }
+      const twoToOne = cellFor("2:1", "side", () => choose(col, null, twoToOne));
+      grid.append(twoToOne);
+    }
+    host.append(grid);
+
+    const dozens = el("div", "rl-dozens");
+    for (const [label, id2] of [["1st 12", "dozen1"], ["2nd 12", "dozen2"], ["3rd 12", "dozen3"]]) {
+      const c = cellFor(label, "wide", () => choose(id2, null, c));
+      dozens.append(c);
+    }
+    host.append(dozens);
+
+    const outside = el("div", "rl-outside");
+    for (const [label, id2, cls] of [
+      ["1\u201318", "low", ""], ["EVEN", "even", ""], ["\u25CF RED", "red", "isred"],
+      ["\u25CF BLACK", "black", "isblack"], ["ODD", "odd", ""], ["19\u201336", "high", ""],
+    ]) {
+      const c = cellFor(label, `wide ${cls}`, () => choose(id2, null, c));
+      outside.append(c);
+    }
+    host.append(outside);
+
+    // ── spin ────────────────────────────────────────────────────────
+    const acts = el("div", "rl-acts");
+    const spin = el("button", "rl-spin", "\u25B6 SPIN");
+    spin.onclick = () => {
+      if (!pick) return say("Choose a bet on the felt first.");
+      play({ pick, number });
+    };
+    const clear = el("button", "rl-clear", "CLEAR");
+    clear.onclick = () => {
+      pick = null; number = null;
+      host.querySelectorAll(".rl-cell.picked").forEach((x) => x.classList.remove("picked"));
+      refresh();
+    };
+    acts.append(spin, clear);
+    host.append(acts);
+
+    function refresh() {
+      staked.textContent = money(pick ? K.stake : 0);
+      spin.disabled = !pick || K.stake > cash;
+      const row = ROULETTE_UI.find((b) => b.id === pick);
+      spin.textContent = pick
+        ? `\u25B6 SPIN \u00b7 ${money(K.stake)} at ${row ? row.pays : 35}:1`
+        : "\u25B6 SPIN";
+    }
+
+    // The staked figure belongs beside the purse at the top.
+    const purse = host.querySelector(".tpurse");
+    if (purse) {
+      const box = el("div", "tpurse-c");
+      box.append(staked);
+      box.append(el("span", "", "STAKED"));
+      purse.prepend(box);
+    }
+    setChip(K.stake || 5);
 
   } else if (id === "bigsix") {
     for (const b of BIGSIX_UI)

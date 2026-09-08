@@ -36,16 +36,18 @@ export default {
     if (!path.startsWith("/api/")) {
       const res = await env.ASSETS.fetch(request);
 
-      // The page and the version marker must never be answered from a cache.
-      // Everything else can be, but if these two go stale the app reports a
-      // build it isn't running and a deploy looks like it never happened —
-      // which is exactly what it did.
-      const live = path === "/" || path === "/index.html" || path === "/version.json";
-      if (!live) return res;
+      // Nothing that changes on a deploy may be answered from a cache without
+      // checking first. The page and the version marker are never stored at
+      // all; code and styles may be kept but must be revalidated every time,
+      // so a deploy is never invisible. Images and fonts cache normally —
+      // they are the reason not to blanket no-store the lot.
+      const never = path === "/" || path === "/index.html" || path === "/version.json";
+      const revalidate = /\.(js|mjs|css|webmanifest)$/i.test(path);
+      if (!never && !revalidate) return res;
 
       const fresh = new Response(res.body, res);
-      fresh.headers.set("Cache-Control", "no-store, must-revalidate");
-      fresh.headers.delete("ETag");
+      fresh.headers.set("Cache-Control", never ? "no-store, must-revalidate" : "no-cache");
+      if (never) fresh.headers.delete("ETag");
       return fresh;
     }
 

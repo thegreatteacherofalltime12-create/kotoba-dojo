@@ -38,7 +38,6 @@ const BELTS = [
   [0,    "Unranked", "#4c5468"],
 ];
 const belt = (mmr) => BELTS.find(([m]) => (mmr ?? 0) >= m);
-const PIC_TONES = ["#c9a227","#7a8f4a","#3f6f96","#8a5a3c","#6b5b8f","#a2452f","#4f7f6a","#8f7d3f"];
 const initials = (n) => String(n).replace(/[^A-Za-z0-9. _]/g, "").split(/[._ ]+/)
   .filter(Boolean).map(p => p[0]).join("").slice(0, 2).toUpperCase();
 
@@ -472,15 +471,21 @@ async function loadRankings() {
   } catch {
     standings = [];
   }
-  try {
-    const res = await fetch("/api/bounty");
-    bounty = await res.json();
-  } catch { /* the target simply won't show */ }
-
-  drawPodium();
+  // Draw first. The bounty is decoration on top of the standings, and this
+  // used to wait on it before drawing anything — so one slow or hanging
+  // request left the rankings blank with nothing to say why.
   drawStrip();
   drawLadder();
   drawMyRank();
+
+  try {
+    const res = await Promise.race([
+      fetch("/api/bounty"),
+      new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 5000)),
+    ]);
+    bounty = await res.json();
+    drawStrip();   // now with the target marked, if there is one
+  } catch { /* the target simply won't show */ }
 }
 
 function myMmr() {
@@ -562,41 +567,6 @@ function drawLadder() {
       </div>`).join("");
 }
 
-function drawPodium() {
-  const host = $("podium");
-  if (!standings.length) {
-    host.innerHTML = `<div class="empty">
-      No ranked rounds yet. Standings fill in once matches are recorded.
-      <button id="btn-diag" class="btn btn-tiny">Why is this empty?</button>
-      <p id="diag-out" class="panel-sub" hidden></p>
-    </div>`;
-    $("btn-diag").onclick = runDiagnostic;
-    return;
-  }
-  host.innerHTML = standings.slice(0, 3).map((r, i) => {
-    const [, name, hex] = belt(r.mmr);
-    const wanted = bounty?.holder?.uid === r.uid;
-    return `
-      <div class="seat ${i === 0 ? "first" : ""}">
-        <span class="place">${["Champion", "Second", "Third"][i]}</span>
-        <div class="who2">
-          <span class="pic ${wanted ? "wanted" : ""}" style="background:${PIC_TONES[i]}">
-            ${initials(r.name)}${wanted ? `<span class="wanted-pin">\u{1F3AF}</span>` : ""}
-          </span>
-          <span class="nm3">${escapeHtml(r.name)}</span>
-        </div>
-        ${wanted ? `<span class="wanted-label">\u2605 WANTED \u2605</span>
-                    <span class="wanted-tag">\u{1F3AF} RUMBLE BOUNTY</span>` : ""}
-        <div class="pts">${r.mmr.toLocaleString()}${prestigePip(r.prestige)}</div>
-        <div class="under">
-          <span class="belt" style="background:${hex}"></span>
-          <span>${name} belt${prestigePip(r.prestige)}</span>
-          <span>&middot; PB ${r.best}</span>
-        </div>
-      </div>`;
-  }).join("");
-}
-
 /** Asks the server whether ranked scoring actually works, and says so. */
 async function runDiagnostic() {
   const out = $("diag-out");
@@ -620,12 +590,28 @@ async function runDiagnostic() {
 }
 
 function drawStrip() {
+  // The empty state used to live on the podium, which no longer exists.
+  if (!standings.length) {
+    $("strip").innerHTML = `<div class="empty">
+      No ranked rounds yet. Standings fill in once matches are recorded.
+      <button id="btn-diag" class="btn btn-tiny">Why is this empty?</button>
+      <p id="diag-out" class="panel-sub" hidden></p>
+    </div>`;
+    $("btn-diag").onclick = runDiagnostic;
+    return;
+  }
+
+  // Champion, second and third are marked in the list rather than shown again
+  // above it. The order already says who is winning.
+  const MEDALS = ["\u{1F3C6}", "\u{1F948}", "\u{1F949}"];
+
   $("strip").innerHTML = standings.map((r, i) => {
     const [, , hex] = belt(r.mmr);
+    const wanted = bounty?.holder?.uid === r.uid;
     return `
-      <div class="slot ${i === 0 ? "lead" : ""} ${r.uid === S.user?.uid ? "you2" : ""} ${bounty?.holder?.uid === r.uid ? "wanted-slot" : ""}">
-        <span class="sr">${i + 1}</span>
-        ${bounty?.holder?.uid === r.uid ? `<span class="sb-target">\u{1F3AF}</span>` : ""}
+      <div class="slot ${i === 0 ? "lead" : ""} ${r.uid === S.user?.uid ? "you2" : ""} ${wanted ? "wanted-slot" : ""}">
+        <span class="sr">${MEDALS[i] ? `<span class="medal" title="${["Champion", "Second", "Third"][i]}">${MEDALS[i]}</span>` : i + 1}</span>
+        ${wanted ? `<span class="sb-target">\u{1F3AF}</span>` : ""}
         <span class="sb" style="background:${hex}"></span>
         <span class="sn">${escapeHtml(r.name)}</span>
         <span class="sp">${r.mmr.toLocaleString()}${prestigePip(r.prestige)}</span>

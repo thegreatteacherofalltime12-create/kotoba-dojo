@@ -1,0 +1,23 @@
+# The service worker is the one file that must never be served from cache.
+#
+# Browsers may hold sw.js for up to a day, and while they do, the old worker
+# keeps serving the old shell — so a deploy lands on Cloudflare and nobody
+# sees it. Telling the browser to revalidate every time is what makes an
+# update actually reach a phone.
+/sw.js
+  Cache-Control: no-cache, no-store, must-revalidate
+
+# The page itself is checked against the server on every load. It is small,
+# and being one deploy behind on the shell is worse than one round trip.
+/
+  Cache-Control: no-cache
+/index.html
+  Cache-Control: no-cache
+
+# The manifest changes rarely but decides the installed app's identity.
+/manifest.webmanifest
+  Cache-Control: no-cache
+
+# Everything else is content-addressed by the deploy and safe to keep.
+/*
+  Cache-Control: public, max-age=3600

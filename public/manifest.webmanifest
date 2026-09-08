@@ -1,0 +1,33 @@
+{
+    "name":  "Omni Multiverse of Madness",
+    "short_name":  "Omni",
+    "description":  "Competitive crossword arena. Ten words, one clock, everyone racing the same grid.",
+    "start_url":  "/",
+    "scope":  "/",
+    "display":  "standalone",
+    "orientation":  "portrait",
+    "background_color":  "#F4F1EA",
+    "theme_color":  "#F4F1EA",
+    "categories":  [
+                       "games",
+                       "education"
+                   ],
+    "icons":  [
+                  {
+                      "src":  "/icon-192.png",
+                      "sizes":  "192x192",
+                      "type":  "image/png"
+                  },
+                  {
+                      "src":  "/icon-512.png",
+                      "sizes":  "512x512",
+                      "type":  "image/png"
+                  },
+                  {
+                      "src":  "/icon-maskable-512.png",
+                      "sizes":  "512x512",
+                      "type":  "image/png",
+                      "purpose":  "maskable"
+                  }
+              ]
+}

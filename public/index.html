@@ -1,0 +1,585 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Omni Multiverse of Madness</title>
+<meta name="build" content="2026-09-08 13:19 UTC">
+<meta name="description" content="Omni Multiverse of Madness — competitive arena. Belts, MMR, casino floor and live standings.">
+<meta name="theme-color" content="#F4F1EA">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Omni">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="apple-touch-icon" href="./apple-touch-icon.png">
+<link rel="icon" href="./icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Barlow+Condensed:wght@500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body class="at-gate">
+
+<div id="boot" class="boot"><span>Opening the arena</span></div>
+
+<div id="update-bar" class="update-bar" hidden>
+  <span id="update-text">A new version of the Dojo is ready.</span>
+  <button id="update-now" class="btn btn-small">Reload</button>
+  <button id="update-later" class="btn btn-tiny">Later</button>
+</div>
+
+<section id="fault" class="fault" hidden>
+  <h1 id="fault-title"></h1>
+  <p id="fault-detail"></p>
+  <pre id="fault-raw" hidden></pre>
+</section>
+
+<script>
+window.__fault = function (title, detail, raw) {
+  var boot = document.getElementById("boot");
+  if (boot) boot.hidden = true;
+  document.getElementById("fault-title").textContent = title;
+  document.getElementById("fault-detail").textContent = detail;
+  if (raw) {
+    var pre = document.getElementById("fault-raw");
+    pre.hidden = false;
+    pre.textContent = String(raw);
+  }
+  document.getElementById("fault").hidden = false;
+};
+window.__faulted = function () { return !document.getElementById("fault").hidden; };
+
+var BENIGN = /ResizeObserver loop|Script error\.?$/;
+window.__ready = false;
+function reportable(text) {
+  return !window.__faulted() && !window.__ready && !BENIGN.test(String(text || ""));
+}
+window.addEventListener("error", function (e) {
+  if (!reportable(e.message)) return;
+  // The message alone never says which file threw, which on a phone means
+  // there is no way to find out at all. The location goes in the banner.
+  var where = e.filename ? (String(e.filename).split("/").pop() + ":" + e.lineno + ":" + e.colno) : "unknown file";
+  var stack = e.error && e.error.stack ? "\n\n" + e.error.stack : "";
+  window.__fault("Something failed to load", "Details below.", (e.message || e.error) + "\n\nat " + where + stack);
+});
+window.addEventListener("unhandledrejection", function (e) {
+  var text = e.reason && (e.reason.message || e.reason);
+  if (!reportable(text)) return;
+  var stack = e.reason && e.reason.stack ? "\n\n" + e.reason.stack : "";
+  window.__fault("Something failed to start", "Details below.", text + stack);
+});
+if (location.protocol === "file:") {
+  window.__fault(
+    "Open this through a server, not from a folder",
+    "You opened this page as a file on disk. Browsers refuse to load JavaScript modules from a file:// address, so nothing here can run. Start the server with \u201cnpx wrangler dev\u201d (or \u201cnpx.cmd wrangler dev\u201d in PowerShell) and open http://localhost:8787 instead."
+  );
+}
+</script>
+
+<!-- sign in -->
+<section id="screen-gate" class="screen gate" hidden>
+  <div class="gate-body">
+    <h1 class="wordmark">Omni Multiverse of Madness</h1>
+    <p class="lede">Strike first &middot; Strike hard &middot; No mercy</p>
+
+    <div class="gate-form">
+      <div class="tabs" role="tablist">
+        <button id="tab-signin" class="tab is-on" role="tab">Enter</button>
+        <button id="tab-signup" class="tab" role="tab">register</button>
+      </div>
+
+      <label class="field">
+        <span>Name</span>
+        <input id="auth-name" maxlength="16" autocomplete="username" spellcheck="false"
+               placeholder="3-16 letters, numbers or _">
+      </label>
+
+      <label class="field">
+        <span>Six-digit pin</span>
+        <input id="auth-pin" class="pin-input" inputmode="numeric" maxlength="6"
+               autocomplete="current-password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;">
+      </label>
+
+      <button id="btn-auth" class="btn btn-primary">Enter the dojo</button>
+      <p id="gate-error" class="notice notice-bad" hidden></p>
+      <p id="gate-hint" class="fineprint">Names are yours alone. Pins are not &mdash; pick one you'll remember, and don't reuse a pin that guards anything important.</p>
+      <button id="btn-guest" class="btn btn-quiet">Train as a guest instead</button>
+    </div>
+  </div>
+</section>
+
+<!-- home -->
+<section id="screen-home" class="screen" hidden>
+
+  <header class="banner">
+    <div class="banner-in">
+      <div class="mark">
+        <h1>Omni Multiverse of Madness</h1>
+        <div class="sub">Strike first &middot; Strike hard &middot; No mercy</div>
+        <div class="build-stamp" id="build-stamp"></div>
+        <div class="drawer-tabs">
+          <button id="tab-create" class="dtab dtab-go" aria-expanded="false" aria-controls="drawer-create">+ Create Match</button>
+          <button id="tab-profile" class="dtab dtab-red" aria-expanded="false" aria-controls="drawer-profile">Profile</button>
+          <button id="tab-records" class="dtab" aria-expanded="false" aria-controls="drawer-records">Records</button>
+          <button id="tab-rules" class="dtab dtab-guide" aria-expanded="false" aria-controls="drawer-rules"><span aria-hidden="true">📖</span> View Rules</button>
+          <button id="tab-scrolls" class="dtab" aria-expanded="false" aria-controls="drawer-scrolls">Word-Cross Scrolls</button>
+          <button id="tab-rooms" class="dtab" aria-expanded="false" aria-controls="drawer-rooms">Open Rooms</button>
+          <button id="tab-belts" class="dtab only-narrow" aria-expanded="false" aria-controls="drawer-belts">Belts</button>
+        </div>
+      </div>
+      <div class="playerbox">
+        <div class="pb-top">
+          <div class="pb-rank">
+            <span class="pb-label">MMR</span>
+            <div class="pb-belt"><span class="belt" id="pb-swatch"></span><span id="pb-beltname">Unranked</span></div>
+            <div class="pb-amount" id="pb-mmr">0</div>
+          </div>
+          <div class="pb-prestige">
+            <span class="pb-label">Prestige</span>
+            <div class="pb-star" id="pb-star">&mdash;</div>
+            <div class="pb-insignia" id="pb-insignia"></div>
+          </div>
+        </div>
+        <div class="pb-bottom">
+          <span class="pb-avatar" id="pb-avatar"></span>
+          <span id="home-name" class="whoami"></span>
+          <button id="btn-prestige" class="btn btn-small" hidden>Prestige</button>
+          <button id="btn-signout" class="btn btn-tiny">Sign out</button>
+        </div>
+        <button id="tab-invite" class="pb-invite" aria-expanded="false" aria-controls="drawer-invite">Invite to the Dojo</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="ladder-bar">
+    <div class="ladder" id="ladder"></div>
+  </div>
+
+  <div class="wrap">
+
+    <div class="modal" id="drawer-create" role="dialog" aria-modal="true" aria-label="Create a match" hidden></div>
+    <div class="modal" id="drawer-profile" role="dialog" aria-modal="true" aria-label="Profile" hidden></div>
+    <div class="modal" id="drawer-invite" role="dialog" aria-modal="true" aria-label="Invite to the Dojo" hidden></div>
+    <div class="drawer as-modal" id="drawer-rooms" role="dialog" aria-modal="true" aria-label="Open Rooms" hidden>
+      <div class="drawer-in">
+        <div class="drawer-head">
+          <h2>Open Rooms</h2>
+          <button id="btn-refresh" class="btn btn-tiny">Refresh</button>
+          <button id="btn-open" class="btn btn-primary btn-small">Open a dojo</button>
+        </div>
+        <ul id="dojo-list" class="dojo-list"><li class="empty">Looking for open rooms&hellip;</li></ul>
+        <div class="joinrow">
+          <input id="join-code" class="code-input" maxlength="5" autocomplete="off"
+                 spellcheck="false" placeholder="CODE" aria-label="Room code">
+          <button id="btn-join" class="btn">Enter by code</button>
+        </div>
+        <p class="panel-sub">Unlisted rooms don't appear above. You need the code from whoever opened it.</p>
+        <p id="home-error" class="notice notice-bad" hidden></p>
+      </div>
+    </div>
+
+    <div class="drawer as-modal" id="drawer-records" role="dialog" aria-modal="true" aria-label="Records" hidden></div>
+    <div class="drawer as-modal" id="drawer-belts" role="dialog" aria-modal="true" aria-label="Belts" hidden></div>
+    <div class="drawer as-modal" id="drawer-rules" role="dialog" aria-modal="true" aria-label="Rules" hidden></div>
+    <div class="drawer as-modal" id="drawer-scrolls" role="dialog" aria-modal="true" aria-label="Your Scrolls" hidden>
+      <div class="drawer-in">
+        <div class="drawer-head">
+          <h2>Your Scrolls</h2>
+          <button id="btn-forge" class="btn btn-tiny">Write a scroll</button>
+        </div>
+        <p class="panel-sub">Ten words of your own. Write them before you open a dojo &mdash; nobody wants to watch you type.</p>
+        <ul id="scroll-list" class="scroll-list"></ul>
+      </div>
+    </div>
+
+    <div class="stack">
+
+      <main class="col-main">
+        <section class="rankings">
+          <div class="rankings-head">
+            <h2>Arena Rankings</h2>
+          </div>
+          <div class="podium" id="podium"></div>
+          <div class="strip" id="strip"></div>
+        </section>
+      </main>
+
+      <aside class="col-side">
+        <section class="commons">
+          <div class="ctabs" role="tablist">
+            <button id="ct-chat" class="ctab on" role="tab">Chat</button>
+            <button id="ct-feed" class="ctab" role="tab">Feed</button>
+          </div>
+          <div id="commons-chat" class="commons-body"></div>
+          <div id="commons-feed" class="commons-body" hidden></div>
+          <div id="chat-composer" class="chat-composer">
+            <input id="chat-say" maxlength="300" placeholder="Say something to the arena" aria-label="Message the arena">
+            <button id="chat-send" class="btn">Send</button>
+          </div>
+        </section>
+      </aside>
+
+    </div>
+  </div>
+</section>
+
+<!-- scroll writer -->
+<section id="screen-forge" class="screen" hidden>
+  <header class="topbar">
+    <button id="btn-forge-back" class="btn btn-tiny">Back</button>
+    <span class="topbar-spacer"></span>
+    <span class="topbar-mark">Writing a scroll</span>
+  </header>
+
+  <div class="wrap forge-grid">
+    <div class="forge-words">
+      <label class="field">
+        <span>Title</span>
+        <input id="forge-title" maxlength="60" placeholder="Untitled scroll">
+      </label>
+      <div id="forge-rows" class="forge-rows"></div>
+      <p id="forge-status" class="notice" hidden></p>
+      <div class="forge-actions">
+        <button id="btn-forge-save" class="btn btn-primary" disabled>Save scroll</button>
+        <button id="btn-forge-clear" class="btn btn-quiet">Clear</button>
+      </div>
+    </div>
+
+    <div class="forge-preview">
+      <h2>Grid</h2>
+      <p class="panel-sub">The words have to interlock. This redraws as you type.</p>
+      <div id="forge-canvas" class="preview-canvas"><p class="empty">Fill in words to see the grid form.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- battleship royale -->
+<section id="screen-battle" class="screen" hidden>
+  <header class="topbar">
+    <button id="btn-battle-leave" class="btn btn-tiny btn-end">End Match</button>
+    <button id="btn-battle-end" class="btn btn-tiny btn-end" hidden>End match</button>
+    <span class="topbar-spacer"></span>
+    <span class="dojo-code">Battle <b id="battle-code"></b></span>
+    <span id="battle-phase" class="topbar-mark"></span>
+  </header>
+
+  <div class="wrap battle-grid">
+    <main class="battle-main">
+      <div id="battle-clock" class="battle-clock"></div>
+      <p id="battle-error" class="notice notice-bad" hidden></p>
+
+      <section class="panel bdeck">
+        <div class="btabs" role="tablist">
+          <button id="bt-captains" class="btab on" role="tab">Captains</button>
+          <button id="bt-feed" class="btab" role="tab">Shot Feed</button>
+          <button id="bt-chat" class="btab" role="tab">Chat</button>
+        </div>
+        <div class="bdeck-body">
+          <div id="bpane-captains"><ul id="battle-roster" class="battle-roster"></ul></div>
+          <div id="bpane-feed" hidden><div id="battle-feed" class="bfeed"></div></div>
+          <div id="bpane-chat" hidden>
+            <div id="battle-chat" class="bchat"></div>
+            <div class="composer">
+              <input id="battle-say" maxlength="200" placeholder="Talk to the fleet" aria-label="Message the fleet">
+              <button id="btn-battle-send" class="btn">Send</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div id="view-place" class="view">
+        <section id="host-panel" class="panel host-panel" hidden>
+          <div class="panel-head"><h2>Host controls</h2><span class="host-tag">You run this table</span></div>
+          <div class="pad">
+            <div class="host-opts">
+              <button id="btn-solo" class="opt toggle-btn" role="switch" aria-checked="false">
+                <span class="sw"></span>
+                <span class="opt-text"><b>Solo Match</b><i>Play the computer instead of waiting for others.</i></span>
+              </button>
+              <button id="btn-anon" class="opt toggle-btn" role="switch" aria-checked="false">
+                <span class="sw"></span>
+                <span class="opt-text"><b>Hide captains' names</b><i>Everyone becomes Captain 1, 2, 3&hellip; so nobody gets singled out. Names return with the results.</i></span>
+              </button>
+            </div>
+            <div id="ai-levels" class="ai-levels" hidden></div>
+            <p id="host-status" class="panel-sub"></p>
+            <button id="btn-battle-start" class="btn btn-primary btn-wide" hidden>Begin the battle</button>
+          </div>
+        </section>
+
+        <div class="panel">
+          <div class="panel-head">
+            <h2>Place your fleet</h2>
+            <button id="btn-rotate" class="btn btn-tiny">Rotate: <span id="place-dir">Across</span></button>
+            <button id="btn-place-random" class="btn btn-tiny">Random</button>
+            <button id="btn-place-clear" class="btn btn-tiny">Clear</button>
+          </div>
+          <div class="pad">
+            <p class="panel-sub" id="place-ship"></p>
+            <div id="place-grid" class="board-wrap"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="view-battle" class="view" hidden>
+        <div class="panel">
+          <div class="panel-head"><h2>Choose a target</h2></div>
+          <div class="pad"><div id="target-list" class="target-list"></div></div>
+        </div>
+
+        <div class="boards">
+          <div class="panel">
+            <div class="panel-head"><h2 id="enemy-name">No target</h2></div>
+            <div class="pad">
+              <div id="enemy-grid" class="board-wrap"></div>
+              <button id="btn-fire" class="btn btn-primary" disabled>Pick 2 more</button>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head"><h2>Your water</h2></div>
+            <div class="pad"><div id="own-grid" class="board-wrap"></div></div>
+          </div>
+        </div>
+
+        <div id="battle-results" class="panel pad" hidden></div>
+        <div id="battle-reveal" class="panel pad" hidden></div>
+      </div>
+    </main>
+
+  </div>
+</section>
+
+<!-- casino -->
+<section id="screen-casino" class="screen" hidden>
+
+  <!-- the bar the floor is run from -->
+  <header class="floor-bar">
+    <button id="btn-casino-earn" class="fbar fbar-earn"><span aria-hidden="true">&#129518;</span> Earn Money</button>
+    <button id="btn-casino-bank" class="fbar fbar-end"><span aria-hidden="true">&#9209;</span> Officially end match</button>
+    <button id="btn-casino-rules" class="fbar fbar-rules"><span aria-hidden="true">&#128220;</span> Casino Game Rules</button>
+    <span class="fbar-gap"></span>
+    <button id="btn-wallet" class="fbar fbar-gold"><span aria-hidden="true">&#128176;</span> Access Wallet</button>
+    <button id="btn-chat" class="fbar fbar-gold"><span aria-hidden="true">&#128172;</span> Chat &amp; Log</button>
+    <span class="fbar-stat">On the table <b id="floor-cash">$0</b></span>
+    <span class="fbar-stat">Tokens <b id="floor-tokens">0</b></span>
+  </header>
+
+  <div class="floor-tabs">
+    <button id="ft-race" class="ftab on"><span aria-hidden="true">&#127943;</span> Horse Race</button>
+    <button id="ft-tables" class="ftab"><span aria-hidden="true">&#127183;</span> Table Card Games</button>
+    <button id="ft-min" class="ftab ftab-min" aria-label="Minimise the race" title="Minimise the race">&#9660;</button>
+  </div>
+
+  <div class="floor">
+    <div class="floor-head">
+      <h2 id="floor-title"><span aria-hidden="true">&#127943;</span> Horse Race</h2>
+      <button id="btn-floor-results" class="fmini fmini-gold"><span aria-hidden="true">&#127942;</span> Results</button>
+      <button id="btn-floor-bet" class="fmini fmini-bet"><span aria-hidden="true">&#127991;</span> Place a Bet</button>
+      <button id="btn-table-results" class="fmini fmini-gold" hidden><span aria-hidden="true">&#127942;</span> Results</button>
+    </div>
+
+    <button id="btn-floor-start" class="fbtn fbtn-start" disabled><span aria-hidden="true">&#127937;</span> Place a bet to start</button>
+
+    <div id="floor-banner" class="fbanner">
+      <p class="fb-k"><span aria-hidden="true">&#127943;</span> Betting open</p>
+      <p class="fb-l">Place your bets &mdash; then START the race</p>
+      <p class="fb-s" id="floor-sub">No bets yet</p>
+    </div>
+
+    <div id="view-race">
+      <div id="race-body">
+        <div id="floor-track" class="ftrack"></div>
+        <div class="fhurdles">
+          <span class="fh-l">Hurdles</span>
+          <div id="floor-hurdles" class="fh-row"></div>
+        </div>
+      </div>
+
+      <div class="fsection">
+        <p class="fs-h"><span aria-hidden="true">&#128203;</span> Bet Board <span class="fs-pool" id="floor-pool">pool $0</span></p>
+        <div id="floor-board" class="fboard"></div>
+      </div>
+    </div>
+
+    <div id="view-tables" hidden>
+      <div class="fsection">
+        <p class="fs-h"><span aria-hidden="true">&#127183;</span> The Dojo Card Room</p>
+        <div id="game-tabs" class="gtabs"></div>
+      </div>
+      <p class="fnote">Pick a table to sit down. Everyone at a table plays the same dealer, and a seat costs nothing to leave before the cards are out.</p>
+    </div>
+  </div>
+</section>
+
+<button id="panel-x" class="panel-x" hidden aria-label="Close">&times;</button>
+
+<div id="wallet-modal" class="modal" role="dialog" aria-modal="true" aria-label="Wallet" hidden></div>
+<div id="bet-modal" class="modal" role="dialog" aria-modal="true" aria-label="Place a bet" hidden></div>
+<div id="chat-modal" class="modal" role="dialog" aria-modal="true" aria-label="Chat and game log" hidden></div>
+<div id="arcade-modal" class="modal" role="dialog" aria-modal="true" aria-label="Earn Money" hidden></div>
+<div id="table-modal" class="modal" role="dialog" aria-modal="true" aria-label="Card table" hidden></div>
+<div id="casino-rules-modal" class="modal" role="dialog" aria-modal="true" aria-label="Casino game rules" hidden></div>
+
+<div id="points-modal" class="modal" role="dialog" aria-modal="true" aria-label="How points work" hidden></div>
+
+<!-- minesweeper -->
+<section id="screen-mines" class="screen" hidden>
+  <header class="topbar">
+    <button id="btn-mine-leave" class="btn btn-tiny btn-end">End Match</button>
+    <span class="topbar-spacer"></span>
+    <span class="dojo-code">Field <b id="mine-code"></b></span>
+    <span id="mine-phase" class="topbar-mark"></span>
+  </header>
+
+  <div class="wrap mine-layout">
+    <main class="mine-main">
+      <p id="mine-error" class="notice notice-bad" hidden></p>
+
+      <section id="mine-host" class="panel host-panel" hidden>
+        <div class="panel-head"><h2>Host controls</h2><span class="host-tag">You run this field</span></div>
+        <div class="pad">
+          <div class="host-opts">
+            <button id="btn-mine-solo" class="opt toggle-btn" role="switch" aria-checked="false">
+              <span class="sw"></span>
+              <span class="opt-text"><b>Solo Sweep</b><i>Clear a board alone against the clock. Scores and MMR count exactly as they do in a race.</i></span>
+            </button>
+          </div>
+          <div id="mine-levels" class="ai-levels"></div>
+          <p id="mine-note" class="panel-sub"></p>
+          <button id="btn-mine-start" class="btn btn-primary btn-wide">Begin the round</button>
+        </div>
+      </section>
+
+      <div class="high-score-board" id="mine-scores">
+        <div class="hs-title">Fastest Clears</div>
+        <div class="hs-body" id="mine-score-body">&mdash;</div>
+      </div>
+
+      <div class="mine-frame">
+        <div class="mine-head">
+          <span class="mine-lcd" id="mine-count">010</span>
+          <span class="mine-face" id="mine-face">&#128578;</span>
+          <span class="mine-lcd" id="mine-timer">10:00</span>
+        </div>
+        <div id="mine-grid" class="mine-board"></div>
+      </div>
+
+      <div id="mine-results" class="panel pad" hidden></div>
+    </main>
+
+    <aside class="mine-side">
+      <section class="panel">
+        <div class="panel-head"><h2>Field</h2></div>
+        <ul id="mine-standings" class="mine-standings"></ul>
+      </section>
+    </aside>
+  </div>
+</section>
+
+<!-- the dojo -->
+<section id="screen-dojo" class="screen" hidden>
+  <header class="topbar">
+    <button id="btn-leave" class="btn btn-tiny btn-end">End Match</button>
+    <span class="topbar-spacer"></span>
+    <span class="dojo-code">Dojo <b id="dojo-code"></b></span>
+    <button id="btn-copy" class="btn btn-tiny">Copy code</button>
+  </header>
+
+  <div id="timer" class="timer" hidden>
+    <div class="timer-track"><div id="timer-fill" class="timer-fill"></div></div>
+    <div id="timer-read" class="timer-read">15:00</div>
+  </div>
+
+  <div class="wrap dojo-grid">
+    <main class="dojo-main">
+      <div id="view-lobby" class="view">
+        <h2 id="lobby-heading">Waiting in the hall</h2>
+
+        <section id="sensei-controls" class="panel host-panel" hidden>
+          <div class="panel-head"><h2>Host controls</h2><span class="host-tag">You run this dojo</span></div>
+          <div class="pad">
+            <div class="host-opts">
+              <button id="btn-dojo-solo" class="opt toggle-btn" role="switch" aria-checked="false">
+                <span class="sw"></span>
+                <span class="opt-text"><b>Solo Training</b><i>Solve alone against the clock. Scores and MMR count exactly as they do in a match.</i></span>
+              </button>
+              <button id="listed-toggle" class="opt toggle-btn" role="switch" aria-checked="true">
+                <span class="sw"></span>
+                <span class="opt-text"><b>List this dojo publicly</b><i>Anyone signed in can walk in. Turn it off and only your code gets people through.</i></span>
+              </button>
+            </div>
+
+            <div class="field">
+              <span>Category</span>
+              <select id="cat-select"></select>
+            </div>
+            <div class="field">
+              <span>Scroll</span>
+              <select id="scroll-select"></select>
+            </div>
+
+            <p id="host-note" class="panel-sub"></p>
+            <button id="btn-start" class="btn btn-primary btn-wide" disabled>Begin the round</button>
+            <p id="dojo-error" class="notice notice-bad" hidden></p>
+          </div>
+        </section>
+
+        <p id="lobby-note" class="lobby-note">Waiting for the sensei to choose a scroll.</p>
+      </div>
+
+      <div id="view-play" class="view" hidden>
+        <div id="grid-wrap" class="grid-wrap"></div>
+        <div id="entry-pad" class="entry-pad" hidden>
+          <div class="ep-head">
+            <span id="ep-tag" class="ep-tag"></span>
+            <button id="ep-close" class="btn btn-tiny">Back to grid</button>
+          </div>
+          <div class="ep-body">
+            <div id="ep-cells" class="ep-cells"></div>
+            <div class="ep-clue"><span class="ep-label" id="ep-dir"></span><p id="ep-text"></p></div>
+          </div>
+          <div class="ep-foot">
+            <button id="ep-prev" class="btn">Previous</button>
+            <button id="ep-next" class="btn btn-primary">Next word</button>
+          </div>
+        </div>
+
+        <div id="clue-bar" class="clue-bar" hidden>
+          <button id="clue-prev" class="cb-arrow" aria-label="Previous clue">&#8249;</button>
+          <div class="cb-text"><span id="cb-num"></span><span id="cb-clue"></span></div>
+          <button id="clue-next" class="cb-arrow" aria-label="Next clue">&#8250;</button>
+        </div>
+        <div class="clues">
+          <div class="clue-col"><h3>Across</h3><ol id="clues-across"></ol></div>
+          <div class="clue-col"><h3>Down</h3><ol id="clues-down"></ol></div>
+        </div>
+      </div>
+
+      <div id="view-referee" class="view" hidden>
+        <h2>You wrote this one</h2>
+        <p class="panel-sub">You know every answer, so you sit this round out and watch the board.</p>
+        <div id="referee-answers" class="referee-answers"></div>
+      </div>
+
+      <div id="view-results" class="view" hidden>
+        <h2>Round over</h2>
+        <ol id="results-list" class="results-list"></ol>
+        <div id="revealed" class="revealed"></div>
+        <p id="results-note" class="lobby-note">Waiting for the sensei to set the next scroll.</p>
+      </div>
+    </main>
+
+    <aside class="roster panel">
+      <div class="panel-head"><h2>In the hall</h2></div>
+      <ul id="roster-list" class="roster-list"></ul>
+      <div id="feed" class="feed"></div>
+    </aside>
+  </div>
+</section>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script type="module" src="./app.js" onerror="window.__faulted() || window.__fault('The app script did not load', 'app.js could not be fetched. Check that the address bar reads http://localhost:8787 and that wrangler dev is still running.')"></script>
+</body>
+</html>

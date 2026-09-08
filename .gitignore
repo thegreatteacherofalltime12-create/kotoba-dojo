@@ -1,0 +1,18 @@
+﻿# Dependencies and build output — reinstallable, and huge.
+node_modules/
+dist/
+.wrangler/
+
+# Secrets. The Firebase service account must never be committed: it can
+# read and write the whole database.
+.dev.vars
+.env
+*service-account*.json
+*serviceaccount*.json
+
+# Update packages. Git is the history now.
+*.zip
+
+# Windows noise
+Thumbs.db
+desktop.ini

@@ -1,0 +1,19 @@
+{
+  "name": "kotoba-dojo",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Competitive multiplayer crossword on Cloudflare Workers + Durable Objects, with Firebase Auth and Firestore.",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "seed": "node scripts/seed-puzzles.js",
+    "kv:upload": "node scripts/kv-upload.js --remote",
+    "tail": "wrangler tail",
+    "test": "node scripts/smoke-test.mjs && node scripts/mmr-test.mjs && node scripts/battleship-test.mjs && node scripts/ai-test.mjs && node scripts/battle-smoke.mjs && node scripts/mines-test.mjs && node scripts/mines-smoke.mjs && node scripts/mines-scores-test.mjs && node scripts/routing-test.mjs && node scripts/registry-test.mjs && node scripts/puzzle-test.mjs && node scripts/bounty-test.mjs && node scripts/bounty-office-test.mjs && node scripts/casino-core-test.mjs && node scripts/floor-test.mjs && node scripts/picker-test.mjs",
+    "kv:upload:local": "node scripts/kv-upload.js --local"
+  },
+  "devDependencies": {
+    "wrangler": "^4.20.0"
+  }
+}

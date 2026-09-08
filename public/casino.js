@@ -1,0 +1,1700 @@
+// The casino floor, client side.
+//
+// Everything that decides anything now lives in the Durable Object: the race,
+// the bet board, the dealer, and every player's table money. This draws what
+// it is told and sends what the player asks for. That is what makes the floor
+// shared — one race, one board, everyone seeing the same cards turn.
+
+const $ = (id) => document.getElementById(id);
+const el = (tag, cls, text) => {
+  const n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (text != null) n.textContent = text;
+  return n;
+};
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+import { casinoRulesHtml, TABLE_GAMES, ROULETTE_UI, BIGSIX_UI, BACCARAT_BOARD } from "./game-modes.js";
+
+const money = (n) => `$${Math.round(n || 0).toLocaleString()}`;
+
+/** Bind a click, tolerating a control the page doesn't have. */
+const on = (id, fn) => {
+  const n = $(id);
+  if (n) n.onclick = fn;
+  else console.warn(`[casino] no #${id} on the page — is index.html cached?`);
+};
+
+export const K = {
+  socket: null, idToken: null, onLeave: null,
+  you: null, floor: null, mine: null,
+  suits: [], bets: [], finish: 7, hurdles: 5,
+  logLines: [],
+  tab: "race",
+  stake: 10,
+  pairPlus: false,
+  level: "medium",
+  side: { fortune: false, aceBonus: false, bonus: false },
+  lowPick: [],
+  table: null,       // which card table is open over the floor, if any
+  lastHand: null,    // the last hand to finish, for the card-room results bar
+  slip: { type: "win", picks: [], stake: 10 },
+  open: true,
+  minimised: false,
+};
+
+/* ── connection ──────────────────────────────────────────────────────── */
+
+export async function enterCasino(_purse, _save, onLeave, idToken) {
+  K.idToken = idToken;
+  K.onLeave = onLeave;
+  K.open = true;
+  K.tab = "race";
+  K.minimised = false;
+  K.logLines = [];
+  await connect();
+}
+
+async function connect() {
+  closeSocket();
+  const token = await K.idToken();
+  const proto = location.protocol === "https:" ? "wss" : "ws";
+  const ws = new WebSocket(`${proto}://${location.host}/api/floor/ws?token=${encodeURIComponent(token)}`);
+  K.socket = ws;
+  ws.onmessage = (ev) => { try { handle(JSON.parse(ev.data)); } catch { /* ignore */ } };
+  ws.onclose = () => { if (K.open) setTimeout(() => { if (K.open) connect(); }, 1500); };
+}
+
+function closeSocket() {
+  if (K.socket) { K.socket.onclose = null; K.socket.close(); K.socket = null; }
+}
+
+export function leaveCasino() { K.open = false; closeSocket(); }
+
+const send = (o) => { if (K.socket?.readyState === WebSocket.OPEN) K.socket.send(JSON.stringify(o)); };
+
+function handle(msg) {
+  switch (msg.type) {
+    case "FLOOR_WELCOME":
+      K.you = msg.you; K.horses = msg.horses; K.suits = msg.suits; K.bets = msg.bets;
+      K.finish = msg.finish; K.hurdles = msg.hurdles;
+      break;
+    case "FLOOR_STATE": {
+      const before = K.floor?.table?.phase;
+      K.floor = msg.floor; K.mine = msg.you;
+      // Hands are cleared a few seconds after they settle, so the result is
+      // kept here or the card-room results bar would have nothing to show.
+      if (before !== "SETTLED" && K.floor?.table?.phase === "SETTLED")
+        K.lastHand = { at: Date.now(), seats: K.floor.table.seats.map((x) => ({ ...x })) };
+      draw();
+      break;
+    }
+    case "FLOOR_LOG": logLine(msg.entry); break;
+    case "FLOOR_RESULT": showResult(msg); break;
+    case "FLOOR_BANKED":
+      window.alert(`${money(msg.amount)} banked to your wallet.`);
+      if (K.bankAndLeave) { K.bankAndLeave = false; leaveCasino(); K.onLeave?.(); }
+      break;
+    case "TABLE_BLOCKED": showBlocked(msg); break;
+    case "TABLE_HAND": showHand(msg); break;
+    case "TABLE_RESULT": showTableResult(msg); break;
+    case "FLOOR_ERROR": say(msg.message); break;
+  }
+}
+
+function say(text) {
+  // A table overlay covers the floor, so a message posted down there is a
+  // message nobody reads. If a table is open it goes on the table.
+  const inTable = $("tgame") || $("table-actions");
+  if (inTable && !$("table-modal").hidden) {
+    const bar = el("p", "notice notice-bad tsay", text);
+    inTable.prepend(bar);
+    setTimeout(() => bar.remove(), 4000);
+    return;
+  }
+  const n = $("floor-sub");
+  if (!n) return;
+  const held = n.textContent;
+  n.textContent = text;
+  n.classList.add("bad");
+  setTimeout(() => { n.textContent = held; n.classList.remove("bad"); }, 3500);
+}
+
+const PIPS = {
+  hearts: { pip: "\u2665", name: "Hearts", red: true },
+  diamonds: { pip: "\u2666", name: "Diamonds", red: true },
+  clubs: { pip: "\u2663", name: "Clubs", red: false },
+  spades: { pip: "\u2660", name: "Spades", red: false },
+};
+// The pips are known here as well as on the server, so a card is never drawn
+// with a question mark on it just because a message hasn't landed yet.
+const suit = (id) => (K.suits || []).find((s) => s.id === id)
+  || PIPS[id] || { pip: "\u2022", name: id, red: false };
+const horse = (id) => (K.horses || []).find((h) => h.id === id)
+  || { pip: "\u2660", rank: "?", name: id, red: true };
+
+/* ── controls ────────────────────────────────────────────────────────── */
+
+export function bindCasino() {
+  on("btn-casino-earn", openArcade);
+
+  // The proper way out: bank first, then leave.
+  on("btn-casino-bank", () => {
+    const held = K.mine?.table || 0;
+    if (!held) { leaveCasino(); K.onLeave?.(); return; }
+    if (!window.confirm(`End your session and bank ${money(held)} to your wallet?`)) return;
+    K.bankAndLeave = true;
+    send({ type: "FLOOR_BANK" });
+  });
+
+  on("ft-race", () => { K.tab = "race"; draw(); });
+  on("ft-tables", () => { K.tab = "tables"; draw(); });
+  // The arrow folds the track away; it never leaves the floor.
+  on("ft-min", () => { K.minimised = !K.minimised; draw(); });
+
+  on("btn-floor-bet", openBetPicker);
+  on("btn-casino-rules", openCasinoRules);
+  on("btn-table-results", showTableResults);
+  on("btn-wallet", openWallet);
+  on("btn-chat", openChat);
+  on("btn-floor-start", () => send({ type: "FLOOR_START" }));
+  on("btn-floor-results", () => {
+    const f = K.floor;
+    if (!f?.race?.finished?.length) return say("No race has finished yet.");
+    window.alert("Finish order: " + f.race.finished.map((id) => horse(id).name).join(", "));
+  });
+}
+
+/* ── drawing ─────────────────────────────────────────────────────────── */
+
+function draw() {
+  const f = K.floor;
+  if (!f) return;
+
+  $("floor-cash").textContent = money(K.mine?.table);
+  $("floor-tokens").textContent = String(K.mine?.tokens ?? 0);
+  $("race-body").hidden = K.minimised;
+  $("ft-min").textContent = K.minimised ? "\u25B2" : "\u25BC";
+  $("ft-min").title = K.minimised ? "Show the race" : "Minimise the race";
+  $("ft-race").classList.toggle("on", K.tab === "race");
+  $("ft-tables").classList.toggle("on", K.tab === "tables");
+  $("view-race").hidden = K.tab !== "race";
+  $("view-tables").hidden = K.tab !== "tables";
+  $("floor-title").innerHTML = K.tab === "race" ? "&#127943; Horse Race" : "&#127183; The Card Room";
+
+  // Betting, the starter and the race results belong to the race. On the card
+  // tables they are meaningless, so they leave rather than sit there greyed.
+  const racing = K.tab === "race";
+  $("btn-floor-bet").hidden = !racing;
+  $("btn-floor-results").hidden = !racing;
+  $("btn-floor-start").hidden = !racing;
+  $("floor-banner").hidden = !racing;
+  $("ft-min").hidden = !racing;
+  $("btn-table-results").hidden = racing;
+
+  if (racing) { drawBanner(f); drawTrack(f); drawHurdles(f); drawBoard(f); }
+  else drawGameTabs();
+
+  // A table that is open over the floor keeps redrawing behind the overlay.
+  if (K.table === "blackjack" && !$("table-modal").hidden) drawTable(f);
+}
+
+function drawBanner(f) {
+  const running = f.phase === "RUNNING";
+  const start = $("btn-floor-start");
+  start.disabled = running || !f.bets.length;
+  start.innerHTML = running
+    ? "&#127937; Race under way"
+    : f.bets.length ? "&#127937; Start the race" : "&#127937; Place a bet to start";
+
+  const b = $("floor-banner");
+  b.classList.toggle("running", running);
+  b.querySelector(".fb-k").innerHTML = running
+    ? "&#127943; They're away" : f.phase === "PAID" ? "&#127942; Paid out" : "&#127943; Betting open";
+  b.querySelector(".fb-l").textContent = running
+    ? "No more bets"
+    : f.phase === "PAID" ? "Next race opening" : "Place your bets \u2014 then START the race";
+  $("floor-sub").textContent = f.bets.length
+    ? `${f.bets.length} bet${f.bets.length === 1 ? "" : "s"} on the board`
+    : "No bets yet";
+}
+
+function drawTrack(f) {
+  const host = $("floor-track");
+  host.textContent = "";
+  const fav = f.race.favourite;
+
+  // Said in words as well as marked on the card. A ribbon is easy to miss, and
+  // which horse is fancied today is the most useful thing on the track.
+  if (fav) {
+    const h = horse(fav);
+    const bar = el("p", "ftoday");
+    bar.append(el("span", "ftoday-r", "\u{1F397}\uFE0F"));
+    bar.append(el("span", "", `Today's favourite: ${h.rank}${h.pip} ${h.name}`));
+    if (f.race.favouriteEndsAt) {
+      const left = Math.max(0, f.race.favouriteEndsAt - Date.now());
+      const hrs = Math.floor(left / 3600_000);
+      const mins = Math.floor((left % 3600_000) / 60_000);
+      bar.append(el("span", "ftoday-t", hrs ? `new favourite in ${hrs}h ${mins}m` : `new favourite in ${mins}m`));
+    }
+    host.append(bar);
+  }
+
+  for (const h of (K.horses || [])) {
+    const lane = el("div", `flane${h.id === fav ? " favourite" : ""}`);
+
+    const card = el("div", `fcard${h.red ? " red" : ""}${h.id === fav ? " ribboned" : ""}`);
+    // The ribbon sits over the card, so the day's favourite is obvious from
+    // across the room without reading anything.
+    if (h.id === fav) card.append(el("span", "fribbon", "\u{1F397}\uFE0F"));
+    card.append(el("span", "fc-r", h.rank));
+    card.append(el("span", "fc-s", h.pip));
+    card.title = h.id === fav ? `${h.name} \u2014 today's favourite` : h.name;
+    lane.append(card);
+
+    const rail = el("div", "frail");
+    rail.style.setProperty("--steps", String(K.finish));
+    for (let i = 0; i < K.finish; i++) {
+      const cell = el("div", "fstep");
+      if (f.race.at[h.id] === i) cell.append(el("span", "fhorse", "\u{1F434}"));
+      rail.append(cell);
+    }
+    const home = el("div", "fstep ffinish");
+    if (f.race.at[h.id] >= K.finish) home.append(el("span", "fhorse", "\u{1F434}"));
+    else home.append(el("span", "fflag", "\u{1F3C1}"));
+    rail.append(home);
+    lane.append(rail);
+
+    const place = f.race.finished.indexOf(h.id);
+    if (place !== -1) lane.append(el("span", "fplace", ["1st", "2nd", "3rd", "4th"][place]));
+    host.append(lane);
+  }
+}
+
+function drawHurdles(f) {
+  const host = $("floor-hurdles");
+  host.textContent = "";
+  for (let i = 1; i <= K.hurdles; i++) {
+    const turned = f.race.hurdles.find((h) => h.at === i);
+    const card = el("div", `fhurdle${turned ? " up red" : ""}`);
+    if (turned) {
+      // Turned face up, so everyone can see who it knocked back.
+      card.append(el("span", "fh-r", turned.rank));
+      card.append(el("span", "fh-s", "\u2660"));
+      card.title = `${horse(turned.horse).name} missed hurdle ${i}`;
+    } else {
+      card.append(el("span", "fh-back", "\u{1F0A0}"));
+    }
+    host.append(card);
+  }
+}
+
+/**
+ * Which bets are on offer. This lives in a window now rather than a strip
+ * under the track, so the race keeps the screen it needs.
+ */
+export function openBetPicker() {
+  const f = K.floor;
+  if (!f) return;
+  if (f.phase !== "BETTING") return say("Betting reopens after this race.");
+
+  const host = $("bet-modal");
+  host.hidden = false;
+  host.innerHTML = `
+    <div class="modal-back" data-close></div>
+    <div class="modal-card floor-card">
+      <div class="modal-head">
+        <h2>&#127991; Place a Bet</h2>
+        <button class="modal-close" data-close aria-label="Close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="fs-note">You have ${money(K.mine?.table)} on the table.</p>
+        <div class="fbets" id="pick-bets"></div>
+      </div>
+    </div>`;
+
+  const list = $("pick-bets");
+  for (const b of K.bets) {
+    const card = el("button", `fbet${b.side ? " side" : ""}`);
+    card.append(el("span", "fbet-n", b.name));
+    card.append(el("span", "fbet-p", `pays ${b.pays}:1`));
+    card.onclick = () => openBetSlip(b.id);
+    list.append(card);
+  }
+  host.querySelectorAll("[data-close]").forEach((n) => { n.onclick = closeBetSlip; });
+}
+
+/**
+ * The slip. Pick the horses, pick the stake, place it — over the floor rather
+ * than pushing the track off the screen.
+ */
+export function openBetSlip(betType) {
+  K.slip = { type: betType, picks: [], stake: K.slip.stake || 10 };
+  const host = $("bet-modal");
+  host.hidden = false;
+
+  const render = () => {
+    const bet = K.bets.find((b) => b.id === K.slip.type);
+    const ready = K.slip.picks.length === bet.picks;
+    const afford = (K.mine?.table || 0) >= K.slip.stake;
+
+    host.innerHTML = `
+      <div class="modal-back" data-close></div>
+      <div class="modal-card floor-card">
+        <div class="modal-head">
+          <h2>${bet.name} <span class="fs-pool">${bet.pays}:1 &middot; favourite ${bet.favPays}:1</span></h2>
+          <button class="modal-close" data-close aria-label="Close">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p class="fs-note">${bet.blurb}</p>
+          <p class="fs-note">${bet.picks === 1 ? "Choose a horse." : `Choose ${bet.picks}, in finishing order.`}</p>
+          <div class="fpicks" id="bs-picks"></div>
+          <p class="fs-note" style="margin-top:.7rem">Stake &mdash; you have ${money(K.mine?.table)}</p>
+          <div class="fstakes" id="bs-stakes"></div>
+          <button id="bs-go" class="fbtn fbtn-go" ${ready && afford ? "" : "disabled"}></button>
+        </div>
+      </div>`;
+
+    host.querySelectorAll("[data-close]").forEach((n) => { n.onclick = closeBetSlip; });
+
+    const picks = $("bs-picks");
+    const fav = K.floor?.race?.favourite;
+    for (const h of (K.horses || [])) {
+      const at = K.slip.picks.indexOf(h.id);
+      const btn = el("button",
+        `fpick${at !== -1 ? " on" : ""}${h.red ? " red" : ""}${h.id === fav ? " favourite" : ""}`);
+      if (h.id === fav) btn.append(el("span", "fribbon", "\u{1F397}\uFE0F"));
+      btn.append(el("span", "fpick-r", h.rank));
+      btn.append(el("span", "", h.pip));
+      btn.title = h.id === fav ? `${h.name} \u2014 today's favourite` : h.name;
+      if (at !== -1 && bet.picks > 1) btn.append(el("span", "fpick-n", String(at + 1)));
+      btn.onclick = () => {
+        const list = K.slip.picks;
+        const i = list.indexOf(h.id);
+        if (i !== -1) list.splice(i, 1);
+        else if (list.length < bet.picks) list.push(h.id);
+        render();
+      };
+      picks.append(btn);
+    }
+
+    const stakes = $("bs-stakes");
+    for (const amount of [5, 10, 25, 50, 100]) {
+      const b = el("button", `fchip${K.slip.stake === amount ? " on" : ""}`, money(amount));
+      b.disabled = amount > (K.mine?.table || 0);
+      b.onclick = () => { K.slip.stake = amount; render(); };
+      stakes.append(b);
+    }
+
+    // The price depends on whether the favourite is on the slip, so it is
+    // shown before the money goes down rather than discovered afterwards.
+    const price = K.slip.picks.includes(fav) ? bet.favPays : bet.pays;
+    const note = el("p", "fs-note");
+    note.textContent = ready
+      ? `Pays ${price}:1 \u2014 ${money(K.slip.stake)} returns ${money(Math.round(K.slip.stake + K.slip.stake * price))}`
+      : "";
+    $("bs-picks").after(note);
+
+    const go = $("bs-go");
+    go.textContent = !ready ? `Choose ${bet.picks - K.slip.picks.length} more`
+      : !afford ? "Not enough on the table"
+      : `Place ${money(K.slip.stake)}`;
+    go.onclick = () => {
+      send({ type: "FLOOR_BET", betType: K.slip.type, picks: K.slip.picks, stake: K.slip.stake });
+      closeBetSlip();
+    };
+  };
+
+  render();
+}
+
+export function closeBetSlip() {
+  const host = $("bet-modal");
+  host.hidden = true;
+  host.textContent = "";
+}
+
+/* ── the wallet ──────────────────────────────────────────────────────── */
+
+export async function openWallet() {
+  const host = $("wallet-modal");
+  host.hidden = false;
+  const staked = !!K.mine?.staked;
+
+  // Read it rather than guess it: banking is a server write, and the floor
+  // only knows what is on the table.
+  let banked = null;
+  try {
+    const res = await fetch("/api/wallet", { headers: { Authorization: `Bearer ${await K.idToken()}` } });
+    banked = (await res.json()).wallet ?? null;
+  } catch { banked = null; }
+  host.innerHTML = `
+    <div class="modal-back" data-close></div>
+    <div class="modal-card floor-card">
+      <div class="modal-head">
+        <h2>&#128176; Wallet</h2>
+        <button class="modal-close" data-close aria-label="Close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="wal-figures">
+          <div><span class="wal-l">On the table</span><b class="wal-n risk">${money(K.mine?.table)}</b></div>
+          <div><span class="wal-l">Banked</span><b class="wal-n">${banked === null ? "\u2014" : money(banked)}</b></div>
+        </div>
+        <p class="fs-note">Money on the table is yours to play with but is not banked. Banking writes it to your own wallet &mdash; your account's, nobody else's &mdash; and you can do it whenever you're between bets.</p>
+        <p class="fs-note">Quitting, closing the browser, or walking away mid-race leaves it on the table.</p>
+
+        <div class="wal-draw">
+          <p class="wal-h">Bring money in from your wallet</p>
+          <div class="wal-row">
+            <input id="wal-amt" class="bstep-v wal-amt" type="number" min="1" step="1"
+                   placeholder="0" ${banked ? "" : "disabled"}>
+            <button id="wal-all" class="hchip" ${banked ? "" : "disabled"}>ALL ${banked === null ? "" : money(banked)}</button>
+          </div>
+          <label class="wal-ack">
+            <input id="wal-ok" type="checkbox">
+            <span>I understand this money leaves my wallet and goes onto the table,
+            that it is at risk once it is there, and that I may lose all of it.
+            Only what I bank at the end of a session comes back.</span>
+          </label>
+          <button id="wal-draw" class="fbtn" disabled>Move to the table</button>
+          <p id="wal-msg" class="fs-note" hidden></p>
+        </div>
+
+        ${staked ? "" : `<button id="wal-stake" class="fbtn">Take your opening stake</button>`}
+        <button id="wal-bank" class="fbtn fbtn-go" ${K.mine?.table ? "" : "disabled"}>
+          ${K.mine?.table ? `Bank ${money(K.mine.table)}` : "Nothing to bank"}
+        </button>
+      </div>
+    </div>`;
+
+  host.querySelectorAll("[data-close]").forEach((n) => { n.onclick = closeWallet; });
+  if ($("wal-stake")) $("wal-stake").onclick = () => { send({ type: "FLOOR_STAKE" }); closeWallet(); };
+  $("wal-bank").onclick = () => { send({ type: "FLOOR_BANK" }); closeWallet(); };
+
+  // The button stays dead until there is an amount and the box is ticked. The
+  // server checks both again, so this is convenience rather than the gate.
+  const amt = $("wal-amt"), ok = $("wal-ok"), draw = $("wal-draw"), msg = $("wal-msg");
+  const recheck = () => {
+    const n = Number(amt.value) || 0;
+    draw.disabled = !(ok.checked && n >= 1 && n <= (banked || 0));
+    draw.textContent = n >= 1 ? `Move ${money(n)} to the table` : "Move to the table";
+  };
+  amt.oninput = recheck;
+  ok.onchange = recheck;
+  $("wal-all").onclick = () => { amt.value = String(banked || 0); recheck(); };
+
+  draw.onclick = async () => {
+    draw.disabled = true;
+    msg.hidden = false;
+    msg.textContent = "Moving\u2026";
+    try {
+      const res = await fetch("/api/wallet/withdraw", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${await K.idToken()}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: Number(amt.value), understood: ok.checked }),
+      });
+      const body = await res.json();
+      if (!res.ok) { msg.textContent = body.error || "That didn't go through."; recheck(); return; }
+      closeWallet();
+      say(`${money(body.moved)} is on the table.`);
+    } catch {
+      msg.textContent = "That didn't reach the server. Nothing was moved.";
+      recheck();
+    }
+  };
+}
+
+export function closeWallet() {
+  const host = $("wallet-modal");
+  host.hidden = true;
+  host.textContent = "";
+}
+
+/* ── the chat and log ────────────────────────────────────────────────── */
+
+export function openChat() {
+  const host = $("chat-modal");
+  host.hidden = false;
+  host.innerHTML = `
+    <div class="modal-back" data-close></div>
+    <div class="modal-card floor-card">
+      <div class="modal-head">
+        <h2>&#128172; Chat &amp; Game Log</h2>
+        <button class="modal-close" data-close aria-label="Close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="casino-log" class="flog"></div>
+      </div>
+    </div>`;
+  host.querySelectorAll("[data-close]").forEach((n) => { n.onclick = closeChat; });
+  // The log is kept in memory, so opening the window fills it in one go.
+  const wrap = $("casino-log");
+  for (const e of K.logLines) wrap.append(logNode(e));
+}
+
+export function closeChat() {
+  const host = $("chat-modal");
+  host.hidden = true;
+  host.textContent = "";
+}
+
+function drawBoard(f) {
+  $("floor-pool").textContent = `pool ${money(f.pool)}`;
+  const host = $("floor-board");
+  host.textContent = "";
+  if (!f.bets.length) {
+    host.append(el("p", "fempty", "No bets placed yet."));
+    return;
+  }
+  for (const b of f.bets) {
+    const bet = K.bets.find((x) => x.id === b.type);
+    const row = el("div", `fbrow${b.uid === K.you ? " mine" : ""}`);
+    row.append(el("span", "fbr-who", b.name + (b.uid === K.you ? " (you)" : "")));
+    row.append(el("span", "fbr-t", bet?.name || b.type));
+    const pips = el("span", "fbr-p");
+    b.picks.forEach((id) => {
+      const h = horse(id);
+      const n = el("span", "red");
+      n.textContent = `${h.rank}${h.pip}`;
+      pips.append(n);
+    });
+    row.append(pips);
+    row.append(el("span", "fbr-s", money(b.stake)));
+    if (b.uid !== K.you && f.phase === "BETTING") {
+      const copy = el("button", "fmini", "Copy");
+      copy.title = `Back the same slip with ${money(b.stake)} of your own`;
+      copy.onclick = () => send({ type: "FLOOR_COPY", betId: b.id, stake: b.stake });
+      row.append(copy);
+    }
+    host.append(row);
+  }
+}
+
+/* ── the live table ──────────────────────────────────────────────────── */
+
+/** A real playing card: corner indices and a centre pip, like the paper ones. */
+function cardFace(c) {
+  if (!c || c.hidden) {
+    const b = el("div", "pcard back");
+    b.append(el("span", "pc-weave"));
+    return b;
+  }
+  if (c.joker) {
+    const j = el("div", "pcard joker");
+    j.append(corner("JKR", "\u{1F0CF}", "pc-tl"));
+    j.append(el("span", "pc-mid", "\u{1F0CF}"));
+    j.append(corner("JKR", "\u{1F0CF}", "pc-br"));
+    return j;
+  }
+  const pip = suit(c.suit).pip;
+  const d = el("div", `pcard${c.red ? " red" : ""}`);
+  d.append(corner(c.rank, pip, "pc-tl"));
+  d.append(el("span", "pc-mid", pip));
+  d.append(corner(c.rank, pip, "pc-br"));
+  return d;
+}
+
+function corner(rank, pip, where) {
+  const n = el("span", `pc-i ${where}`);
+  n.append(el("b", "", rank));
+  n.append(el("i", "", pip));
+  return n;
+}
+
+/**
+ * A row of cards that only animates what's new.
+ *
+ * The floor pushes state on every change, so a hand redrawn wholesale would
+ * re-deal itself several times a second. Each row remembers what it already
+ * showed; those cards settle in place and only new ones fly in.
+ */
+const shown = new Map();
+
+function handRow(cards, key, extra = "") {
+  const row = el("div", `chand ${extra}`.trim());
+  const before = shown.get(key) || new Set();
+  const now = new Set();
+  (cards || []).forEach((c, i) => {
+    const id = !c ? `gap:${i}` : c.hidden ? `back:${i}` : `${c.rank}${c.suit}:${i}`;
+    now.add(id);
+    const node = cardFace(c);
+    if (!before.has(id)) {
+      node.classList.add("deal");
+      node.style.setProperty("--i", String(i));
+    }
+    row.append(node);
+  });
+  shown.set(key, now);
+  return row;
+}
+
+/**
+ * Easy, Medium, Hard. Medium is the only one that deals the dealer a hand at
+ * random; the other two let the house look at several and keep the worst or
+ * the best, so the label is doing real work.
+ */
+function aiTabs(compact = false) {
+  const row = el("div", `aitabs${compact ? " compact" : ""}`);
+  for (const [id, name] of [["easy", "Easy"], ["medium", "Medium"], ["hard", "Hard"]]) {
+    const b = el("button", `aitab${K.level === id ? " on" : ""}`, name);
+    b.onclick = () => {
+      K.level = id;
+      [...row.children].forEach((n) => n.classList.toggle("on", n.textContent === name));
+    };
+    row.append(b);
+  }
+  return row;
+}
+
+/**
+ * Ends the hand where it stands, forfeiting whatever is on it.
+ *
+ * Sits beside the difficulty tabs at Hold'em and at the top of every other
+ * hand, so nobody is ever left waiting on a hand they have finished with.
+ */
+function endHandBtn() {
+  const b = el("button", "endhand", "Forfeit hand");
+  b.title = "Give the hand up now. Everything staked on it is lost.";
+  b.onclick = () => {
+    if (window.confirm(
+      "Give this hand up? Everything staked on it is lost, and the token with it. "
+      + "This is here for a hand that has gone wrong \u2014 it never beats playing on."
+    )) send({ type: "TABLE_END" });
+  };
+  return b;
+}
+
+/** A labelled band of felt. */
+function zone(label, body) {
+  const z = el("div", "tzone");
+  z.append(el("p", "tzone-l", label));
+  z.append(body);
+  return z;
+}
+
+/** Forget what was on the felt, so the next hand deals in properly. */
+const forgetCards = () => shown.clear();
+
+function drawTable(f) {
+  const t = f.table;
+  if (!$("table-seats")) return;   // the overlay isn't open
+  // Cards out means committed, the same as at every other table.
+  setCanLeave(t.phase === "OPEN");
+
+  const purseBox = $("bj-purse");
+  if (purseBox) { purseBox.textContent = ""; purseBox.append(purseStrip()); }
+
+  // Before the cards are out there is nothing to look at but your own bet, so
+  // the felt stays out of the way until there is something on it.
+  const betting = t.phase === "OPEN";
+  $("table-seats").textContent = betting ? "" : `${t.seats.length} / 20 seated`;
+  $("table-dealer").hidden = betting;
+  $("table-seatlist").hidden = betting;
+
+  const dealer = $("table-dealer");
+  dealer.textContent = "";
+  dealer.append(el("span", "ft-l", t.phase === "ACTING" ? "Dealer" : `Dealer ${t.dealer.length ? "" : ""}`));
+  dealer.append(handRow(t.dealer || [], "bj-dealer"));
+
+  const list = $("table-seatlist");
+  list.textContent = "";
+  for (const s of t.seats) {
+    const row = el("div", `fseat${s.uid === K.you ? " mine" : ""}${s.result ? ` ${s.result}` : ""}`);
+    row.append(el("span", "fseat-n", s.name + (s.uid === K.you ? " (you)" : "")));
+    row.append(handRow(s.cards || [], `bj-${s.uid}`));
+    row.append(el("span", "fseat-t", s.cards?.length ? String(s.total) : ""));
+    row.append(el("span", "fseat-b", money(s.bet)));
+    if (s.result) row.append(el("span", "fseat-r", s.result));
+    list.append(row);
+  }
+  if (!t.seats.length) list.append(el("p", "fempty", "Nobody seated. Take a chair."));
+
+  const acts = $("table-actions");
+  acts.textContent = "";
+  const seated = t.seats.find((s) => s.uid === K.you);
+
+  if (t.phase === "OPEN") {
+    // Anything already on the seat comes back before the new bet is taken, so
+    // everything you hold is what's on the table plus whatever is staked here.
+    const purse = (K.mine?.table || 0) + (seated?.bet || 0);
+    acts.className = "bj-bet";
+
+    acts.append(el("p", "tlede", "PLACE YOUR BET \u2014 type any amount or tap a chip (min $1)"));
+
+    const deal = el("button", "tdeal", "");
+    const bet = betPad(seated?.bet || 5, purse, (v) => {
+      deal.textContent = `\u{1F0CF}  DEAL ${money(v)}`;
+      deal.disabled = v < TABLE_MIN || v > purse;
+    });
+    acts.append(bet);
+
+    // One button does both jobs: it takes the seat and calls for the cards.
+    deal.onclick = () => {
+      send({ type: "SEAT_TAKE", bet: bet.get() });
+      send({ type: "SEAT_DEAL" });
+    };
+    acts.append(deal);
+
+    if (seated) {
+      const leave = el("button", "fbtn bj-leave", "Stand up");
+      leave.onclick = () => send({ type: "SEAT_LEAVE" });
+      acts.append(leave);
+    }
+    bet.set(bet.get());
+  } else if (t.phase === "ACTING" && seated && !seated.done) {
+    acts.className = "factions";
+    const hit = el("button", "fbtn", "Hit");
+    hit.onclick = () => send({ type: "SEAT_HIT" });
+    const stand = el("button", "fbtn fbtn-go", "Stand");
+    stand.onclick = () => send({ type: "SEAT_STAND" });
+    acts.append(hit, stand);
+  } else {
+    acts.className = "factions";
+    acts.append(el("p", "fnote", t.phase === "ACTING" ? "Waiting on the rest of the table." : "Settling up."));
+  }
+}
+
+/* ── the card room ───────────────────────────────────────────────────── */
+
+/** The tables on offer. Blackjack first, the rest alphabetically. */
+function drawGameTabs() {
+  const host = $("game-tabs");
+  if (!host) return;
+  host.textContent = "";
+  for (const g of TABLE_GAMES) {
+    const b = el("button", `gtab${g.ready ? "" : " soon"}`);
+    b.append(el("span", "gtab-pip", g.pip));
+    b.append(el("span", "gtab-name", g.name));
+    if (!g.ready) b.append(el("span", "gtab-soon", "not built yet"));
+    if (g.ready) b.append(el("span", "gtab-note", `($${g.min ?? 1} dollar min buy in)`));
+    b.onclick = () => openTable(g.id);
+    host.append(b);
+  }
+}
+
+/**
+ * The table window.
+ *
+ * Closing it ends the session at that table properly \u2014 no hand left open on
+ * the server, no seat still held. So the way out only exists when nothing is
+ * staked: with cards dealt and money down there is no X and no clicking the
+ * backdrop, because a player who dislikes their cards would otherwise close the
+ * window and ask for a fresh hand.
+ */
+function tableShell(title, body, { canLeave = true } = {}) {
+  const host = $("table-modal");
+  host.hidden = false;
+  host.innerHTML = `
+    ${canLeave ? `<div class="modal-back" data-close></div>` : `<div class="modal-back locked"></div>`}
+    <div class="modal-card floor-card">
+      <div class="modal-head">
+        <h2>${title}</h2>
+        ${canLeave
+          ? `<button class="modal-close" data-close aria-label="Close and end this game">&times;</button>`
+          : `<span class="modal-locked" title="Play the hand out">in play</span>`}
+      </div>
+      <div class="modal-body">${body}</div>
+    </div>`;
+  host.querySelectorAll("[data-close]").forEach((n) => { n.onclick = closeTable; });
+}
+
+/** Swaps the X in or out as a hand starts and finishes. */
+function setCanLeave(canLeave) {
+  const head = $("table-modal")?.querySelector(".modal-head");
+  const back = $("table-modal")?.querySelector(".modal-back");
+  if (!head) return;
+
+  head.querySelector(".modal-close")?.remove();
+  head.querySelector(".modal-locked")?.remove();
+
+  if (canLeave) {
+    const x = el("button", "modal-close", "\u00d7");
+    x.setAttribute("aria-label", "Close and end this game");
+    x.onclick = closeTable;
+    head.append(x);
+    if (back) { back.classList.remove("locked"); back.onclick = closeTable; }
+  } else {
+    const tag = el("span", "modal-locked", "in play");
+    tag.title = "Play the hand out";
+    head.append(tag);
+    if (back) { back.classList.add("locked"); back.onclick = null; }
+  }
+}
+
+/** What you're carrying, shown where you're about to spend it. */
+function purseStrip() {
+  const strip = el("div", "tpurse");
+  const cash = el("div", "tpurse-c");
+  cash.append(el("b", "", money(K.mine?.table)));
+  cash.append(el("span", "", "MONEY"));
+  const tok = el("div", "tpurse-t");
+  tok.append(el("span", "", "\u{1F3B4}"));
+  tok.append(el("b", "", `${K.mine?.tokens ?? 0} TOKEN${(K.mine?.tokens ?? 0) === 1 ? "" : "S"}`));
+  strip.append(cash, tok);
+  return strip;
+}
+
+/**
+ * A labelled amount with a minus and a plus. Returns the row; read the
+ * current figure back through the getter it hangs on the node.
+ */
+function moneyStepper(label, start, { min = 0, step = 5, max = Infinity, onChange } = {}) {
+  const box = el("div", "mstep");
+  box.append(el("p", "mstep-l", label));
+  const row = el("div", "mstep-row");
+
+  let v = Math.max(min, Math.min(max, start));
+  const readout = el("div", "mstep-v", String(v));
+  const set = (n) => {
+    v = Math.max(min, Math.min(max, n));
+    readout.textContent = String(v);
+    onChange?.(v);
+  };
+
+  const down = el("button", "mstep-b down", "\u2212");
+  down.onclick = () => set(v - step);
+  const up = el("button", "mstep-b up", "+");
+  up.onclick = () => set(v + step);
+
+  row.append(down, readout, up);
+  box.append(row);
+  box.get = () => v;
+  box.set = set;
+  return box;
+}
+
+/**
+ * The same stepper, but the figure is typeable. Nudging is quicker for small
+ * changes and typing is quicker for large ones, so both are offered.
+ */
+function typedStepper(caption, start, { min = 5, step = 5, max = Infinity, onChange } = {}) {
+  const box = el("div", "bstep");
+  const down = el("button", "bstep-b", `\u2212$${step}`);
+  const up = el("button", "bstep-b", `+$${step}`);
+
+  const mid = el("div", "bstep-m");
+  const field = el("input", "bstep-v");
+  field.type = "number";
+  field.min = String(min);
+  field.step = String(step);
+  mid.append(field);
+  mid.append(el("span", "bstep-cap", caption));
+
+  let v = Math.max(min, Math.min(max, start));
+  const set = (n, keepTyping = false) => {
+    v = Math.max(min, Math.min(max, Math.round(Number(n) || 0)));
+    if (!keepTyping) field.value = String(v);
+    onChange?.(v);
+  };
+  field.value = String(v);
+  // While typing, take what's there without snapping the caret about.
+  field.oninput = () => set(field.value, true);
+  field.onblur = () => set(field.value);
+  down.onclick = () => set(v - step);
+  up.onclick = () => set(v + step);
+
+  box.append(down, mid, up);
+  box.get = () => v;
+  box.set = set;
+  return box;
+}
+
+export const TABLE_MIN = 1;
+
+/**
+ * The bet surface every table shares: preset amounts, a field you can type
+ * into, and All in. Returns the row, with .get() and .set() on it.
+ */
+function betPad(start, cash, onChange) {
+  const wrap = el("div", "bpad");
+  const most = Math.max(TABLE_MIN, cash);
+
+  const stepper = typedStepper("BET", Math.min(Math.max(TABLE_MIN, start), most), {
+    min: TABLE_MIN, step: 1, max: most, onChange: (v) => { mark(v); onChange?.(v); },
+  });
+  wrap.append(stepper);
+
+  const chips = el("div", "bpad-chips");
+  const presets = [1, 5, 10, 25, 50, 100].filter((n) => n <= most);
+  const buttons = [];
+  for (const n of presets) {
+    const b = el("button", "hchip", money(n));
+    b.onclick = () => stepper.set(n);
+    buttons.push([n, b]);
+    chips.append(b);
+  }
+  const all = el("button", "hchip all", `ALL IN ${money(most)}`);
+  all.onclick = () => stepper.set(most);
+  chips.append(all);
+  wrap.append(chips);
+
+  // The preset matching what's typed lights up, so the two never disagree.
+  function mark(v) {
+    for (const [n, b] of buttons) b.classList.toggle("on", n === v);
+    all.classList.toggle("on", v === most);
+  }
+  mark(stepper.get());
+
+  wrap.get = () => stepper.get();
+  wrap.set = (n) => stepper.set(n);
+  return wrap;
+}
+
+const betRow = (label, onGo, note) => {
+  const r = el("div", "tbet");
+  r.append(el("span", "tbet-n", label));
+  if (note) r.append(el("span", "tbet-p", note));
+  const go = el("button", "fbtn fbtn-go", "Bet");
+  go.disabled = K.stake > (K.mine?.table || 0);
+  go.onclick = onGo;
+  r.append(go);
+  return r;
+};
+
+export function openTable(id) {
+  forgetCards();
+  const g = TABLE_GAMES.find((x) => x.id === id);
+  if (!g) return;
+  K.table = id;
+
+  if (!g.ready) {
+    tableShell(`${g.pip} ${esc(g.name)}`,
+      `<p class="fs-note">This table isn't built yet. Its rules are in the Casino
+        Game Rules, and it will open here when it's ready.</p>`);
+    return;
+  }
+
+  if (id === "holdem") {
+    // One window, not two: the tab buys in and deals in the same click.
+    tableShell(`${g.pip} Texas Hold'em \u00b7 vs Dealer`, `<div id="tgame"></div>`);
+    return startHoldem();
+  }
+
+  if (id === "blackjack") {
+    tableShell(`${g.pip} Blackjack`, `
+      <div class="bj-top">
+        <p class="bj-h">\u{1F0CF} YOUR TABLE</p>
+        <div id="bj-purse"></div>
+      </div>
+      <p class="fs-note" id="table-seats"></p>
+      <div id="table-dealer" class="ftable-row"></div>
+      <div id="table-seatlist" class="fseats"></div>
+      <div id="table-actions" class="factions"></div>`);
+    if (K.floor) drawTable(K.floor);
+    return;
+  }
+
+  tableShell(`${g.pip} ${esc(g.name)}`, `<div id="tgame"></div>`);
+  drawGame(id);
+}
+
+const HOLDEM_MIN = 5;
+
+/** Buys in and deals. The felt appears with cards already on it. */
+function startHoldem() {
+  const host = $("tgame");
+  if (!host) return;
+  if ((K.mine?.tokens || 0) < 1) {
+    host.textContent = "";
+    host.append(el("p", "notice notice-bad",
+      "You're out of tokens. Earn one at the arcade \u2014 Earn Money on the floor bar."));
+    return;
+  }
+  if ((K.mine?.table || 0) < HOLDEM_MIN) {
+    host.textContent = "";
+    host.append(el("p", "notice notice-bad",
+      `Hold'em needs a ${money(HOLDEM_MIN)} buy-in and you have ${money(K.mine?.table)}.`));
+    return;
+  }
+  host.textContent = "";
+  host.append(el("p", "fs-note", "Dealing\u2026"));
+  send({ type: "TABLE_DEAL", game: "holdem", ante: HOLDEM_MIN, level: K.level });
+}
+
+/** Whichever table is open, redrawn from scratch. */
+function drawGame(id) {
+  // Hold'em has no lobby screen; the tab deals it.
+  if (id === "holdem") return startHoldem();
+  const host = $("tgame");
+  if (!host) return;
+  host.textContent = "";
+  host.append(purseStrip());
+  // The purse strip already says what you're carrying; the rest is the bet.
+  // Roulette, the wheel and hi-lo stake from the shared pad too, so the
+  // amount is typeable everywhere rather than four fixed chips.
+  const staking = ["roulette", "bigsix", "hilo"].includes(id);
+  if (staking) {
+    host.append(el("p", "tlede", "YOUR STAKE \u2014 type any amount or tap a chip (min $1)"));
+    const pad = betPad(K.stake || 5, K.mine?.table || 0, (v) => { K.stake = v; });
+    host.append(pad);
+  }
+
+  // Out of tokens is a dead end at the tables, so say where to get more
+  // rather than leaving a row of buttons that quietly refuse.
+  if ((K.mine?.tokens || 0) < 1) {
+    host.append(el("p", "notice notice-bad",
+      "You're out of tokens. Earn one at the arcade \u2014 Earn Money on the floor bar. The horse race needs none."));
+    return;
+  }
+
+  const play = (extra) => send({ type: "TABLE_PLAY", game: id, amount: K.stake, ...extra });
+
+  if (id === "roulette") {
+    const num = el("input", "arc-answer tnum");
+    num.type = "number"; num.min = "0"; num.max = "36"; num.placeholder = "0-36";
+    for (const b of ROULETTE_UI) {
+      if (b.pick === "number") {
+        const wrap = el("div", "tbet");
+        wrap.append(el("span", "tbet-n", b.name));
+        wrap.append(el("span", "tbet-p", `pays ${b.pays}:1`));
+        wrap.append(num);
+        const go = el("button", "fbtn fbtn-go", "Bet");
+        go.onclick = () => {
+          const n = num.value === "00" ? 37 : Number(num.value);
+          if (!(n >= 0 && n <= 37)) return say("Pick a pocket from 0 to 36, or 00.");
+          play({ pick: "straight", number: n });
+        };
+        wrap.append(go);
+        host.append(wrap);
+      } else {
+        host.append(betRow(b.name, () => play({ pick: b.id }), `pays ${b.pays}:1`));
+      }
+    }
+
+  } else if (id === "bigsix") {
+    for (const b of BIGSIX_UI)
+      host.append(betRow(b.name, () => play({ pick: b.id }), `pays ${b.pays}:1 \u00b7 ${b.sections}/54`));
+
+  } else if (id === "baccarat") {
+    const cash = K.mine?.table || 0;
+    K.board = K.board || {};
+
+    host.append(el("p", "bshoe", "8-deck shoe"));
+
+    // The chip sets the size of every tap on the board.
+    const chipBox = el("div", "bchip-row");
+    chipBox.append(el("span", "bchip-l", "CHIP"));
+    let chip;
+    const totalLine = el("p", "ttotal");
+    const retotal = () => {
+      const sum = Object.values(K.board).reduce((a, b) => a + b, 0);
+      totalLine.textContent = `Total wagered: ${money(sum)}`;
+      deal.disabled = sum < 1 || sum > cash;
+    };
+    chip = betPad(5, cash, () => chip.onValue?.());
+    chipBox.append(chip);
+    host.append(chipBox);
+
+    host.append(el("p", "fs-note",
+      "Set your chip amount above, then + BET on the right adds it \u00b7 \u2715 on the left removes that bet."));
+
+    const deal = el("button", "tdeal", "\u{1F0CF}  DEAL");
+
+    const addRow = (b, into) => {
+      const row = el("div", `brow ${b.tone}`);
+
+      const clear = el("button", "brow-x", "\u2715");
+      clear.title = "Take this bet off";
+      clear.onclick = () => { delete K.board[b.id]; amount.textContent = ""; retotal(); };
+      row.append(clear);
+
+      const label = el("div", "brow-l");
+      label.append(el("b", "", b.name.toUpperCase()));
+      label.append(el("span", "", b.odds));
+      row.append(label);
+
+      const amount = el("span", "brow-a", K.board[b.id] ? money(K.board[b.id]) : "");
+      row.append(amount);
+
+      const add = el("button", "brow-b", "");
+      const relabel = () => { add.textContent = `+ BET ${money(chip.get())}`; };
+      add.onclick = () => {
+        K.board[b.id] = (K.board[b.id] || 0) + chip.get();
+        amount.textContent = money(K.board[b.id]);
+        retotal();
+      };
+      relabel();
+      row.append(add);
+      into.append(row);
+      return relabel;
+    };
+
+    const relabels = [];
+    const main = el("div", "bboard");
+    for (const b of BACCARAT_BOARD.filter((x) => !x.side)) relabels.push(addRow(b, main));
+    host.append(main);
+
+    host.append(el("p", "bside-h", "SIDE BETS"));
+    const side = el("div", "bboard");
+    for (const b of BACCARAT_BOARD.filter((x) => x.side)) relabels.push(addRow(b, side));
+    host.append(side);
+
+    // Every + BET button follows the chip.
+    chip.onValue = () => relabels.forEach((f) => f());
+
+    host.append(totalLine);
+    deal.onclick = () => {
+      send({ type: "TABLE_PLAY", game: "baccarat", bets: { ...K.board } });
+      K.board = {};
+    };
+    host.append(deal);
+    retotal();
+
+  } else if (id === "hilo") {
+    host.append(el("p", "fs-note",
+      "Two calls on the next card. Both have to come in; both right pays 1:1, and a tie pushes."));
+    for (const [dir, dirName] of [[true, "Higher"], [false, "Lower"]]) {
+      for (const [band, bandName] of [[true, "8 or higher"], [false, "under 8"]]) {
+        host.append(betRow(`${dirName} \u00b7 ${bandName}`,
+          () => play({ higher: dir, eightUp: band }), "pays 1:1"));
+      }
+    }
+
+  } else if (id === "paigow") {
+    host.append(el("p", "tlede", "YOUR ANTE \u2014 type any amount or tap a chip (min $1)"));
+    const pad = betPad(K.stake || 5, K.mine?.table || 0, (v) => { K.stake = v; });
+    host.append(pad);
+    host.append(el("p", "fs-note",
+      "Seven cards each and the dealer's are face up. Split yours into a five and a two \u2014 the five must be the stronger \u2014 and beat the dealer on both to win. One each is a push, and a dealer ace-high pushes automatically."));
+    for (const [key, label] of [["fortune", "Fortune Bonus"], ["aceBonus", "Ace-High Bonus"]]) {
+      const b = el("button", `fchip${K.side[key] ? " on" : ""}`, `${label} ${K.side[key] ? "on" : "off"}`);
+      b.onclick = () => { K.side[key] = !K.side[key]; drawGame(id); };
+      host.append(b);
+    }
+    const go = el("button", "fbtn fbtn-go", `Ante ${money(K.stake)} and deal`);
+    go.onclick = () => send({
+      type: "TABLE_DEAL", game: "paigow", ante: K.stake,
+      fortune: K.side.fortune ? K.stake : 0, aceBonus: K.side.aceBonus ? K.stake : 0,
+    });
+    host.append(go);
+
+  } else if (id === "crisscross") {
+    host.append(el("p", "tlede",
+      "YOUR ANTE \u2014 posted twice, one for each arm (min $1)"));
+    const pad = betPad(K.stake || 5, Math.floor((K.mine?.table || 0) / 2), (v) => { K.stake = v; });
+    host.append(pad);
+    host.append(el("p", "fs-note",
+      "Two equal antes, two cards of your own and five in a cross. Bet Across, then Down, then the Middle \u2014 each one to three times the ante. Antes and lines pay from jacks up and push on sixes through tens."));
+    const b = el("button", `fchip${K.side.bonus ? " on" : ""}`, `5 Card Bonus ${K.side.bonus ? "on" : "off"}`);
+    b.onclick = () => { K.side.bonus = !K.side.bonus; drawGame(id); };
+    host.append(b);
+    const go = el("button", "fbtn fbtn-go", `Post ${money(K.stake * 2)} in antes`);
+    go.disabled = K.stake * 2 > (K.mine?.table || 0);
+    go.onclick = () => send({
+      type: "TABLE_DEAL", game: "crisscross", ante: K.stake,
+      bonus: K.side.bonus ? K.stake : 0,
+    });
+    host.append(go);
+
+  } else if (id === "threecard") {
+    const cash = K.mine?.table || 0;
+
+    host.append(el("p", "tlede",
+      "ANTE and PAIR PLUS \u2014 type any amount or tap a chip (min $1, Pair Plus optional)"));
+
+    const deal = el("button", "tdeal", "");
+    const total = el("p", "ttotal");
+    let ante, pp;
+    const retotal = () => {
+      const a = ante.get(), b = ppOn ? pp.get() : 0;
+      total.textContent = `Total to deal: ${money(a + b)} \u00b7 ${b ? `Pair Plus ${money(b)}` : "Pair Plus off"}`;
+      deal.textContent = `\u{1F0CF}  DEAL ${money(a + b)}`;
+      deal.disabled = a < TABLE_MIN || a + b > cash;
+    };
+
+    let ppOn = false;
+    host.append(el("p", "mstep-l", "ANTE"));
+    ante = betPad(Math.min(5, cash) || TABLE_MIN, cash, retotal);
+    host.append(ante);
+
+    const ppHead = el("div", "pp-head");
+    ppHead.append(el("p", "mstep-l", "PAIR PLUS"));
+    const ppToggle = el("button", "hchip", "OFF");
+    ppHead.append(ppToggle);
+    host.append(ppHead);
+
+    pp = betPad(Math.min(5, cash) || TABLE_MIN, cash, retotal);
+    pp.hidden = true;
+    ppToggle.onclick = () => {
+      ppOn = !ppOn;
+      ppToggle.textContent = ppOn ? "ON" : "OFF";
+      ppToggle.classList.toggle("on", ppOn);
+      pp.hidden = !ppOn;
+      retotal();
+    };
+    host.append(pp);
+
+    deal.onclick = () => send({
+      type: "TABLE_DEAL", game: "threecard",
+      ante: ante.get(), side: ppOn ? pp.get() : 0,
+    });
+    host.append(total);
+    host.append(deal);
+    host.append(el("p", "fs-note",
+      "Playing costs the ante again. The dealer needs queen-high to qualify, and a straight beats a flush."));
+    retotal();
+
+  } else if (id === "fivecard") {
+    const cash = K.mine?.table || 0;
+
+    host.append(el("p", "tlede",
+      "PLACE YOUR BET \u2014 type any amount or tap a chip (min $1)"));
+
+    const deal = el("button", "tdeal", "");
+    const bet = betPad(Math.min(5, cash) || TABLE_MIN, cash, (v) => {
+      deal.textContent = `\u{1F0CF}  DEAL ${money(v)}`;
+      deal.disabled = v < TABLE_MIN || v > cash;
+    });
+    host.append(bet);
+
+    deal.onclick = () => send({ type: "TABLE_DEAL", game: "fivecard", ante: bet.get(), side: 0 });
+    host.append(deal);
+    host.append(el("p", "fs-note",
+      "Five cards, throw back what you don't want, and get paid against the paytable from jacks up."));
+  }
+}
+
+/**
+ * You asked for cards at one table while a hand is still open at another.
+ *
+ * Being told to go and finish it is useless if you are standing somewhere
+ * else, so both ways out are offered right here: go back to that hand, or give
+ * it up and stay where you are.
+ */
+function showBlocked(msg) {
+  const host = $("tgame");
+  if (!host) return;
+  const label = TABLE_GAMES.find((g) => g.id === msg.game)?.name || msg.game;
+
+  host.textContent = "";
+  host.append(el("p", "notice notice-bad", `${msg.message} A hand can only be open at one table at a time.`));
+
+  const acts = el("div", "factions");
+  const go = el("button", "fbtn fbtn-go", `Back to ${label}`);
+  go.onclick = () => openTable(msg.game);
+  const drop = el("button", "fbtn hfold", "Give that hand up");
+  drop.onclick = () => {
+    if (!window.confirm(`Give up your ${label} hand? Everything staked on it is lost.`)) return;
+    send({ type: "TABLE_END" });
+    // The table you actually wanted, once the other one is clear.
+    setTimeout(() => openTable(msg.wanted || K.table), 300);
+  };
+  acts.append(go, drop);
+  host.append(acts);
+}
+
+/** A dealt hand, waiting on the player. */
+function showHand(msg) {
+  const host = $("tgame");
+  if (!host) return;
+  setCanLeave(false);      // money is on the table now
+  host.textContent = "";
+  const head = el("div", "hz-head");
+  head.append(el("span", "hz-l", "Your hand"));
+  head.append(endHandBtn());
+  host.append(head);
+  host.append(el("p", "fs-note", msg.rank));
+
+  const hand = handRow(msg.cards, "hand", "thand");
+  host.append(hand);
+
+  if (msg.game === "holdem") {
+    if (msg.level) K.level = msg.level;
+    host.textContent = "";
+    const staked = msg.staked ?? msg.ante ?? 0;
+
+    // Dealer's two, face down until the river is settled.
+    const dealerRow = el("div", "hz-head");
+    dealerRow.append(el("span", "hz-l", "Dealer"));
+    dealerRow.append(aiTabs(true));
+    dealerRow.append(endHandBtn());
+    host.append(dealerRow);
+    host.append(handRow([null, null], "hdealer", "thand"));
+
+    const boardBox = el("div", "hboard");
+    boardBox.append(handRow(msg.board || [], "board", "thand"));
+    host.append(boardBox);
+
+    host.append(el("p", "hz-l", "You"));
+    host.append(handRow(msg.cards, "hole", "thand"));
+
+    const street = String(msg.street || "").toUpperCase();
+    const owed = msg.pending || 0;
+    host.append(el("p", `hstatus${owed ? " urgent" : ""}`,
+      owed ? `\u25CF ${street} \u2014 ${(msg.dealerSaid || "the dealer bets").toUpperCase()} \u2014 CALL or FOLD`
+        : `\u25CF ${street} \u2014 CHECK or BET`));
+    if (msg.dealerSaid && !owed) host.append(el("p", "hsaid", msg.dealerSaid));
+
+    const pot = el("p", "hpot");
+    pot.append(el("span", "", `Pot ${money(staked)} \u00b7 Buy-in ${money(msg.ante ?? 5)}`));
+    pot.append(el("span", "hpot-r", `${money(staked)} staked`));
+    host.append(pot);
+
+    // The stepper: nothing here can bet more than the player holds.
+    const cash = K.mine?.table || 0;
+    let amount = Math.min(cash - (cash % 5), 0);
+    const readout = el("div", "hstep-v", "0");
+    const bet = el("button", "fbtn hbet", "Bet $0");
+    const setAmount = (n) => {
+      amount = Math.max(0, Math.min(cash - (cash % 5), n));
+      readout.textContent = String(amount);
+      bet.textContent = `Bet ${money(amount)}`;
+      bet.disabled = amount < 5;
+    };
+
+    const stepper = el("div", "hstep");
+    const down = el("button", "hstep-b", "\u2212$5");
+    down.onclick = () => setAmount(amount - 5);
+    const up = el("button", "hstep-b", "+$5");
+    up.onclick = () => setAmount(amount + 5);
+    const mid = el("div", "hstep-m");
+    mid.append(readout);
+    mid.append(el("span", "hstep-cap", "BET AMOUNT"));
+    stepper.append(down, mid, up);
+    host.append(stepper);
+
+    const quick = el("div", "hquick");
+    const min = el("button", "hchip", "MIN $5");
+    min.onclick = () => setAmount(5);
+    const all = el("button", "hchip", `ALL IN ${money(cash - (cash % 5))}`);
+    all.onclick = () => setAmount(cash - (cash % 5));
+    quick.append(min, all);
+    host.append(quick);
+
+    const acts = el("div", "hacts");
+    if (owed) {
+      // The dealer has bet into you. Nothing else is on offer.
+      stepper.hidden = true;
+      quick.hidden = true;
+      const call = el("button", "fbtn hcheck", `CALL ${money(owed)}`);
+      call.disabled = owed > cash;
+      call.onclick = () => send({ type: "TABLE_ACT", move: "call" });
+      const fold = el("button", "fbtn hfold", "FOLD");
+      fold.onclick = () => send({ type: "TABLE_ACT", move: "fold" });
+      acts.append(call, fold);
+    } else {
+      const check = el("button", "fbtn hcheck", "CHECK");
+      check.onclick = () => send({ type: "TABLE_ACT", move: "check" });
+      bet.onclick = () => { if (amount >= 5) send({ type: "TABLE_ACT", move: "bet", amount }); };
+      acts.append(check, bet);
+    }
+    host.append(acts);
+
+    setAmount(0);
+    return;
+  }
+
+  if (msg.game === "paigow") {
+    host.textContent = "";
+    const pgHead = el("div", "hz-head");
+    pgHead.append(el("span", "hz-l", "Pai Gow"));
+    pgHead.append(endHandBtn());
+    host.append(pgHead);
+    host.append(zone("The dealer's seven, face up", handRow(msg.dealer, "pgdealer", "thand")));
+
+    K.lowPick = [];
+    host.append(el("p", "fs-note", "Tap two of yours for the low hand, or take the house way."));
+    const mine = handRow(msg.cards, "pgmine", "thand pickable");
+    [...mine.children].forEach((node, i) => {
+      node.onclick = () => {
+        const at = K.lowPick.indexOf(i);
+        if (at !== -1) { K.lowPick.splice(at, 1); node.classList.remove("picked"); }
+        else if (K.lowPick.length < 2) { K.lowPick.push(i); node.classList.add("picked"); }
+      };
+    });
+    host.append(mine);
+
+    const acts = el("div", "factions");
+    const set = el("button", "fbtn fbtn-go", "Set my hand");
+    set.onclick = () => {
+      if (K.lowPick.length !== 2) return say("Pick exactly two cards for the low hand.");
+      send({ type: "TABLE_ACT", low: K.lowPick });
+    };
+    const hw = el("button", "fbtn", "House Way");
+    hw.onclick = () => send({ type: "TABLE_ACT", low: msg.houseWay });
+    acts.append(set, hw);
+    host.append(acts);
+    return;
+  }
+
+  if (msg.game === "crisscross") {
+    host.textContent = "";
+    const ccHead = el("div", "hz-head");
+    ccHead.append(el("span", "hz-l", `Betting the ${msg.stage}`));
+    ccHead.append(endHandBtn());
+    host.append(ccHead);
+    host.append(el("p", "fs-note", "Your two cards"));
+    host.append(handRow(msg.cards, "hole", "thand"));
+
+    if (msg.revealed?.length) {
+      host.append(el("p", "fs-note", "Turned over so far:"));
+      host.append(handRow(msg.revealed, "cross", "thand"));
+    }
+
+    const acts = el("div", "factions");
+    for (const m of [1, 2, 3]) {
+      const b = el("button", "fbtn fbtn-go", `${m}\u00d7 (${money(msg.ante * m)})`);
+      b.onclick = () => send({ type: "TABLE_ACT", move: "bet", mult: m });
+      acts.append(b);
+    }
+    const fold = el("button", "fbtn", "Fold this line");
+    fold.onclick = () => send({ type: "TABLE_ACT", move: "fold" });
+    acts.append(fold);
+    host.append(acts);
+    return;
+  }
+
+  if (msg.game === "threecard") {
+    const acts = el("div", "factions");
+    const play = el("button", "fbtn fbtn-go", `Play (${money(msg.ante)} more)`);
+    play.onclick = () => send({ type: "TABLE_ACT", move: "play" });
+    const fold = el("button", "fbtn", "Fold");
+    fold.onclick = () => send({ type: "TABLE_ACT", move: "fold" });
+    acts.append(play, fold);
+    host.append(acts);
+    return;
+  }
+
+  // Five-card draw: tap the ones you don't want.
+  const toss = new Set();
+  host.append(el("p", "fs-note", "Tap the cards to throw away, then draw."));
+  [...hand.children].forEach((node, i) => {
+    node.style.cursor = "pointer";
+    node.onclick = () => {
+      if (toss.has(i)) { toss.delete(i); node.classList.remove("tossed"); }
+      else { toss.add(i); node.classList.add("tossed"); }
+    };
+  });
+  const draw = el("button", "fbtn fbtn-go", "Draw");
+  draw.onclick = () => send({ type: "TABLE_ACT", discards: [...toss] });
+  host.append(draw);
+}
+
+/** What happened, and the way back to another go. */
+function showTableResult(msg) {
+  K.lastHand = { at: Date.now(), title: msg.title, returned: msg.returned, staked: msg.staked };
+  const host = $("tgame");
+  if (!host) return;
+  setCanLeave(true);       // nothing staked, so the way out is back
+  host.textContent = "";
+
+  const net = (msg.returned || 0) - (msg.staked ?? 0);
+  host.append(el("p", `arc-sum ${msg.returned > 0 ? "arc-good" : "arc-bad"}`,
+    msg.returned > 0 ? "\u2713" : "\u2717"));
+  host.append(el("p", "fs-note", msg.title));
+
+  const d = msg.detail || {};
+  if (d.player && d.banker) {
+    for (const [who, cards, total] of [["Player", d.player, d.playerTotal], ["Banker", d.banker, d.bankerTotal]]) {
+      const row = el("div", "ftable-row");
+      row.append(el("span", "ft-l", `${who} ${total}`));
+      row.append(handRow(cards, `res-${who}`));
+      host.append(row);
+    }
+  }
+  if (d.dealer) {
+    const row = el("div", "ftable-row");
+    row.append(el("span", "ft-l", `Dealer: ${d.dealerRank}`));
+    row.append(handRow(d.dealer, "res-dealer"));
+    host.append(row);
+  }
+  if (d.cards) {
+    host.append(handRow(d.cards, "res-final", "thand"));
+  }
+  if (d.bonus) host.append(el("p", "fs-note", `Ante bonus: ${d.bonus}`));
+  if (d.pairPlus) host.append(el("p", "fs-note", `Pair Plus: ${d.pairPlus}`));
+
+  host.append(el("p", "arc-pay", net > 0 ? `You win ${money(net)}` : net === 0 ? "Push" : `Down ${money(-net)}`));
+
+  const again = el("button", "fbtn fbtn-go", "Next hand");
+  again.onclick = () => drawGame(K.table);
+  host.append(again);
+}
+
+export function closeTable() {
+  // Standing up as well as closing: a held seat with a bet on it would leave
+  // the shared table waiting on somebody who has gone.
+  if (K.table === "blackjack" && K.floor?.table?.seats?.some((x) => x.uid === K.you))
+    send({ type: "SEAT_LEAVE" });
+  forgetCards();
+  K.table = null;
+  const host = $("table-modal");
+  host.hidden = true;
+  host.textContent = "";
+}
+
+/** The card room's own results bar, separate from the race's. */
+function showTableResults() {
+  const hand = K.lastHand;
+  if (!hand?.seats?.length) return say("No hand has finished yet.");
+  const lines = hand.seats
+    .map((x) => `${x.name}: ${x.result || "no result"}${x.cards?.length ? ` (${x.total})` : ""}`)
+    .join("\n");
+  window.alert(`Last hand at the card table\n\n${lines}`);
+}
+
+/* ── the rule sheet ──────────────────────────────────────────────────── */
+
+export function openCasinoRules() {
+  const host = $("casino-rules-modal");
+  host.hidden = false;
+  host.innerHTML = `
+    <div class="modal-back" data-close></div>
+    <div class="modal-card floor-card rules-card">
+      <div class="modal-head">
+        <h2>&#128220; Casino Game Rules</h2>
+        <button class="modal-close" data-close aria-label="Close">&times;</button>
+      </div>
+      <div class="modal-body rules-cols">${casinoRulesHtml()}</div>
+    </div>`;
+  host.querySelectorAll("[data-close]").forEach((n) => {
+    n.onclick = () => { host.hidden = true; host.textContent = ""; };
+  });
+}
+
+/* ── log and results ─────────────────────────────────────────────────── */
+
+function logNode(e) {
+  const p = el("p", "flog-line");
+  p.innerHTML = `<span class="fl-t">${new Date(e.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</span> ${esc(e.text)}`;
+  return p;
+}
+
+function logLine(e) {
+  K.logLines.unshift(e);
+  K.logLines = K.logLines.slice(0, 60);
+  const host = $("casino-log");
+  if (!host) return;                 // the window is closed; it will catch up
+  host.prepend(logNode(e));
+  while (host.children.length > 60) host.lastChild.remove();
+}
+
+function showResult(msg) {
+  const names = msg.order.map((id) => horse(id).name);
+  const mine = msg.winners.filter((w) => w.name === (K.floor?.players || []).find((p) => p.uid === K.you)?.name);
+  const won = mine.reduce((a, w) => a + w.paid, 0);
+  say(won ? `You collect ${money(won)}. Finish: ${names.join(", ")}` : `Finish: ${names.join(", ")}`);
+}
+
+
+/* ── Earn Money: the maths arcade ─────────────────────────────────────
+ *
+ * The only thing on the floor that pays MMR, which is exactly why none of it
+ * is decided here. The Worker issues the sum, keeps the answer, times the
+ * solve on its own clock and credits the table itself. This draws the sum and
+ * sends what was typed.
+ */
+
+let arcTimer = null;
+
+export function openArcade() {
+  const host = $("arcade-modal");
+  host.hidden = false;
+  host.innerHTML = `
+    <div class="modal-back" data-close></div>
+    <div class="modal-card floor-card">
+      <div class="modal-head">
+        <h2>&#129518; Earn Money</h2>
+        <button class="modal-close" data-close aria-label="Close">&times;</button>
+      </div>
+      <div class="modal-body" id="arc-body">
+        <p class="fs-note">Loading a sum&hellip;</p>
+      </div>
+    </div>`;
+  host.querySelectorAll("[data-close]").forEach((n) => { n.onclick = closeArcade; });
+  nextSum();
+}
+
+export function closeArcade() {
+  clearInterval(arcTimer);
+  arcTimer = null;
+  const host = $("arcade-modal");
+  host.hidden = true;
+  host.textContent = "";
+}
+
+async function nextSum() {
+  const body = $("arc-body");
+  if (!body) return;
+  body.innerHTML = `<p class="fs-note">Loading a sum&hellip;</p>`;
+
+  let p;
+  try {
+    const token = await K.idToken();
+    const res = await fetch("/api/puzzle/new", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    p = await res.json();
+    if (p.error) throw new Error(p.error);
+  } catch (err) {
+    body.innerHTML = `<p class="fs-note arc-bad">${esc(err.message || "Could not fetch a sum.")}</p>`;
+    return;
+  }
+
+  const started = Date.now();
+  body.innerHTML = `
+    <p class="fs-note">Answer before the bar runs out. Under ${Math.round(p.fastMs / 1000)}s pays a bonus.</p>
+    <p class="arc-sum">${esc(p.text)}</p>
+    <div class="arc-bar"><span class="arc-fill" id="arc-fill"></span></div>
+    <input id="arc-answer" class="arc-answer" type="number" inputmode="numeric" autocomplete="off" />
+    <button id="arc-go" class="fbtn fbtn-go">Submit</button>`;
+
+  const input = $("arc-answer");
+  input.focus();
+
+  clearInterval(arcTimer);
+  arcTimer = setInterval(() => {
+    const left = Math.max(0, p.limitMs - (Date.now() - started));
+    const fill = $("arc-fill");
+    if (!fill) { clearInterval(arcTimer); return; }
+    fill.style.width = `${(left / p.limitMs) * 100}%`;
+    if (left <= 0) { clearInterval(arcTimer); submit(p.id); }
+  }, 100);
+
+  const submit = async (id) => {
+    clearInterval(arcTimer);
+    const answer = Number($("arc-answer")?.value);
+    let r;
+    try {
+      const token = await K.idToken();
+      const res = await fetch("/api/puzzle/solve", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ id, answer }),
+      });
+      r = await res.json();
+    } catch {
+      body.innerHTML = `<p class="fs-note arc-bad">That didn't reach the server.</p>`;
+      return;
+    }
+    showPay(r);
+  };
+
+  $("arc-go").onclick = () => submit(p.id);
+  input.onkeydown = (e) => { if (e.key === "Enter") submit(p.id); };
+}
+
+function showPay(r) {
+  const body = $("arc-body");
+  if (!body) return;
+
+  if (!r.correct) {
+    body.innerHTML = `
+      <p class="arc-sum arc-bad">&#10007;</p>
+      <p class="fs-note">The answer was <b>${esc(String(r.answer ?? "?"))}</b>. Nothing earned that time.</p>
+      <button id="arc-next" class="fbtn fbtn-go">Another sum</button>`;
+  } else {
+    body.innerHTML = `
+      <p class="arc-sum arc-good">&#10003;</p>
+      <div class="arc-pay">
+        <span>MMR <b class="arc-good">+${r.mmr}</b></span>
+        <span>Cash <b>${money(r.cash)}</b></span>
+        <span>Tokens <b>+${r.token}</b></span>
+      </div>
+      <p class="fs-note">${r.fast ? `Under the wire &mdash; ${r.multiplier}&times; bonus applied.` : `Solved in ${(r.elapsedMs / 1000).toFixed(1)}s.`}</p>
+      <p class="fs-note">Cash and tokens land on the table. Bank them before you leave the floor.</p>
+      <button id="arc-next" class="fbtn fbtn-go">Another sum</button>`;
+  }
+  $("arc-next").onclick = nextSum;
+}

@@ -1,0 +1,41 @@
+rules_version = '2';
+
+// Deploy with: firebase deploy --only firestore:rules
+//
+// Scores are written by the Worker's service account, which bypasses these
+// rules. Clients are locked out of matches and leaderboard entirely, which is
+// the point: anything a client can write about its own score is a claim, not
+// a result.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Profiles are readable by signed-in players so a lobby can show names.
+    match /users/{uid} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == uid;
+
+      // A player's own scrolls. Nobody else can read them, so a sensei's
+      // saved answers don't leak to the students.
+      match /scrolls/{scrollId} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
+
+      // A player's own match log. Private to them, and self-reported: the
+      // ranked record is the leaderboard, which only the Worker can write.
+      match /history/{roundId} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
+    }
+
+    match /matches/{matchId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    match /leaderboard/{uid} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+  }
+}

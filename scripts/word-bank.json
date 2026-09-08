@@ -1,0 +1,652 @@
+{
+  "themes": [
+    {
+      "id": "baseball",
+      "name": "Baseball",
+      "levels": {
+        "easy": [
+          {
+            "answer": "BAT",
+            "clue": "You swing it"
+          },
+          {
+            "answer": "BASE",
+            "clue": "There are four to touch"
+          },
+          {
+            "answer": "GLOVE",
+            "clue": "Leather on your hand"
+          },
+          {
+            "answer": "PITCH",
+            "clue": "What the mound delivers"
+          },
+          {
+            "answer": "HOME",
+            "clue": "The last plate you touch"
+          },
+          {
+            "answer": "INNING",
+            "clue": "One of nine"
+          },
+          {
+            "answer": "FIELD",
+            "clue": "Where the nine stand"
+          },
+          {
+            "answer": "COACH",
+            "clue": "The one waving you around third"
+          },
+          {
+            "answer": "SLIDE",
+            "clue": "Feet first, usually"
+          },
+          {
+            "answer": "THROW",
+            "clue": "Get it there before the runner"
+          },
+          {
+            "answer": "DUGOUT",
+            "clue": "Bench below field level"
+          },
+          {
+            "answer": "MOUND",
+            "clue": "The raised circle"
+          },
+          {
+            "answer": "PLATE",
+            "clue": "Five-sided and dusty"
+          },
+          {
+            "answer": "FOUL",
+            "clue": "Outside the lines"
+          },
+          {
+            "answer": "WALK",
+            "clue": "Four balls and you take first"
+          },
+          {
+            "answer": "STEAL",
+            "clue": "Take the next base uninvited"
+          },
+          {
+            "answer": "CURVE",
+            "clue": "It bends away late"
+          },
+          {
+            "answer": "DIAMOND",
+            "clue": "The infield's shape"
+          },
+          {
+            "answer": "HELMET",
+            "clue": "Batter's hard hat"
+          },
+          {
+            "answer": "CATCH",
+            "clue": "Glove it before it lands"
+          },
+          {
+            "answer": "SCORE",
+            "clue": "What crossing home adds"
+          },
+          {
+            "answer": "TEAM",
+            "clue": "Nine on the field"
+          },
+          {
+            "answer": "STRIKE",
+            "clue": "Three and you're done"
+          },
+          {
+            "answer": "CROWD",
+            "clue": "It roars on a deep fly"
+          },
+          {
+            "answer": "GRASS",
+            "clue": "The outfield's carpet"
+          },
+          {
+            "answer": "SEASON",
+            "clue": "Spring through autumn"
+          }
+        ],
+        "medium": [
+          {
+            "answer": "BULLPEN",
+            "clue": "Where relievers warm up"
+          },
+          {
+            "answer": "SHORTSTOP",
+            "clue": "Between second and third"
+          },
+          {
+            "answer": "FASTBALL",
+            "clue": "Straight and hard"
+          },
+          {
+            "answer": "LINEUP",
+            "clue": "The batting order"
+          },
+          {
+            "answer": "RELIEVER",
+            "clue": "He comes in late"
+          },
+          {
+            "answer": "DOUBLE",
+            "clue": "Two bases on one hit"
+          },
+          {
+            "answer": "TRIPLE",
+            "clue": "Rarest of the extra-base hits"
+          },
+          {
+            "answer": "SACRIFICE",
+            "clue": "You give up an out to move a runner"
+          },
+          {
+            "answer": "BUNT",
+            "clue": "Deaden it in front of the plate"
+          },
+          {
+            "answer": "ERROR",
+            "clue": "Charged to the fielder"
+          },
+          {
+            "answer": "INFIELD",
+            "clue": "The dirt half"
+          },
+          {
+            "answer": "OUTFIELD",
+            "clue": "Where the long ones land"
+          },
+          {
+            "answer": "CATCHER",
+            "clue": "The one squatting"
+          },
+          {
+            "answer": "PITCHER",
+            "clue": "He starts every play"
+          },
+          {
+            "answer": "UMPIRE",
+            "clue": "He calls it as he sees it"
+          },
+          {
+            "answer": "ROOKIE",
+            "clue": "First year up"
+          },
+          {
+            "answer": "ROSTER",
+            "clue": "Everyone on the club"
+          },
+          {
+            "answer": "SERIES",
+            "clue": "Several games, one opponent"
+          },
+          {
+            "answer": "SHUTOUT",
+            "clue": "Nothing gets across"
+          },
+          {
+            "answer": "RUNNER",
+            "clue": "He's ninety feet away"
+          },
+          {
+            "answer": "SIGNAL",
+            "clue": "Fingers behind the mitt"
+          },
+          {
+            "answer": "BALLPARK",
+            "clue": "Where it all happens"
+          },
+          {
+            "answer": "STRETCH",
+            "clue": "Delivery with a man on"
+          },
+          {
+            "answer": "CLEANUP",
+            "clue": "Fourth in the order"
+          },
+          {
+            "answer": "SLUGGER",
+            "clue": "He's paid for power"
+          },
+          {
+            "answer": "STARTER",
+            "clue": "First arm of the day"
+          }
+        ],
+        "hard": [
+          {
+            "answer": "SLIDER",
+            "clue": "Late, sharp, sideways"
+          },
+          {
+            "answer": "CHANGEUP",
+            "clue": "Same arm speed, less velocity"
+          },
+          {
+            "answer": "SPLITTER",
+            "clue": "It falls off the table"
+          },
+          {
+            "answer": "BALK",
+            "clue": "Illegal move with a runner on"
+          },
+          {
+            "answer": "SQUEEZE",
+            "clue": "Bunt with the runner already breaking"
+          },
+          {
+            "answer": "CUTOFF",
+            "clue": "The relay man"
+          },
+          {
+            "answer": "PICKOFF",
+            "clue": "Caught leaning the wrong way"
+          },
+          {
+            "answer": "RUNDOWN",
+            "clue": "Trapped between two bases"
+          },
+          {
+            "answer": "BATTERY",
+            "clue": "Pitcher and catcher together"
+          },
+          {
+            "answer": "PLATOON",
+            "clue": "Sharing a position by matchup"
+          },
+          {
+            "answer": "SLUGGING",
+            "clue": "Total bases per at-bat"
+          },
+          {
+            "answer": "KNUCKLER",
+            "clue": "No spin, no idea where it goes"
+          },
+          {
+            "answer": "SINKER",
+            "clue": "It dives at the knees"
+          },
+          {
+            "answer": "PINCH",
+            "clue": "___ hitter, off the bench"
+          },
+          {
+            "answer": "WHEELHOUSE",
+            "clue": "Right where he likes it"
+          },
+          {
+            "answer": "CYCLE",
+            "clue": "Single, double, triple, homer"
+          },
+          {
+            "answer": "TAGUP",
+            "clue": "Wait for the catch, then go"
+          },
+          {
+            "answer": "PUTOUT",
+            "clue": "Credited for recording the out"
+          },
+          {
+            "answer": "ASSIST",
+            "clue": "You touched it before the putout"
+          },
+          {
+            "answer": "SPLITS",
+            "clue": "How he hits against lefties"
+          },
+          {
+            "answer": "CORNERS",
+            "clue": "First and third, collectively"
+          },
+          {
+            "answer": "MENDOZA",
+            "clue": "___ line, a batting average of shame"
+          },
+          {
+            "answer": "GAPPER",
+            "clue": "Between the outfielders"
+          },
+          {
+            "answer": "STANCE",
+            "clue": "How he sets up in the box"
+          },
+          {
+            "answer": "CHOPPER",
+            "clue": "High bounce off the dirt"
+          },
+          {
+            "answer": "SETUP",
+            "clue": "The arm before the closer"
+          }
+        ]
+      }
+    },
+    {
+      "id": "football",
+      "name": "Football (American)",
+      "levels": {
+        "easy": [
+          {
+            "answer": "BALL",
+            "clue": "It's not round"
+          },
+          {
+            "answer": "KICK",
+            "clue": "How the game starts"
+          },
+          {
+            "answer": "PASS",
+            "clue": "Thrown, not handed"
+          },
+          {
+            "answer": "TEAM",
+            "clue": "Eleven at a time"
+          },
+          {
+            "answer": "FIELD",
+            "clue": "A hundred yards of it"
+          },
+          {
+            "answer": "GOAL",
+            "clue": "The uprights"
+          },
+          {
+            "answer": "DOWN",
+            "clue": "You get four"
+          },
+          {
+            "answer": "YARD",
+            "clue": "Ten of them for a first"
+          },
+          {
+            "answer": "COACH",
+            "clue": "The one with the headset"
+          },
+          {
+            "answer": "HELMET",
+            "clue": "You don't play without it"
+          },
+          {
+            "answer": "TACKLE",
+            "clue": "Bring him down"
+          },
+          {
+            "answer": "PUNT",
+            "clue": "Give it back on fourth"
+          },
+          {
+            "answer": "CATCH",
+            "clue": "Two feet in bounds"
+          },
+          {
+            "answer": "SCORE",
+            "clue": "What the board shows"
+          },
+          {
+            "answer": "HUDDLE",
+            "clue": "The circle before the snap"
+          },
+          {
+            "answer": "SNAP",
+            "clue": "Between the center's legs"
+          },
+          {
+            "answer": "GUARD",
+            "clue": "Next to the center"
+          },
+          {
+            "answer": "CLOCK",
+            "clue": "It runs, then it doesn't"
+          },
+          {
+            "answer": "FLAG",
+            "clue": "Yellow and unwelcome"
+          },
+          {
+            "answer": "HALF",
+            "clue": "There are two"
+          },
+          {
+            "answer": "RUSH",
+            "clue": "Run it up the middle"
+          },
+          {
+            "answer": "LINE",
+            "clue": "Where the big men stand"
+          },
+          {
+            "answer": "PLAY",
+            "clue": "Called in the huddle"
+          },
+          {
+            "answer": "GAME",
+            "clue": "Sunday's whole point"
+          },
+          {
+            "answer": "CHAINS",
+            "clue": "They measure the first down"
+          },
+          {
+            "answer": "SEASON",
+            "clue": "Autumn into winter"
+          }
+        ],
+        "medium": [
+          {
+            "answer": "TOUCHDOWN",
+            "clue": "Six points"
+          },
+          {
+            "answer": "FUMBLE",
+            "clue": "Dropped and up for grabs"
+          },
+          {
+            "answer": "SAFETY",
+            "clue": "Two points the hard way"
+          },
+          {
+            "answer": "BLITZ",
+            "clue": "Send everybody"
+          },
+          {
+            "answer": "SACK",
+            "clue": "He never got the throw off"
+          },
+          {
+            "answer": "PUNTER",
+            "clue": "Loneliest man on the roster"
+          },
+          {
+            "answer": "KICKER",
+            "clue": "He wins or loses it late"
+          },
+          {
+            "answer": "RECEIVER",
+            "clue": "He runs the route"
+          },
+          {
+            "answer": "LINEMAN",
+            "clue": "He works in the trenches"
+          },
+          {
+            "answer": "QUARTER",
+            "clue": "Fifteen minutes of it"
+          },
+          {
+            "answer": "OFFENSE",
+            "clue": "The side with the ball"
+          },
+          {
+            "answer": "DEFENSE",
+            "clue": "The side without it"
+          },
+          {
+            "answer": "PENALTY",
+            "clue": "It costs you yards"
+          },
+          {
+            "answer": "HANDOFF",
+            "clue": "Given, not thrown"
+          },
+          {
+            "answer": "SIDELINE",
+            "clue": "Step on it and you're out"
+          },
+          {
+            "answer": "ENDZONE",
+            "clue": "Ten yards of paydirt"
+          },
+          {
+            "answer": "KICKOFF",
+            "clue": "It opens each half"
+          },
+          {
+            "answer": "TURNOVER",
+            "clue": "The ball changes hands"
+          },
+          {
+            "answer": "FORMATION",
+            "clue": "How they line up"
+          },
+          {
+            "answer": "OVERTIME",
+            "clue": "Tied after sixty minutes"
+          },
+          {
+            "answer": "PLAYBOOK",
+            "clue": "Everything they might run"
+          },
+          {
+            "answer": "ROSTER",
+            "clue": "Fifty-three names"
+          },
+          {
+            "answer": "TIMEOUT",
+            "clue": "You only get three"
+          },
+          {
+            "answer": "SCREEN",
+            "clue": "Short pass behind blockers"
+          },
+          {
+            "answer": "RETURN",
+            "clue": "Bring the kick back"
+          },
+          {
+            "answer": "BLOCKER",
+            "clue": "He clears the path"
+          }
+        ],
+        "hard": [
+          {
+            "answer": "AUDIBLE",
+            "clue": "Changed at the line"
+          },
+          {
+            "answer": "COVERAGE",
+            "clue": "Man or zone"
+          },
+          {
+            "answer": "SHOTGUN",
+            "clue": "Taking the snap deep"
+          },
+          {
+            "answer": "ONSIDE",
+            "clue": "Desperate short kick"
+          },
+          {
+            "answer": "NICKEL",
+            "clue": "Five defensive backs"
+          },
+          {
+            "answer": "CORNERBACK",
+            "clue": "He follows the receiver"
+          },
+          {
+            "answer": "LINEBACKER",
+            "clue": "Behind the line, ahead of the secondary"
+          },
+          {
+            "answer": "TRENCHES",
+            "clue": "Where the line battle happens"
+          },
+          {
+            "answer": "POCKET",
+            "clue": "The space he throws from"
+          },
+          {
+            "answer": "BOOTLEG",
+            "clue": "He rolls the other way"
+          },
+          {
+            "answer": "COUNTER",
+            "clue": "Misdirection run"
+          },
+          {
+            "answer": "MOTION",
+            "clue": "Moving before the snap"
+          },
+          {
+            "answer": "HOLDING",
+            "clue": "Ten yards, repeat the down"
+          },
+          {
+            "answer": "SCRAMBLE",
+            "clue": "The play broke down"
+          },
+          {
+            "answer": "BLOCKING",
+            "clue": "Keeping him upright"
+          },
+          {
+            "answer": "PURSUIT",
+            "clue": "Chasing the ball carrier"
+          },
+          {
+            "answer": "SECONDARY",
+            "clue": "The back four"
+          },
+          {
+            "answer": "DIME",
+            "clue": "Six defensive backs"
+          },
+          {
+            "answer": "SPIKE",
+            "clue": "Throw it down to stop the clock"
+          },
+          {
+            "answer": "SLANT",
+            "clue": "Quick route across the middle"
+          },
+          {
+            "answer": "TRAP",
+            "clue": "Let him through, then block him"
+          },
+          {
+            "answer": "CADENCE",
+            "clue": "The rhythm of the count"
+          },
+          {
+            "answer": "PLAYACTION",
+            "clue": "Fake the run, throw deep"
+          },
+          {
+            "answer": "HAILMARY",
+            "clue": "Everyone to the end zone"
+          },
+          {
+            "answer": "GUNNER",
+            "clue": "First man down on the punt"
+          },
+          {
+            "answer": "SNAPPER",
+            "clue": "Long ___, a one-job specialist"
+          }
+        ]
+      }
+    }
+  ]
+}

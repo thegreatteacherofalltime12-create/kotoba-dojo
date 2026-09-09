@@ -17,7 +17,7 @@ import {
   dealerAct, strengthOf, levelById, AI_LEVELS,
 } from "./casino-tables.js";
 import { compare as compare2 } from "./casino-games.js";
-import { bankWallet, writeHistory } from "./firestore.js";
+import { bankWallet, writeHistory, postFeed } from "./firestore.js";
 
 const IDLE_MS = 45 * 60_000;
 const SEAT_TURN_MS = 30_000;
@@ -405,9 +405,7 @@ export class CasinoFloor {
       const p = this.f.players[b.uid];
       if (!p) continue;
       if (betWins(b.type, b.picks, order, this.f.race)) {
-        // Priced against today's favourite, so backing the horse everyone
-        // expects to win pays what those chances are worth.
-        const paid = Math.round(b.stake + b.stake * oddsFor(b.type, b.picks, this.f.race.favourite));
+        const paid = Math.round(b.stake + b.stake * oddsFor(b.type));
         p.table += paid;
         winners.push({ name: b.name, paid, type: b.type });
       }
@@ -1199,6 +1197,18 @@ export class CasinoFloor {
       elapsedMs: null, status: `banked $${amount}`,
       finishedAt: Date.now(),
     }).catch(() => {});
+
+    // And the feed, which it never reached: the casino wrote its own history
+    // rows and nothing else, so a night on the floor left no trace anywhere
+    // the rest of the arena could see.
+    postFeed(this.env, {
+      kind: "game", name: p.name,
+      text: `${p.name} left the casino with $${amount.toLocaleString()}`,
+      detail: p.mmrEarned
+        ? `banked $${amount.toLocaleString()} \u00b7 +${p.mmrEarned} MMR at the arcade`
+        : `banked $${amount.toLocaleString()}`,
+    }).catch(() => {});
+
     p.mmrEarned = 0;
 
     this.note(`${p.name} banked $${amount}.`);

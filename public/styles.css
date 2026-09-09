@@ -2550,3 +2550,55 @@ body.panel-open { overflow: hidden; }
 /* Champion, second and third, marked where the standings already are. */
 .slot .medal { font-size: 1rem; line-height: 1; }
 .slot.lead { background: color-mix(in srgb, var(--gold, #F4CE5A) 10%, var(--surface)); }
+
+/* What this slip actually returns, before the money goes down. */
+.slip-price { margin: .5rem 0; padding: .45rem .6rem; border-radius: 6px;
+  background: rgba(0,0,0,.25); font-size: .82rem; }
+.slip-price b { color: #F4CE5A; }
+.slip-price.short { border: 1px solid rgba(244,206,90,.5); }
+.slip-why { display: block; margin-top: .3rem; font-size: .7rem; color: rgba(255,255,255,.62); }
+
+/* ── the Big Six wheel ────────────────────────────────────────────────── */
+
+.w6 { display: flex; justify-content: center; margin: .3rem 0 .8rem; }
+.w6-wrap { position: relative; width: min(320px, 78vw); }
+.w6-svg { width: 100%; height: auto; display: block; filter: drop-shadow(0 6px 16px rgba(0,0,0,.55)); }
+
+.w6-rim { fill: none; stroke: #6B4A1F; stroke-width: 6; }
+.w6-rotor { transform-origin: 100px 100px; }
+.w6-seg { stroke: rgba(0,0,0,.55); stroke-width: .6; }
+/* The wedges you have money on, lit so you can follow them round. */
+.w6-seg.on { stroke: #FFF; stroke-width: 1.6; filter: brightness(1.25); }
+
+.w6-lab {
+  font-size: 7px; font-weight: 800; fill: #fff; text-anchor: middle;
+  paint-order: stroke; stroke: rgba(0,0,0,.5); stroke-width: 1.4;
+}
+.w6-lab.big { font-size: 9px; fill: #111; stroke: none; }
+.w6-hub { fill: #120E08; stroke: #6B4A1F; stroke-width: 3; }
+.w6-hub-t { font-size: 11px; font-weight: 800; fill: #F4CE5A; text-anchor: middle; letter-spacing: .06em; }
+
+/* The pointer sits still while the wheel turns beneath it. */
+.w6-point {
+  position: absolute; top: -2px; left: 50%; transform: translateX(-50%);
+  width: 0; height: 0; z-index: 2;
+  border-left: 11px solid transparent; border-right: 11px solid transparent;
+  border-top: 20px solid #E11D48;
+  filter: drop-shadow(0 2px 3px rgba(0,0,0,.6));
+}
+
+.w6-picks { display: grid; grid-template-columns: repeat(auto-fit, minmax(4.2rem, 1fr)); gap: .35rem; margin-bottom: .7rem; }
+.w6-pick {
+  display: flex; flex-direction: column; align-items: center; gap: .1rem;
+  padding: .4rem .2rem; cursor: pointer; font: inherit; border-radius: 8px;
+  background: rgba(0,0,0,.3); border: 2px solid var(--tone); color: #fff;
+}
+.w6-pick:hover { background: rgba(255,255,255,.08); }
+.w6-pick.on { background: var(--tone); color: #08110C; font-weight: 800; }
+.w6-pick-s { font-size: 1.05rem; font-weight: 800; line-height: 1; }
+.w6-pick-p { font-size: .7rem; }
+.w6-pick-n { font-size: .58rem; opacity: .75; }
+
+@media (prefers-reduced-motion: reduce) {
+  .w6-rotor { transition: none !important; }
+}

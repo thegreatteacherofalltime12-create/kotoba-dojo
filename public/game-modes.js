@@ -201,3 +201,40 @@ export const BACCARAT_BOARD = [
   { id: "tigerpair", name: "Tiger Pair", odds: "4 / 20 / 100 to 1", tone: "rose", side: true },
   { id: "lucky7", name: "Lucky 7", odds: "6 / 15 to 1", tone: "gold", side: true },
 ];
+
+/**
+ * The order the symbols sit in around the Big Six wheel.
+ *
+ * Fifty-four segments in the standard distribution — twenty-three ones, then
+ * fifteen twos, eight fives, four tens, two twenties, a star and a diamond.
+ * The ones take every other segment so no two of anything else touch, which is
+ * how a real wheel is laid out and why the rare symbols are easy to pick out
+ * as it slows down.
+ */
+export const BIGSIX_WHEEL = (() => {
+  const rest = [
+    ...Array(15).fill("2"), ...Array(8).fill("5"), ...Array(4).fill("10"),
+    ...Array(2).fill("20"), "star", "diamond",
+  ];
+  // Spread the rest evenly rather than in blocks, deterministically so every
+  // player sees the same wheel.
+  const spread = [];
+  const step = 7;
+  for (let i = 0, at = 0; i < rest.length; i++) {
+    while (spread[at % rest.length] !== undefined) at++;
+    spread[at % rest.length] = rest[i];
+    at += step;
+  }
+  const out = [];
+  let r = 0;
+  for (let i = 0; i < 54; i++) {
+    if (i % 2 === 0 && out.filter((x) => x === "1").length < 23) out.push("1");
+    else out.push(spread[r++ % spread.length]);
+  }
+  return out;
+})();
+
+export const BIGSIX_TONE = {
+  "1": "#2563EB", "2": "#16A34A", "5": "#EA580C",
+  "10": "#7C3AED", "20": "#DC2626", star: "#F8FAFC", diamond: "#F4CE5A",
+};

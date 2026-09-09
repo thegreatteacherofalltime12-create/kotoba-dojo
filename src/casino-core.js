@@ -104,38 +104,25 @@ export const FAVOURITE_STEP = 0.297;
 /**
  * What a slip pays.
  *
- * A horse that wins four races in five cannot pay what an outsider pays, and
- * an outsider that wins one race in thirty cannot pay what it did when there
- * were four runners and no favourite. Every price here was measured by
- * simulating the race a hundred thousand times and taking roughly a tenth off
- * the fair price as the house's cut.
- *
- * Two prices are generous by choice rather than by measurement. 1st-or-2nd on
- * the field and Short both pay well over the odds, because the house losing
- * money on them is deliberate. The favourite is still priced short to place —
- * paying a 93% chance at those odds would leave nothing else on the board
- * worth betting.
- *
- * The long shots are capped rather than paid true. An exacta between two
- * outsiders is a 1-in-440 chance and would fairly pay near four hundred to
- * one; a single lucky slip at that price would empty the floor. The cap is a
- * house decision, not a calculation.
+ * One price per bet, whoever is on the slip. The favourite used to pay a
+ * fraction of the board price because it wins four races in five, which is
+ * what a real book would do — and it meant a winning ticket handed back barely
+ * more than the stake. This is not meant to be a real book. The favourite pays
+ * what every other runner pays, the house loses heavily on it, and that is the
+ * point: a horse that wins most of the time at full odds is a good night.
  */
 const PRICES = {
-  //            favourite on the slip | field only
-  place:      { fav: 0.05, field: 4 },
-  win:        { fav: 0.22, field: 20 },
-  exacta:     { fav: 5,    field: 150 },
-  trifecta:   { fav: 28,   field: 400 },
-  superfecta: { fav: 110,  field: 1000 },
-  long:       { fav: 1,    field: 100 },
-  short:      { fav: 50,   field: 50 },
+  place: 4,
+  win: 20,
+  exacta: 150,
+  trifecta: 400,
+  superfecta: 1000,
+  long: 100,
+  short: 50,
 };
 
-export function oddsFor(betType, picks, favourite) {
-  const row = PRICES[betType];
-  if (!row) return 0;
-  return (picks || []).includes(favourite) ? row.fav : row.field;
+export function oddsFor(betType) {
+  return PRICES[betType] || 0;
 }
 
 export const BETS = [
@@ -151,12 +138,8 @@ export const BETS = [
   { id: "short", name: "Short", pays: 50, picks: 1, side: true,
     blurb: "Finishes last, three clear steps behind the one in front." },
 ];
-// The board carries both prices, so the client can show what a slip is worth
-// before the money goes down.
-for (const b of BETS) {
-  b.pays = PRICES[b.id].field;
-  b.favPays = PRICES[b.id].fav;
-}
+// One price, shown once.
+for (const b of BETS) b.pays = PRICES[b.id];
 
 export const betById = (id) => BETS.find((b) => b.id === id);
 

@@ -656,13 +656,21 @@ export async function recordMatch(env, match) {
     const game = names[match.game] || "Word-Cross";
     const winner = [...match.results].sort((a, b) => (b.score || 0) - (a.score || 0))[0];
     const field = match.results.length;
-    postFeed(env, {
-      kind: "game", at: match.finishedAt, name: winner.name,
-      text: `${winner.name} won ${game}`,
-      detail: field > 1
-        ? `${winner.score} points \u00b7 +${winner.gain ?? winner.score} MMR \u00b7 ${field} players`
-        : `${winner.score} points \u00b7 +${winner.gain ?? winner.score} MMR \u00b7 solo`,
-    }).catch(() => {});
+    const gain = winner.gain ?? winner.score ?? 0;
+
+    // A round where nobody scored is a round nobody played — somebody opened a
+    // dojo and left. Announcing "won, 0 points, 0 MMR" reads like a bug and
+    // buries the rounds that did happen, so it isn't announced at all.
+    if ((winner.score || 0) > 0 || gain > 0) {
+      postFeed(env, {
+        kind: "game", at: match.finishedAt, name: winner.name,
+        // Solo has nobody to beat, so it is finished rather than won.
+        text: field > 1 ? `${winner.name} won ${game}` : `${winner.name} finished ${game}`,
+        detail: field > 1
+          ? `${winner.score} points \u00b7 +${gain} MMR \u00b7 ${field} players`
+          : `${winner.score} points \u00b7 +${gain} MMR \u00b7 solo`,
+      }).catch(() => {});
+    }
   }
   return true;
 }

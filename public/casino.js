@@ -14,7 +14,8 @@ const el = (tag, cls, text) => {
 };
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-import { casinoRulesHtml, TABLE_GAMES, ROULETTE_UI, BIGSIX_UI, BACCARAT_BOARD } from "./game-modes.js";
+import { casinoRulesHtml, TABLE_GAMES, ROULETTE_UI, BIGSIX_UI, BACCARAT_BOARD,
+  BIGSIX_WHEEL, BIGSIX_TONE } from "./game-modes.js";
 
 const money = (n) => `$${Math.round(n || 0).toLocaleString()}`;
 
@@ -33,6 +34,7 @@ export const K = {
   tab: "race",
   stake: 10,
   pairPlus: false,
+  wheelPick: null,
   level: "medium",
   side: { fortune: false, aceBonus: false, bonus: false },
   lowPick: [],
@@ -342,7 +344,7 @@ export function openBetSlip(betType) {
       <div class="modal-back" data-close></div>
       <div class="modal-card floor-card">
         <div class="modal-head">
-          <h2>${bet.name} <span class="fs-pool">${bet.pays}:1 &middot; favourite ${bet.favPays}:1</span></h2>
+          <h2>${bet.name} <span class="fs-pool">pays ${bet.pays}:1</span></h2>
           <button class="modal-close" data-close aria-label="Close">&times;</button>
         </div>
         <div class="modal-body">
@@ -388,11 +390,16 @@ export function openBetSlip(betType) {
 
     // The price depends on whether the favourite is on the slip, so it is
     // shown before the money goes down rather than discovered afterwards.
-    const price = K.slip.picks.includes(fav) ? bet.favPays : bet.pays;
-    const note = el("p", "fs-note");
-    note.textContent = ready
-      ? `Pays ${price}:1 \u2014 ${money(K.slip.stake)} returns ${money(Math.round(K.slip.stake + K.slip.stake * price))}`
-      : "";
+    // Every runner pays the same, so the only thing worth saying is the money.
+    const note = el("p", "slip-price");
+    if (ready) {
+      note.append(el("b", "", `${money(K.slip.stake)} returns ${money(Math.round(K.slip.stake + K.slip.stake * bet.pays))}`));
+      note.append(el("span", "", ` at ${bet.pays}:1`));
+      if (K.slip.picks.includes(fav)) {
+        note.append(el("span", "slip-why",
+          "That's the favourite \u2014 it wins four races in five and pays the same as anything else."));
+      }
+    }
     $("bs-picks").after(note);
 
     const go = $("bs-go");
@@ -662,6 +669,74 @@ function endHandBtn() {
     )) send({ type: "TABLE_END" });
   };
   return b;
+}
+
+/* ── the Big Six wheel ────────────────────────────────────────────────
+ *
+ * Fifty-four wedges drawn once, then turned. The server still decides where it
+ * stops — the wheel is told the answer and spins to it, rather than deciding
+ * anything itself, so the animation can never disagree with the payout.
+ */
+
+const SEG = 360 / BIGSIX_WHEEL.length;
+let wheelTurns = 0;   // kept so it always spins forwards, never back
+
+const LABEL = { star: "\u2605", diamond: "\u25C6" };
+
+function wedgePath(i) {
+  const a0 = (i * SEG - 90) * Math.PI / 180;
+  const a1 = ((i + 1) * SEG - 90) * Math.PI / 180;
+  const r = 94;
+  const x0 = 100 + r * Math.cos(a0), y0 = 100 + r * Math.sin(a0);
+  const x1 = 100 + r * Math.cos(a1), y1 = 100 + r * Math.sin(a1);
+  return `M100,100 L${x0.toFixed(2)},${y0.toFixed(2)} A${r},${r} 0 0 1 ${x1.toFixed(2)},${y1.toFixed(2)} Z`;
+}
+
+function wheelSvg(picked) {
+  const wedges = BIGSIX_WHEEL.map((sym, i) => {
+    const mid = (i + 0.5) * SEG - 90;
+    const rad = mid * Math.PI / 180;
+    const lx = 100 + 74 * Math.cos(rad), ly = 100 + 74 * Math.sin(rad);
+    const on = picked && sym === picked;
+    return `
+      <path d="${wedgePath(i)}" fill="${BIGSIX_TONE[sym]}"
+            class="w6-seg${on ? " on" : ""}" />
+      <text x="${lx.toFixed(2)}" y="${ly.toFixed(2)}"
+            transform="rotate(${(mid + 90).toFixed(2)} ${lx.toFixed(2)} ${ly.toFixed(2)})"
+            class="w6-lab${sym === "star" || sym === "diamond" ? " big" : ""}">${LABEL[sym] || sym}</text>`;
+  }).join("");
+
+  return `
+    <div class="w6-wrap">
+      <div class="w6-point"></div>
+      <svg viewBox="0 0 200 200" class="w6-svg" aria-hidden="true">
+        <circle cx="100" cy="100" r="97" class="w6-rim" />
+        <g id="w6-rotor" class="w6-rotor">${wedges}</g>
+        <circle cx="100" cy="100" r="26" class="w6-hub" />
+        <text x="100" y="104" class="w6-hub-t">BIG 6</text>
+      </svg>
+    </div>`;
+}
+
+/** Turns the wheel until the given symbol is under the pointer. */
+function spinWheelTo(symbol) {
+  return new Promise((resolve) => {
+    const rotor = document.getElementById("w6-rotor");
+    if (!rotor) { resolve(); return; }
+
+    // Any wedge bearing that symbol will do; picking at random keeps the same
+    // result from looking identical twice running.
+    const seats = BIGSIX_WHEEL.map((s, i) => (s === symbol ? i : -1)).filter((i) => i >= 0);
+    const seat = seats[Math.floor(Math.random() * seats.length)] ?? 0;
+    const centre = (seat + 0.5) * SEG;
+
+    wheelTurns += 5 + Math.floor(Math.random() * 3);
+    const target = wheelTurns * 360 - centre;
+
+    rotor.style.transition = "transform 4.2s cubic-bezier(.15,.7,.15,1)";
+    rotor.style.transform = `rotate(${target}deg)`;
+    setTimeout(resolve, 4400);
+  });
 }
 
 /** A labelled band of felt. */
@@ -1183,8 +1258,47 @@ function drawGame(id) {
     setChip(K.stake || 5);
 
   } else if (id === "bigsix") {
-    for (const b of BIGSIX_UI)
-      host.append(betRow(b.name, () => play({ pick: b.id }), `pays ${b.pays}:1 \u00b7 ${b.sections}/54`));
+    // Pick a symbol, watch it spin. The wheel stays on screen through the
+    // result so you can see where it actually stopped.
+    let picked = K.wheelPick || null;
+
+    const wheel = el("div", "w6");
+    wheel.innerHTML = wheelSvg(picked);
+    host.append(wheel);
+
+    const chips = el("div", "w6-picks");
+    for (const b of BIGSIX_UI) {
+      const c = el("button", `w6-pick${picked === b.id ? " on" : ""}`);
+      c.style.setProperty("--tone", BIGSIX_TONE[b.id]);
+      c.append(el("span", "w6-pick-s", LABEL[b.id] || b.name));
+      c.append(el("span", "w6-pick-p", `${b.pays}:1`));
+      c.append(el("span", "w6-pick-n", `${b.sections}/54`));
+      c.onclick = () => {
+        picked = b.id;
+        K.wheelPick = b.id;
+        // Redraw so the wedges you have backed light up on the wheel.
+        wheel.innerHTML = wheelSvg(picked);
+        [...chips.children].forEach((n, i) => n.classList.toggle("on", BIGSIX_UI[i].id === picked));
+        spin.disabled = false;
+        spin.textContent = `\u25B6 SPIN \u00b7 ${money(K.stake)} on ${b.name}`;
+      };
+      chips.append(c);
+    }
+    host.append(chips);
+
+    const spin = el("button", "rl-spin", "\u25B6 SPIN");
+    spin.disabled = !picked;
+    if (picked) {
+      const b = BIGSIX_UI.find((x) => x.id === picked);
+      spin.textContent = `\u25B6 SPIN \u00b7 ${money(K.stake)} on ${b.name}`;
+    }
+    spin.onclick = () => {
+      if (!picked) return say("Pick a symbol first.");
+      spin.disabled = true;
+      spin.textContent = "Spinning\u2026";
+      play({ pick: picked });
+    };
+    host.append(spin);
 
   } else if (id === "baccarat") {
     const cash = K.mine?.table || 0;
@@ -1592,11 +1706,17 @@ function showHand(msg) {
 }
 
 /** What happened, and the way back to another go. */
-function showTableResult(msg) {
+async function showTableResult(msg) {
   K.lastHand = { at: Date.now(), title: msg.title, returned: msg.returned, staked: msg.staked };
   const host = $("tgame");
   if (!host) return;
   setCanLeave(true);       // nothing staked, so the way out is back
+
+  // The wheel knows the answer before the player does, so it turns first.
+  // Printing the payout over a still wheel would give the game away.
+  if (msg.game === "bigsix" && msg.detail?.landed && document.getElementById("w6-rotor")) {
+    await spinWheelTo(msg.detail.landed);
+  }
   host.textContent = "";
 
   const net = (msg.returned || 0) - (msg.staked ?? 0);

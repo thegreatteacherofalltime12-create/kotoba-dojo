@@ -316,6 +316,135 @@ function drawHurdles(f) {
   }
 }
 
+/* ── betting on the race ─────────────────────────────────────────────────
+ *
+ * Rebuilt after a careless edit removed it: the trap-card rewrite replaced
+ * everything between the hurdles and the board, and the picker and slip were
+ * sitting in that gap.
+ */
+
+/** Which bets are on offer, in a window over the floor. */
+export function openBetPicker() {
+  const f = K.floor;
+  if (!f) return;
+  if (f.phase !== "BETTING") return say("Betting reopens after this race.");
+
+  const host = $("bet-modal");
+  host.hidden = false;
+  host.innerHTML = `
+    <div class="modal-back" data-close></div>
+    <div class="modal-card floor-card">
+      <div class="modal-head">
+        <h2>&#127991; Place a Bet</h2>
+        <button class="modal-close" data-close aria-label="Close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="fs-note">You have ${money(K.mine?.table)} on the table.</p>
+        <div class="fbets" id="pick-bets"></div>
+      </div>
+    </div>`;
+
+  const list = $("pick-bets");
+  for (const b of K.bets) {
+    const card = el("button", `fbet${b.side ? " side" : ""}`);
+    card.append(el("span", "fbet-n", b.name));
+    card.append(el("span", "fbet-p", `pays ${b.pays}:1`));
+    if (b.blurb) card.append(el("span", "fbet-b", b.blurb));
+    card.onclick = () => openBetSlip(b.id);
+    list.append(card);
+  }
+  host.querySelectorAll("[data-close]").forEach((n) => { n.onclick = closeBetSlip; });
+}
+
+/** The slip: which runners, how much, and what it pays. */
+export function openBetSlip(type) {
+  const bet = K.bets.find((b) => b.id === type);
+  if (!bet) return;
+  K.slip = { type, picks: [], stake: K.slip?.stake || 10 };
+
+  const host = $("bet-modal");
+  host.hidden = false;
+  host.innerHTML = `
+    <div class="modal-back" data-close></div>
+    <div class="modal-card floor-card">
+      <div class="modal-head">
+        <h2>${esc(bet.name)} <span class="fs-pool">pays ${bet.pays}:1</span></h2>
+        <button class="modal-close" data-close aria-label="Close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="fs-note" id="bs-blurb"></p>
+        <div class="fpicks" id="bs-picks"></div>
+        <div id="bs-stake"></div>
+        <button class="fbtn fbtn-go" id="bs-go"></button>
+      </div>
+    </div>`;
+  host.querySelectorAll("[data-close]").forEach((n) => { n.onclick = closeBetSlip; });
+
+  const render = () => {
+    const fav = K.floor?.race?.favourite;
+    $("bs-blurb").textContent = bet.picks === 1
+      ? `${bet.blurb} Choose a runner.`
+      : `${bet.blurb} Choose ${bet.picks}, in finishing order.`;
+
+    const picks = $("bs-picks");
+    picks.textContent = "";
+    for (const h of (K.horses || [])) {
+      const at = K.slip.picks.indexOf(h.id);
+      const btn = el("button",
+        `fpick${at !== -1 ? " on" : ""}${h.red ? " red" : ""}${h.id === fav ? " favourite" : ""}`);
+      if (h.id === fav) btn.append(el("span", "fribbon", "\u{1F397}\uFE0F"));
+      btn.append(el("span", "fpick-r", h.rank));
+      btn.append(el("span", "", h.pip));
+      btn.title = h.id === fav ? `${h.name} \u2014 this week's favourite` : h.name;
+      if (at !== -1 && bet.picks > 1) btn.append(el("span", "fpick-n", String(at + 1)));
+      btn.onclick = () => {
+        const list = K.slip.picks;
+        const i = list.indexOf(h.id);
+        if (i !== -1) list.splice(i, 1);
+        else if (list.length < bet.picks) list.push(h.id);
+        render();
+      };
+      picks.append(btn);
+    }
+
+    const ready = K.slip.picks.length === bet.picks;
+
+    // What the slip is worth, before the money goes down.
+    const note = el("p", "slip-price");
+    if (ready) {
+      note.append(el("b", "", `${money(K.slip.stake)} returns ${money(Math.round(K.slip.stake + K.slip.stake * bet.pays))}`));
+      note.append(el("span", "", ` at ${bet.pays}:1`));
+    }
+    picks.after(note);
+
+    const stake = $("bs-stake");
+    stake.textContent = "";
+    const pad = betPad(K.slip.stake, K.mine?.table || 0, (v) => {
+      K.slip.stake = v;
+      render();
+    });
+    stake.append(pad);
+
+    const go = $("bs-go");
+    go.textContent = !ready
+      ? `Choose ${bet.picks - K.slip.picks.length} more`
+      : K.slip.stake > (K.mine?.table || 0) ? "Not enough on the table"
+      : `Place ${money(K.slip.stake)}`;
+    go.disabled = !ready || K.slip.stake > (K.mine?.table || 0);
+    go.onclick = () => {
+      send({ type: "FLOOR_BET", betType: K.slip.type, picks: K.slip.picks, stake: K.slip.stake });
+      closeBetSlip();
+    };
+  };
+  render();
+}
+
+export function closeBetSlip() {
+  const host = $("bet-modal");
+  host.hidden = true;
+  host.textContent = "";
+}
+
 function drawBoard(f) {
   $("floor-pool").textContent = `pool ${money(f.pool)}`;
   const host = $("floor-board");

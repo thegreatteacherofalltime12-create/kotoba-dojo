@@ -34,7 +34,7 @@ export const K = {
   tab: "race",
   stake: 10,
   pairPlus: false,
-  wheelPick: null,
+  wheelBets: {},
   level: "medium",
   side: { fortune: false, aceBonus: false, bonus: false },
   lowPick: [],
@@ -232,12 +232,14 @@ function drawTrack(f) {
     const h = horse(fav);
     const bar = el("p", "ftoday");
     bar.append(el("span", "ftoday-r", "\u{1F397}\uFE0F"));
-    bar.append(el("span", "", `Today's favourite: ${h.rank}${h.pip} ${h.name}`));
+    bar.append(el("span", "", `This week's favourite: ${h.rank}${h.pip} ${h.name}`));
     if (f.race.favouriteEndsAt) {
       const left = Math.max(0, f.race.favouriteEndsAt - Date.now());
-      const hrs = Math.floor(left / 3600_000);
-      const mins = Math.floor((left % 3600_000) / 60_000);
-      bar.append(el("span", "ftoday-t", hrs ? `new favourite in ${hrs}h ${mins}m` : `new favourite in ${mins}m`));
+      const days = Math.floor(left / 86_400_000);
+      const hrs = Math.floor((left % 86_400_000) / 3600_000);
+      bar.append(el("span", "ftoday-t", days
+        ? `new favourite in ${days}d ${hrs}h`
+        : `new favourite in ${hrs}h`));
     }
     host.append(bar);
   }
@@ -276,273 +278,42 @@ function drawTrack(f) {
 function drawHurdles(f) {
   const host = $("floor-hurdles");
   host.textContent = "";
-  for (let i = 1; i <= K.hurdles; i++) {
-    const turned = f.race.hurdles.find((h) => h.at === i);
-    const card = el("div", `fhurdle${turned ? " up red" : ""}`);
-    if (turned) {
-      // Turned face up, so everyone can see who it knocked back.
-      card.append(el("span", "fh-r", turned.rank));
-      card.append(el("span", "fh-s", "\u2660"));
-      card.title = `${horse(turned.horse).name} missed hurdle ${i}`;
+
+  // The card just turned, beside the traps waiting to turn. Face down until
+  // the whole field is past them, exactly as they are dealt.
+  const traps = f.race.traps || [];
+  for (const t of traps) {
+    const card = el("div", `fhurdle${t.turned ? " up red" : ""}`);
+    if (t.turned) {
+      card.append(el("span", "fh-r", t.rank));
+      card.append(el("span", "fh-s", t.suit));
+      card.title = `Trap ${t.at} turned \u2014 ${t.rank}${t.suit} dropped back a place`;
     } else {
       card.append(el("span", "fh-back", "\u{1F0A0}"));
+      card.title = `Trap ${t.at}, face down until every runner is past it`;
     }
     host.append(card);
   }
-}
 
-/**
- * Which bets are on offer. This lives in a window now rather than a strip
- * under the track, so the race keeps the screen it needs.
- */
-export function openBetPicker() {
-  const f = K.floor;
-  if (!f) return;
-  if (f.phase !== "BETTING") return say("Betting reopens after this race.");
+  // The deck and the card off the top of it.
+  const deck = $("floor-deck");
+  if (deck) {
+    deck.textContent = "";
+    const back = el("div", "fdeck-card back");
+    back.append(el("span", "fh-back", "\u{1F0A0}"));
+    deck.append(back);
 
-  const host = $("bet-modal");
-  host.hidden = false;
-  host.innerHTML = `
-    <div class="modal-back" data-close></div>
-    <div class="modal-card floor-card">
-      <div class="modal-head">
-        <h2>&#127991; Place a Bet</h2>
-        <button class="modal-close" data-close aria-label="Close">&times;</button>
-      </div>
-      <div class="modal-body">
-        <p class="fs-note">You have ${money(K.mine?.table)} on the table.</p>
-        <div class="fbets" id="pick-bets"></div>
-      </div>
-    </div>`;
-
-  const list = $("pick-bets");
-  for (const b of K.bets) {
-    const card = el("button", `fbet${b.side ? " side" : ""}`);
-    card.append(el("span", "fbet-n", b.name));
-    card.append(el("span", "fbet-p", `pays ${b.pays}:1`));
-    card.onclick = () => openBetSlip(b.id);
-    list.append(card);
+    const slot = el("div", "fdeck-slot");
+    if (f.race.last) {
+      const c = el("div", "fdeck-card up");
+      c.append(el("span", "fh-r", f.race.last.rank));
+      c.append(el("span", "fh-s", f.race.last.suit));
+      slot.append(c);
+    } else {
+      slot.append(el("div", "fdeck-card empty"));
+    }
+    deck.append(slot);
   }
-  host.querySelectorAll("[data-close]").forEach((n) => { n.onclick = closeBetSlip; });
-}
-
-/**
- * The slip. Pick the horses, pick the stake, place it — over the floor rather
- * than pushing the track off the screen.
- */
-export function openBetSlip(betType) {
-  K.slip = { type: betType, picks: [], stake: K.slip.stake || 10 };
-  const host = $("bet-modal");
-  host.hidden = false;
-
-  const render = () => {
-    const bet = K.bets.find((b) => b.id === K.slip.type);
-    const ready = K.slip.picks.length === bet.picks;
-    const afford = (K.mine?.table || 0) >= K.slip.stake;
-
-    host.innerHTML = `
-      <div class="modal-back" data-close></div>
-      <div class="modal-card floor-card">
-        <div class="modal-head">
-          <h2>${bet.name} <span class="fs-pool">pays ${bet.pays}:1</span></h2>
-          <button class="modal-close" data-close aria-label="Close">&times;</button>
-        </div>
-        <div class="modal-body">
-          <p class="fs-note">${bet.blurb}</p>
-          <p class="fs-note">${bet.picks === 1 ? "Choose a horse." : `Choose ${bet.picks}, in finishing order.`}</p>
-          <div class="fpicks" id="bs-picks"></div>
-          <p class="fs-note" style="margin-top:.7rem">Stake &mdash; you have ${money(K.mine?.table)}</p>
-          <div class="fstakes" id="bs-stakes"></div>
-          <button id="bs-go" class="fbtn fbtn-go" ${ready && afford ? "" : "disabled"}></button>
-        </div>
-      </div>`;
-
-    host.querySelectorAll("[data-close]").forEach((n) => { n.onclick = closeBetSlip; });
-
-    const picks = $("bs-picks");
-    const fav = K.floor?.race?.favourite;
-    for (const h of (K.horses || [])) {
-      const at = K.slip.picks.indexOf(h.id);
-      const btn = el("button",
-        `fpick${at !== -1 ? " on" : ""}${h.red ? " red" : ""}${h.id === fav ? " favourite" : ""}`);
-      if (h.id === fav) btn.append(el("span", "fribbon", "\u{1F397}\uFE0F"));
-      btn.append(el("span", "fpick-r", h.rank));
-      btn.append(el("span", "", h.pip));
-      btn.title = h.id === fav ? `${h.name} \u2014 today's favourite` : h.name;
-      if (at !== -1 && bet.picks > 1) btn.append(el("span", "fpick-n", String(at + 1)));
-      btn.onclick = () => {
-        const list = K.slip.picks;
-        const i = list.indexOf(h.id);
-        if (i !== -1) list.splice(i, 1);
-        else if (list.length < bet.picks) list.push(h.id);
-        render();
-      };
-      picks.append(btn);
-    }
-
-    const stakes = $("bs-stakes");
-    for (const amount of [5, 10, 25, 50, 100]) {
-      const b = el("button", `fchip${K.slip.stake === amount ? " on" : ""}`, money(amount));
-      b.disabled = amount > (K.mine?.table || 0);
-      b.onclick = () => { K.slip.stake = amount; render(); };
-      stakes.append(b);
-    }
-
-    // The price depends on whether the favourite is on the slip, so it is
-    // shown before the money goes down rather than discovered afterwards.
-    // Every runner pays the same, so the only thing worth saying is the money.
-    const note = el("p", "slip-price");
-    if (ready) {
-      note.append(el("b", "", `${money(K.slip.stake)} returns ${money(Math.round(K.slip.stake + K.slip.stake * bet.pays))}`));
-      note.append(el("span", "", ` at ${bet.pays}:1`));
-      if (K.slip.picks.includes(fav)) {
-        note.append(el("span", "slip-why",
-          "That's the favourite \u2014 it wins four races in five and pays the same as anything else."));
-      }
-    }
-    $("bs-picks").after(note);
-
-    const go = $("bs-go");
-    go.textContent = !ready ? `Choose ${bet.picks - K.slip.picks.length} more`
-      : !afford ? "Not enough on the table"
-      : `Place ${money(K.slip.stake)}`;
-    go.onclick = () => {
-      send({ type: "FLOOR_BET", betType: K.slip.type, picks: K.slip.picks, stake: K.slip.stake });
-      closeBetSlip();
-    };
-  };
-
-  render();
-}
-
-export function closeBetSlip() {
-  const host = $("bet-modal");
-  host.hidden = true;
-  host.textContent = "";
-}
-
-/* ── the wallet ──────────────────────────────────────────────────────── */
-
-export async function openWallet() {
-  const host = $("wallet-modal");
-  host.hidden = false;
-  const staked = !!K.mine?.staked;
-
-  // Read it rather than guess it: banking is a server write, and the floor
-  // only knows what is on the table.
-  let banked = null;
-  try {
-    const res = await fetch("/api/wallet", { headers: { Authorization: `Bearer ${await K.idToken()}` } });
-    banked = (await res.json()).wallet ?? null;
-  } catch { banked = null; }
-  host.innerHTML = `
-    <div class="modal-back" data-close></div>
-    <div class="modal-card floor-card">
-      <div class="modal-head">
-        <h2>&#128176; Wallet</h2>
-        <button class="modal-close" data-close aria-label="Close">&times;</button>
-      </div>
-      <div class="modal-body">
-        <div class="wal-figures">
-          <div><span class="wal-l">On the table</span><b class="wal-n risk">${money(K.mine?.table)}</b></div>
-          <div><span class="wal-l">Banked</span><b class="wal-n">${banked === null ? "\u2014" : money(banked)}</b></div>
-        </div>
-        <p class="fs-note">Money on the table is yours to play with but is not banked. Banking writes it to your own wallet &mdash; your account's, nobody else's &mdash; and you can do it whenever you're between bets.</p>
-        <p class="fs-note">Quitting, closing the browser, or walking away mid-race leaves it on the table.</p>
-
-        <div class="wal-draw">
-          <p class="wal-h">Bring money in from your wallet</p>
-          <div class="wal-row">
-            <input id="wal-amt" class="bstep-v wal-amt" type="number" min="1" step="1"
-                   placeholder="0" ${banked ? "" : "disabled"}>
-            <button id="wal-all" class="hchip" ${banked ? "" : "disabled"}>ALL ${banked === null ? "" : money(banked)}</button>
-          </div>
-          <label class="wal-ack">
-            <input id="wal-ok" type="checkbox">
-            <span>I understand this money leaves my wallet and goes onto the table,
-            that it is at risk once it is there, and that I may lose all of it.
-            Only what I bank at the end of a session comes back.</span>
-          </label>
-          <button id="wal-draw" class="fbtn" disabled>Move to the table</button>
-          <p id="wal-msg" class="fs-note" hidden></p>
-        </div>
-
-        ${staked ? "" : `<button id="wal-stake" class="fbtn">Take your opening stake</button>`}
-        <button id="wal-bank" class="fbtn fbtn-go" ${K.mine?.table ? "" : "disabled"}>
-          ${K.mine?.table ? `Bank ${money(K.mine.table)}` : "Nothing to bank"}
-        </button>
-      </div>
-    </div>`;
-
-  host.querySelectorAll("[data-close]").forEach((n) => { n.onclick = closeWallet; });
-  if ($("wal-stake")) $("wal-stake").onclick = () => { send({ type: "FLOOR_STAKE" }); closeWallet(); };
-  $("wal-bank").onclick = () => { send({ type: "FLOOR_BANK" }); closeWallet(); };
-
-  // The button stays dead until there is an amount and the box is ticked. The
-  // server checks both again, so this is convenience rather than the gate.
-  const amt = $("wal-amt"), ok = $("wal-ok"), draw = $("wal-draw"), msg = $("wal-msg");
-  const recheck = () => {
-    const n = Number(amt.value) || 0;
-    draw.disabled = !(ok.checked && n >= 1 && n <= (banked || 0));
-    draw.textContent = n >= 1 ? `Move ${money(n)} to the table` : "Move to the table";
-  };
-  amt.oninput = recheck;
-  ok.onchange = recheck;
-  $("wal-all").onclick = () => { amt.value = String(banked || 0); recheck(); };
-
-  draw.onclick = async () => {
-    draw.disabled = true;
-    msg.hidden = false;
-    msg.textContent = "Moving\u2026";
-    try {
-      const res = await fetch("/api/wallet/withdraw", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${await K.idToken()}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ amount: Number(amt.value), understood: ok.checked }),
-      });
-      const body = await res.json();
-      if (!res.ok) { msg.textContent = body.error || "That didn't go through."; recheck(); return; }
-      closeWallet();
-      say(`${money(body.moved)} is on the table.`);
-    } catch {
-      msg.textContent = "That didn't reach the server. Nothing was moved.";
-      recheck();
-    }
-  };
-}
-
-export function closeWallet() {
-  const host = $("wallet-modal");
-  host.hidden = true;
-  host.textContent = "";
-}
-
-/* ── the chat and log ────────────────────────────────────────────────── */
-
-export function openChat() {
-  const host = $("chat-modal");
-  host.hidden = false;
-  host.innerHTML = `
-    <div class="modal-back" data-close></div>
-    <div class="modal-card floor-card">
-      <div class="modal-head">
-        <h2>&#128172; Chat &amp; Game Log</h2>
-        <button class="modal-close" data-close aria-label="Close">&times;</button>
-      </div>
-      <div class="modal-body">
-        <div id="casino-log" class="flog"></div>
-      </div>
-    </div>`;
-  host.querySelectorAll("[data-close]").forEach((n) => { n.onclick = closeChat; });
-  // The log is kept in memory, so opening the window fills it in one go.
-  const wrap = $("casino-log");
-  for (const e of K.logLines) wrap.append(logNode(e));
-}
-
-export function closeChat() {
-  const host = $("chat-modal");
-  host.hidden = true;
-  host.textContent = "";
 }
 
 function drawBoard(f) {
@@ -692,15 +463,15 @@ function wedgePath(i) {
   return `M100,100 L${x0.toFixed(2)},${y0.toFixed(2)} A${r},${r} 0 0 1 ${x1.toFixed(2)},${y1.toFixed(2)} Z`;
 }
 
-function wheelSvg(picked) {
+function wheelSvg(backed) {
+  const on = backed instanceof Set ? backed : new Set(backed ? [backed] : []);
   const wedges = BIGSIX_WHEEL.map((sym, i) => {
     const mid = (i + 0.5) * SEG - 90;
     const rad = mid * Math.PI / 180;
     const lx = 100 + 74 * Math.cos(rad), ly = 100 + 74 * Math.sin(rad);
-    const on = picked && sym === picked;
     return `
       <path d="${wedgePath(i)}" fill="${BIGSIX_TONE[sym]}"
-            class="w6-seg${on ? " on" : ""}" />
+            class="w6-seg${on.has(sym) ? " on" : ""}" />
       <text x="${lx.toFixed(2)}" y="${ly.toFixed(2)}"
             transform="rotate(${(mid + 90).toFixed(2)} ${lx.toFixed(2)} ${ly.toFixed(2)})"
             class="w6-lab${sym === "star" || sym === "diamond" ? " big" : ""}">${LABEL[sym] || sym}</text>`;
@@ -1258,47 +1029,72 @@ function drawGame(id) {
     setChip(K.stake || 5);
 
   } else if (id === "bigsix") {
-    // Pick a symbol, watch it spin. The wheel stays on screen through the
-    // result so you can see where it actually stopped.
-    let picked = K.wheelPick || null;
+    const cash = K.mine?.table || 0;
+    K.wheelBets = K.wheelBets || {};
+    const backed = () => new Set(Object.keys(K.wheelBets).filter((k) => K.wheelBets[k] > 0));
 
     const wheel = el("div", "w6");
-    wheel.innerHTML = wheelSvg(picked);
+    wheel.innerHTML = wheelSvg(backed());
     host.append(wheel);
+
+    host.append(el("p", "fs-note",
+      "Back as many symbols as you like \u2014 one spin settles the lot. Tap a symbol to add your chip, tap its total to take it off."));
+
+    const total = el("p", "ttotal");
+    const spin = el("button", "rl-spin", "\u25B6 SPIN");
+
+    const refresh = () => {
+      const sum = Object.values(K.wheelBets).reduce((a, b) => a + b, 0);
+      total.textContent = sum ? `On the wheel: ${money(sum)}` : "Nothing on the wheel yet";
+      spin.disabled = sum < 1 || sum > cash;
+      spin.textContent = sum ? `\u25B6 SPIN \u00b7 ${money(sum)} down` : "\u25B6 SPIN";
+      wheel.innerHTML = wheelSvg(backed());
+      [...chips.children].forEach((node, i) => {
+        const b = BIGSIX_UI[i];
+        const amount = K.wheelBets[b.id] || 0;
+        node.classList.toggle("on", amount > 0);
+        node.querySelector(".w6-pick-bet").textContent = amount ? money(amount) : "";
+        node.querySelector(".w6-off").hidden = amount < 1;
+      });
+    };
 
     const chips = el("div", "w6-picks");
     for (const b of BIGSIX_UI) {
-      const c = el("button", `w6-pick${picked === b.id ? " on" : ""}`);
+      const c = el("button", "w6-pick");
       c.style.setProperty("--tone", BIGSIX_TONE[b.id]);
       c.append(el("span", "w6-pick-s", LABEL[b.id] || b.name));
       c.append(el("span", "w6-pick-p", `${b.pays}:1`));
       c.append(el("span", "w6-pick-n", `${b.sections}/54`));
+      c.append(el("span", "w6-pick-bet", ""));
       c.onclick = () => {
-        picked = b.id;
-        K.wheelPick = b.id;
-        // Redraw so the wedges you have backed light up on the wheel.
-        wheel.innerHTML = wheelSvg(picked);
-        [...chips.children].forEach((n, i) => n.classList.toggle("on", BIGSIX_UI[i].id === picked));
-        spin.disabled = false;
-        spin.textContent = `\u25B6 SPIN \u00b7 ${money(K.stake)} on ${b.name}`;
+        const staked = Object.values(K.wheelBets).reduce((a, x) => a + x, 0);
+        if (staked + K.stake > cash) return say("That's more than you have on the table.");
+        K.wheelBets[b.id] = (K.wheelBets[b.id] || 0) + K.stake;
+        refresh();
       };
+      // A phone has no right-click, so taking a bet off needs its own control.
+      const off = el("span", "w6-off", "\u2715");
+      off.title = `Take your ${b.name} bet off`;
+      off.onclick = (e) => { e.stopPropagation(); delete K.wheelBets[b.id]; refresh(); };
+      c.append(off);
       chips.append(c);
     }
     host.append(chips);
+    host.append(total);
 
-    const spin = el("button", "rl-spin", "\u25B6 SPIN");
-    spin.disabled = !picked;
-    if (picked) {
-      const b = BIGSIX_UI.find((x) => x.id === picked);
-      spin.textContent = `\u25B6 SPIN \u00b7 ${money(K.stake)} on ${b.name}`;
-    }
+    const acts = el("div", "rl-acts");
     spin.onclick = () => {
-      if (!picked) return say("Pick a symbol first.");
       spin.disabled = true;
       spin.textContent = "Spinning\u2026";
-      play({ pick: picked });
+      send({ type: "TABLE_PLAY", game: "bigsix", bets: { ...K.wheelBets } });
+      K.wheelBets = {};
     };
-    host.append(spin);
+    const clear = el("button", "rl-clear", "CLEAR");
+    clear.onclick = () => { K.wheelBets = {}; refresh(); };
+    acts.append(spin, clear);
+    host.append(acts);
+
+    refresh();
 
   } else if (id === "baccarat") {
     const cash = K.mine?.table || 0;
@@ -1741,6 +1537,17 @@ async function showTableResult(msg) {
   }
   if (d.cards) {
     host.append(handRow(d.cards, "res-final", "thand"));
+  }
+  if (d.returns && d.bets) {
+    const rows = el("div", "w6-settle");
+    for (const [id, amount] of Object.entries(d.bets)) {
+      const back = d.returns[id] || 0;
+      const line = el("p", `w6-line${back ? " won" : ""}`);
+      line.append(el("span", "", `${LABEL[id] || id} \u00b7 ${money(amount)}`));
+      line.append(el("span", "", back ? `pays ${money(back)}` : "lost"));
+      rows.append(line);
+    }
+    host.append(rows);
   }
   if (d.bonus) host.append(el("p", "fs-note", `Ante bonus: ${d.bonus}`));
   if (d.pairPlus) host.append(el("p", "fs-note", `Pair Plus: ${d.pairPlus}`));

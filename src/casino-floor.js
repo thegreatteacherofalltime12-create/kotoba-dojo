@@ -240,6 +240,11 @@ export class CasinoFloor {
         at: this.f.race.at,
         favourite: this.f.race.favourite,
         favouriteEndsAt: favouriteEndsAt(),
+        // Face-down traps go out as blanks. Sending the rank of a card nobody
+        // has turned yet would hand the table the rest of the race.
+        traps: (this.f.race.traps || []).map((t) => (t.turned
+          ? { at: t.at, turned: true, rank: t.rank, suit: t.suit }
+          : { at: t.at, turned: false })),
         hurdles: this.f.race.hurdles,
         finished: this.f.race.finished,
         last: this.f.race.last,
@@ -379,12 +384,12 @@ export class CasinoFloor {
       return;
     }
     const out = raceTick(this.f.race);
-    if (out.moved && !out.crossed) {
-      const h = horseById(out.moved);
-      this.note(`${h.name} advances.`);
+    if (out.card && !out.crossed) {
+      this.note(`${out.card.rank}${out.card.suit} \u2014 ${horseById(out.moved).name} advances.`);
     }
     if (out.hurdle) {
-      this.note(`Hurdle ${out.hurdle.at} turns: ${horseById(out.hurdle.horse).name} knocked back.`);
+      this.note(`Trap ${out.hurdle.at} turns: ${out.hurdle.rank}${out.hurdle.suit} \u2014 `
+        + `${horseById(out.hurdle.horse).name} drops back.`);
     }
     if (out.crossed) {
       const place = ["1st", "2nd", "3rd", "4th"][this.f.race.finished.length - 1];
@@ -618,11 +623,58 @@ export class CasinoFloor {
     this.push();
   }
 
+  /**
+   * The wheel, settled on a board rather than a single symbol.
+   *
+   * One spin decides every stake on it, which is the only honest way to take
+   * several bets at once — spinning per bet would be several different wheels.
+   */
+  async bigsixRound(ws, p, msg) {
+    const wanted = {};
+    let total = 0;
+    for (const row of BIGSIX) {
+      const amount = Math.max(0, Math.round(Number(msg.bets?.[row.id]) || 0));
+      if (!amount) continue;
+      wanted[row.id] = amount;
+      total += amount;
+    }
+    if (!total) return this.send(ws, "FLOOR_ERROR", { message: "Put something on the wheel first." });
+    if (total > p.table)
+      return this.send(ws, "FLOOR_ERROR", { message: "That's more than you have on the table." });
+
+    p.table -= total;
+    const landed = spinBigSix();
+    const rule = BIGSIX.find((b) => b.id === landed);
+
+    const returns = {};
+    let back = 0;
+    for (const [id, amount] of Object.entries(wanted)) {
+      const won = id === landed ? amount + amount * rule.pays : 0;
+      returns[id] = won;
+      back += won;
+    }
+
+    p.table += back;
+    if (back < total) p.tokens = Math.max(0, (p.tokens || 0) - 1);
+    await this.save();
+
+    const title = `Big Six \u2014 ${rule.name}`;
+    this.note(back > total ? `${p.name} won $${back - total} at ${title}.`
+      : back === total ? `${p.name} pushed at ${title}.`
+      : `${p.name} lost $${total - back} at ${title}.`);
+    this.send(ws, "TABLE_RESULT", {
+      game: "bigsix", title, staked: total, returned: back,
+      detail: { landed, bet: rule.name, hit: back > 0, bets: wanted, returns },
+    });
+    this.push();
+  }
+
   async tablePlay(ws, uid, msg) {
     const p = this.f.players[uid];
     if (!p) return;
     if (this.noToken(ws, p)) return;
     if (msg.game === "baccarat") return await this.baccaratRound(ws, p, msg);
+    if (msg.game === "bigsix" && msg.bets) return await this.bigsixRound(ws, p, msg);
     const bet = this.take(p, msg.amount);
     if (bet === null)
       return this.send(ws, "FLOOR_ERROR", { message: "That's more than you have on the table." });

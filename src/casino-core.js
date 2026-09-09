@@ -77,29 +77,53 @@ function seededOrder(n, seed) {
 }
 
 /**
- * Which runner carries the ribbon today.
+ * Weeks since the epoch, counted so they turn over on a Monday.
  *
- * The seven days of a cycle use one shuffled order, so every horse is
- * favourite exactly once before any of them is favourite twice.
+ * The first of January 1970 was a Thursday, so the offset is what stops a
+ * "week" running Thursday to Wednesday.
  */
-export function favouriteFor(now = Date.now()) {
-  const day = Math.floor(now / DAY_MS);
-  const cycle = Math.floor(day / HORSES.length);
-  const slot = day % HORSES.length;
-  return HORSES[seededOrder(HORSES.length, cycle + 1)[slot]].id;
+const weekNumber = (now) => Math.floor((Math.floor(now / DAY_MS) + 3) / 7);
+
+/**
+ * Which runner carries the ribbon this week.
+ *
+ * A whole week each, and the seven weeks of a cycle use one shuffled order —
+ * so it changes every Monday, it is not predictable from the horse before it,
+ * and no horse carries the ribbon twice until all seven have had a turn. That
+ * last part is why it is a rotation rather than a fresh draw: a free random
+ * pick would sometimes hand the same horse a fortnight.
+ */
+function cycleOrder(cycle) {
+  const order = seededOrder(HORSES.length, cycle + 1);
+  // A cycle can otherwise open with the horse the last one closed on, handing
+  // it a fortnight. Swapping the first two costs nothing and keeps the
+  // promise that no horse repeats until every one has had a turn.
+  if (cycle > 0) {
+    const before = seededOrder(HORSES.length, cycle)[HORSES.length - 1];
+    if (order[0] === before) [order[0], order[1]] = [order[1], order[0]];
+  }
+  return order;
 }
 
-/** When today's favourite gives way to tomorrow's. */
+export function favouriteFor(now = Date.now()) {
+  const week = weekNumber(now);
+  const cycle = Math.floor(week / HORSES.length);
+  const slot = week % HORSES.length;
+  return HORSES[cycleOrder(cycle)[slot]].id;
+}
+
+/** When this week's favourite gives way to next week's. */
 export const favouriteEndsAt = (now = Date.now()) =>
-  (Math.floor(now / DAY_MS) + 1) * DAY_MS;
+  ((weekNumber(now) + 1) * 7 - 3) * DAY_MS;
 
 /**
  * How often the favourite is the one that moves.
  *
- * Tuned by simulation rather than guessed: with the hurdles knocking runners
- * back, this is the share of ticks that lands it at roughly four wins in five.
+ * Tuned by simulation rather than guessed: with the traps knocking runners
+ * back, this is the share of turns that lands the favourite at roughly seven
+ * wins in ten.
  */
-export const FAVOURITE_STEP = 0.297;
+export const FAVOURITE_STEP = 0.264;
 
 /**
  * What a slip pays.
@@ -143,14 +167,34 @@ for (const b of BETS) b.pays = PRICES[b.id];
 
 export const betById = (id) => BETS.find((b) => b.id === id);
 
+const RACE_SUITS = ["\u2660", "\u2665", "\u2666", "\u2663"];
+const suitOf = () => RACE_SUITS[Math.floor(Math.random() * RACE_SUITS.length)];
+
+/**
+ * The five knock-back cards, dealt face down before the off.
+ *
+ * They are dealt at the start rather than decided when they turn, which is how
+ * the card game works: the trap is already sitting there, and the only
+ * question is which horse has passed it.
+ */
+function dealTraps(rng = Math.random) {
+  const traps = [];
+  for (let i = 0; i < HURDLES; i++) {
+    const h = HORSES[Math.floor(rng() * HORSES.length)];
+    traps.push({ at: i + 1, horse: h.id, rank: h.rank, suit: suitOf(), turned: false });
+  }
+  return traps;
+}
+
 export function freshRace(now = Date.now()) {
   return {
     at: Object.fromEntries(HORSES.map((h) => [h.id, 0])),
-    hurdles: [],          // { at, horse } — which runner it knocked back
+    traps: dealTraps(),   // face down until the field is past them
+    hurdles: [],          // the ones that have turned, in order
     finished: [],
     leadMargin: 0,        // the winner's lead as it crossed
     favourite: favouriteFor(now),
-    last: null,
+    last: null,           // the card just turned
   };
 }
 
@@ -158,8 +202,17 @@ export function freshRace(now = Date.now()) {
  * One turn. A runner moves, and once the whole field is past a hurdle that
  * hurdle turns over and knocks somebody back a step.
  */
+/**
+ * One card off the deck.
+ *
+ * Being straight about what this is: the horse is chosen first and the card is
+ * dealt to match it. A properly shuffled deck would move every runner equally
+ * often, which is exactly what a favourite is not. The card shown is always a
+ * real card of that runner's rank, so the table reads the same either way.
+ */
 export function raceTick(race, rng = Math.random) {
   if (race.finished.length >= 4) return { done: true };
+  if (!race.traps) race.traps = dealTraps(rng);
 
   const running = HORSES.map((h) => h.id).filter((id) => !race.finished.includes(id));
   const fav = race.favourite;
@@ -172,8 +225,8 @@ export function raceTick(race, rng = Math.random) {
   }
 
   race.at[moved] += 1;
-  race.last = moved;
-  const out = { done: false, moved };
+  race.last = { horse: moved, rank: horseById(moved).rank, suit: suitOf() };
+  const out = { done: false, moved, card: race.last };
 
   if (race.at[moved] >= FINISH) {
     // How far back the field was as the leader crossed. Everyone who finishes
@@ -187,16 +240,16 @@ export function raceTick(race, rng = Math.random) {
     out.crossed = moved;
   }
 
+  // A trap turns over once every runner is past it, and knocks back whichever
+  // horse is on the card — which may well be the one in front.
   const behind = Math.min(...HORSES.map((h) => race.at[h.id]));
-  const next = race.hurdles.length + 1;
-  if (next <= HURDLES && behind > next) {
-    const pool = HORSES.map((h) => h.id).filter((id) => !race.finished.includes(id) && race.at[id] > 0);
-    if (pool.length) {
-      const hit = pool[Math.floor(rng() * pool.length)];
-      race.hurdles.push({ at: next, horse: hit, rank: horseById(hit).rank });
-      race.at[hit] -= 1;
-      out.hurdle = race.hurdles[race.hurdles.length - 1];
-    }
+  const next = race.hurdles.length;
+  const trap = race.traps[next];
+  if (trap && !trap.turned && behind > trap.at) {
+    trap.turned = true;
+    race.hurdles.push(trap);
+    if (race.at[trap.horse] > 0 && !race.finished.includes(trap.horse)) race.at[trap.horse] -= 1;
+    out.hurdle = trap;
   }
 
   if (race.finished.length >= 4) out.done = true;

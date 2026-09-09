@@ -185,12 +185,13 @@ export default {
       const { HORSES, favouriteFor, favouriteEndsAt } = await import("./casino-core.js");
       const now = Date.now();
       const DAY = 86_400_000;
+      // Seven weeks, which is a full cycle of the rotation.
       const week = [];
-      for (let d = 0; d < 7; d++) {
-        const at = now + d * DAY;
+      for (let w = 0; w < 7; w++) {
+        const at = now + w * 7 * DAY;
         const id = favouriteFor(at);
         week.push({
-          on: new Date(Math.floor(at / DAY) * DAY).toISOString().slice(0, 10),
+          weekOf: new Date(Math.floor(at / DAY) * DAY).toISOString().slice(0, 10),
           horse: HORSES.find((h) => h.id === id).name,
         });
       }

@@ -45,6 +45,11 @@ async function loadCourses() {
   }
 
   const c = $("sel-course");
+  // Resolved on the server, not here: the room has to agree on the course, and
+  // a random pick made in one browser is not a pick the room has made.
+  const anyOne = el("option", "", "🎲 Random course");
+  anyOne.value = "random";
+  c.append(anyOne);
   for (const course of S.courses) {
     const o = el("option", "", `${course.ico} ${course.name} — par ${course.par}`);
     o.value = course.id;
@@ -89,14 +94,11 @@ async function connect() {
 
   sock.onopen = () => {
     $("lobby").hidden = true;
-    $("play").hidden = false;
     attachHole($("hole"));
-    $("btn-end").hidden = false;
-    say("Tee off.", "good");
-    // A room that already has a round running will simply send its state; this
-    // only starts one that hasn't begun.
-    send({ type: "LINKS_START" });
-    $("in-guess").focus();
+    // Nothing starts on its own. The room reports its phase and the waiting
+    // card decides what to show: a round already running is joined, one that
+    // has not begun waits for whoever opened the room to call it.
+    say("");
   };
   sock.onclose = () => { say("Disconnected. Reload to rejoin.", "bad"); $("btn-guess").disabled = true; };
   sock.onerror = () => say("The connection failed.", "bad");
@@ -112,9 +114,39 @@ async function connect() {
 
 const send = (o) => { try { S.sock?.send(JSON.stringify(o)); } catch { /* closed */ } };
 
+/**
+ * The room before anyone has swung.
+ *
+ * A round never begins on its own. Whoever opened the room decides when, which
+ * is what gives everyone else time to arrive and the host time to settle on a
+ * course — including leaving it to the dice.
+ */
+function drawWaiting(state) {
+  const waiting = state.phase === "LOBBY";
+  $("waiting").hidden = !waiting;
+  $("play").hidden = waiting;
+  $("btn-end").hidden = waiting;
+  if (!waiting) return;
+
+  const here = (state.field || []).map((p) => p.name);
+  $("wait-course").textContent = state.randomCourse
+    ? `\u{1F3B2} Random \u2014 ${state.course.name} is up, and it is redrawn when you tee off.`
+    : `${state.course.name} \u00b7 ${state.course.loc} \u00b7 ${state.diff} tees`;
+  $("wait-who").textContent = here.length === 1
+    ? `${here[0]} is on the tee. Room ${state.code}.`
+    : `${here.join(", ")} \u2014 ${here.length} in the room ${state.code}.`;
+
+  $("btn-teeoff").hidden = !state.isHost;
+  $("wait-note").textContent = state.isHost
+    ? "Take as long as you like. Anyone joining this code before you tee off plays the same holes."
+    : "Waiting for the player who opened the room to tee off.";
+}
+
 function draw(state) {
   S.state = state;
   if (!state) return;
+  drawWaiting(state);
+  if (state.phase === "LOBBY") return;
 
   const h = state.hole;
   if (h) {
@@ -236,6 +268,13 @@ $("btn-home").onclick = () => { location.href = "/"; };
 $("btn-end").onclick = () => {
   if (window.confirm("End the round here? Your card is scored as it stands.")) send({ type: "LINKS_END" });
 };
+$("btn-teeoff").onclick = () => {
+  $("btn-teeoff").disabled = true;
+  send({ type: "LINKS_START" });
+  // Re-enabled if the round does not begin, so a refusal is not a dead button.
+  setTimeout(() => { $("btn-teeoff").disabled = false; }, 1500);
+};
+$("btn-leave").onclick = () => { location.href = "/"; };
 $("btn-guess").onclick = swing;
 $("in-guess").addEventListener("keydown", (e) => { if (e.key === "Enter") swing(); });
 
@@ -255,7 +294,7 @@ onAuthStateChanged(auth, async (user) => {
   const invited = decodeURIComponent(location.hash.slice(1)).toUpperCase();
   if (invited) {
     $("in-code").value = invited;
-    $("lobby-note").textContent = `Joining ${invited}. The course and tees come from the round already in play.`;
+    $("lobby-note").textContent = `Joining ${invited}. If a round is already under way you walk straight into it; if not, you wait on the tee with everyone else.`;
     connect();
   }
 });

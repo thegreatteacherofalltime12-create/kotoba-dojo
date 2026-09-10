@@ -30,11 +30,21 @@ export class LinksCourse {
     });
   }
 
+  /** A course at random, for the room that asked not to choose. */
+  rollCourse() {
+    return COURSES[Math.floor(Math.random() * COURSES.length)].id;
+  }
+
   blank(code, courseId, diff, dict) {
-    const course = courseById(courseId);
+    // "random" is remembered rather than resolved once: a room that asked for
+    // a random course gets a fresh one every round, not the same one twice.
+    const random = courseId === "random";
+    const course = courseById(random ? this.rollCourse() : courseId);
     return {
       code,
       phase: "LOBBY",
+      hostUid: null,
+      randomCourse: random,
       courseId: course.id,
       diff: DIFF[diff] ? diff : "medium",
       dict: dict === "modern" ? "modern" : "classic",
@@ -93,9 +103,30 @@ export class LinksCourse {
 
   /* ── the round ─────────────────────────────────────────────────── */
 
+  /**
+   * Whose call it is to tee off.
+   *
+   * The first player through the door holds it, so a round cannot begin under
+   * someone who is still picking a course. If they have gone, it falls to
+   * whoever is actually connected — a room that no longer has its host is
+   * still a room, and it must not be left unable to start.
+   */
+  canStart(uid) {
+    const room = this.room;
+    if (!room) return false;
+    if (!room.hostUid || room.hostUid === uid) return true;
+    return !new Set(this.socks.values()).has(room.hostUid);
+  }
+
   async start(ws, uid) {
     const room = this.room;
     if (!room || room.phase === "PLAYING") return;
+    if (!this.canStart(uid)) {
+      this.send(ws, "LINKS_REJECT", { why: "The player who opened this room calls the start." });
+      return;
+    }
+    // A random room draws a new course each round, so a rematch is a new one.
+    if (room.randomCourse) room.courseId = this.rollCourse();
     room.board = this.drawBoard(room);
     room.phase = "PLAYING";
     room.startedAt = Date.now();
@@ -346,6 +377,9 @@ export class LinksCourse {
       dict: room.dict,
       holes: room.holes,
       you: uid,
+      hostUid: room.hostUid || null,
+      isHost: this.canStart(uid),
+      randomCourse: !!room.randomCourse,
       hole: me ? this.holeView(room, me) : null,
       // The card, so everyone can see the field without seeing the words.
       field: Object.values(room.players)
@@ -408,6 +442,9 @@ export class LinksCourse {
       );
     }
     if (!this.room.players[uid]) this.room.players[uid] = this.freshPlayer(uid, name);
+    // Whoever opens the room holds the start. Recorded on arrival rather than
+    // read off the player list later, so it survives people coming and going.
+    if (!this.room.hostUid) this.room.hostUid = uid;
     this.room.players[uid].name = name;
     this.room.players[uid].lastSeen = Date.now();
 

@@ -60,6 +60,16 @@ new_sqlite_classes = ["BountyOffice"]
 tag = "v6"
 new_sqlite_classes = ["CasinoFloor"]
 
+# One instance per Lexicon Links round. Holds the eighteen words, every
+# player's card, and the sockets — the answers never leave it.
+[[durable_objects.bindings]]
+name = "LINKS"
+class_name = "LinksCourse"
+
+[[migrations]]
+tag = "v7"
+new_sqlite_classes = ["LinksCourse"]
+
 # Curated puzzle bank. Game content, not user data — the DO reads answers
 # from here at round start.
 [[kv_namespaces]]
@@ -74,4 +84,3 @@ FIREBASE_PROJECT_ID = "kotoba-dojo-1ad5f"
 #   wrangler secret put FIREBASE_SERVICE_ACCOUNT
 # Paste the whole service-account JSON. Without it the Worker still runs;
 # match history and the leaderboard just stop being written server-side.
-

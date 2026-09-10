@@ -1,0 +1,261 @@
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { firebaseConfig } from "./firebase-config.js";
+import { attachHole, setHole, strike } from "./hole.js";
+
+/**
+ * Multiverse Golf, wired to the arena.
+ *
+ * This file draws and types. It holds no words, marks no guesses and keeps no
+ * score — all of that is decided in the Worker, which is the point: a
+ * dictionary in the page is a dictionary the player can read, and points kept
+ * in the page are points the player can edit.
+ */
+
+const $ = (id) => document.getElementById(id);
+const el = (tag, cls, text) => {
+  const n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (text != null) n.textContent = text;
+  return n;
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+
+const S = { user: null, sock: null, state: null, code: null, courses: [], tees: [], drawnHole: 0, ballAt: 0 };
+
+function say(text, kind = "") {
+  const m = $("msg");
+  m.textContent = text || "";
+  m.className = `msg ${kind}`;
+}
+
+/* ── the lobby ─────────────────────────────────────────────────────── */
+
+async function loadCourses() {
+  try {
+    const res = await fetch("/api/links/courses");
+    const body = await res.json();
+    S.courses = body.courses || [];
+    S.tees = body.tees || [];
+  } catch {
+    $("lobby-note").textContent = "The course list didn't load. Reload the page.";
+    return;
+  }
+
+  const c = $("sel-course");
+  for (const course of S.courses) {
+    const o = el("option", "", `${course.ico} ${course.name} — par ${course.par}`);
+    o.value = course.id;
+    c.append(o);
+  }
+  const t = $("sel-tee");
+  for (const tee of S.tees) {
+    const o = el("option", "", tee.words > 1
+      ? `${tee.label} — ${tee.words} words a hole`
+      : `${tee.label} — one word a hole`);
+    o.value = tee.id;
+    t.append(o);
+  }
+  t.value = "easy";
+  $("lobby-note").textContent =
+    "Anyone joining the same room code plays the same eighteen holes with the same words. "
+    + "Lowest total wins, and the points go to your MMR when the round ends.";
+}
+
+const randomCode = () =>
+  Array.from({ length: 4 }, () => "ABCDEFGHJKMNPQRSTUVWXYZ23456789"[Math.floor(Math.random() * 31)]).join("");
+
+/* ── the round ─────────────────────────────────────────────────────── */
+
+async function connect() {
+  const code = ($("in-code").value || randomCode()).toUpperCase().replace(/[^A-Z0-9]/g, "");
+  if (code.length < 3) return say("A room code needs at least three characters.", "bad");
+  $("in-code").value = code;
+  S.code = code;
+
+  const token = await S.user.getIdToken();
+  const q = new URLSearchParams({
+    token,
+    course: $("sel-course").value,
+    diff: $("sel-tee").value,
+    dict: $("sel-dict").value,
+  });
+  const url = `${location.origin.replace(/^http/, "ws")}/api/links/${code}/ws?${q}`;
+
+  const sock = new WebSocket(url);
+  S.sock = sock;
+
+  sock.onopen = () => {
+    $("lobby").hidden = true;
+    $("play").hidden = false;
+    attachHole($("hole"));
+    $("btn-end").hidden = false;
+    say("Tee off.", "good");
+    // A room that already has a round running will simply send its state; this
+    // only starts one that hasn't begun.
+    send({ type: "LINKS_START" });
+    $("in-guess").focus();
+  };
+  sock.onclose = () => { say("Disconnected. Reload to rejoin.", "bad"); $("btn-guess").disabled = true; };
+  sock.onerror = () => say("The connection failed.", "bad");
+  sock.onmessage = (e) => {
+    let msg;
+    try { msg = JSON.parse(e.data); } catch { return; }
+    if (msg.type === "LINKS_STATE") return draw(msg.state);
+    if (msg.type === "LINKS_MARK") return marked(msg);
+    if (msg.type === "LINKS_REJECT") return say(msg.why, "bad");
+    if (msg.type === "LINKS_OVER") return over(msg);
+  };
+}
+
+const send = (o) => { try { S.sock?.send(JSON.stringify(o)); } catch { /* closed */ } };
+
+function draw(state) {
+  S.state = state;
+  if (!state) return;
+
+  const h = state.hole;
+  if (h) {
+    $("h-no").textContent = h.no;
+    $("h-name").textContent = h.name || "";
+    $("h-par").textContent = h.wordsTotal > 1
+      ? `par ${h.par} · ${h.wordsTotal} words`
+      : `par ${h.par}`;
+    $("h-yards").textContent = `${h.yards} yds`;
+    const haz = $("h-haz");
+    haz.hidden = !h.hazard;
+    if (h.hazard) { haz.textContent = h.hazard; haz.className = `pill ${h.hazard}`; }
+    $("h-strokes").textContent = h.wordsTotal > 1
+      ? `${h.strokes} shots · word ${h.wordIndex + 1} of ${h.wordsTotal}`
+      : `${h.strokes} strokes`;
+
+    $("h-clue").innerHTML = h.clue
+      ? `<em>${h.len} letters —</em> ${escapeHtml(h.clue)}`
+      : `<em>${h.len} letters. No clue from these tees until you've played two words.</em>`;
+
+    $("in-guess").maxLength = h.len;
+    $("in-guess").placeholder = "•".repeat(h.len);
+
+    // A new hole means a new drawing. The ball is only sent flying when the
+    // server reports it somewhere it wasn't, so redraws don't re-animate.
+    if (S.drawnHole !== h.no) {
+      S.drawnHole = h.no;
+      S.ballAt = 0;
+      setHole({ courseId: state.course.id, hole: h.no - 1, hazard: h.hazard, par: h.cardPar, yards: h.yards });
+    }
+    if ((h.ball || 0) !== S.ballAt) {
+      S.ballAt = h.ball || 0;
+      strike(S.ballAt, h.hazard);
+    }
+
+    const pct = Math.round((h.ball || 0) * 100);
+    $("fair-fill").style.width = `${pct}%`;
+    $("fair-ball").style.left = `${pct}%`;
+
+    drawGuesses(h.guesses, h.len);
+  }
+
+  const body = $("field");
+  body.textContent = "";
+  for (const p of state.field || []) {
+    const tr = el("tr", p.uid === state.you ? "you" : "");
+    tr.append(el("td", "", p.name));
+    tr.append(el("td", "n", p.done ? "in" : String(p.hole + 1)));
+    const par = el("td", `n ${p.toPar < 0 ? "under" : p.toPar > 0 ? "over" : ""}`);
+    par.textContent = p.toPar === 0 ? "E" : p.toPar > 0 ? `+${p.toPar}` : String(p.toPar);
+    tr.append(par);
+    tr.append(el("td", "n", String(p.points)));
+    body.append(tr);
+  }
+
+  $("sub").textContent = `${state.course.name} · ${state.course.loc} · ${state.diff} tees`;
+}
+
+function drawGuesses(guesses, len) {
+  const host = $("guesses");
+  host.textContent = "";
+  for (const g of guesses || []) {
+    const row = el("div", "grow");
+    for (let i = 0; i < len; i++) {
+      row.append(el("div", `gtile ${g.marks[i]}`, g.word[i]));
+    }
+    host.append(row);
+  }
+}
+
+function marked(msg) {
+  if (msg.holed) {
+    const { name, strokes, points } = msg.holed;
+    say(`${name} — ${strokes} shots, ${points} points.`, "good");
+  } else if (msg.conceded) {
+    say(`Picked up. The word was ${msg.conceded}.`, "bad");
+  } else if (msg.nextWord) {
+    say("Solved. Next word.", "good");
+  } else if (msg.solved) {
+    say("In the cup.", "good");
+  } else {
+    say("");
+  }
+  $("in-guess").value = "";
+  $("in-guess").focus();
+}
+
+function over(msg) {
+  $("play").hidden = true;
+  $("btn-end").hidden = true;
+  // The server ranks the field and sends it in order; re-sorting here on the
+  // ladder score would tangle two players who shot different cards to the
+  // same rating.
+  const winner = msg.results[0];
+  say("");
+  const card = el("div", "card");
+  card.append(el("h2", "", msg.status === "ended" ? "Round ended" : "Round complete"));
+  for (const r of msg.results) {
+    const line = el("p", "sub");
+    const toPar = r.toPar === 0 ? "E" : r.toPar > 0 ? `+${r.toPar}` : String(r.toPar);
+    const mmr = r.gain == null ? "" : ` · +${r.gain} MMR`;
+    line.textContent = `${r.name} — ${toPar} through ${r.holes}, ${r.points} points${mmr}`;
+    card.append(line);
+  }
+  card.append(el("p", "", winner ? `${winner.name} takes it.` : ""));
+  const again = el("button", "btn go", "Back to the arena");
+  again.onclick = () => { location.href = "/"; };
+  card.append(again);
+  $("play").after(card);
+}
+
+const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+/* ── wiring ────────────────────────────────────────────────────────── */
+
+$("btn-start").onclick = connect;
+$("btn-home").onclick = () => { location.href = "/"; };
+$("btn-end").onclick = () => {
+  if (window.confirm("End the round here? Your card is scored as it stands.")) send({ type: "LINKS_END" });
+};
+$("btn-guess").onclick = swing;
+$("in-guess").addEventListener("keydown", (e) => { if (e.key === "Enter") swing(); });
+
+function swing() {
+  const word = ($("in-guess").value || "").toUpperCase().replace(/[^A-Z]/g, "");
+  if (!word) return;
+  send({ type: "LINKS_GUESS", word });
+}
+
+onAuthStateChanged(auth, async (user) => {
+  if (!user) { location.href = "/"; return; }
+  S.user = user;
+  await loadCourses();
+
+  // Arrived from Open Rooms with a code attached: join straight into it
+  // rather than making them type the code they just clicked.
+  const invited = decodeURIComponent(location.hash.slice(1)).toUpperCase();
+  if (invited) {
+    $("in-code").value = invited;
+    $("lobby-note").textContent = `Joining ${invited}. The course and tees come from the round already in play.`;
+    connect();
+  }
+});

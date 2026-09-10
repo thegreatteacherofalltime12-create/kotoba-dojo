@@ -18,6 +18,22 @@
 /manifest.webmanifest
   Cache-Control: no-cache
 
-# Everything else is content-addressed by the deploy and safe to keep.
+# Code is revalidated on every load. These files are NOT content-addressed —
+# index.html asks for ./app.js and that asks for ./arena.js, at stable paths
+# with no hash and no version query — so an hour of max-age is an hour of the
+# browser reusing the previous build. The failure is nastier than it sounds:
+# index.html and version.json are already no-cache, so the build stamp and the
+# update bar both go green while the running code is still last deploy's. The
+# service worker does not save you either, because fetch() inside a worker goes
+# through the same HTTP cache. Every response here carries an ETag, so this
+# costs a 304 per file, not a re-download.
+/*.js
+  Cache-Control: no-cache
+/*.mjs
+  Cache-Control: no-cache
+/*.css
+  Cache-Control: no-cache
+
+# Images and fonts genuinely do not change under the same name.
 /*
   Cache-Control: public, max-age=3600

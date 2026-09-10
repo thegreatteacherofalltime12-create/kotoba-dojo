@@ -1,6 +1,6 @@
 import { ROUND_MS, scoreFor } from "./scoring.js";
 import { validatePuzzle, stripAnswers, answerKey, WORD_COUNT } from "./validate.js";
-import { recordMatch, readRatings } from "./firestore.js";
+import { recordMatch, readRatings, getScroll, bumpScroll } from "./firestore.js";
 import { sessionGain, fieldMmrFor, beltFor } from "./mmr.js";
 import { STARTER_PUZZLES } from "./starter-puzzles.js";
 import { announceRoom } from "./rooms.js";
@@ -292,6 +292,17 @@ export class DojoLobby {
       if (!check.ok) return this.send(ws, "ERROR", { message: `Archive scroll is malformed: ${check.error}` });
       puzzle = check.puzzle;
       source = "bank";
+    } else if (msg.source === "published") {
+      // Fetched here rather than sent up: the scroll belongs to whoever wrote
+      // it, and the sensei running the round may not be that person.
+      const row = await getScroll(this.env, msg.id);
+      if (!row?.puzzle) return this.send(ws, "ERROR", { message: "That scroll couldn't be fetched." });
+      const check = validatePuzzle(row.puzzle);
+      if (!check.ok) return this.send(ws, "ERROR", { message: `That scroll is malformed: ${check.error}` });
+      puzzle = check.puzzle;
+      source = "published";
+      this.scrollId = msg.id;
+      this.scrollAuthor = row.author;
     } else if (msg.source === "custom") {
       const check = validatePuzzle(msg.puzzle);
       if (!check.ok) return this.send(ws, "ERROR", { message: check.error });
@@ -308,7 +319,15 @@ export class DojoLobby {
       id: msg.id || `custom:${Date.now()}`,
       title: puzzle.title,
       source,
-      words: WORD_COUNT,
+      // The count comes from the scroll, not a constant: the America grids
+      // carry fifty answers and everything else still carries ten.
+      words: puzzle.entries.length,
+      scrollId: source === "published" ? msg.id : null,
+      author: source === "published" ? this.scrollAuthor : null,
+      untimed: !!puzzle.untimed,
+      perWord: puzzle.perWord ?? null,
+      finishBonus: puzzle.finishBonus ?? null,
+      bonusWithinMs: puzzle.bonusWithinMs ?? null,
     };
     if (this.lobby.phase === "RESULTS") this.lobby.phase = "LOBBY";
 
@@ -316,6 +335,42 @@ export class DojoLobby {
     this.broadcastLobby();
     this.announce();
     this.send(ws, "PUZZLE_ACCEPTED", { title: puzzle.title, source });
+  }
+
+  /**
+   * How this scroll pays.
+   *
+   * Most score on the clock: finish fast, score high. The America grids score
+   * on progress instead — fifty a word, kept whether or not you finish, with a
+   * bonus only for completing the lot inside twenty minutes. A speed curve
+   * makes no sense without a deadline, and those two have none.
+   */
+  terms() {
+    const m = this.lobby.puzzleMeta || {};
+    return {
+      untimed: !!m.untimed,
+      words: m.words || WORD_COUNT,
+      perWord: m.perWord ?? null,
+      finishBonus: m.finishBonus ?? 0,
+      bonusWithinMs: m.bonusWithinMs ?? 0,
+    };
+  }
+
+  /** What a player has earned, given how far they got and how long it took. */
+  scoreOf(solved, elapsed, finished) {
+    const t = this.terms();
+    if (!t.untimed || t.perWord === null) {
+      // The timed path, unchanged: full marks for finishing, pro rata for
+      // stopping part-way.
+      return finished
+        ? scoreFor(elapsed)
+        : Math.round(scoreFor(elapsed) * (solved / t.words));
+    }
+    let total = solved * t.perWord;
+    if (finished && t.finishBonus && (!t.bonusWithinMs || elapsed <= t.bonusWithinMs)) {
+      total += t.finishBonus;
+    }
+    return total;
   }
 
   async startRound(ws) {
@@ -367,21 +422,25 @@ export class DojoLobby {
     this.lobby.mode = uids.length >= 3 ? "rumble" : "match";
 
     const now = Date.now();
+    const untimed = this.terms().untimed;
     this.lobby.phase = "ACTIVE";
     this.lobby.roundNo += 1;
     this.lobby.roundStartedAt = now;
-    this.lobby.roundEndsAt = now + ROUND_MS;
+    // No deadline on an untimed scroll, so no alarm to cut it short. It ends
+    // when somebody finishes it or the sensei calls it.
+    this.lobby.roundEndsAt = untimed ? null : now + ROUND_MS;
     this.lobby.lastResults = null;
 
     await this.persist();
-    await this.state.storage.setAlarm(this.lobby.roundEndsAt);
+    if (!untimed) await this.state.storage.setAlarm(this.lobby.roundEndsAt);
 
     this.broadcastLobby();
     this.broadcast("ROUND_START", {
       puzzle: this.clientPuzzle,
       startedAt: now,
-      durationMs: ROUND_MS,
+      durationMs: untimed ? null : ROUND_MS,
       endsAt: this.lobby.roundEndsAt,
+      untimed,
       serverNow: now,
       roundNo: this.lobby.roundNo,
     });
@@ -420,13 +479,13 @@ export class DojoLobby {
 
     if (correct) {
       // Everyone sees the pressure build without seeing anyone's letters.
-      this.broadcast("PROGRESS", { uid, solved: player.solved.length, total: WORD_COUNT });
+      this.broadcast("PROGRESS", { uid, solved: player.solved.length, total: this.terms().words });
     }
 
-    if (player.solved.length === WORD_COUNT) {
+    if (player.solved.length === this.terms().words) {
       const elapsed = Date.now() - this.lobby.roundStartedAt;
       player.finishedAt = elapsed;
-      player.score = scoreFor(elapsed);
+      player.score = this.scoreOf(player.solved.length, elapsed, true);
       player.status = "finished";
 
       await this.persist();
@@ -462,7 +521,7 @@ export class DojoLobby {
         const elapsed = Date.now() - this.lobby.roundStartedAt;
         p.status = "ended";
         p.finishedAt = elapsed;
-        p.score = Math.round(scoreFor(elapsed) * (p.solved.length / WORD_COUNT));
+        p.score = this.scoreOf(p.solved.length, elapsed, false);
       } else {
         p.status = "dnf"; p.score = 0; p.finishedAt = null;
       }
@@ -516,6 +575,15 @@ export class DojoLobby {
 
     await this.persist();
     await this.state.storage.deleteAlarm().catch(() => {});
+
+    // The author's record: one play per player, a win for each who finished.
+    const scrollId = this.lobby.puzzleMeta?.scrollId;
+    if (scrollId && results.length) {
+      const wins = results.filter((r) => r.status === "finished").length;
+      bumpScroll(this.env, scrollId, {
+        plays: results.length, wins, losses: results.length - wins,
+      }).catch(() => {});
+    }
 
     this.broadcast("ROUND_END", { results, mode, bounty, puzzle: this.lobby.revealed || null });
     this.broadcastLobby();

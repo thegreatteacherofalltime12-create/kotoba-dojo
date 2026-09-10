@@ -25,6 +25,7 @@ for (const [file, game] of [
   ['src/lobby.js', 'crossword'],
   ['src/battle-lobby.js', 'battleship'],
   ['src/mine-lobby.js', 'minesweeper'],
+  ['src/links-course.js', 'links'],
 ]) {
   const src = read(file);
   ok(`${game} announces through the shared helper`, src.includes('announceRoom(this.env'));

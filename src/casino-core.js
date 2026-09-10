@@ -82,22 +82,28 @@ function seededOrder(n, seed) {
  * The first of January 1970 was a Thursday, so the offset is what stops a
  * "week" running Thursday to Wednesday.
  */
-const weekNumber = (now) => Math.floor((Math.floor(now / DAY_MS) + 3) / 7);
+/**
+ * Twelve-hour spells since the epoch.
+ *
+ * Two favourites a day, turning at midnight and midday UTC, so a full cycle of
+ * all seven runners takes three and a half days.
+ */
+const spellNumber = (now) => Math.floor(now / (DAY_MS / 2));
 
 /**
- * Which runner carries the ribbon this week.
+ * Which runner carries the ribbon, and the order the spells run in.
  *
- * A whole week each, and the seven weeks of a cycle use one shuffled order —
- * so it changes every Monday, it is not predictable from the horse before it,
+ * Twelve hours each, and the seven spells of a cycle use one shuffled order —
+ * so it changes twice a day, it is not predictable from the horse before it,
  * and no horse carries the ribbon twice until all seven have had a turn. That
  * last part is why it is a rotation rather than a fresh draw: a free random
- * pick would sometimes hand the same horse a fortnight.
+ * pick would sometimes hand the same horse two spells running.
  */
 function cycleOrder(cycle) {
   const order = seededOrder(HORSES.length, cycle + 1);
   // A cycle can otherwise open with the horse the last one closed on, handing
-  // it a fortnight. Swapping the first two costs nothing and keeps the
-  // promise that no horse repeats until every one has had a turn.
+  // it a full day. Swapping the first two costs nothing and keeps the promise
+  // that no horse repeats until every one has had a turn.
   if (cycle > 0) {
     const before = seededOrder(HORSES.length, cycle)[HORSES.length - 1];
     if (order[0] === before) [order[0], order[1]] = [order[1], order[0]];
@@ -106,24 +112,24 @@ function cycleOrder(cycle) {
 }
 
 export function favouriteFor(now = Date.now()) {
-  const week = weekNumber(now);
-  const cycle = Math.floor(week / HORSES.length);
-  const slot = week % HORSES.length;
+  const spell = spellNumber(now);
+  const cycle = Math.floor(spell / HORSES.length);
+  const slot = spell % HORSES.length;
   return HORSES[cycleOrder(cycle)[slot]].id;
 }
 
-/** When this week's favourite gives way to next week's. */
+/** When this spell's favourite gives way to the next. */
 export const favouriteEndsAt = (now = Date.now()) =>
-  ((weekNumber(now) + 1) * 7 - 3) * DAY_MS;
+  (spellNumber(now) + 1) * (DAY_MS / 2);
 
 /**
  * How often the favourite is the one that moves.
  *
  * Tuned by simulation rather than guessed: with the traps knocking runners
- * back, this is the share of turns that lands the favourite at roughly seven
- * wins in ten.
+ * back, this is the share of turns that lands the favourite a shade under two
+ * wins in three.
  */
-export const FAVOURITE_STEP = 0.264;
+export const FAVOURITE_STEP = 0.252;
 
 /**
  * What a slip pays.
@@ -150,16 +156,14 @@ export function oddsFor(betType) {
 }
 
 export const BETS = [
-  { id: "place", name: "1st or 2nd", pays: 4, picks: 1, blurb: "Your horse finishes in the top two." },
+  { id: "place", name: "1st or 2nd", pays: 3.5, picks: 1, blurb: "Your horse finishes in the top two." },
   { id: "win", name: "First Place", pays: 20, picks: 1, blurb: "Your horse wins outright." },
   { id: "exacta", name: "1st, 2nd - Exact Order", pays: 150, picks: 2, blurb: "Both, in the order you name them." },
   { id: "trifecta", name: "Top 3 - Exact", pays: 400, picks: 3, blurb: "The first three, in order." },
   { id: "superfecta", name: "Top 4 - Exact", pays: 1000, picks: 4, blurb: "The first four, in order." },
   // Borrowed from the market: one bets on a horse running away with it, the
-  // other on it collapsing. Both need a margin on top of the placing, so both
-  // pay well; running away with it is the rarer of the two. PRICES below is
-  // the one price that counts — these are here to be read alongside the rules.
-  { id: "long", name: "Long", pays: 100, picks: 1, side: true,
+  // other on it collapsing. Both need a margin, which is why they pay 50.
+  { id: "long", name: "Long", pays: 50, picks: 1, side: true,
     blurb: "Wins by three clear steps over the runner-up." },
   { id: "short", name: "Short", pays: 50, picks: 1, side: true,
     blurb: "Finishes last, three clear steps behind the one in front." },

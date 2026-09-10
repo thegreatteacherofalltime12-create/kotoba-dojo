@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Multiverse Golf &middot; Omni Multiverse</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap">
+<style>
+:root{
+  --void:#1c211b; --panel:#252b23; --panel2:#2e352b; --line:#3a4235; --line2:#4a5344;
+  --amber:#ffa64d; --amber-dim:#c07c38; --gold:#ffd75e;
+  --fairway:#6fc96f; --fairway-deep:#2d6b2d; --rough:#1e4a20;
+  --sand:#e0bc7d; --water:#54a3c7; --flag:#f0575c;
+  --ink:#eef3ea; --ink-dim:#b3bfad; --ink-faint:#8b9785;
+  --hio:#ffd75e; --eagle:#ffb340; --birdie:#6fc96f; --par:#b3bfad; --bogey:#e0bc7d; --dbl:#ea8449; --tri:#f0575c;
+  --body:"Barlow",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --display:"Archivo",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+body{
+  margin:0; background:var(--void); color:var(--ink);
+  font-family:var(--body); font-size:14px; line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+}
+/* The course photo, now a real file rather than 90KB of base64 in the page. */
+.bgphoto{
+  position:fixed; inset:0; z-index:0; opacity:.35; pointer-events:none;
+  background:url("/links-course.jpg") center 22%/cover no-repeat;
+}
+.bgphoto::after{
+  content:""; position:absolute; inset:0;
+  background:linear-gradient(180deg, rgba(28,33,27,.72), rgba(28,33,27,.94));
+}
+.wrap{position:relative; z-index:1; max-width:960px; margin:0 auto; padding:16px}
+
+header.top{display:flex; align-items:center; gap:.8rem; flex-wrap:wrap; margin-bottom:1rem}
+h1{font-family:var(--display); font-size:1.3rem; margin:0; letter-spacing:.04em}
+.sub{color:var(--ink-faint); font-size:.78rem}
+.spacer{margin-left:auto}
+.btn{
+  font:inherit; font-weight:600; cursor:pointer; padding:.45rem .9rem; border-radius:8px;
+  background:var(--panel2); border:1px solid var(--line2); color:var(--ink);
+}
+.btn:hover{border-color:var(--amber); color:var(--amber)}
+.btn.go{background:var(--fairway-deep); border-color:var(--fairway); color:#eafaea}
+.btn.end{background:#2a0f12; border-color:var(--flag); color:var(--flag)}
+.btn:disabled{opacity:.45; cursor:not-allowed}
+
+.card{background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px; margin-bottom:12px}
+.row{display:flex; gap:.6rem; flex-wrap:wrap; align-items:center}
+label.f{font-size:.68rem; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-faint)}
+select,input{
+  font:inherit; padding:.4rem .5rem; border-radius:7px;
+  background:var(--panel2); border:1px solid var(--line2); color:var(--ink);
+}
+
+/* the hole */
+.holehead{display:flex; align-items:baseline; gap:.7rem; flex-wrap:wrap}
+.holeno{font-family:var(--display); font-size:1.6rem}
+.holename{color:var(--gold)}
+.pill{font-size:.66rem; letter-spacing:.1em; text-transform:uppercase;
+  padding:.15rem .5rem; border-radius:999px; background:var(--panel2); border:1px solid var(--line2); color:var(--ink-dim)}
+.pill.sand{border-color:var(--sand); color:var(--sand)}
+.pill.water{border-color:var(--water); color:var(--water)}
+.clue{margin:.6rem 0; font-size:1rem; color:var(--ink)}
+.clue em{color:var(--ink-faint); font-style:normal}
+
+/* the fairway strip: how far the ball has travelled */
+/* the hole itself, drawn top-down */
+.holecv{width:100%; height:min(52vh,420px); display:block; border-radius:10px;
+  border:1px solid var(--line2); background:var(--rough); margin:.6rem 0}
+.fair{height:14px; border-radius:999px; background:var(--rough); border:1px solid var(--line2); position:relative; margin:.7rem 0}
+.fair i{position:absolute; inset:0 auto 0 0; border-radius:999px; background:linear-gradient(90deg,var(--fairway-deep),var(--fairway)); transition:width .6s cubic-bezier(.2,.7,.2,1)}
+.fair b{position:absolute; top:-4px; width:10px; height:10px; margin-left:-5px; border-radius:50%; background:#fff; box-shadow:0 0 8px rgba(255,255,255,.6); transition:left .6s cubic-bezier(.2,.7,.2,1)}
+
+/* guesses */
+.guesses{display:grid; gap:6px; margin:.6rem 0}
+.grow{display:flex; gap:6px}
+.gtile{
+  width:2.3rem; height:2.6rem; display:grid; place-items:center; border-radius:6px;
+  font-family:var(--display); font-size:1.1rem; border:1px solid var(--line2); background:var(--panel2);
+}
+.gtile.hit{background:var(--fairway-deep); border-color:var(--fairway); color:#eafaea}
+.gtile.near{background:#5a4a1c; border-color:var(--gold); color:var(--gold)}
+.gtile.miss{opacity:.5}
+
+.entry{display:flex; gap:.5rem; margin-top:.6rem}
+.entry input{flex:1; text-transform:uppercase; letter-spacing:.25em; font-family:var(--display); font-size:1.05rem}
+
+.msg{min-height:1.4rem; font-size:.82rem; color:var(--amber)}
+.msg.bad{color:var(--flag)}
+.msg.good{color:var(--fairway)}
+
+/* the field */
+table{width:100%; border-collapse:collapse; font-size:.84rem}
+th,td{text-align:left; padding:.35rem .4rem; border-bottom:1px solid var(--line)}
+th{font-size:.64rem; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-faint)}
+td.n{text-align:right; font-variant-numeric:tabular-nums}
+tr.you{background:rgba(255,166,77,.10)}
+.under{color:var(--birdie)} .over{color:var(--bogey)}
+</style>
+</head>
+<body>
+<div class="bgphoto"></div>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>&#9971; MULTIVERSE GOLF</h1>
+      <div class="sub" id="sub">Guess the word. Every guess is a stroke.</div>
+    </div>
+    <span class="spacer"></span>
+    <button class="btn" id="btn-home">&larr; Arena</button>
+    <button class="btn end" id="btn-end" hidden>Officially end round</button>
+  </header>
+
+  <div class="card" id="lobby">
+    <div class="row">
+      <div><label class="f" for="sel-course">Course</label><br><select id="sel-course"></select></div>
+      <div><label class="f" for="sel-tee">Tees</label><br><select id="sel-tee"></select></div>
+      <div><label class="f" for="sel-dict">Dictionary</label><br>
+        <select id="sel-dict"><option value="classic">Webster 1828</option><option value="modern">Modern</option></select>
+      </div>
+      <div><label class="f" for="in-code">Room</label><br><input id="in-code" maxlength="8" placeholder="code"></div>
+      <div style="align-self:flex-end"><button class="btn go" id="btn-start">Tee off</button></div>
+    </div>
+    <p class="sub" id="lobby-note" style="margin:.7rem 0 0"></p>
+  </div>
+
+  <div class="card" id="play" hidden>
+    <div class="holehead">
+      <span class="holeno" id="h-no">1</span>
+      <span class="holename" id="h-name"></span>
+      <span class="pill" id="h-par"></span>
+      <span class="pill" id="h-yards"></span>
+      <span class="pill" id="h-haz" hidden></span>
+      <span class="spacer"></span>
+      <span class="pill" id="h-strokes"></span>
+    </div>
+    <p class="clue" id="h-clue"></p>
+    <canvas id="hole" class="holecv"></canvas>
+    <div class="fair"><i id="fair-fill"></i><b id="fair-ball"></b></div>
+    <div class="guesses" id="guesses"></div>
+    <div class="entry">
+      <input id="in-guess" autocomplete="off" autocapitalize="characters" spellcheck="false">
+      <button class="btn go" id="btn-guess">Swing</button>
+    </div>
+    <p class="msg" id="msg"></p>
+  </div>
+
+  <div class="card">
+    <table>
+      <thead><tr><th>Player</th><th class="n">Hole</th><th class="n">To par</th><th class="n">Points</th></tr></thead>
+      <tbody id="field"></tbody>
+    </table>
+  </div>
+</div>
+<script type="module" src="/links.js"></script>
+</body>
+</html>

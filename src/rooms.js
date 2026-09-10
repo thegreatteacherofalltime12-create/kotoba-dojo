@@ -7,7 +7,7 @@
 // Adding a game means calling announceRoom from its Durable Object and adding
 // one line to ROOMS in public/app.js. Nothing else.
 
-export const GAME_IDS = ["crossword", "battleship", "minesweeper", "casino"];
+export const GAME_IDS = ["crossword", "battleship", "minesweeper", "casino", "links"];
 
 /**
  * @param {object} env    the Worker environment, for the DIRECTORY binding

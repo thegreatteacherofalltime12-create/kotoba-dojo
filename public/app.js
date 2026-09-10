@@ -16,6 +16,7 @@ import { enterMines, closeMines, bindMineControls } from "./mines.js";
 import { THEMES, applyTheme, savedTheme, themeById, THEME_EPOCH, DEFAULT_THEME, isStale } from "./theme.js";
 import { enterCasino, leaveCasino, bindCasino } from "./casino.js";
 import { casinoRulesHtml } from "./game-modes.js";
+import { UPDATES, PULSE_HOURS, KEEP_DAYS } from "./whats-new.js";
 
 /**
  * True where typing summons an on-screen keyboard. Three tests rather than
@@ -122,6 +123,8 @@ const S = {
   puzzle: null,
   clock: 0,          // server time minus local time
   endsAt: 0,
+  untimed: false,
+  words: 10,
   ticker: null,
   cells: new Map(),  // "r,c" -> { input, entries: [] }
   entries: new Map(),
@@ -363,26 +366,24 @@ async function loadScrolls() {
   const list = $("scroll-list");
   list.textContent = "";
   try {
-    const q = query(
-      collection(db, "users", S.user.uid, "scrolls"),
-      orderBy("createdAt", "desc"),
-      limit(30)
-    );
-    const snap = await Promise.race([
-      getDocs(q),
-      new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 6000)),
-    ]);
-    S.scrolls = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const res = await fetch("/api/scrolls");
+    S.scrolls = (await res.json()).scrolls || [];
   } catch { S.scrolls = []; }
 
   if (!S.scrolls.length) {
-    list.append(el("li", "", "No scrolls yet. Write one and it'll be here when you open a dojo."));
+    list.append(el("li", "", "No scrolls yet. Write one and everybody can play it."));
     return;
   }
   for (const s of S.scrolls) {
-    const li = el("li");
+    const mine = s.uid === S.user?.uid;
+    const li = el("li", mine ? "mine" : "");
     li.append(el("span", "name", s.title || "Untitled scroll"));
-    li.append(el("span", "meta", `${s.words?.length || WORDS} words`));
+    li.append(el("span", "meta", mine ? "yours" : `by ${s.author}`));
+    // The author's record. Nobody minds seeing it on someone else's scroll,
+    // and on your own it's the whole point of publishing.
+    li.append(el("span", "plays", s.plays
+      ? `${s.plays} play${s.plays === 1 ? "" : "s"} \u00b7 ${s.wins} solved, ${s.losses} not`
+      : "not played yet"));
     list.append(li);
   }
 }
@@ -955,6 +956,7 @@ const DRAWERS = [
   ["tab-create", "drawer-create"],
   ["tab-profile", "drawer-profile"],
   ["tab-records", "drawer-records"],
+  ["tab-news", "drawer-news"],
   ["tab-rules", "drawer-rules"],
   ["tab-scrolls", "drawer-scrolls"],
   ["tab-rooms", "drawer-rooms"],
@@ -998,7 +1000,7 @@ function closeOpenPanel() {
 }
 
 $("panel-x").onclick = closeOpenPanel;
-for (const id of ["drawer-rooms", "drawer-records", "drawer-belts", "drawer-rules", "drawer-scrolls"]) {
+for (const id of ["drawer-rooms", "drawer-records", "drawer-belts", "drawer-rules", "drawer-scrolls", "drawer-news"]) {
   // Only a click on the backdrop itself, never one that bubbled up from the
   // card, or reading the rules would keep shutting the rules.
   $(id).addEventListener("click", (e) => { if (e.target === $(id)) closeOpenPanel(); });
@@ -1006,6 +1008,11 @@ for (const id of ["drawer-rooms", "drawer-records", "drawer-belts", "drawer-rule
 
 $("tab-rules").onclick = () => drawer("drawer-rules");
 $("tab-records").onclick = () => { if (drawer("drawer-records")) loadRecords(); };
+if ($("tab-news")) {
+  $("tab-news").onclick = () => { if (drawer("drawer-news")) drawNews(); };
+} else {
+  console.warn("[news] no #tab-news on the page \u2014 is index.html cached?");
+}
 $("tab-scrolls").onclick = () => { if (drawer("drawer-scrolls")) loadScrolls(); };
 $("tab-create").onclick = () => { if (drawer("drawer-create")) drawCreate(); };
 document.addEventListener("keydown", (e) => {
@@ -1273,6 +1280,94 @@ async function drawWallet(host) {
         : `<p class="panel-sub">Nobody has banked anything yet. Be first.</p>`}
     </div>`;
   host.querySelectorAll("[data-rec]").forEach((b) => { b.onclick = () => loadRecords(b.dataset.rec); });
+}
+
+// ── what's new ─────────────────────────────────
+//
+// One tab that pulses when something has shipped in the last twelve hours and
+// the player hasn't looked. Reading it stops the pulse for good, until the next
+// thing ships. Which notes have been read is kept in this browser rather than
+// on the account: it costs nothing, and the worst it can do is show the pulse
+// once more on a second device.
+
+const NEWS_KEY = "omni.news.seen";
+
+function seenNews() {
+  try { return new Set(JSON.parse(localStorage.getItem(NEWS_KEY) || "[]")); }
+  catch { return new Set(); }
+}
+
+function markNewsSeen(ids) {
+  try {
+    const all = [...seenNews(), ...ids];
+    localStorage.setItem(NEWS_KEY, JSON.stringify(all.slice(-200)));
+  } catch { /* private browsing; the pulse will simply return */ }
+}
+
+const newsId = (u) => `${u.at}|${u.title}`;
+
+/** Notes still worth showing, newest first. */
+function currentNews() {
+  const cutoff = Date.now() - KEEP_DAYS * 86_400_000;
+  return [...UPDATES]
+    .filter((u) => new Date(u.at).getTime() >= cutoff)
+    .sort((a, b) => new Date(b.at) - new Date(a.at));
+}
+
+/** Anything shipped in the pulse window that this browser hasn't read. */
+function unreadNews() {
+  const fresh = Date.now() - PULSE_HOURS * 3600_000;
+  const seen = seenNews();
+  return currentNews().filter((u) => new Date(u.at).getTime() >= fresh && !seen.has(newsId(u)));
+}
+
+function refreshNewsPulse() {
+  const tab = $("tab-news");
+  if (!tab) return;
+  const n = unreadNews().length;
+  tab.classList.toggle("pulse", n > 0);
+  tab.textContent = n > 0 ? `What's New (${n})` : "What's New";
+}
+
+function drawNews() {
+  const host = $("drawer-news");
+  if (!host) return;
+  try {
+    drawNewsInner(host);
+  } catch (err) {
+    console.error("[news]", err);
+    host.innerHTML = `<div class="drawer-in"><div class="drawer-head"><h2>What's New</h2></div>
+      <p class="panel-sub">These notes couldn't be shown. The browser console has the reason.</p></div>`;
+  }
+}
+
+function drawNewsInner(host) {
+  const rows = currentNews();
+  const seen = seenNews();
+  const fresh = Date.now() - PULSE_HOURS * 3600_000;
+
+  host.innerHTML = `
+    <div class="drawer-in">
+      <div class="drawer-head"><h2>What's New</h2></div>
+      ${rows.length ? `<div class="news-list">${rows.map((u) => {
+        const isNew = new Date(u.at).getTime() >= fresh && !seen.has(newsId(u));
+        return `
+          <div class="news-row${isNew ? " fresh" : ""}">
+            <div class="news-top">
+              ${u.where ? `<span class="news-where">${escapeHtml(u.where)}</span>` : ""}
+              <b>${escapeHtml(u.title)}</b>
+              ${isNew ? `<span class="news-tag">new</span>` : ""}
+              <span class="news-when">${ago(u.at)}</span>
+            </div>
+            <p class="news-text">${escapeHtml(u.text)}</p>
+          </div>`;
+      }).join("")}</div>`
+        : `<p class="panel-sub">Nothing new in the last ${KEEP_DAYS} days.</p>`}
+    </div>`;
+
+  // Opening it is reading it.
+  markNewsSeen(rows.map(newsId));
+  refreshNewsPulse();
 }
 
 // ── the commons ───────────────────────────────────────────────────
@@ -1606,6 +1701,7 @@ function watchRankings(on) {
   loadRankings();
   rankPoll = setInterval(loadRankings, 30_000);
   startCommons();
+  refreshNewsPulse();
 }
 
 /**
@@ -1617,6 +1713,9 @@ const ROOMS = {
   crossword: (code) => enterDojo(code),
   battleship: (code, back) => { show("battle"); enterBattle(code, idToken, back); },
   minesweeper: (code, back) => { show("mines"); enterMines(code, idToken, back); },
+  // Multiverse Golf runs on its own page: a full-screen course doesn't fit
+  // inside a panel, and the round is long enough to want the whole window.
+  links: (code) => { location.href = `/links.html#${code || ""}`; },
   // Solo against the house: no room to join, so the code is ignored.
   casino: (_code, back) => {
     show("casino");
@@ -1735,17 +1834,25 @@ function refreshForge() {
 $("btn-forge-save").onclick = async () => {
   if (!S.forgeGrid) return;
   const title = $("forge-title").value.trim() || "Untitled scroll";
+  $("btn-forge-save").disabled = true;
+  say("forge-status", "Publishing\u2026", false);
   try {
-    await addDoc(collection(db, "users", S.user.uid, "scrolls"), {
-      title,
-      words: forgeWords(),
-      layout: S.forgeGrid,
-      createdAt: serverTimestamp(),
+    // Published rather than filed away: the grid goes to the library so
+    // anyone can open a dojo on it, and the server checks it on the way in.
+    const res = await fetch("/api/scrolls", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${await idToken()}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        puzzle: { title, rows: S.forgeGrid.rows, cols: S.forgeGrid.cols, entries: S.forgeGrid.entries },
+      }),
     });
+    const body = await res.json();
+    if (!res.ok) { say("forge-status", body.error || "That couldn't be published."); $("btn-forge-save").disabled = false; return; }
     await loadScrolls();
     show("home");
   } catch (e) {
-    say("forge-status", `Couldn't save: ${e.message}`);
+    say("forge-status", `Couldn't publish: ${e.message}`);
+    $("btn-forge-save").disabled = false;
   }
 };
 
@@ -2290,7 +2397,7 @@ function drawCategorySelect() {
     sel.append(o);
   }
   if (S.scrolls.length) {
-    const o = el("option", "", "Your scrolls");
+    const o = el("option", "", "Player scrolls");
     o.value = "mine";
     sel.append(o);
   }
@@ -2307,8 +2414,11 @@ function drawScrollSelect() {
   sel.append(none);
 
   if (S.category === "mine") {
+    // The library, not a private drawer: every published scroll, with whose
+    // it is when it isn't yours.
     for (const sc of S.scrolls) {
-      const o = el("option", "", sc.title || "Untitled scroll");
+      const mine = sc.uid === S.user?.uid;
+      const o = el("option", "", `${sc.title || "Untitled scroll"}${mine ? "" : ` \u2014 ${sc.author}`}`);
       o.value = `custom:${sc.id}`;
       sel.append(o);
     }
@@ -2338,19 +2448,10 @@ $("scroll-select").onchange = (e) => {
   if (kind === "bank") {
     sendMsg({ type: "SET_PUZZLE", source: "bank", id });
   } else {
-    const scroll = S.scrolls.find((s) => s.id === id);
-    if (!scroll?.layout) return say("dojo-error", "That scroll is missing its grid. Open it in the writer and save again.");
-    sendMsg({
-      type: "SET_PUZZLE",
-      source: "custom",
-      id,
-      puzzle: {
-        title: scroll.title,
-        entries: scroll.layout.entries.map((x) => ({
-          answer: x.answer, clue: x.clue, row: x.row, col: x.col, dir: x.dir,
-        })),
-      },
-    });
+    // Published scrolls are fetched by the server from the library. The grid
+    // no longer travels through the sensei's browser, which is what lets a
+    // dojo run somebody else's scroll at all.
+    sendMsg({ type: "SET_PUZZLE", source: "published", id });
   }
 };
 
@@ -2405,8 +2506,10 @@ function resetRoundUI() {
 function startRound(msg, alreadySolved = [], solvedLetters = {}) {
   resetRoundUI();
   S.clock = msg.serverNow - Date.now();
+  S.untimed = !!msg.untimed;
   S.endsAt = msg.endsAt;
-  S.roundMs = msg.durationMs || msg.endsAt - msg.startedAt;
+  S.roundMs = msg.durationMs || (msg.endsAt ? msg.endsAt - msg.startedAt : 0);
+  S.words = msg.puzzle?.entries?.length || 10;
 
   const me = S.lobby?.members.find((m) => m.uid === S.user.uid);
   if (me && (me.role === "referee" || me.role === "spectator")) {
@@ -2438,9 +2541,15 @@ function startRound(msg, alreadySolved = [], solvedLetters = {}) {
     }
   }
 
-  $("timer").hidden = false;
-  tick();
-  S.ticker = setInterval(tick, 250);
+  // An untimed scroll has no clock to show; a counter would only suggest
+  // there is a deadline somewhere.
+  if (S.untimed) {
+    $("timer").hidden = true;
+  } else {
+    $("timer").hidden = false;
+    tick();
+    S.ticker = setInterval(tick, 250);
+  }
 }
 
 function tick() {
@@ -2496,7 +2605,7 @@ function endRound(msg) {
     li.append(el("span", "rank", String(i + 1)));
     li.append(el("span", "who", r.name));
     li.append(el("span", "time", r.status === "dnf" ? "unfinished"
-      : r.status === "ended" ? `${r.solved}/10 words` : fmt(r.elapsedMs)));
+      : r.status === "ended" ? `${r.solved}/${S.words || 10} words` : fmt(r.elapsedMs)));
     if (r.gain != null) {
       const bits = [`${r.breakdown.base} base`];
       if (r.breakdown.challenge) bits.push(`+${r.breakdown.challenge} challenge`);

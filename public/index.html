@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Omni Multiverse of Madness</title>
-<meta name="build" content="2026-09-09 03:31 UTC">
+<meta name="build" content="2026-09-10 16:26 UTC">
 <meta name="description" content="Omni Multiverse of Madness — competitive arena. Belts, MMR, casino floor and live standings.">
 <meta name="theme-color" content="#F4F1EA">
 <meta name="mobile-web-app-capable" content="yes">
@@ -121,6 +121,8 @@ if (location.protocol === "file:") {
         <div class="drawer-tabs">
           <button id="tab-create" class="dtab dtab-go" aria-expanded="false" aria-controls="drawer-create">+ Create Match</button>
           <button id="tab-profile" class="dtab dtab-red" aria-expanded="false" aria-controls="drawer-profile">Profile</button>
+          <button id="tab-news" class="dtab" aria-expanded="false" aria-controls="drawer-news">What's New</button>
+          <a id="tab-links" class="dtab" href="/links.html">&#9971; Multiverse Golf</a>
           <button id="tab-records" class="dtab" aria-expanded="false" aria-controls="drawer-records">Records</button>
           <button id="tab-rules" class="dtab dtab-guide" aria-expanded="false" aria-controls="drawer-rules"><span aria-hidden="true">📖</span> View Rules</button>
           <button id="tab-scrolls" class="dtab" aria-expanded="false" aria-controls="drawer-scrolls">Word-Cross Scrolls</button>
@@ -180,15 +182,16 @@ if (location.protocol === "file:") {
     </div>
 
     <div class="drawer as-modal" id="drawer-records" role="dialog" aria-modal="true" aria-label="Records" hidden></div>
+    <div class="drawer as-modal" id="drawer-news" role="dialog" aria-modal="true" aria-label="What's New" hidden></div>
     <div class="drawer as-modal" id="drawer-belts" role="dialog" aria-modal="true" aria-label="Belts" hidden></div>
     <div class="drawer as-modal" id="drawer-rules" role="dialog" aria-modal="true" aria-label="Rules" hidden></div>
-    <div class="drawer as-modal" id="drawer-scrolls" role="dialog" aria-modal="true" aria-label="Your Scrolls" hidden>
+    <div class="drawer as-modal" id="drawer-scrolls" role="dialog" aria-modal="true" aria-label="Player Scrolls" hidden>
       <div class="drawer-in">
         <div class="drawer-head">
-          <h2>Your Scrolls</h2>
+          <h2>Player Scrolls</h2>
           <button id="btn-forge" class="btn btn-tiny">Write a scroll</button>
         </div>
-        <p class="panel-sub">Ten words of your own. Write them before you open a dojo &mdash; nobody wants to watch you type.</p>
+        <p class="panel-sub">Ten words of your own. Everything written here is published for everyone to play, and you'll see how each one has been getting on.</p>
         <ul id="scroll-list" class="scroll-list"></ul>
       </div>
     </div>

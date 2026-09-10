@@ -3,10 +3,11 @@
 // every other player's renderer, so the Durable Object re-derives the grid
 // from the placements and checks it independently.
 
-export const WORD_COUNT = 10;
+export const WORD_COUNT = 10;      // what a hand-written scroll must have
 const MIN_LEN = 3;
-const MAX_LEN = 12;
-const MAX_DIM = 24;
+const MAX_LEN = 13;                // JEFFERSONCITY is thirteen
+const MAX_DIM = 32;                // a fifty-word grid needs about thirty
+const MAX_ENTRIES = 60;
 const MAX_CLUE = 140;
 
 // Minimal; swap in a real list if your dojos are ever public rather than
@@ -29,8 +30,14 @@ export function validatePuzzle(input) {
   if (hasBlocked(title)) return { ok: false, error: "That title can't be used." };
 
   const raw = Array.isArray(input.entries) ? input.entries : [];
-  if (raw.length !== WORD_COUNT)
+
+  // A scroll from the archive may declare its own length; one written by a
+  // player still has to be exactly ten, because the forge only builds ten.
+  const fromArchive = input.theme === "america" || input.untimed === true;
+  if (!fromArchive && raw.length !== WORD_COUNT)
     return { ok: false, error: `A scroll needs exactly ${WORD_COUNT} words. This one has ${raw.length}.` };
+  if (fromArchive && (raw.length < WORD_COUNT || raw.length > MAX_ENTRIES))
+    return { ok: false, error: `A scroll needs ${WORD_COUNT}–${MAX_ENTRIES} words. This one has ${raw.length}.` };
 
   const entries = [];
   const seen = new Set();
@@ -169,7 +176,16 @@ export function validatePuzzle(input) {
   if (ids.size !== final.length)
     return { ok: false, error: "Two entries resolved to the same slot." };
 
-  return { ok: true, puzzle: { title, rows, cols, entries: final } };
+  // Scrolls that score by progress rather than by the clock carry their own
+  // terms. Anything the archive doesn't set is simply absent, and the round
+  // falls back to the timed path.
+  const terms = {};
+  if (input.untimed === true) terms.untimed = true;
+  if (Number.isFinite(input.perWord)) terms.perWord = Math.max(0, Math.round(input.perWord));
+  if (Number.isFinite(input.finishBonus)) terms.finishBonus = Math.max(0, Math.round(input.finishBonus));
+  if (Number.isFinite(input.bonusWithinMs)) terms.bonusWithinMs = Math.max(0, Math.round(input.bonusWithinMs));
+
+  return { ok: true, puzzle: { title, rows, cols, entries: final, ...terms } };
 }
 
 function sharesCell(a, b) {

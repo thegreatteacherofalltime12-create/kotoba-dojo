@@ -1,7 +1,8 @@
 import { verifyIdToken } from "./jwt.js";
 import {
   prestigePlayer, recordMatch, readRatings, readWallet, topWallets,
-  readFeed, postChat, readChat, postFeed, withdrawWallet, refundWallet, lastFirestoreError,
+  readFeed, postChat, readChat, postFeed, withdrawWallet, refundWallet,
+  publishScroll, listScrolls, lastFirestoreError,
 } from "./firestore.js";
 import { makePuzzle, scoreSolve, cashReward, MAX_AWARD, LIMIT_MS, FAST_MS, FAST_MULTIPLIER } from "./puzzle.js";
 import { STARTER_INDEX } from "./starter-puzzles.js";
@@ -10,6 +11,7 @@ export { DojoLobby } from "./lobby.js";
 export { DojoDirectory } from "./directory.js";
 export { BattleRoyale } from "./battle-lobby.js";
 export { MineField } from "./mine-lobby.js";
+export { LinksCourse } from "./links-course.js";
 export { BountyOffice } from "./bounty-office.js";
 export { CasinoFloor } from "./casino-floor.js";
 
@@ -179,19 +181,32 @@ export default {
     }
 
     // Who currently wears the target, and the recent history of it moving.
+    // The courses on offer. Names and cards only — the words stay on the server.
+    if (path === "/api/links/courses") {
+      const { COURSES, DIFF } = await import("./links.js");
+      return json({
+        courses: COURSES.map((c) => ({
+          id: c.id, name: c.name, sub: c.sub, loc: c.loc, ico: c.ico,
+          pars: c.pars, yards: c.yards, names: c.names,
+          par: c.pars.reduce((a, b) => a + b, 0),
+        })),
+        tees: Object.entries(DIFF).map(([id, d]) => ({ id, label: d.label, words: d.words, mult: d.mult })),
+      });
+    }
+
     // Who carries the ribbon, and the week's rotation. Derived from the date,
     // so this answers the same on any machine whether or not the floor is awake.
     if (path === "/api/favourite") {
       const { HORSES, favouriteFor, favouriteEndsAt } = await import("./casino-core.js");
       const now = Date.now();
       const DAY = 86_400_000;
-      // Seven weeks, which is a full cycle of the rotation.
+      // The next seven spells, which is a full cycle of the rotation.
       const week = [];
-      for (let w = 0; w < 7; w++) {
-        const at = now + w * 7 * DAY;
+      for (let k = 0; k < 7; k++) {
+        const at = now + k * (DAY / 2);
         const id = favouriteFor(at);
         week.push({
-          weekOf: new Date(Math.floor(at / DAY) * DAY).toISOString().slice(0, 10),
+          from: new Date(Math.floor(at / (DAY / 2)) * (DAY / 2)).toISOString().slice(0, 16) + "Z",
           horse: HORSES.find((h) => h.id === id).name,
         });
       }
@@ -201,6 +216,28 @@ export default {
         changesAt: new Date(favouriteEndsAt(now)).toISOString(),
         week,
       });
+    }
+
+    // Every published scroll. Titles, authors and how they've been getting on —
+    // never the grid, which would hand out the answers.
+    if (path === "/api/scrolls" && request.method === "GET")
+      return json({ scrolls: await listScrolls(env) });
+
+    // Writing one publishes it. The grid is checked here rather than taken on
+    // trust, so a malformed scroll can never reach anybody else's dojo.
+    if (path === "/api/scrolls" && request.method === "POST") {
+      const token = (request.headers.get("Authorization") || "").replace(/^Bearer /, "");
+      let user;
+      try { user = await verifyIdToken(token, env.FIREBASE_PROJECT_ID); }
+      catch { return json({ error: "Sign in first." }, 401); }
+
+      const body = await request.json().catch(() => ({}));
+      const { validatePuzzle } = await import("./validate.js");
+      const check = validatePuzzle(body.puzzle);
+      if (!check.ok) return json({ error: check.error }, 400);
+
+      const id = await publishScroll(env, { uid: user.uid, name: user.name, puzzle: check.puzzle });
+      return id ? json({ ok: true, id }) : json({ error: "That couldn't be published." }, 500);
     }
 
     // Everything that happened in the last day. Public: it is a scoreboard.
@@ -333,8 +370,8 @@ export default {
       return stub.fetch(fwd);
     }
 
-    // Battleship and Minesweeper both hand off the same way.
-    const room = /^\/api\/(battle|mines)\/([A-Za-z0-9-]{3,16})\/ws$/.exec(path);
+    // Battleship, Minesweeper and Multiverse Golf all hand off the same way.
+    const room = /^\/api\/(battle|mines|links)\/([A-Za-z0-9-]{3,16})\/ws$/.exec(path);
     if (room) {
       if (request.headers.get("Upgrade") !== "websocket")
         return new Response("Expected a WebSocket upgrade.", { status: 426 });
@@ -345,7 +382,9 @@ export default {
         return new Response(`Sign-in rejected: ${err.message}`, { status: 401 });
       }
       const code = room[2].toUpperCase();
-      const ns = room[1] === "mines" ? env.MINES : env.BATTLE;
+      const ns = room[1] === "mines" ? env.MINES
+        : room[1] === "links" ? env.LINKS
+        : env.BATTLE;
       const stub = ns.get(ns.idFromName(code));
       const fwd = new Request(request);
       fwd.headers.set("X-Dojo-Uid", user.uid);

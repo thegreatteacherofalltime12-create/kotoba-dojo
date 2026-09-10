@@ -315,6 +315,121 @@ export async function writeHistory(env, uid, row) {
   return true;
 }
 
+/* ── the scroll library ──────────────────────────────────────────────────
+ *
+ * Scrolls used to live under their author and nobody else could reach them.
+ * They are published now, so a scroll is written once and anyone can open a
+ * dojo on it — which also means the grid has to be fetched by whoever runs the
+ * round rather than sent up by their browser.
+ */
+
+export async function publishScroll(env, { uid, name, puzzle }) {
+  const token = await accessToken(env);
+  if (!token) return null;
+  const id = `${uid.slice(0, 8)}-${Date.now().toString(36)}`;
+  const res = await fetch(`https://firestore.googleapis.com/v1/${base(env)}:commit`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      writes: [{
+        update: {
+          name: `${base(env)}/scrolls/${id}`,
+          fields: {
+            id: S(id),
+            uid: S(uid),
+            author: S(name || "Someone"),
+            title: S(puzzle.title || "Untitled scroll"),
+            at: { timestampValue: new Date().toISOString() },
+            // The grid itself, kept whole so the round can be built from it.
+            body: S(JSON.stringify(puzzle)),
+            plays: I(0), wins: I(0), losses: I(0),
+          },
+        },
+      }],
+    }),
+  });
+  if (!res.ok) return !!fail(`Firestore refused a scroll (${res.status})`) && null;
+  return id;
+}
+
+const scrollRow = (doc) => {
+  const f = doc.fields || {};
+  return {
+    id: f.id?.stringValue || doc.name.split("/").pop(),
+    uid: f.uid?.stringValue || "",
+    author: f.author?.stringValue || "Someone",
+    title: f.title?.stringValue || "Untitled scroll",
+    at: f.at?.timestampValue || null,
+    plays: Number(f.plays?.integerValue || 0),
+    wins: Number(f.wins?.integerValue || 0),
+    losses: Number(f.losses?.integerValue || 0),
+  };
+};
+
+/** Every published scroll, newest first. Bodies are left behind. */
+export async function listScrolls(env, limit = 60) {
+  const token = await accessToken(env);
+  if (!token) return [];
+  const res = await fetch(`https://firestore.googleapis.com/v1/${base(env)}:runQuery`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      structuredQuery: {
+        from: [{ collectionId: "scrolls" }],
+        orderBy: [{ field: { fieldPath: "at" }, direction: "DESCENDING" }],
+        limit,
+      },
+    }),
+  });
+  if (!res.ok) { fail(`Firestore refused the scroll list (${res.status})`); return []; }
+  const rows = await res.json();
+  return rows.filter((r) => r.document).map((r) => scrollRow(r.document));
+}
+
+/** One scroll, grid and all, for the round that is about to run on it. */
+export async function getScroll(env, id) {
+  const token = await accessToken(env);
+  if (!token) return null;
+  const res = await fetch(`https://firestore.googleapis.com/v1/${base(env)}/scrolls/${id}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) return null;
+  const doc = await res.json();
+  try {
+    const meta = scrollRow(doc);
+    return { ...meta, puzzle: JSON.parse(doc.fields?.body?.stringValue || "null") };
+  } catch { return null; }
+}
+
+/**
+ * Adds a finished round to a scroll's record.
+ *
+ * One play per player who sat the round, counted as a win if they completed
+ * the grid and a loss if they did not — which is what the author wants to
+ * know: not how popular it is, but how hard it turned out to be.
+ */
+export async function bumpScroll(env, id, { plays = 0, wins = 0, losses = 0 }) {
+  const token = await accessToken(env);
+  if (!token || !id || !plays) return false;
+  const res = await fetch(`https://firestore.googleapis.com/v1/${base(env)}:commit`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      writes: [{
+        transform: {
+          document: `${base(env)}/scrolls/${id}`,
+          fieldTransforms: [
+            { fieldPath: "plays", increment: I(plays) },
+            { fieldPath: "wins", increment: I(wins) },
+            { fieldPath: "losses", increment: I(losses) },
+          ],
+        },
+      }],
+    }),
+  });
+  return res.ok;
+}
+
 /* ── the commons: one feed, one chat ─────────────────────────────────── */
 
 /**

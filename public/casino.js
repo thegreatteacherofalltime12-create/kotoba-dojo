@@ -232,14 +232,14 @@ function drawTrack(f) {
     const h = horse(fav);
     const bar = el("p", "ftoday");
     bar.append(el("span", "ftoday-r", "\u{1F397}\uFE0F"));
-    bar.append(el("span", "", `This week's favourite: ${h.rank}${h.pip} ${h.name}`));
+    bar.append(el("span", "", `Favourite: ${h.rank}${h.pip} ${h.name}`));
     if (f.race.favouriteEndsAt) {
       const left = Math.max(0, f.race.favouriteEndsAt - Date.now());
-      const days = Math.floor(left / 86_400_000);
-      const hrs = Math.floor((left % 86_400_000) / 3600_000);
-      bar.append(el("span", "ftoday-t", days
-        ? `new favourite in ${days}d ${hrs}h`
-        : `new favourite in ${hrs}h`));
+      const hrs = Math.floor(left / 3600_000);
+      const mins = Math.floor((left % 3600_000) / 60_000);
+      bar.append(el("span", "ftoday-t", hrs
+        ? `new favourite in ${hrs}h ${mins}m`
+        : `new favourite in ${mins}m`));
     }
     host.append(bar);
   }
@@ -1730,6 +1730,137 @@ export function openCasinoRules() {
 }
 
 /* ── log and results ─────────────────────────────────────────────────── */
+
+/* ── the wallet and the log ──────────────────────────────────────────────
+ *
+ * Rebuilt after the same careless edit that took the bet slip. Both windows
+ * are opened from the floor bar and both were referenced by bindCasino while
+ * no longer existing, which is what stopped the casino loading at all.
+ */
+
+export async function openWallet() {
+  const host = $("wallet-modal");
+  host.hidden = false;
+  const staked = !!K.mine?.staked;
+
+  // Read it rather than guess it: banking is a server write, and the floor
+  // only knows what is on the table.
+  let banked = null;
+  try {
+    const res = await fetch("/api/wallet", {
+      headers: { Authorization: `Bearer ${await K.idToken()}` },
+    });
+    banked = (await res.json()).wallet ?? null;
+  } catch { banked = null; }
+
+  host.innerHTML = `
+    <div class="modal-back" data-close></div>
+    <div class="modal-card floor-card">
+      <div class="modal-head">
+        <h2>&#128176; Wallet</h2>
+        <button class="modal-close" data-close aria-label="Close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="wal-figures">
+          <div><span class="wal-l">On the table</span><b class="wal-n risk">${money(K.mine?.table)}</b></div>
+          <div><span class="wal-l">Banked</span><b class="wal-n">${banked === null ? "\u2014" : money(banked)}</b></div>
+        </div>
+        <p class="fs-note">Money is only yours once it's banked. Quitting, closing the browser
+        or walking away mid-race leaves it on the table.</p>
+
+        <div class="wal-draw">
+          <p class="wal-h">Bring money in from your wallet</p>
+          <div class="wal-row">
+            <input id="wal-amt" class="bstep-v wal-amt" type="number" min="1" step="1"
+                   placeholder="0" ${banked ? "" : "disabled"}>
+            <button id="wal-all" class="hchip" ${banked ? "" : "disabled"}>ALL ${banked === null ? "" : money(banked)}</button>
+          </div>
+          <label class="wal-ack">
+            <input id="wal-ok" type="checkbox">
+            <span>I understand this money leaves my wallet and goes onto the table,
+            that it is at risk once it is there, and that I may lose all of it.
+            Only what I bank at the end of a session comes back.</span>
+          </label>
+          <button id="wal-draw" class="fbtn" disabled>Move to the table</button>
+          <p id="wal-msg" class="fs-note" hidden></p>
+        </div>
+
+        ${staked ? "" : `<button id="wal-stake" class="fbtn">Take your opening stake</button>`}
+        <button id="wal-bank" class="fbtn fbtn-go">Bank it all and leave</button>
+      </div>
+    </div>`;
+
+  host.querySelectorAll("[data-close]").forEach((n) => { n.onclick = closeWallet; });
+  if ($("wal-stake")) $("wal-stake").onclick = () => { send({ type: "FLOOR_STAKE" }); closeWallet(); };
+  $("wal-bank").onclick = () => { K.bankAndLeave = true; send({ type: "FLOOR_BANK" }); closeWallet(); };
+
+  // The button stays dead until there is an amount and the box is ticked. The
+  // server checks both again, so this is convenience rather than the gate.
+  const amt = $("wal-amt"), ok = $("wal-ok"), draw = $("wal-draw"), msg = $("wal-msg");
+  const recheck = () => {
+    const n = Number(amt.value) || 0;
+    draw.disabled = !(ok.checked && n >= 1 && n <= (banked || 0));
+    draw.textContent = n >= 1 ? `Move ${money(n)} to the table` : "Move to the table";
+  };
+  amt.oninput = recheck;
+  ok.onchange = recheck;
+  $("wal-all").onclick = () => { amt.value = String(banked || 0); recheck(); };
+
+  draw.onclick = async () => {
+    draw.disabled = true;
+    msg.hidden = false;
+    msg.textContent = "Moving\u2026";
+    try {
+      const res = await fetch("/api/wallet/withdraw", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${await K.idToken()}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: Number(amt.value), understood: ok.checked }),
+      });
+      const body = await res.json();
+      if (!res.ok) { msg.textContent = body.error || "That didn't go through."; recheck(); return; }
+      closeWallet();
+      say(`${money(body.moved)} is on the table.`);
+    } catch {
+      msg.textContent = "That didn't reach the server. Nothing was moved.";
+      recheck();
+    }
+  };
+}
+
+export function closeWallet() {
+  const host = $("wallet-modal");
+  host.hidden = true;
+  host.textContent = "";
+}
+
+/** Everything the floor has done, newest first. */
+export function openChat() {
+  const host = $("chat-modal");
+  host.hidden = false;
+  host.innerHTML = `
+    <div class="modal-back" data-close></div>
+    <div class="modal-card floor-card">
+      <div class="modal-head">
+        <h2>&#128172; Chat &amp; Log</h2>
+        <button class="modal-close" data-close aria-label="Close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="casino-log" class="flog"></div>
+      </div>
+    </div>`;
+  host.querySelectorAll("[data-close]").forEach((n) => { n.onclick = closeChat; });
+
+  // The lines kept while the window was shut, oldest at the bottom.
+  const log = $("casino-log");
+  for (const e of (K.logLines || [])) log.append(logNode(e));
+  if (!K.logLines?.length) log.append(el("p", "fs-note", "Nothing has happened on the floor yet."));
+}
+
+export function closeChat() {
+  const host = $("chat-modal");
+  host.hidden = true;
+  host.textContent = "";
+}
 
 function logNode(e) {
   const p = el("p", "flog-line");

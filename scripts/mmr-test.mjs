@@ -1,7 +1,7 @@
 // node scripts/mmr-test.mjs
 import {
   beltFor, challengeBonus, seedBonus, sessionGain, fieldMmrFor, canPrestige,
-  BLACK_BELT, COMPLETION_BONUS,
+  BLACK_BELT, COMPLETION_BONUS, PRESTIGE_COST,
 } from "../src/mmr.js";
 
 let bad = 0;
@@ -65,9 +65,10 @@ ok("field excludes the player",
 ok("a solo player faces no field", fieldMmrFor("a", { a: 900 }) === 0);
 
 console.log("\nprestige");
-ok("not eligible below black", canPrestige(2599) === false);
-ok("eligible at black", canPrestige(2600) === true);
-ok("eligible above black", canPrestige(9000) === true);
+ok("not eligible one short of the cost", canPrestige(PRESTIGE_COST - 1) === false);
+ok("eligible at exactly the cost", canPrestige(PRESTIGE_COST) === true);
+ok("eligible above the cost", canPrestige(PRESTIGE_COST + 6000) === true);
+ok("black belt alone is not enough", canPrestige(BLACK_BELT) === false);
 
 console.log(bad ? `\n${bad} failing\n` : "\nall MMR checks passed\n");
 process.exit(bad ? 1 : 0);

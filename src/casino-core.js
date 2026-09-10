@@ -150,14 +150,16 @@ export function oddsFor(betType) {
 }
 
 export const BETS = [
-  { id: "place", name: "1st or 2nd", pays: 3.5, picks: 1, blurb: "Your horse finishes in the top two." },
+  { id: "place", name: "1st or 2nd", pays: 4, picks: 1, blurb: "Your horse finishes in the top two." },
   { id: "win", name: "First Place", pays: 20, picks: 1, blurb: "Your horse wins outright." },
   { id: "exacta", name: "1st, 2nd - Exact Order", pays: 150, picks: 2, blurb: "Both, in the order you name them." },
   { id: "trifecta", name: "Top 3 - Exact", pays: 400, picks: 3, blurb: "The first three, in order." },
   { id: "superfecta", name: "Top 4 - Exact", pays: 1000, picks: 4, blurb: "The first four, in order." },
   // Borrowed from the market: one bets on a horse running away with it, the
-  // other on it collapsing. Both need a margin, which is why they pay 50.
-  { id: "long", name: "Long", pays: 50, picks: 1, side: true,
+  // other on it collapsing. Both need a margin on top of the placing, so both
+  // pay well; running away with it is the rarer of the two. PRICES below is
+  // the one price that counts — these are here to be read alongside the rules.
+  { id: "long", name: "Long", pays: 100, picks: 1, side: true,
     blurb: "Wins by three clear steps over the runner-up." },
   { id: "short", name: "Short", pays: 50, picks: 1, side: true,
     blurb: "Finishes last, three clear steps behind the one in front." },

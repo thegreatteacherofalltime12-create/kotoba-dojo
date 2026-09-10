@@ -13,6 +13,12 @@ const IDLE_SHUTDOWN_MS = 30 * 60_000;
 // and picking a target and two squares is not a thirty-second problem.
 const TURN_MS = 30_000;
 const MIN_PLAYERS = 2;
+// A latecomer gets ten seconds to lay a fleet. Long enough to hit Random,
+// short enough that the table is not held up by someone who wandered off.
+const LATE_PLACE_MS = 10_000;
+// The scoreboard is held for five seconds after the last ship goes down, so
+// the closing state does not land on top of the result everyone is reading.
+const RESULT_HOLD_MS = 5_000;
 
 // One instance per battle. Fleets never leave this object: a client is told
 // only what it has hit, never where anything is.
@@ -128,22 +134,48 @@ export class BattleRoyale {
       };
     }
 
+    // A room whose host has gone belongs to whoever is standing in it.
+    const here = this.connected();
+    here.add(uid);
+    if (!here.has(this.g.hostUid)) {
+      this.g.hostUid = uid;
+    }
+
     const p = this.g.players[uid];
     if (p) p.name = name;
     else {
       const midBattle = this.g.phase === "ACTIVE";
+
+      // The door closes for the endgame. Dropping a fresh fleet in front of
+      // two captains who have fought each other down to their last ships
+      // would decide their match for them.
+      if (midBattle && this.liveCaptains().length <= MIN_PLAYERS) {
+        return this.send(ws, "BATTLE_ERROR", {
+          message: "This battle is down to the last two captains. Wait for the next one.",
+        });
+      }
+
+      const now = Date.now();
       this.g.players[uid] = {
-        uid, name, joinedAt: Date.now(),
+        uid, name, joinedAt: now,
         ready: false,
-        // Alive means "in the battle with a fleet". A latecomer is neither
-        // sunk nor fighting until they have placed one.
-        alive: !midBattle,
+        // A latecomer is in the battle from the moment they arrive; what they
+        // lack is a fleet. Everything that rotates or scores keys off having
+        // a board, so being alive without one holds their seat and no more.
+        alive: true,
         placing: midBattle,
+        placingUntil: midBattle ? now + LATE_PLACE_MS : null,
         board: null, history: [], hits: 0, sunk: 0,
       };
       if (midBattle) {
         this.g.players[uid].mmrAtStart = 0;
+        // Behind whoever is firing, so they wait one turn rather than
+        // jumping the queue or sitting out a whole lap.
+        const at = this.g.order.indexOf(this.g.turnUid);
+        if (at === -1) this.g.order.push(uid);
+        else this.g.order.splice(at + 1, 0, uid);
         this.log(`${name} arrived and is placing a fleet.`);
+        this.send(ws, "BATTLE_LATE", { placeBy: now + LATE_PLACE_MS, serverNow: now });
       }
     }
 
@@ -155,8 +187,30 @@ export class BattleRoyale {
     for (const m of this.g.chat.slice(-30)) this.send(ws, "BATTLE_CHAT", m);
 
     await this.state.storage.deleteAlarm().catch(() => {});
-    if (this.g.phase === "ACTIVE" && this.g.turnEndsAt)
-      await this.state.storage.setAlarm(this.g.turnEndsAt);
+    await this.armAlarm();
+  }
+
+  /** Captains in the fight: alive and with a fleet on the water. */
+  liveCaptains() {
+    return Object.values(this.g.players).filter((p) => p.alive && p.board);
+  }
+
+  /**
+   * The next moment this battle needs attention: the turn buzzer, or a
+   * latecomer's placement clock, whichever comes first. A Durable Object gets
+   * one alarm, so the soonest deadline wins and the rest are re-armed after.
+   */
+  nextDeadline() {
+    const times = [];
+    if (this.g.phase === "ACTIVE" && this.g.turnEndsAt) times.push(this.g.turnEndsAt);
+    for (const p of Object.values(this.g.players))
+      if (p.placing && p.placingUntil != null) times.push(p.placingUntil);
+    return times.length ? Math.min(...times) : null;
+  }
+
+  async armAlarm() {
+    const at = this.nextDeadline();
+    if (at) await this.state.storage.setAlarm(at);
   }
 
   /** Public view. A player's own board is sent only to them. */
@@ -180,6 +234,7 @@ export class BattleRoyale {
         alive: p.alive,
         ready: p.ready,
         placing: !!p.placing,
+        placingUntil: p.placingUntil ?? null,
         online: online.has(p.uid),
         // Where they've been hit is public; where their ships are is not.
         incoming: p.board?.incoming || [],
@@ -254,13 +309,11 @@ export class BattleRoyale {
     p.ready = true;
 
     if (joiningLate) {
-      // Into the rotation behind whoever is firing, so they wait one turn
-      // rather than jumping the queue or waiting a whole lap.
       p.placing = false;
+      p.placingUntil = null;
       p.alive = true;
-      const at = this.g.order.indexOf(this.g.turnUid);
-      if (at === -1) this.g.order.push(uid);
-      else this.g.order.splice(at + 1, 0, uid);
+      // Their slot in the rotation was taken when they walked in.
+      if (!this.g.order.includes(uid)) this.g.order.push(uid);
       this.log(`${this.nameOf(p)} joined the battle.`);
     } else {
       this.log(`${this.nameOf(p)} is ready.`);
@@ -451,6 +504,10 @@ export class BattleRoyale {
 
     const me = this.g.players[uid];
     const target = this.g.players[msg.target];
+    if (target && target.uid !== uid && target.placing && !target.board)
+      return this.send(ws, "BATTLE_ERROR", {
+        message: `${this.nameOf(target)} is still laying their fleet.`,
+      });
     if (!target || !target.alive || !target.board || target.uid === uid)
       return this.send(ws, "BATTLE_ERROR", { message: "Pick a live opponent." });
 
@@ -508,7 +565,7 @@ export class BattleRoyale {
     this.g.turnEndsAt = Date.now() + TURN_MS;
 
     await this.persist();
-    await this.state.storage.setAlarm(this.g.turnEndsAt);
+    await this.armAlarm();
     this.pushState();
   }
 
@@ -516,7 +573,9 @@ export class BattleRoyale {
     this.g.phase = "OVER";
     this.g.turnUid = null;
     this.g.turnEndsAt = null;
+    this.g.closesAt = Date.now() + RESULT_HOLD_MS;
     await this.state.storage.deleteAlarm().catch(() => {});
+    await this.state.storage.setAlarm(this.g.closesAt);
 
     // Last standing first, then reverse order of elimination.
     const survivors = Object.values(this.g.players)
@@ -603,11 +662,52 @@ export class BattleRoyale {
   // ------------------------------------------------------------------ alarms
 
   async alarm() {
-    if (this.g?.phase === "ACTIVE" && Date.now() >= (this.g.turnEndsAt || 0)) {
-      this.log(`${this.nameOf(this.g.players[this.g.turnUid])} ran out of time.`);
-      await this.nextTurn();
+    if (this.g?.phase === "ACTIVE") {
+      const now = Date.now();
+
+      // Anyone who let the placement clock run out gets a random fleet. The
+      // alternative is a permanent empty seat that nobody may fire at.
+      let laid = false;
+      for (const p of Object.values(this.g.players)) {
+        if (!p.placing || p.board || p.placingUntil == null || now < p.placingUntil) continue;
+        const check = validateFleet(randomFleet());
+        if (!check.ok) continue;
+        p.board = { ships: check.ships, incoming: [] };
+        p.placing = false;
+        p.placingUntil = null;
+        p.ready = true;
+        p.alive = true;
+        if (!this.g.order.includes(p.uid)) this.g.order.push(p.uid);
+        this.log(`${this.nameOf(p)} ran out of time; a fleet was laid for them.`);
+        laid = true;
+      }
+      if (laid) { await this.persist(); this.pushState(); }
+
+      if (now >= (this.g.turnEndsAt || 0)) {
+        this.log(`${this.nameOf(this.g.players[this.g.turnUid])} ran out of time.`);
+        await this.nextTurn();
+        return;
+      }
+
+      // A battle in progress is never torn down for being empty: fleets and
+      // the turn order have to survive everyone reconnecting.
+      await this.armAlarm();
       return;
     }
+
+    if (this.g?.phase === "OVER" && this.g.closesAt != null) {
+      if (Date.now() < this.g.closesAt) {
+        await this.state.storage.setAlarm(this.g.closesAt);
+        return;
+      }
+      this.g.closesAt = null;
+      await this.persist();
+      // The table stays readable; it is simply no longer live.
+      this.broadcast("BATTLE_CLOSED", {});
+      this.pushState();
+      return;
+    }
+
     if (this.sockets().length === 0) {
       await this.state.storage.deleteAll();
       this.g = null;
@@ -629,7 +729,10 @@ export class BattleRoyale {
       const heir = Object.values(this.g.players)
         .filter((p) => online.has(p.uid))
         .sort((a, b) => a.joinedAt - b.joinedAt)[0];
-      if (heir) this.g.hostUid = heir.uid;
+      if (heir && heir.uid !== this.g.hostUid) {
+        this.g.hostUid = heir.uid;
+        this.log(`${this.nameOf(heir)} is running the match now.`);
+      }
     }
 
     // A captain who leaves mid-battle keeps their fleet: the turn timer moves

@@ -64,9 +64,17 @@ async function loadCourses() {
     t.append(o);
   }
   t.value = "easy";
-  $("lobby-note").textContent =
-    "Anyone joining the same room code plays the same eighteen holes with the same words. "
-    + "Lowest total wins, and the points go to your MMR when the round ends.";
+  syncPlayMode();
+}
+
+/** Solo hides the room code: there is nobody to share it with. */
+function syncPlayMode() {
+  const solo = $("sel-play").value === "solo";
+  $("wrap-code").hidden = solo;
+  $("lobby-note").textContent = solo
+    ? "A private round, just you. Nobody else can find it, and it still banks MMR when you finish."
+    : "Anyone joining the same room code plays the same eighteen holes with the same words. "
+      + "You decide when to tee off, so give them time to arrive.";
 }
 
 const randomCode = () =>
@@ -75,7 +83,11 @@ const randomCode = () =>
 /* ── the round ─────────────────────────────────────────────────────── */
 
 async function connect() {
-  const code = ($("in-code").value || randomCode()).toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const solo = $("sel-play").value === "solo";
+  // Solo always gets a fresh code of its own. Reusing one you had typed would
+  // drop you into a room somebody else may already be standing in.
+  const code = (solo ? randomCode() : ($("in-code").value || randomCode()))
+    .toUpperCase().replace(/[^A-Z0-9]/g, "");
   if (code.length < 3) return say("A room code needs at least three characters.", "bad");
   $("in-code").value = code;
   S.code = code;
@@ -86,6 +98,7 @@ async function connect() {
     course: $("sel-course").value,
     diff: $("sel-tee").value,
     dict: $("sel-dict").value,
+    solo: solo ? "1" : "0",
   });
   const url = `${location.origin.replace(/^http/, "ws")}/api/links/${code}/ws?${q}`;
 
@@ -129,17 +142,22 @@ function drawWaiting(state) {
   if (!waiting) return;
 
   const here = (state.field || []).map((p) => p.name);
+  $("wait-title").textContent = state.solo ? "On the tee — solo" : "On the tee";
   $("wait-course").textContent = state.randomCourse
     ? `\u{1F3B2} Random \u2014 ${state.course.name} is up, and it is redrawn when you tee off.`
     : `${state.course.name} \u00b7 ${state.course.loc} \u00b7 ${state.diff} tees`;
-  $("wait-who").textContent = here.length === 1
-    ? `${here[0]} is on the tee. Room ${state.code}.`
-    : `${here.join(", ")} \u2014 ${here.length} in the room ${state.code}.`;
+  $("wait-who").textContent = state.solo
+    ? `A private round. Nobody else can join it.`
+    : here.length === 1
+      ? `${here[0]} is on the tee. Room ${state.code}.`
+      : `${here.join(", ")} \u2014 ${here.length} in the room ${state.code}.`;
 
   $("btn-teeoff").hidden = !state.isHost;
-  $("wait-note").textContent = state.isHost
-    ? "Take as long as you like. Anyone joining this code before you tee off plays the same holes."
-    : "Waiting for the player who opened the room to tee off.";
+  $("wait-note").textContent = state.solo
+    ? "Take as long as you like over the course. It still banks MMR when you finish."
+    : state.isHost
+      ? "Take as long as you like. Anyone joining this code before you tee off plays the same holes."
+      : "Waiting for the player who opened the room to tee off.";
 }
 
 function draw(state) {
@@ -263,6 +281,7 @@ const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) =>
 
 /* ── wiring ────────────────────────────────────────────────────────── */
 
+$("sel-play").onchange = syncPlayMode;
 $("btn-start").onclick = connect;
 $("btn-home").onclick = () => { location.href = "/"; };
 $("btn-end").onclick = () => {
@@ -293,6 +312,11 @@ onAuthStateChanged(auth, async (user) => {
   // rather than making them type the code they just clicked.
   const invited = decodeURIComponent(location.hash.slice(1)).toUpperCase();
   if (invited) {
+    // An invitation is by definition not a solo round. Set the mode before
+    // connecting: solo draws itself a fresh code, which would land them in an
+    // empty room of their own rather than the one they just clicked.
+    $("sel-play").value = "room";
+    syncPlayMode();
     $("in-code").value = invited;
     $("lobby-note").textContent = `Joining ${invited}. If a round is already under way you walk straight into it; if not, you wait on the tee with everyone else.`;
     connect();

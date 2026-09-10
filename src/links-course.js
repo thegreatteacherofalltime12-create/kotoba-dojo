@@ -35,7 +35,7 @@ export class LinksCourse {
     return COURSES[Math.floor(Math.random() * COURSES.length)].id;
   }
 
-  blank(code, courseId, diff, dict) {
+  blank(code, courseId, diff, dict, solo) {
     // "random" is remembered rather than resolved once: a room that asked for
     // a random course gets a fresh one every round, not the same one twice.
     const random = courseId === "random";
@@ -43,6 +43,7 @@ export class LinksCourse {
     return {
       code,
       phase: "LOBBY",
+      solo: !!solo,
       hostUid: null,
       randomCourse: random,
       courseId: course.id,
@@ -377,6 +378,7 @@ export class LinksCourse {
       dict: room.dict,
       holes: room.holes,
       you: uid,
+      solo: !!room.solo,
       hostUid: room.hostUid || null,
       isHost: this.canStart(uid),
       randomCourse: !!room.randomCourse,
@@ -407,9 +409,13 @@ export class LinksCourse {
       game: "links",
       code: room.code,
       host: Object.values(room.players)[0]?.name || "Someone",
-      players: Object.keys(room.players).length,
+      // Announced as empty rather than left un-announced: a round that turns
+      // solo may have been listed a moment ago, and the row would linger.
+      players: room.solo ? 0 : Object.keys(room.players).length,
       phase: room.phase,
-      label: `${courseById(room.courseId).name} \u00b7 ${DIFF[room.diff].label}`,
+      label: room.solo
+        ? `Solo · ${courseById(room.courseId).name}`
+        : `${courseById(room.courseId).name} \u00b7 ${DIFF[room.diff].label}`,
       round: room.roundNo,
     });
   }
@@ -439,8 +445,16 @@ export class LinksCourse {
         url.searchParams.get("course"),
         url.searchParams.get("diff"),
         url.searchParams.get("dict"),
+        url.searchParams.get("solo") === "1",
       );
     }
+    // Solo means solo. The room is unlisted, but a code can still be typed at
+    // it, and a private round that a stranger can walk into is not private.
+    // The owner is the host, so anyone else is turned away — including on a
+    // reconnect, which is why this is keyed on uid rather than on the socket.
+    if (this.room.solo && this.room.hostUid && this.room.hostUid !== uid)
+      return new Response("This is a solo round.", { status: 403 });
+
     if (!this.room.players[uid]) this.room.players[uid] = this.freshPlayer(uid, name);
     // Whoever opens the room holds the start. Recorded on arrival rather than
     // read off the player list later, so it survives people coming and going.

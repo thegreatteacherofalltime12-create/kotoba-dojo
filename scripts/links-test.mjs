@@ -106,6 +106,64 @@ console.log("\nthe dice");
   ok("and it does not wander between rounds", fixed.room.courseId === "standrews");
 }
 
+console.log("\nsolo and the open room");
+{
+  const g = await room();
+  g.room.solo = true;
+  const a = seat(g, "a");
+  ok("a solo round is marked as one", g.view("a").solo === true);
+  ok("and its owner still calls the start", g.view("a").isHost === true);
+  await g.start(a, "a");
+  ok("one player is enough to tee off", g.room.phase === "PLAYING");
+
+  // Unlisted: announceRoom takes players:0 as "withdraw the row".
+  let announced = null;
+  g.announce = LinksCourse.prototype.announce.bind({
+    ...g,
+    env: {
+      DIRECTORY: {
+        idFromName: () => "x",
+        get: () => ({ fetch: (_u, o) => { announced = JSON.parse(o.body); return Promise.resolve(); } }),
+      },
+    },
+    state: { waitUntil: (p) => p },
+    room: g.room,
+  });
+  g.announce();
+  ok("a solo round is withdrawn from the room list", announced && announced.players === 0);
+  ok("and is labelled as solo", /^Solo/.test(announced.puzzle || ""));
+
+  const open = await room();
+  open.room.solo = false;
+  seat(open, "a"); seat(open, "b");
+  let listed = null;
+  open.announce = LinksCourse.prototype.announce.bind({
+    ...open,
+    env: {
+      DIRECTORY: {
+        idFromName: () => "x",
+        get: () => ({ fetch: (_u, o) => { listed = JSON.parse(o.body); return Promise.resolve(); } }),
+      },
+    },
+    state: { waitUntil: (p) => p },
+    room: open.room,
+  });
+  open.announce();
+  ok("an open room is listed with its players", listed && listed.players === 2);
+  ok("and is not labelled solo", !/^Solo/.test(listed.puzzle || ""));
+  // The refusal happens before any socket is made, so this needs no WebSocket
+  // stub: a 403 back means the stranger never got into the room.
+  const priv = await room();
+  priv.room.solo = true;
+  priv.room.hostUid = "owner";
+  priv.room.players.owner = priv.freshPlayer("owner", "Owner");
+  const knock = (uid) => priv.fetch(new Request("https://links/x", {
+    headers: { Upgrade: "websocket", "X-Dojo-Uid": uid, "X-Dojo-Name": uid, "X-Dojo-Code": "GOLF" },
+  }));
+  ok("a stranger who knows the code is turned away", (await knock("stranger")).status === 403);
+  ok("and no seat is kept for them", !priv.room.players.stranger);
+}
+
 console.log("\nthe card is not the ladder");
 {
   const pars = [3, 4, 4, 5, 3, 4, 4, 3, 5, 4, 4, 3, 5, 4, 3, 4, 4, 5];

@@ -124,8 +124,14 @@ tr.you{background:rgba(255,166,77,.10)}
       <div><label class="f" for="sel-dict">Dictionary</label><br>
         <select id="sel-dict"><option value="classic">Webster 1828</option><option value="modern">Modern</option></select>
       </div>
-      <div><label class="f" for="in-code">Room</label><br><input id="in-code" maxlength="8" placeholder="code"></div>
-      <div style="align-self:flex-end"><button class="btn go" id="btn-start">Tee off</button></div>
+      <div><label class="f" for="sel-play">Playing</label><br>
+        <select id="sel-play">
+          <option value="solo">Solo &mdash; just you</option>
+          <option value="room">Open a room &mdash; you call the start</option>
+        </select>
+      </div>
+      <div id="wrap-code"><label class="f" for="in-code">Room</label><br><input id="in-code" maxlength="8" placeholder="code"></div>
+      <div style="align-self:flex-end"><button class="btn go" id="btn-start">Go to the tee</button></div>
     </div>
     <p class="sub" id="lobby-note" style="margin:.7rem 0 0"></p>
   </div>

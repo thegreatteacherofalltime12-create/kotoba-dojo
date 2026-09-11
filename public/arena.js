@@ -77,7 +77,7 @@ export const GAME_MODES = [
     id: "links",
     name: "Multiverse Golf",
     players: "1 or more",
-    blurb: "Eighteen holes of word golf. Each hole hides a word \u2014 guess it, and how close you got is how far the ball flies. Two guesses is an eagle. Six real courses, and everyone in a room plays the same holes with the same words.",
+    blurb: "Eighteen holes of word golf. Each hole deals you a scrambled word \u2014 unscramble it, and every letter you put in its place is yards down the fairway. Two swings is an eagle. Six real courses, and everyone in a room is dealt the same letters.",
     kind: "match",
     game: "links",
     available: true,

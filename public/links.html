@@ -88,6 +88,15 @@ select,input{
 .gtile.near{background:#5a4a1c; border-color:var(--gold); color:var(--gold)}
 .gtile.miss{opacity:.5}
 
+/* the letters dealt — the puzzle itself, so it sits above everything else */
+.dealt{display:flex; gap:8px; justify-content:center; margin:.8rem 0 .3rem}
+.dealt .gtile{
+  width:2.8rem; height:3.1rem; font-size:1.5rem; letter-spacing:0;
+  background:var(--panel); border-color:var(--gold); color:var(--ink);
+  box-shadow:0 2px 0 rgba(0,0,0,.35);
+}
+.dealt-note{text-align:center; margin:0 0 .4rem; font-size:.85rem; color:var(--ink-faint)}
+
 .entry{display:flex; gap:.5rem; margin-top:.6rem}
 .entry input{flex:1; text-transform:uppercase; letter-spacing:.25em; font-family:var(--display); font-size:1.05rem}
 
@@ -158,6 +167,8 @@ tr.you{background:rgba(255,166,77,.10)}
       <span class="pill" id="h-strokes"></span>
     </div>
     <p class="clue" id="h-clue"></p>
+    <div class="dealt" id="h-dealt"></div>
+    <p class="dealt-note" id="h-dealt-note">Unscramble the letters. Green is in the right place.</p>
     <canvas id="hole" class="holecv"></canvas>
     <div class="fair"><i id="fair-fill"></i><b id="fair-ball"></b></div>
     <div class="guesses" id="guesses"></div>

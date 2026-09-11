@@ -1,6 +1,6 @@
 import {
-  COURSES, DIFF, PAR_LEN, courseById, poolFor, evaluate, quality,
-  isWord, pointsFor, scoreName, maxGuesses,
+  COURSES, DIFF, PAR_LEN, courseById, poolFor, evaluate,
+  pointsFor, scoreName, maxGuesses, scramble, sameLetters, placed,
 } from "./links.js";
 import { recordMatch, readRatings } from "./firestore.js";
 import { announceRoom } from "./rooms.js";
@@ -79,7 +79,10 @@ export class LinksCourse {
         do { pick = pool[Math.floor(Math.random() * pool.length)]; tries++; }
         while (used.has(pick[0]) && tries < 80);
         used.add(pick[0]);
-        words.push({ answer: pick[0], clue: pick[1] });
+        // Scrambled here, once, so everyone in the room is handed the same
+        // letters in the same order. A per-player shuffle would make two
+        // players’ cards on the same hole not quite the same hole.
+        words.push({ answer: pick[0], clue: pick[1], scrambled: scramble(pick[0]) });
       }
       board.push({ par, len, words });
     }
@@ -93,7 +96,6 @@ export class LinksCourse {
       wordIndex: 0,
       strokes: 0,
       guesses: [],          // marks for the word in play, for redraw on reload
-      known: {},            // letters uncovered, for the hard tee's reuse rule
       card: [],             // strokes per finished hole
       points: 0,
       ball: 0,              // 0 at the tee, 1 in the cup
@@ -171,6 +173,9 @@ export class LinksCourse {
       // The clue, but never the word. On the hard tee it is withheld until
       // two words are behind you, exactly as the single-player game had it.
       clue: (room.diff === "hard" && p.wordIndex < 2) ? null : hole.words[p.wordIndex]?.clue,
+      // The letters, in the order they were dealt. The answer is these
+      // letters put right, and it is the one thing this view never carries.
+      scrambled: hole.words[p.wordIndex]?.scrambled || null,
       wordIndex: p.wordIndex,
       wordsTotal: DIFF[room.diff].words,
       maxGuesses: maxGuesses(hole.par, room.diff),
@@ -191,26 +196,18 @@ export class LinksCourse {
     const g = String(msg.word || "").toUpperCase().replace(/[^A-Z]/g, "");
 
     if (g.length !== hole.len) return this.send(ws, "LINKS_REJECT", { why: "wrong length" });
-    if (!isWord(g)) return this.send(ws, "LINKS_REJECT", { why: "not in play" });
+    if (!sameLetters(g, word.answer))
+      return this.send(ws, "LINKS_REJECT", { why: "use the letters you were dealt" });
 
-    // The hard tee makes you reuse what you have already uncovered.
-    if (room.diff === "hard") {
-      const missing = Object.entries(p.known)
-        .filter(([ch]) => !g.includes(ch))
-        .map(([ch]) => ch);
-      if (missing.length)
-        return this.send(ws, "LINKS_REJECT", { why: `hard tees \u2014 must use ${missing.join(", ")}` });
-    }
-
+    // Every letter is in hand, so the ball goes as far as the letters that
+    // landed in the right place — not the half-credit the guessing game gave
+    // for a right letter in the wrong spot, which here would be every letter.
     const marks = evaluate(g, word.answer);
-    const q = quality(marks);
+    const q = placed(marks);
     const solved = g === word.answer;
     const multi = DIFF[room.diff].words > 1;
 
     p.guesses.push({ word: g, marks });
-    for (let i = 0; i < marks.length; i++) {
-      if (marks[i] === "hit" || marks[i] === "near") p.known[g[i]] = true;
-    }
 
     // Easy counts every guess as a stroke. The multi-word tees count each word
     // solved as one shot down the fairway, so the ball only moves on a solve.
@@ -226,7 +223,6 @@ export class LinksCourse {
         p.strokes += 1;
         p.wordIndex += 1;
         p.guesses = [];
-        p.known = {};
         if (p.wordIndex >= DIFF[room.diff].words) await this.holeOut(p, room, out);
         else out.nextWord = true;
       } else {
@@ -239,7 +235,6 @@ export class LinksCourse {
         p.strokes += 2;                       // a penalty, not a free pass
         p.wordIndex += 1;
         p.guesses = [];
-        p.known = {};
         out.conceded = word.answer;
         if (p.wordIndex >= DIFF[room.diff].words) await this.holeOut(p, room, out);
         else out.nextWord = true;
@@ -268,7 +263,6 @@ export class LinksCourse {
     p.wordIndex = 0;
     p.strokes = 0;
     p.guesses = [];
-    p.known = {};
     p.ball = 0;
 
     if (p.hole >= room.holes) {

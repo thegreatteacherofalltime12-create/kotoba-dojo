@@ -4,7 +4,7 @@
 // the room chooses the course and calls the start, and until they do, nothing
 // is drawn and nobody is playing.
 import { LinksCourse } from "../src/links-course.js";
-import { COURSES, pointsFor } from "../src/links.js";
+import { COURSES, pointsFor, scramble, sameLetters, placed } from "../src/links.js";
 import { sessionGain } from "../src/mmr.js";
 
 let bad = 0;
@@ -33,13 +33,13 @@ const makeState = () => {
 // under test here, and both already fail soft.
 const env = {};
 
-async function room(courseId = "augusta") {
+async function room(courseId = "augusta", diff = "medium") {
   const st = makeState();
   const g = new LinksCourse(st, env);
   // The constructor restores from storage asynchronously; setting the room
   // before that lands would simply be overwritten by it.
   await st._init;
-  g.room = g.blank("GOLF", courseId, "medium", "classic");
+  g.room = g.blank("GOLF", courseId, diff, "classic");
   return g;
 }
 
@@ -162,6 +162,52 @@ console.log("\nsolo and the open room");
   }));
   ok("a stranger who knows the code is turned away", (await knock("stranger")).status === 403);
   ok("and no seat is kept for them", !priv.room.players.stranger);
+}
+
+console.log("\nthe scramble");
+{
+  ok("never deals the answer", Array.from({ length: 200 }, () => scramble("LISTEN")).every((s) => s !== "LISTEN"));
+  ok("deals the same letters", Array.from({ length: 200 }, () => scramble("LISTEN")).every((s) => sameLetters(s, "LISTEN")));
+  ok("a word of one letter is left alone", scramble("AAAA") === "AAAA");
+  ok("a rearrangement is recognised", sameLetters("SILENT", "LISTEN") && sameLetters("ENLIST", "LISTEN"));
+  ok("different letters are not", !sameLetters("LISTED", "LISTEN") && !sameLetters("LISTENS", "LISTEN"));
+  ok("nothing in place goes nowhere", placed(["near", "near", "near"]) === 0);
+  ok("all in place is the cup", placed(["hit", "hit", "hit"]) === 1);
+  ok("half in place is halfway", placed(["hit", "near", "hit", "near"]) === 0.5);
+
+  // Easy tees: one word a hole, every swing a stroke. The multi-word tees
+  // move the ball per word solved instead, which is their own rule and is
+  // not what is under test here.
+  const g = await room("augusta", "easy");
+  const a = seat(g, "a"); seat(g, "b");
+  await g.start(a, "a");
+  const w = g.room.board[0].words[0];
+  ok("every word on the board is dealt scrambled", g.room.board.every((h) => h.words.every((x) => x.scrambled && x.scrambled !== x.answer)));
+  ok("and the scramble is of the answer", g.room.board.every((h) => h.words.every((x) => sameLetters(x.scrambled, x.answer))));
+  ok("both players are dealt the same letters", g.view("a").hole.scrambled === g.view("b").hole.scrambled);
+  ok("the answer never reaches the client", !JSON.stringify(g.view("a")).includes(`"${w.answer}"`) || w.answer === w.scrambled);
+
+  // Wrong letters are not a swing at all.
+  const wrong = w.answer.replace(/./, (c) => (c === "Z" ? "Q" : "Z"));
+  await g.guess(a, "a", { word: wrong });
+  ok("letters you were not dealt are refused", /letters you were dealt/.test(a.last("LINKS_REJECT")?.why || ""));
+  ok("and cost no stroke", g.room.players.a.strokes === 0);
+
+  // The right letters in the wrong order are a stroke, and the ball goes as
+  // far as the letters that landed.
+  const rotated = w.answer.slice(1) + w.answer[0];
+  if (rotated !== w.answer) {
+    await g.guess(a, "a", { word: rotated });
+    const m = a.last("LINKS_MARK");
+    ok("the right letters in the wrong order is a swing", !!m && g.room.players.a.strokes === 1);
+    ok("no letter is ever marked missing", m.marks.every((x) => x !== "miss"));
+    ok("the ball goes as far as the letters in place", m.ball === placed(m.marks));
+    ok("and it is not yet the cup", m.solved === false);
+  }
+
+  await g.guess(a, "a", { word: w.answer });
+  const done = a.last("LINKS_MARK");
+  ok("the letters put right is the cup", done.solved === true);
 }
 
 console.log("\nthe card is not the ladder");

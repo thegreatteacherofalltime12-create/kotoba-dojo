@@ -341,3 +341,50 @@ export function poolFor(dict, len, diff) {
 export const maxGuesses = (par, diff) => Math.max(2, (PAR_LEN[par] || 5) + 1 + DIFF[diff].guessAdj);
 
 export const courseById = (id) => COURSES.find((c) => c.id === id) || COURSES[0];
+/* ── the scramble ────────────────────────────────────────────────────── */
+
+/**
+ * The letters of a word, shuffled.
+ *
+ * Never the word itself: a scramble that happens to land on the answer is
+ * not a puzzle. A word made of one repeated letter cannot be scrambled at all
+ * and is returned as it is — the pool should not contain one, but a function
+ * that loops forever on bad input is worse than one that shrugs.
+ */
+export function scramble(word, rng = Math.random) {
+  const letters = word.split("");
+  if (new Set(letters).size < 2) return word;
+  for (let attempt = 0; attempt < 50; attempt++) {
+    for (let i = letters.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [letters[i], letters[j]] = [letters[j], letters[i]];
+    }
+    const out = letters.join("");
+    if (out !== word) return out;
+  }
+  // Fifty shuffles all landing on the answer is not going to happen for a
+  // real word; swap the first two distinct letters so the promise holds.
+  const i = letters.findIndex((ch, k) => k > 0 && ch !== letters[0]);
+  [letters[0], letters[i]] = [letters[i], letters[0]];
+  return letters.join("");
+}
+
+/** True when b is a rearrangement of a: the same letters, the same count of each. */
+export function sameLetters(a, b) {
+  if (a.length !== b.length) return false;
+  return a.split("").sort().join("") === b.split("").sort().join("");
+}
+
+/**
+ * How much of an unscramble is in place.
+ *
+ * quality() is for the guessing game, where a letter in the wrong spot is
+ * still information worth half a point. In an unscramble every letter is
+ * already in hand, so the only thing that counts is how many sit where they
+ * belong: none in place is a swing that went nowhere, all in place is the cup.
+ */
+export function placed(marks) {
+  if (!marks.length) return 0;
+  return marks.filter((m) => m === "hit").length / marks.length;
+}
+

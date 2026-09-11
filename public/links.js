@@ -182,8 +182,18 @@ function draw(state) {
       : `${h.strokes} strokes`;
 
     $("h-clue").innerHTML = h.clue
-      ? `<em>${h.len} letters —</em> ${escapeHtml(h.clue)}`
-      : `<em>${h.len} letters. No clue from these tees until you've played two words.</em>`;
+      ? `<em>Clue —</em> ${escapeHtml(h.clue)}`
+      : `<em>No clue from these tees until you've played two words. The letters are all you get.</em>`;
+
+    // The letters dealt. Redrawn whenever the word changes, which on the
+    // multi-word tees is several times a hole.
+    const dealt = $("h-dealt");
+    const key = `${h.no}:${h.wordIndex}:${h.scrambled || ""}`;
+    if (dealt.dataset.key !== key) {
+      dealt.dataset.key = key;
+      dealt.textContent = "";
+      for (const ch of (h.scrambled || "")) dealt.append(el("div", "gtile", ch));
+    }
 
     $("in-guess").maxLength = h.len;
     $("in-guess").placeholder = "•".repeat(h.len);

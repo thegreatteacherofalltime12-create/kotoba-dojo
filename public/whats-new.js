@@ -20,10 +20,10 @@ export const UPDATES = [
     at: "2026-09-10T16:00:00Z",
     where: "New game",
     title: "Multiverse Golf",
-    text: "Eighteen holes of word golf. Each hole is a hidden word \u2014 guess it, and how "
-      + "well you guessed is how far the ball travels. Solve it in two for an eagle. Six real "
-      + "courses, three sets of tees, and everyone in a room plays the same holes with the same "
-      + "words. Points go to your MMR when the round ends.",
+    text: "Eighteen holes of word golf. Each hole deals you a scrambled word \u2014 unscramble "
+      + "it, and every letter you put in its place is yards down the fairway. Solve it in two "
+      + "for an eagle. Six real courses, three sets of tees, and everyone in a room is dealt "
+      + "the same letters. Points go to your MMR when the round ends.",
   },
   {
     at: "2026-09-09T14:00:00Z",

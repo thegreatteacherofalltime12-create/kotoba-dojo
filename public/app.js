@@ -1476,6 +1476,12 @@ function startCommons() {
   commonsPoll = setInterval(() => {
     if (commonsTab === "feed") loadFeed(); else loadChat();
   }, 15_000);
+  // Coming back to the tab after a while, the first thing you see should be
+  // current rather than whatever the last poll caught before you left.
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) return;
+    if (commonsTab === "feed") loadFeed(); else loadChat();
+  });
 }
 
 // ── profile ───────────────────────────────────────────────────────

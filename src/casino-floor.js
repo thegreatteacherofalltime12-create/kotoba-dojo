@@ -699,16 +699,6 @@ export class CasinoFloor {
       title = `Big Six \u2014 ${BIGSIX.find((b) => b.id === landed).name}`;
       detail = { landed, bet: rule.name, hit };
 
-
-    } else if (msg.game === "hilo") {
-      const d = freshDeck(1);
-      const base = d.pop(), next = d.pop();
-      const r = hiLoResult(base, next, !!msg.higher, !!msg.eightUp);
-      if (r.push) won = bet;
-      else if (r.won) won = bet * 2;
-      title = `Hi-Lo \u2014 ${r.push ? "push" : r.won ? "both calls" : r.why}`;
-      detail = { base, next, won: r.won, push: r.push, why: r.why };
-
     } else {
       p.table += bet;
       return this.send(ws, "FLOOR_ERROR", { message: "That table isn't open." });
@@ -758,6 +748,17 @@ export class CasinoFloor {
       return this.send(ws, "FLOOR_ERROR", { message: "That's more than you have on the table." });
 
     const d = freshDeck(1);
+
+    if (msg.game === "hilo") {
+      // One card face up, and the bet is down. The calls come next, once the
+      // player has seen what they are calling against — that is the whole
+      // difference between this and guessing blind.
+      const base = d.pop();
+      p.hand = { game: "hilo", ante, base, dealtAt: Date.now() };
+      await this.save();
+      this.push();
+      return this.send(ws, "TABLE_HAND", { game: "hilo", cards: [base], ante, rank: "Call it" });
+    }
 
     if (msg.game === "threecard") {
       let side = 0;
@@ -907,6 +908,7 @@ export class CasinoFloor {
   resumeHand(ws, p) {
     const h = p.hand;
     const common = { game: h.game, ante: h.ante, resumed: true };
+    if (h.game === "hilo") return this.send(ws, "TABLE_HAND", { ...common, cards: [h.base], rank: "Call it" });
     if (h.game === "holdem") {
       return this.send(ws, "TABLE_HAND", {
         ...common, cards: h.hole, board: h.board, street: h.street,
@@ -970,7 +972,22 @@ export class CasinoFloor {
 
     let won = 0, title = "", detail = null;
 
-    if (h.game === "threecard") {
+    if (h.game === "hilo") {
+      // The second card comes off a fresh deck less the one showing, so the
+      // same card can never turn up twice.
+      const rest = freshDeck(1).filter((c) => !(c.rank === h.base.rank && c.suit === h.base.suit));
+      const next = rest.pop();
+      const higher = !!msg.higher, eightUp = !!msg.eightUp;
+      const r = hiLoResult(h.base, next, higher, eightUp);
+      won = r.push ? h.ante : r.won ? h.ante * 2 : 0;
+      title = `Hi-Lo \u2014 ${r.push ? "push" : r.won ? "both calls" : r.why}`;
+      detail = {
+        base: h.base, next, higher, eightUp,
+        won: r.won, push: r.push, why: r.why,
+        gotDirection: !!r.gotDirection, gotBand: !!r.gotBand,
+      };
+
+    } else if (h.game === "threecard") {
       const mine = rankThree(h.mine), dealer = rankThree(h.dealer);
 
       if (msg.move === "fold") {
@@ -1207,7 +1224,7 @@ export class CasinoFloor {
     this.note(won > stakedTotal ? `${p.name} won $${won - stakedTotal} at ${title}.`
       : won === stakedTotal ? `${p.name} pushed at ${title}.`
       : `${p.name} lost $${stakedTotal - won} at ${title}.`);
-    this.send(ws, "TABLE_RESULT", { game: h.game, title, detail, returned: won });
+    this.send(ws, "TABLE_RESULT", { game: h.game, title, detail, staked: stakedTotal, returned: won });
     this.push();
   }
 

@@ -134,5 +134,50 @@ await say("p3", { type: "FLOOR_BANK" });
 ok("without a wallet to write to, nothing moves",
   floor.f.players.p3.table > 0 && /Couldn't reach your wallet/.test(socks.p3.last("FLOOR_ERROR").message));
 
+
+console.log("\nhi-lo: bet, see a card, then call");
+{
+  const me = floor.f.players.p1;
+  me.tokens = 1;
+  me.table = 50;
+  me.hand = null;
+  const before = me.table;
+
+  // The old one-shot path is closed: hi-lo is a hand now.
+  await say("p1", { type: "TABLE_PLAY", game: "hilo", amount: 5, higher: true, eightUp: true });
+  ok("calling blind is no longer a table", /isn't open/.test(socks.p1.last("FLOOR_ERROR")?.message || ""));
+  ok("and it cost nothing", me.table === before);
+
+  await say("p1", { type: "TABLE_DEAL", game: "hilo", ante: 5 });
+  const hand = socks.p1.last("TABLE_HAND");
+  ok("the deal shows exactly one card", hand?.game === "hilo" && hand.cards?.length === 1);
+  ok("the bet is down", me.table === before - 5);
+  ok("the hand is held open", me.hand?.game === "hilo" && !!me.hand.base);
+  ok("the second card is not decided yet", !("next" in me.hand));
+  const base = me.hand.base;
+
+  // Coming back to the table mid-hand hands the same card back, not a new deal.
+  await say("p1", { type: "TABLE_DEAL", game: "hilo", ante: 5 });
+  const again = socks.p1.last("TABLE_HAND");
+  ok("re-opening the table resumes, not re-deals", again?.resumed === true
+    && again.cards[0].rank === base.rank && again.cards[0].suit === base.suit);
+  ok("and is not charged twice", me.table === before - 5);
+
+  await say("p1", { type: "TABLE_ACT", move: "call", higher: true, eightUp: true });
+  const r = socks.p1.last("TABLE_RESULT");
+  ok("the calls settle it", r?.game === "hilo" && !!r.detail?.next);
+  ok("the card that was showing is the one reported", r.detail.base.rank === base.rank && r.detail.base.suit === base.suit);
+  ok("the second card is a different card", !(r.detail.next.rank === base.rank && r.detail.next.suit === base.suit));
+  ok("the hand is closed", me.hand === null);
+  ok("what was staked is reported", r.staked === 5);
+  ok("the return is nothing, the stake, or double",
+    [0, 5, 10].includes(r.returned));
+  ok("the money matches the verdict",
+    (r.detail.push && r.returned === 5) || (r.detail.won && r.returned === 10) || (!r.detail.push && !r.detail.won && r.returned === 0));
+  ok("the table reflects it", me.table === before - 5 + r.returned);
+  ok("a loss spends the token, a win or push keeps it",
+    r.returned < 5 ? me.tokens === 0 : me.tokens === 1);
+}
+
 console.log(bad ? `\n${bad} failing\n` : "\nall floor checks passed\n");
 process.exit(bad ? 1 : 0);

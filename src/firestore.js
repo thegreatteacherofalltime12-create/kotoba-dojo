@@ -767,11 +767,27 @@ export async function recordMatch(env, match) {
 
   // The feed hears about it, unless it was the arcade or a diagnostic.
   if (logged && match.results.length) {
-    const names = { crossword: "Word-Cross", battleship: "Battleship", minesweeper: "Minesweeper" };
-    const game = names[match.game] || "Word-Cross";
-    const winner = [...match.results].sort((a, b) => (b.score || 0) - (a.score || 0))[0];
+    // Every game that reaches here, by name. An id that is not listed is
+    // announced as itself rather than as some other game: a fallback to
+    // "Word-Cross" is how every round of golf read as a crossword.
+    const names = {
+      crossword: "Word-Cross", battleship: "Battleship", minesweeper: "Minesweeper",
+      links: "Multiverse Golf", casino: "Casino",
+    };
+    const game = names[match.game] || String(match.game || "a game");
+    const ranked = [...match.results].sort((a, b) => (b.score || 0) - (a.score || 0));
+    const winner = ranked[0];
     const field = match.results.length;
     const gain = winner.gain ?? winner.score ?? 0;
+
+    // Who else was in it. A feed line that names only the winner answers
+    // "who won" and not "who played", and the second is the one people ask.
+    const others = ranked.slice(1).map((r) => r.name).filter(Boolean);
+    const shown = others.slice(0, 4);
+    const rest = others.length - shown.length;
+    const against = shown.length
+      ? ` \u00b7 vs ${shown.join(", ")}${rest > 0 ? ` +${rest} more` : ""}`
+      : "";
 
     // A round where nobody scored is a round nobody played — somebody opened a
     // dojo and left. Announcing "won, 0 points, 0 MMR" reads like a bug and
@@ -782,7 +798,7 @@ export async function recordMatch(env, match) {
         // Solo has nobody to beat, so it is finished rather than won.
         text: field > 1 ? `${winner.name} won ${game}` : `${winner.name} finished ${game}`,
         detail: field > 1
-          ? `${winner.score} points \u00b7 +${gain} MMR \u00b7 ${field} players`
+          ? `${winner.score} points \u00b7 +${gain} MMR${against}`
           : `${winner.score} points \u00b7 +${gain} MMR \u00b7 solo`,
       }).catch(() => {});
     }

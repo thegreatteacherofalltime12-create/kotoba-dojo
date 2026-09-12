@@ -993,11 +993,12 @@ function drawGame(id) {
   const host = $("tgame");
   if (!host) return;
   host.textContent = "";
+  host.classList.remove("hl-result");
   host.append(purseStrip());
   // The purse strip already says what you're carrying; the rest is the bet.
-  // Roulette, the wheel and hi-lo stake from the shared pad too, so the
-  // amount is typeable everywhere rather than four fixed chips.
-  const staking = ["roulette", "bigsix", "hilo"].includes(id);
+  // Roulette and the wheel stake from the shared pad too, so the amount is
+  // typeable everywhere rather than four fixed chips. Hi-lo lays out its own.
+  const staking = ["roulette", "bigsix"].includes(id);
   if (staking) {
     host.append(el("p", "tlede", "YOUR STAKE \u2014 type any amount or tap a chip (min $1)"));
     const pad = betPad(K.stake || 5, K.mine?.table || 0, (v) => { K.stake = v; });
@@ -1301,14 +1302,46 @@ function drawGame(id) {
     retotal();
 
   } else if (id === "hilo") {
+    // Bet, then one card face up, then the calls. Nothing is called blind:
+    // the second step only exists because the player has seen the first.
+    const cash = K.mine?.table || 0;
+    const most = Math.max(5, cash);
+
+    const head = el("div", "hl-head");
+    head.append(el("span", "hl-dice", "\u{1F3B2}"));
+    head.append(el("span", "hl-title", "HI-LO"));
+    host.append(head);
+
+    host.append(el("p", "tlede", "PLACE YOUR BET \u00b7 type an amount or tap \u2212$5 / +$5 (min $5)"));
+    const stepper = typedStepper("BET", Math.min(Math.max(5, K.stake || 5), most), {
+      min: 5, step: 5, max: most,
+      onChange: (v) => { K.stake = v; mark(v); bump(); },
+    });
+    host.append(stepper);
+
+    const chips = el("div", "bpad-chips");
+    const minB = el("button", "hchip", "MIN $5");
+    const allB = el("button", "hchip all", `ALL IN ${money(most)}`);
+    minB.onclick = () => stepper.set(5);
+    allB.onclick = () => stepper.set(most);
+    chips.append(minB, allB);
+    host.append(chips);
+
+    const field = stepper.querySelector(".bstep-v");
+    function mark(v) { minB.classList.toggle("on", v === 5); allB.classList.toggle("on", v === most); }
+    // Restarting the animation needs the class off and a reflow between.
+    function bump() { field.classList.remove("bump"); void field.offsetWidth; field.classList.add("bump"); }
+    mark(stepper.get());
+
     host.append(el("p", "fs-note",
-      "Two calls on the next card. Both have to come in; both right pays 1:1, and a tie pushes."));
-    for (const [dir, dirName] of [[true, "Higher"], [false, "Lower"]]) {
-      for (const [band, bandName] of [[true, "8 or higher"], [false, "under 8"]]) {
-        host.append(betRow(`${dirName} \u00b7 ${bandName}`,
-          () => play({ higher: dir, eightUp: band }), "pays 1:1"));
-      }
-    }
+      "Deal to see your card \u2014 then call HIGH/LOW and the 8-range. Both picks must hit \u00b7 pays 1:1"));
+    const deal = el("button", "fbtn fbtn-go hl-deal", "\u{1F0CF} DEAL \u2014 SEE YOUR CARD");
+    deal.disabled = stepper.get() > cash;
+    deal.onclick = () => {
+      deal.disabled = true;
+      send({ type: "TABLE_DEAL", game: "hilo", ante: stepper.get() });
+    };
+    host.append(deal);
 
   } else if (id === "paigow") {
     host.append(el("p", "tlede", "YOUR ANTE \u2014 type any amount or tap a chip (min $1)"));
@@ -1457,6 +1490,42 @@ function showHand(msg) {
 
   const hand = handRow(msg.cards, "hand", "thand");
   host.append(hand);
+
+  if (msg.game === "hilo") {
+    // The card is showing. Two calls, and one button once both are made.
+    let higher = null, eightUp = null;
+    const go = el("button", "fbtn fbtn-go hl-call", "CALL IT");
+    go.disabled = true;
+    const refresh = () => { go.disabled = higher === null || eightUp === null; };
+
+    const pick = (row, label, on) => {
+      const b = el("button", "hl-pick", label);
+      b.onclick = () => {
+        on();
+        [...row.children].forEach((n) => n.classList.toggle("on", n === b));
+        refresh();
+      };
+      row.append(b);
+    };
+    const dirRow = el("div", "hl-row");
+    pick(dirRow, "HIGHER", () => { higher = true; });
+    pick(dirRow, "LOWER", () => { higher = false; });
+    const bandRow = el("div", "hl-row");
+    pick(bandRow, "8 OR HIGHER", () => { eightUp = true; });
+    pick(bandRow, "UNDER 8", () => { eightUp = false; });
+
+    const calls = el("div", "hl-calls");
+    calls.append(el("p", "hl-l", "The next card will be\u2026"), dirRow);
+    calls.append(el("p", "hl-l", "\u2026and it will be"), bandRow);
+    host.append(calls);
+
+    go.onclick = () => {
+      go.disabled = true;
+      send({ type: "TABLE_ACT", move: "call", higher, eightUp });
+    };
+    host.append(go);
+    return;
+  }
 
   if (msg.game === "holdem") {
     if (msg.level) K.level = msg.level;
@@ -1643,6 +1712,7 @@ async function showTableResult(msg) {
     await spinWheelTo(msg.detail.landed);
   }
   host.textContent = "";
+  host.classList.remove("hl-result");
 
   const net = (msg.returned || 0) - (msg.staked ?? 0);
   host.append(el("p", `arc-sum ${msg.returned > 0 ? "arc-good" : "arc-bad"}`,
@@ -1650,6 +1720,24 @@ async function showTableResult(msg) {
   host.append(el("p", "fs-note", msg.title));
 
   const d = msg.detail || {};
+  if (d.base && d.next) {
+    // The card that was showing, then the one that answers it. The answer
+    // turns over on a beat, and the verdict lands after it — printing
+    // "you win" over a card still face down would give the game away.
+    host.classList.add("hl-result");
+    const row = el("div", "ftable-row hl-reveal");
+    row.append(el("span", "ft-l", "Showing"));
+    row.append(handRow([d.base], "res-hl-base"));
+    row.append(el("span", "ft-l", "Next"));
+    const nextRow = handRow([d.next], "res-hl-next");
+    const card = nextRow.firstChild;
+    if (card) { card.classList.remove("deal"); card.classList.add("hl-flip"); }
+    row.append(nextRow);
+    host.append(row);
+    host.append(el("p", "fs-note hl-calls-made",
+      `Called ${d.higher ? "HIGHER" : "LOWER"} ${d.gotDirection ? "\u2713" : "\u2717"}`
+      + ` \u00b7 ${d.eightUp ? "8 OR HIGHER" : "UNDER 8"} ${d.gotBand ? "\u2713" : "\u2717"}`));
+  }
   if (d.player && d.banker) {
     for (const [who, cards, total] of [["Player", d.player, d.playerTotal], ["Banker", d.banker, d.bankerTotal]]) {
       const row = el("div", "ftable-row");

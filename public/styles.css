@@ -2104,6 +2104,64 @@ h1, h2, h3 { font-family: var(--display); text-transform: none; letter-spacing: 
   .pcard.deal { animation: none; }
   .pickable .pcard { transition: none; }
 }
+/* ── hi-lo ─────────────────────────────────────────────────────────────
+ * Bet, one card up, two calls. The panel is built from the same pieces as
+ * every other table — the purse strip, the typed stepper, the chips — so it
+ * reads as one of them rather than as a guest.
+ */
+.hl-head { display: flex; align-items: center; gap: .5rem; margin: .1rem 0 .5rem; }
+.hl-dice { font-size: 1.1rem; }
+.hl-title {
+  font-family: var(--display); font-weight: 700; font-size: 1.05rem;
+  letter-spacing: .14em; color: #F4CE5A;
+}
+.hl-deal, .hl-call { width: 100%; margin-top: .7rem; letter-spacing: .06em; }
+
+.hl-calls { margin: .5rem 0 .2rem; }
+.hl-l {
+  margin: .55rem 0 .3rem; font-size: .7rem; font-weight: 700;
+  letter-spacing: .12em; text-transform: uppercase; color: var(--muted);
+}
+.hl-row { display: flex; gap: .5rem; }
+.hl-pick {
+  flex: 1; padding: .6rem .5rem; cursor: pointer;
+  font: inherit; font-size: .82rem; font-weight: 800; letter-spacing: .08em;
+  background: #07301A; border: 1px solid rgba(255,255,255,.28); color: #E5E7EB; border-radius: 8px;
+  transition: transform .1s ease, background .15s ease, border-color .15s ease, box-shadow .15s ease;
+}
+.hl-pick:hover { border-color: #F4CE5A; color: #F4CE5A; transform: translateY(-1px); }
+.hl-pick:active { transform: scale(.96); }
+.hl-pick.on {
+  background: #F4CE5A; border-color: #C9A23C; color: #241B00;
+  box-shadow: 0 0 0 3px rgba(244,206,90,.28);
+}
+
+/* The pad answers a tap: the button gives, the figure bumps. */
+.bstep-b, .hchip { transition: transform .1s ease, background .15s ease, border-color .15s ease, color .15s ease; }
+.bstep-b:active, .hchip:active { transform: scale(.92); }
+@keyframes bump { 50% { transform: scale(1.16); } }
+.bstep-v.bump { animation: bump .18s ease; }
+
+/* The reveal: the second card turns over on a beat, and the verdict — every
+ * line of text on the result — waits until it has. Printing "you win" over a
+ * card still face down would give the game away. */
+.hl-reveal { perspective: 720px; }
+@keyframes flip-up {
+  from { opacity: .45; transform: rotateY(90deg) scale(.94); }
+  to   { opacity: 1; transform: none; }
+}
+.pcard.hl-flip { animation: flip-up .5s cubic-bezier(.2,.85,.3,1) .4s backwards; transform-origin: center; }
+@keyframes land {
+  from { opacity: 0; transform: translateY(-8px) scale(1.12); }
+  to   { opacity: 1; transform: none; }
+}
+.hl-result > p { animation: land .35s ease 1s backwards; }
+
+@media (prefers-reduced-motion: reduce) {
+  .pcard.hl-flip, .hl-result > p, .bstep-v.bump { animation: none; }
+  .hl-pick, .bstep-b, .hchip { transition: none; }
+}
+
 
 /* ── the hold'em felt ─────────────────────────────────────────────────── */
 

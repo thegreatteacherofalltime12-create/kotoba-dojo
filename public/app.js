@@ -1158,6 +1158,7 @@ function drawInvite() {
 async function loadRecords(tab = "arena") {
   const host = $("drawer-records");
   if (tab === "wallet") return drawWallet(host);
+  if (tab === "bounty") return drawBountyRecords(host);
   host.innerHTML = `<div class="drawer-in"><div class="drawer-head"><h2>Records</h2></div><p class="panel-sub">Reading the books&hellip;</p></div>`;
 
   if (!standings.length) await loadRankings();
@@ -1184,6 +1185,7 @@ async function loadRecords(tab = "arena") {
       <div class="subtabs">
         <button class="stab is-on" data-rec="arena">Records</button>
         <button class="stab" data-rec="wallet">\u{1F4B0} Wallets</button>
+        <button class="stab" data-rec="bounty">\u{1F3AF} Bounty</button>
       </div>
       ${bounty?.holder ? `
         <div class="bounty-card claimed" style="margin-bottom:.9rem">
@@ -1275,6 +1277,64 @@ function walletBoard(top) {
       </div>`).join("")}</div>`;
 }
 
+/**
+ * The bounty ledger: kills, defences, and the titles they earn. Lives in
+ * Records beside the wallet board; it is a record of play, not a setting.
+ */
+function bountyPanelHtml() {
+  const me = bounty || {};
+  const kills = me.kills?.[S.user?.uid] || 0;
+  const defends = me.defends?.[S.user?.uid] || 0;
+  const holding = me.holder?.uid === S.user?.uid;
+  const KILL = [[1, "Bounty Kill I", "silver"], [2, "Bounty Kill II", "gold"],
+                [3, "Bounty Kill III", "diamond"], [4, "Bounty Kill IV", "platinum"]];
+  const SLAY = [[5, "Bounty Slayer", "diamond"], [10, "Bounty Executioner", "platinum"],
+                [15, "Bounty Warlord", "legendary"]];
+  return `
+    ${holding ? `<div class="bounty-card claimed"><p class="bc-k">\u{1F3AF} You are the bounty</p>
+      <p class="bc-sub">The mark to beat is ${me.holder.perHour}/hr. Win an eligible match to defend it for +25.</p></div>` : ""}
+    <div class="wal-figures">
+      <div><span class="wal-l">Bounty kills</span><b class="wal-n">${kills}</b></div>
+      <div><span class="wal-l">Defences</span><b class="wal-n">${defends}</b></div>
+      <div><span class="wal-l">Holding</span><b class="wal-n">${holding ? "Yes" : "No"}</b></div>
+    </div>
+    <p class="rec-sub">Kill achievements</p>
+    <div class="belt-rows">
+      ${KILL.map(([at, name, tier]) => `
+        <div class="belt-row ${kills >= at ? "is-mine" : "dim"}">
+          <span class="bn">\u{1F4B0} ${name}</span>
+          <span class="rec-who">${tier}</span>
+          <span class="bt">${kills >= at ? "earned" : `${at} kill${at === 1 ? "" : "s"}`}</span>
+        </div>`).join("")}
+    </div>
+    <p class="rec-sub">Slayer milestones</p>
+    <div class="belt-rows">
+      ${SLAY.map(([at, name, tier]) => `
+        <div class="belt-row ${kills >= at ? "is-mine" : "dim"}">
+          <span class="bn">${name}</span>
+          <span class="rec-who">${tier}</span>
+          <span class="bt">${kills >= at ? "earned" : `${at} kills`}</span>
+        </div>`).join("")}
+    </div>
+    <p class="panel-sub" style="margin-top:.7rem">Milestones stack. A Warlord holds every title, frame and avatar below it.</p>`;
+}
+
+function drawBountyRecords(host) {
+  clearInterval(walletPoll);
+  host.innerHTML = `
+    <div class="drawer-in">
+      <div class="drawer-head"><h2>Records</h2></div>
+      <div class="subtabs">
+        <button class="stab" data-rec="arena">Records</button>
+        <button class="stab" data-rec="wallet">\u{1F4B0} Wallets</button>
+        <button class="stab is-on" data-rec="bounty">\u{1F3AF} Bounty</button>
+      </div>
+      ${bountyPanelHtml()}
+    </div>`;
+  host.querySelectorAll("[data-rec]").forEach((b) => { b.onclick = () => loadRecords(b.dataset.rec); });
+}
+
+
 async function drawWallet(host) {
   host.innerHTML = `<div class="drawer-in"><div class="drawer-head"><h2>Records</h2></div><p class="panel-sub">Counting the takings&hellip;</p></div>`;
 
@@ -1291,6 +1351,7 @@ async function drawWallet(host) {
       <div class="subtabs">
         <button class="stab" data-rec="arena">Records</button>
         <button class="stab is-on" data-rec="wallet">\u{1F4B0} Wallets</button>
+        <button class="stab" data-rec="bounty">\u{1F3AF} Bounty</button>
       </div>
 
       <div class="wal-figures">
@@ -1567,7 +1628,6 @@ function drawProfile(tab) {
         <div class="subtabs">
           <button class="stab ${tab === "avatar" ? "is-on" : ""}" data-tab="avatar">Avatar</button>
           <button class="stab ${tab === "info" ? "is-on" : ""}" data-tab="info">Info</button>
-          <button class="stab ${tab === "bounty" ? "is-on" : ""}" data-tab="bounty">\u{1F3AF} Bounty</button>
         <button class="stab ${tab === "theme" ? "is-on" : ""}" data-tab="theme">Theme</button>
         <button class="stab ${tab === "billing" ? "is-on" : ""}" data-tab="billing">Billing</button>
         </div>
@@ -1609,44 +1669,6 @@ function drawProfile(tab) {
     return;
   }
 
-  if (tab === "bounty") {
-    const me = bounty || {};
-    const kills = me.kills?.[S.user?.uid] || 0;
-    const defends = me.defends?.[S.user?.uid] || 0;
-    const holding = me.holder?.uid === S.user?.uid;
-    const KILL = [[1, "Bounty Kill I", "silver"], [2, "Bounty Kill II", "gold"],
-                  [3, "Bounty Kill III", "diamond"], [4, "Bounty Kill IV", "platinum"]];
-    const SLAY = [[5, "Bounty Slayer", "diamond"], [10, "Bounty Executioner", "platinum"],
-                  [15, "Bounty Warlord", "legendary"]];
-    body.innerHTML = `
-      ${holding ? `<div class="bounty-card claimed"><p class="bc-k">\u{1F3AF} You are the bounty</p>
-        <p class="bc-sub">The mark to beat is ${me.holder.perHour}/hr. Win an eligible match to defend it for +25.</p></div>` : ""}
-      <div class="wal-figures">
-        <div><span class="wal-l">Bounty kills</span><b class="wal-n">${kills}</b></div>
-        <div><span class="wal-l">Defences</span><b class="wal-n">${defends}</b></div>
-        <div><span class="wal-l">Holding</span><b class="wal-n">${holding ? "Yes" : "No"}</b></div>
-      </div>
-      <p class="rec-sub">Kill achievements</p>
-      <div class="belt-rows">
-        ${KILL.map(([at, name, tier]) => `
-          <div class="belt-row ${kills >= at ? "is-mine" : "dim"}">
-            <span class="bn">\u{1F4B0} ${name}</span>
-            <span class="rec-who">${tier}</span>
-            <span class="bt">${kills >= at ? "earned" : `${at} kill${at === 1 ? "" : "s"}`}</span>
-          </div>`).join("")}
-      </div>
-      <p class="rec-sub">Slayer milestones</p>
-      <div class="belt-rows">
-        ${SLAY.map(([at, name, tier]) => `
-          <div class="belt-row ${kills >= at ? "is-mine" : "dim"}">
-            <span class="bn">${name}</span>
-            <span class="rec-who">${tier}</span>
-            <span class="bt">${kills >= at ? "earned" : `${at} kills`}</span>
-          </div>`).join("")}
-      </div>
-      <p class="panel-sub" style="margin-top:.7rem">Milestones stack. A Warlord holds every title, frame and avatar below it.</p>`;
-    return;
-  }
 
   if (tab === "theme") {
     const now = document.documentElement.dataset.theme || savedTheme();

@@ -2999,7 +2999,7 @@ a.dtab { text-decoration: none; display: inline-block; }
   min-height: 100vh;
   background-image:
     linear-gradient(180deg, rgba(6,10,18,.55), rgba(6,10,18,.35) 40%, rgba(6,10,18,.72)),
-    url("./crossword-bg.jpg");
+    url("./crossword-bg.jpg?v=a683ba36");
   background-size: auto, cover;
   background-position: center, center;
   background-attachment: fixed, fixed;
@@ -3009,7 +3009,7 @@ a.dtab { text-decoration: none; display: inline-block; }
   [data-theme="os"] #screen-gate {
     background-image:
       linear-gradient(180deg, rgba(6,10,18,.55), rgba(6,10,18,.35) 40%, rgba(6,10,18,.72)),
-      url("./crossword-bg-phone.jpg");
+      url("./crossword-bg-phone.jpg?v=2f374af5");
     background-attachment: scroll, scroll;
   }
 }

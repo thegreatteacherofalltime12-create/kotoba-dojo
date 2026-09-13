@@ -306,6 +306,7 @@ export class CasinoFloor {
         case "TABLE_PLAY":   return await this.tablePlay(ws, who.uid, msg);
         case "TABLE_DEAL":   return await this.tableDeal(ws, who.uid, msg);
         case "TABLE_ACT":    return await this.tableAct(ws, who.uid, msg);
+        case "TABLE_PEEK":   return this.tablePeek(ws, who.uid, msg);
         case "TABLE_END":    return await this.tableEnd(ws, who.uid);
         case "FLOOR_BANK":   return await this.bankOut(ws, who.uid);
         default: return this.send(ws, "FLOOR_ERROR", { message: "Unrecognised message." });
@@ -964,6 +965,27 @@ export class CasinoFloor {
     this.push();
   }
 
+  /**
+   * What a split would rank as, before it is committed.
+   *
+   * Pai gow's screen shows the two hands a pick would make as the player taps,
+   * and the client cannot rank cards — ranking lives here, with the joker
+   * rules, and is not duplicated in the browser. So the client asks. Nothing
+   * is staked or settled by this; it is a question, not a move.
+   */
+  tablePeek(ws, uid, msg) {
+    const h = this.f.players[uid]?.hand;
+    if (!h || h.game !== "paigow") return;
+    const low = Array.isArray(msg.low) && msg.low.length === 2 ? msg.low.map(Number) : null;
+    if (!low || low.some((i) => !(i >= 0 && i < 7)) || low[0] === low[1]) return;
+    const lowRank = rankTwo(low.map((i) => h.mine[i]));
+    const highRank = rankFiveWithJoker(h.mine.filter((_, i) => !low.includes(i)));
+    this.send(ws, "TABLE_PEEK", {
+      low, high: highRank.name, lowName: lowRank.name,
+      valid: compare2(highRank, lowRank) > 0,
+    });
+  }
+
   /** The second half: play or fold, draw or stand. */
   async tableAct(ws, uid, msg) {
     const p = this.f.players[uid];
@@ -1147,10 +1169,43 @@ export class CasinoFloor {
       }
 
       title = `Pai Gow \u2014 ${out.why}`;
+
+      // Everything the result screen lays out: both splits as cards, and a
+      // line per bet with what it did and what it was worth.
+      const pgNet = out.outcome === "win" ? h.ante : out.outcome === "push" ? 0 : -h.ante;
+      const pgText = out.outcome === "win" ? "won both hands"
+        : out.outcome === "loss" ? "dealer took both hands"
+        : playsAceHigh(dealerSplit) ? "dealer played ace-high \u2192 push"
+        : "split \u2014 won one, lost one \u2192 push";
+      const lines = [{ name: "Pai Gow", stake: h.ante, text: pgText, net: pgNet, tag: out.outcome }];
+      if (h.fortune > 0) {
+        const row = fortuneAward(h.mine);
+        lines.push({
+          name: "Fortune Bonus", stake: h.fortune,
+          text: row ? `${row.name} \u00b7 pays ${row.pays}:1` : "no qualifying hand",
+          net: row ? h.fortune * row.pays : -h.fortune, tag: row ? "win" : "loss",
+        });
+      }
+      if (h.aceBonus > 0) {
+        const played = playsAceHigh(dealerSplit);
+        const mineAceHigh = mineSplit.highRank.rank === 0 && mineSplit.highRank.tie[0] === 14;
+        const joker = h.dealer.some((c) => c.joker);
+        const row = played ? ACE_HIGH_BONUS.find((b) =>
+          b.id === (mineAceHigh ? "both" : joker ? "joker" : "plain")) : null;
+        lines.push({
+          name: "Ace-High Bonus", stake: h.aceBonus,
+          text: row ? `${row.name} \u00b7 pays ${row.pays}:1` : "dealer did not play Ace-High",
+          net: row ? h.aceBonus * row.pays : -h.aceBonus, tag: row ? "win" : "loss",
+        });
+      }
+
       detail = {
         ...detail, dealer: h.dealer, outcome: out.outcome,
         mineHigh: mineSplit.highRank.name, mineLow: mineSplit.lowRank.name,
         dealerHigh: dealerSplit.highRank.name, dealerLow: dealerSplit.lowRank.name,
+        mineHighCards: highCards, mineLowCards: lowCards,
+        dealerHighCards: dealerSplit.highCards, dealerLowCards: dealerSplit.lowCards,
+        lines, net: lines.reduce((a, l) => a + l.net, 0),
       };
 
     } else if (h.game === "crisscross") {

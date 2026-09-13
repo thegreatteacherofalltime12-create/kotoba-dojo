@@ -99,6 +99,7 @@ function handle(msg) {
       break;
     case "TABLE_BLOCKED": showBlocked(msg); break;
     case "TABLE_HAND": showHand(msg); break;
+    case "TABLE_PEEK": pgPeek(msg); break;
     case "TABLE_RESULT": showTableResult(msg); break;
     case "FLOOR_ERROR": say(msg.message); break;
   }
@@ -1506,6 +1507,19 @@ function showBlocked(msg) {
 }
 
 /** A dealt hand, waiting on the player. */
+/** The server's answer to "what would this split rank as?" */
+function pgPeek(msg) {
+  const c = K.pgChips;
+  if (!c || !c.high?.isConnected) return;
+  // Only the pick that is still current; a slow answer to an old pick is noise.
+  if (!K.lowPick || K.lowPick.length !== 2 || msg.low?.[0] !== K.lowPick[0] || msg.low?.[1] !== K.lowPick[1]) return;
+  c.high.querySelector(".pg-chip-v").textContent = msg.high;
+  c.low.querySelector(".pg-chip-v").textContent = msg.lowName;
+  c.high.classList.toggle("bad", !msg.valid);
+  c.set.disabled = !msg.valid;
+  c.set.textContent = msg.valid ? "\u2713 SET HAND & COMPARE" : "HIGH MUST OUTRANK LOW";
+}
+
 function showHand(msg) {
   const host = $("tgame");
   if (!host) return;
@@ -1644,34 +1658,82 @@ function showHand(msg) {
 
   if (msg.game === "paigow") {
     host.textContent = "";
-    const pgHead = el("div", "hz-head");
-    pgHead.append(el("span", "hz-l", "Pai Gow"));
-    pgHead.append(endHandBtn());
-    host.append(pgHead);
-    host.append(zone("The dealer's seven, face up", handRow(msg.dealer, "pgdealer", "thand")));
 
-    K.lowPick = [];
-    host.append(el("p", "fs-note", "Tap two of yours for the low hand, or take the house way."));
-    const mine = handRow(msg.cards, "pgmine", "thand pickable");
-    [...mine.children].forEach((node, i) => {
-      node.onclick = () => {
-        const at = K.lowPick.indexOf(i);
-        if (at !== -1) { K.lowPick.splice(at, 1); node.classList.remove("picked"); }
-        else if (K.lowPick.length < 2) { K.lowPick.push(i); node.classList.add("picked"); }
-      };
-    });
+    const head = el("div", "cc-head");
+    const titles = el("div", "cc-titles");
+    titles.append(el("div", "cc-title", "\u{1F004} FACE-UP PAI GOW POKER"));
+    titles.append(el("div", "cc-sub", "BEAT THE DEALER ON BOTH HANDS \u00b7 COMMISSION-FREE"));
+    head.append(titles, purseStrip());
+    host.append(head);
+
+    const note = el("p", "pg-note");
+    note.innerHTML = `Pick your <b>2-card low hand</b> (tap two cards). The other five become your high hand \u2014 and the high hand must outrank the low. Default is the house way.`;
+    host.append(note);
+
+    host.append(el("p", "pg-l", "DEALER (FACE-UP)"));
+    host.append(handRow(msg.dealer, "pgdealer", "thand pg-row"));
+
+    host.append(el("p", "pg-l", "YOUR CARDS \u00b7 TAP 2 FOR THE LOW HAND"));
+    const mine = handRow(msg.cards, "pgmine", "thand pg-row pickable");
     host.append(mine);
 
-    const acts = el("div", "factions");
-    const set = el("button", "fbtn fbtn-go", "Set my hand");
+    // The two hands the current pick makes. Ranked on the server, which is
+    // where the joker rules live; the chips fill in as the answer comes back.
+    const chips = el("div", "pg-chips");
+    const highChip = el("div", "pg-chip");
+    highChip.append(el("span", "pg-chip-k", "HIGH (5)"), el("b", "pg-chip-v", "\u2026"));
+    const lowChip = el("div", "pg-chip low");
+    lowChip.append(el("span", "pg-chip-k", "LOW (2)"), el("b", "pg-chip-v", "\u2026"));
+    chips.append(highChip, lowChip);
+    host.append(chips);
+
+    const acts = el("div", "tc-acts");
+    const hw = el("button", "fbtn pg-house tc-btn", "\u21BA HOUSE WAY");
+    const set = el("button", "fbtn fbtn-go tc-btn", "\u2713 SET HAND & COMPARE");
+    acts.append(hw, set);
+    host.append(acts);
+
+    K.lowPick = [];
+    K.pgChips = { high: highChip, low: lowChip, set };
+    const cards = [...mine.children];
+    const paint = () => {
+      cards.forEach((node, i) => {
+        const on = K.lowPick.includes(i);
+        node.classList.toggle("picked", on);
+        let tag = node.querySelector(".pg-tag");
+        if (on && !tag) { tag = el("span", "pg-tag", "LOW"); node.append(tag); }
+        if (!on && tag) tag.remove();
+      });
+      if (K.lowPick.length === 2) send({ type: "TABLE_PEEK", low: K.lowPick });
+      else {
+        highChip.querySelector(".pg-chip-v").textContent = "\u2026";
+        lowChip.querySelector(".pg-chip-v").textContent = "\u2026";
+        set.disabled = true;
+      }
+    };
+    cards.forEach((node, i) => {
+      node.onclick = () => {
+        const at = K.lowPick.indexOf(i);
+        if (at !== -1) K.lowPick.splice(at, 1);
+        else if (K.lowPick.length < 2) K.lowPick.push(i);
+        else K.lowPick = [K.lowPick[1], i];     // a third tap swaps the older pick out
+        paint();
+      };
+    });
+
+    hw.onclick = () => { K.lowPick = [...(msg.houseWay || [0, 1])]; paint(); };
     set.onclick = () => {
       if (K.lowPick.length !== 2) return say("Pick exactly two cards for the low hand.");
+      set.disabled = true; hw.disabled = true;
       send({ type: "TABLE_ACT", low: K.lowPick });
     };
-    const hw = el("button", "fbtn", "House Way");
-    hw.onclick = () => send({ type: "TABLE_ACT", low: msg.houseWay });
-    acts.append(set, hw);
-    host.append(acts);
+
+    const tail = el("div", "cc-tail");
+    tail.append(endHandBtn());
+    host.append(tail);
+
+    // Default is the house way, already picked and already ranked.
+    hw.onclick();
     return;
   }
 
@@ -1790,12 +1852,58 @@ async function showTableResult(msg) {
   host.textContent = "";
   host.classList.remove("hl-result");
 
+  const d = msg.detail || {};
+  if (d.mineHighCards) {
+    // Pai gow: both splits laid out as hands, then a line per bet and the
+    // net. The generic tick-and-title is the wrong shape for it.
+    const head = el("div", "cc-head");
+    const titles = el("div", "cc-titles");
+    titles.append(el("div", "cc-title", "\u{1F004} FACE-UP PAI GOW POKER"));
+    titles.append(el("div", "cc-sub", "BEAT THE DEALER ON BOTH HANDS \u00b7 COMMISSION-FREE"));
+    head.append(titles, purseStrip());
+    host.append(head);
+
+    const side = (who, highName, high, lowName, low, key) => {
+      host.append(el("p", "pg-who", who));
+      const hb = el("div", "pg-box");
+      hb.append(el("p", "pg-box-l", `HIGH \u00b7 ${highName}`));
+      hb.append(handRow(high, `${key}-high`, "thand pg-row"));
+      host.append(hb);
+      const lb = el("div", "pg-box low");
+      lb.append(el("p", "pg-box-l", `LOW \u00b7 ${lowName}`));
+      lb.append(handRow(low, `${key}-low`, "thand pg-row"));
+      host.append(lb);
+    };
+    side("YOU", d.mineHigh, d.mineHighCards, d.mineLow, d.mineLowCards, "pgr-me");
+    side("DEALER", d.dealerHigh, d.dealerHighCards, d.dealerLow, d.dealerLowCards, "pgr-dl");
+
+    const table = el("div", "pg-lines");
+    for (const l of d.lines || []) {
+      const row = el("div", `pg-line ${l.tag || ""}`);
+      row.append(el("span", "pg-line-n", l.name));
+      row.append(el("span", "pg-line-t", `${money(l.stake)} ${l.text}`));
+      row.append(el("span", "pg-line-v", l.net > 0 ? `+${money(l.net)}` : l.net < 0 ? `\u2212${money(-l.net)}` : "push"));
+      table.append(row);
+    }
+    host.append(table);
+
+    const n = d.net || 0;
+    const box = el("div", `pg-net ${n > 0 ? "win" : n < 0 ? "loss" : "push"}`);
+    box.append(el("b", "", n > 0 ? `+${money(n)}` : n < 0 ? `\u2212${money(-n)}` : "$0"));
+    box.append(el("span", "", n > 0 ? "NET WIN" : n < 0 ? "NET LOSS" : "PUSH"));
+    host.append(box);
+
+    const again = el("button", "fbtn fbtn-go pg-next", "\u25B6 NEXT HAND");
+    again.onclick = () => drawGame(K.table);
+    host.append(again);
+    return;
+  }
+
   const net = (msg.returned || 0) - (msg.staked ?? 0);
   host.append(el("p", `arc-sum ${msg.returned > 0 ? "arc-good" : "arc-bad"}`,
     msg.returned > 0 ? "\u2713" : "\u2717"));
   host.append(el("p", "fs-note", msg.title));
 
-  const d = msg.detail || {};
   if (d.base && d.next) {
     // The card that was showing, then the one that answers it. The answer
     // turns over on a beat, and the verdict lands after it — printing

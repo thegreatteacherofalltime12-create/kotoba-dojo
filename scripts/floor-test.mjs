@@ -179,5 +179,43 @@ console.log("\nhi-lo: bet, see a card, then call");
     r.returned < 5 ? me.tokens === 0 : me.tokens === 1);
 }
 
+
+console.log("\npai gow: set a hand, compare, and read the lines");
+{
+  const me = floor.f.players.p2;
+  me.tokens = 1;
+  me.table = 100;
+  me.hand = null;
+  const before = me.table;
+
+  await say("p2", { type: "TABLE_DEAL", game: "paigow", ante: 5, fortune: 5, aceBonus: 5 });
+  const hand = socks.p2.last("TABLE_HAND");
+  ok("seven each, both face up", hand?.game === "paigow" && hand.cards.length === 7 && hand.dealer.length === 7);
+  ok("the house way is offered as two indices", Array.isArray(hand.houseWay) && hand.houseWay.length === 2);
+  ok("ante and both side bets are down", me.table === before - 15);
+
+  // A peek ranks a split without committing to it.
+  await say("p2", { type: "TABLE_PEEK", low: hand.houseWay });
+  const peek = socks.p2.last("TABLE_PEEK");
+  ok("a peek answers with both ranks", !!peek && typeof peek.high === "string" && typeof peek.lowName === "string");
+  ok("the house way is always a legal split", peek.valid === true);
+  ok("and a peek costs nothing", me.table === before - 15 && me.hand?.game === "paigow");
+  await say("p2", { type: "TABLE_PEEK", low: [9, 9] });
+  ok("a nonsense peek is ignored", socks.p2.last("TABLE_PEEK") === peek);
+
+  await say("p2", { type: "TABLE_ACT", low: hand.houseWay });
+  const r = socks.p2.last("TABLE_RESULT");
+  const d = r?.detail || {};
+  ok("both splits come back as cards", d.mineHighCards?.length === 5 && d.mineLowCards?.length === 2
+    && d.dealerHighCards?.length === 5 && d.dealerLowCards?.length === 2);
+  ok("the split is the seven dealt", [...d.mineHighCards, ...d.mineLowCards].length === 7);
+  ok("one line per bet", Array.isArray(d.lines) && d.lines.length === 3
+    && d.lines.map((l) => l.name).join("|") === "Pai Gow|Fortune Bonus|Ace-High Bonus");
+  ok("the net is the sum of the lines", d.net === d.lines.reduce((a, l) => a + l.net, 0));
+  ok("and the net is what actually moved", r.returned - r.staked === d.net);
+  ok("the table reflects it", me.table === before - 15 + r.returned);
+  ok("the hand is closed", me.hand === null);
+}
+
 console.log(bad ? `\n${bad} failing\n` : "\nall floor checks passed\n");
 process.exit(bad ? 1 : 0);

@@ -2593,6 +2593,10 @@ h1, h2, h3 { font-family: var(--display); text-transform: none; letter-spacing: 
 .ctab:hover { color: var(--accent); }
 .ctab.on { background: color-mix(in srgb, var(--a1) 14%, transparent); color: inherit; }
 .commons-body { max-height: 26rem; overflow-y: auto; padding: .5rem; }
+/* Closed until a tab is tapped; the tabs stay as the handle. */
+.commons:not(.open) .commons-body, .commons:not(.open) .chat-composer { display: none; }
+.commons:not(.open) .ctabs { border-bottom: none; }
+.ctab { cursor: pointer; }
 
 .feed-row { display: flex; gap: .5rem; padding: .45rem .3rem; border-bottom: 1px solid var(--edge); }
 .feed-row:last-child { border-bottom: none; }

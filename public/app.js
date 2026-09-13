@@ -1642,6 +1642,23 @@ async function loadChat() {
   if (stuck) host.scrollTop = host.scrollHeight;
 }
 
+// Closed until asked for. The tabs are the handle: tapping one opens the
+// panel on it, tapping the open tab again closes it. Which way it was left,
+// and on which tab, is kept in this browser.
+const COMMONS_KEY = "omni.commons.open";
+function commonsOpen() { return !!document.querySelector(".commons")?.classList.contains("open"); }
+function foldCommons(open) {
+  const sec = document.querySelector(".commons");
+  if (!sec) return;
+  sec.classList.toggle("open", open);
+  if (!open) { $("ct-feed").classList.remove("on"); $("ct-chat").classList.remove("on"); }
+  try { localStorage.setItem(COMMONS_KEY, open ? `1:${commonsTab}` : "0"); } catch { /* fine */ }
+}
+function tapCommons(which) {
+  if (commonsOpen() && commonsTab === which) { foldCommons(false); return; }
+  showCommons(which);
+}
+
 function showCommons(which) {
   commonsTab = which;
   $("ct-feed").classList.toggle("on", which === "feed");
@@ -1649,6 +1666,7 @@ function showCommons(which) {
   $("commons-feed").hidden = which !== "feed";
   $("commons-chat").hidden = which !== "chat";
   $("chat-composer").hidden = which !== "chat";
+  foldCommons(true);
   if (which === "feed") loadFeed(); else loadChat();
 }
 
@@ -1668,19 +1686,27 @@ async function sendChat() {
 }
 
 function startCommons() {
-  $("ct-feed").onclick = () => showCommons("feed");
-  $("ct-chat").onclick = () => showCommons("chat");
+  $("ct-feed").onclick = () => tapCommons("feed");
+  $("ct-chat").onclick = () => tapCommons("chat");
   $("chat-send").onclick = sendChat;
   $("chat-say").onkeydown = (e) => { if (e.key === "Enter") sendChat(); };
-  showCommons("chat");
+
+  // Closed unless it was left open, in which case it comes back on the same tab.
+  let saved = "0";
+  try { saved = localStorage.getItem(COMMONS_KEY) || "0"; } catch { /* fine */ }
+  if (saved.startsWith("1:")) showCommons(saved.slice(2) === "feed" ? "feed" : "chat");
+  else foldCommons(false);
+
+  // Nothing is fetched while the panel is closed; there is nothing to show it in.
   clearInterval(commonsPoll);
   commonsPoll = setInterval(() => {
+    if (!commonsOpen()) return;
     if (commonsTab === "feed") loadFeed(); else loadChat();
   }, 15_000);
   // Coming back to the tab after a while, the first thing you see should be
   // current rather than whatever the last poll caught before you left.
   document.addEventListener("visibilitychange", () => {
-    if (document.hidden) return;
+    if (document.hidden || !commonsOpen()) return;
     if (commonsTab === "feed") loadFeed(); else loadChat();
   });
 }

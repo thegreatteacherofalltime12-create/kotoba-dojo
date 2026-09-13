@@ -1234,6 +1234,21 @@ h1, h2, h3 { font-family: var(--display); text-transform: none; letter-spacing: 
   min-height: 100vh;
   color: #fff;
 }
+/* The crossword plays in orbit. Same wash as the other surfaces, so the grid
+ * and clues read exactly as they did; only the picture behind them differs. */
+#screen-dojo {
+  background-image:
+    linear-gradient(180deg, rgba(6,10,18,.72), rgba(6,10,18,.55) 40%, rgba(6,10,18,.82)),
+    url("./crossword-bg.jpg");
+}
+@media (max-width: 700px) {
+  #screen-dojo {
+    background-image:
+      linear-gradient(180deg, rgba(6,10,18,.72), rgba(6,10,18,.55) 40%, rgba(6,10,18,.82)),
+      url("./crossword-bg-phone.jpg");
+    background-attachment: scroll;
+  }
+}
 #screen-dojo .topbar, #screen-battle .topbar, #screen-mines .topbar { background: rgba(10,10,12,.5); }
 #screen-dojo h2, #screen-battle h2, #screen-mines h2,
 #screen-dojo h3, #screen-battle h3, #screen-mines h3,

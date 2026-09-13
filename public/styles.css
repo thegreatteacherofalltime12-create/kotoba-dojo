@@ -2597,6 +2597,10 @@ h1, h2, h3 { font-family: var(--display); text-transform: none; letter-spacing: 
 .commons:not(.open) .commons-body, .commons:not(.open) .chat-composer { display: none; }
 .commons:not(.open) .ctabs { border-bottom: none; }
 .ctab { cursor: pointer; }
+/* Open Rooms inside the commons: the two actions on one row, the board under them. */
+.rooms-bar { display: flex; gap: .5rem; justify-content: flex-end; margin-bottom: .5rem; }
+#commons-rooms .joinrow { margin-top: .6rem; }
+.col-main > #home-error { margin: 0 0 .6rem; }
 
 .feed-row { display: flex; gap: .5rem; padding: .45rem .3rem; border-bottom: 1px solid var(--edge); }
 .feed-row:last-child { border-bottom: none; }

@@ -125,8 +125,6 @@ if (location.protocol === "file:") {
           <button id="tab-records" class="dtab" aria-expanded="false" aria-controls="drawer-records">Records</button>
           <button id="tab-rules" class="dtab dtab-guide" aria-expanded="false" aria-controls="drawer-rules"><span aria-hidden="true">📖</span> View Rules</button>
           <button id="tab-scrolls" class="dtab" aria-expanded="false" aria-controls="drawer-scrolls">Word-Cross Scrolls</button>
-          <button id="tab-rooms" class="dtab" aria-expanded="false" aria-controls="drawer-rooms">Open Rooms</button>
-          <button id="tab-belts" class="dtab only-narrow" aria-expanded="false" aria-controls="drawer-belts">Belts</button>
         </div>
       </div>
       <div class="playerbox">
@@ -162,27 +160,9 @@ if (location.protocol === "file:") {
     <div class="modal" id="drawer-create" role="dialog" aria-modal="true" aria-label="Create a match" hidden></div>
     <div class="modal" id="drawer-profile" role="dialog" aria-modal="true" aria-label="Profile" hidden></div>
     <div class="modal" id="drawer-invite" role="dialog" aria-modal="true" aria-label="Invite to the Dojo" hidden></div>
-    <div class="drawer as-modal" id="drawer-rooms" role="dialog" aria-modal="true" aria-label="Open Rooms" hidden>
-      <div class="drawer-in">
-        <div class="drawer-head">
-          <h2>Open Rooms</h2>
-          <button id="btn-refresh" class="btn btn-tiny">Refresh</button>
-          <button id="btn-open" class="btn btn-primary btn-small">Open a dojo</button>
-        </div>
-        <ul id="dojo-list" class="dojo-list"><li class="empty">Looking for open rooms&hellip;</li></ul>
-        <div class="joinrow">
-          <input id="join-code" class="code-input" maxlength="5" autocomplete="off"
-                 spellcheck="false" placeholder="CODE" aria-label="Room code">
-          <button id="btn-join" class="btn">Enter by code</button>
-        </div>
-        <p class="panel-sub">Unlisted rooms don't appear above. You need the code from whoever opened it.</p>
-        <p id="home-error" class="notice notice-bad" hidden></p>
-      </div>
-    </div>
 
     <div class="drawer as-modal" id="drawer-records" role="dialog" aria-modal="true" aria-label="Records" hidden></div>
     <div class="drawer as-modal" id="drawer-news" role="dialog" aria-modal="true" aria-label="What's New" hidden></div>
-    <div class="drawer as-modal" id="drawer-belts" role="dialog" aria-modal="true" aria-label="Belts" hidden></div>
     <div class="drawer as-modal" id="drawer-rules" role="dialog" aria-modal="true" aria-label="Rules" hidden></div>
     <div class="drawer as-modal" id="drawer-scrolls" role="dialog" aria-modal="true" aria-label="Player Scrolls" hidden>
       <div class="drawer-in">
@@ -198,6 +178,7 @@ if (location.protocol === "file:") {
     <div class="stack">
 
       <main class="col-main">
+        <p id="home-error" class="notice notice-bad" hidden></p>
         <section class="rankings">
           <div class="rankings-head" aria-controls="strip">
             <h2>Arena Rankings</h2>
@@ -212,9 +193,24 @@ if (location.protocol === "file:") {
           <div class="ctabs" role="tablist">
             <button id="ct-chat" class="ctab on" role="tab">Chat</button>
             <button id="ct-feed" class="ctab" role="tab">Feed</button>
+            <button id="ct-rooms" class="ctab" role="tab">Open Rooms</button>
           </div>
           <div id="commons-chat" class="commons-body"></div>
           <div id="commons-feed" class="commons-body" hidden></div>
+          <div id="commons-rooms" class="commons-body" hidden>
+            <div class="rooms-bar">
+              <button id="btn-refresh" class="btn btn-tiny">Refresh</button>
+              <button id="btn-open" class="btn btn-primary btn-small">Open a dojo</button>
+            </div>
+            <ul id="dojo-list" class="dojo-list"><li class="empty">Looking for open rooms&hellip;</li></ul>
+            <div class="joinrow">
+              <input id="join-code" class="code-input" maxlength="5" autocomplete="off"
+                     spellcheck="false" placeholder="CODE" aria-label="Room code">
+              <button id="btn-join" class="btn">Enter by code</button>
+            </div>
+            <p class="panel-sub">Unlisted rooms don't appear above. You need the code from whoever opened it.</p>
+            <p id="rooms-error" class="notice notice-bad" hidden></p>
+          </div>
           <div id="chat-composer" class="chat-composer">
             <input id="chat-say" maxlength="300" placeholder="Say something to the arena" aria-label="Message the arena">
             <button id="chat-send" class="btn">Send</button>

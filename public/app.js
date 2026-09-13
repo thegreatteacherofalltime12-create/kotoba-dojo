@@ -736,6 +736,7 @@ function drawRuleBelts(tab = "arena") {
         <button class="stab ${tab === "modes" ? "is-on" : ""}" data-rule="modes">Game Modes</button>
         <button class="stab ${tab === "match" ? "is-on" : ""}" data-rule="match">Match Rules</button>
         <button class="stab ${tab === "bounty" ? "is-on" : ""}" data-rule="bounty">Bounty \u{1F3AF}</button>
+        <button class="stab ${tab === "belts" ? "is-on" : ""}" data-rule="belts">Belts</button>
         <button class="stab" data-points>Points</button>
       </div>
       ${inner}
@@ -747,8 +748,8 @@ function drawRuleBelts(tab = "arena") {
     return;
   }
 
-  if (tab === "match" || tab === "bounty") {
-    $("drawer-rules").innerHTML = shell(tab === "match" ? matchRules() : bountyRules());
+  if (tab === "match" || tab === "bounty" || tab === "belts") {
+    $("drawer-rules").innerHTML = shell(tab === "match" ? matchRules() : tab === "bounty" ? bountyRules() : beltsRuleHtml());
     bindRuleTabs();
     return;
   }
@@ -1058,8 +1059,6 @@ const DRAWERS = [
   ["tab-news", "drawer-news"],
   ["tab-rules", "drawer-rules"],
   ["tab-scrolls", "drawer-scrolls"],
-  ["tab-rooms", "drawer-rooms"],
-  ["tab-belts", "drawer-belts"],
   ["tab-invite", "drawer-invite"],
 ];
 
@@ -1073,7 +1072,6 @@ const DRAWERS = [
  */
 function drawer(which) {
   const opening = $(which).hidden;
-  if (which !== "drawer-rooms" && typeof watchDojos === "function") watchDojos(false);
   let openPanel = null;
   for (const [tab, panel] of DRAWERS) {
     const showing = panel === which && opening;
@@ -1099,7 +1097,7 @@ function closeOpenPanel() {
 }
 
 $("panel-x").onclick = closeOpenPanel;
-for (const id of ["drawer-rooms", "drawer-records", "drawer-belts", "drawer-rules", "drawer-scrolls", "drawer-news"]) {
+for (const id of ["drawer-records", "drawer-rules", "drawer-scrolls", "drawer-news"]) {
   // Only a click on the backdrop itself, never one that bubbled up from the
   // card, or reading the rules would keep shutting the rules.
   $(id).addEventListener("click", (e) => { if (e.target === $(id)) closeOpenPanel(); });
@@ -1120,8 +1118,6 @@ document.addEventListener("keydown", (e) => {
   for (const [tab, panel] of DRAWERS) if (!$(panel).hidden) closePanel(panel, tab);
 });
 $("tab-profile").onclick = () => { if (drawer("drawer-profile")) drawProfile("avatar"); };
-$("tab-rooms").onclick = () => watchDojos(drawer("drawer-rooms"));
-$("tab-belts").onclick = () => { if (drawer("drawer-belts")) drawBeltsPanel(); };
 $("tab-invite").onclick = () => { if (drawer("drawer-invite")) drawInvite(); };
 
 // ── create match ──────────────────────────────────────────────────
@@ -1175,12 +1171,12 @@ function drawCreate() {
 }
 
 // ── belts ─────────────────────────────────────────────────────────
-function drawBeltsPanel() {
+/** The belt ladder, with yours marked. A tab of the rule book now. */
+function beltsRuleHtml() {
   const mine = belt(myMmr())[1];
-  $("drawer-belts").innerHTML = `
-    <div class="drawer-in">
-      <div class="drawer-head"><h2>Belts</h2></div>
-      <p class="panel-sub">Shared across every mode. You're on ${mine}.</p>
+  return `
+    <div class="rules-in">
+      <p class="panel-sub">Shared across every mode. You're on <b>${mine}</b>.</p>
       <div class="belt-rows">
         ${[...BELTS].filter(([m]) => m >= 1).reverse().map(([at, name, hex]) => `
           <div class="belt-row ${name === mine ? "is-mine" : ""}">
@@ -1651,7 +1647,9 @@ function foldCommons(open) {
   const sec = document.querySelector(".commons");
   if (!sec) return;
   sec.classList.toggle("open", open);
-  if (!open) { $("ct-feed").classList.remove("on"); $("ct-chat").classList.remove("on"); }
+  if (!open) { for (const id of ["ct-feed", "ct-chat", "ct-rooms"]) $(id).classList.remove("on"); }
+  // The rooms board polls only while it is the tab showing.
+  watchDojos(open && commonsTab === "rooms");
   try { localStorage.setItem(COMMONS_KEY, open ? `1:${commonsTab}` : "0"); } catch { /* fine */ }
 }
 function tapCommons(which) {
@@ -1663,11 +1661,13 @@ function showCommons(which) {
   commonsTab = which;
   $("ct-feed").classList.toggle("on", which === "feed");
   $("ct-chat").classList.toggle("on", which === "chat");
+  $("ct-rooms").classList.toggle("on", which === "rooms");
   $("commons-feed").hidden = which !== "feed";
   $("commons-chat").hidden = which !== "chat";
+  $("commons-rooms").hidden = which !== "rooms";
   $("chat-composer").hidden = which !== "chat";
   foldCommons(true);
-  if (which === "feed") loadFeed(); else loadChat();
+  if (which === "feed") loadFeed(); else if (which === "chat") loadChat();
 }
 
 async function sendChat() {
@@ -1688,25 +1688,26 @@ async function sendChat() {
 function startCommons() {
   $("ct-feed").onclick = () => tapCommons("feed");
   $("ct-chat").onclick = () => tapCommons("chat");
+  $("ct-rooms").onclick = () => tapCommons("rooms");
   $("chat-send").onclick = sendChat;
   $("chat-say").onkeydown = (e) => { if (e.key === "Enter") sendChat(); };
 
   // Closed unless it was left open, in which case it comes back on the same tab.
   let saved = "0";
   try { saved = localStorage.getItem(COMMONS_KEY) || "0"; } catch { /* fine */ }
-  if (saved.startsWith("1:")) showCommons(saved.slice(2) === "feed" ? "feed" : "chat");
+  if (saved.startsWith("1:")) showCommons(["feed", "rooms"].includes(saved.slice(2)) ? saved.slice(2) : "chat");
   else foldCommons(false);
 
   // Nothing is fetched while the panel is closed; there is nothing to show it in.
   clearInterval(commonsPoll);
   commonsPoll = setInterval(() => {
-    if (!commonsOpen()) return;
+    if (!commonsOpen() || commonsTab === "rooms") return;
     if (commonsTab === "feed") loadFeed(); else loadChat();
   }, 15_000);
   // Coming back to the tab after a while, the first thing you see should be
   // current rather than whatever the last poll caught before you left.
   document.addEventListener("visibilitychange", () => {
-    if (document.hidden || !commonsOpen()) return;
+    if (document.hidden || !commonsOpen() || commonsTab === "rooms") return;
     if (commonsTab === "feed") loadFeed(); else loadChat();
   });
 }
@@ -1926,9 +1927,9 @@ async function joinByCode(code) {
     const res = await fetch(`/api/room/${encodeURIComponent(code)}`);
     const body = await res.json();
     if (body.game) game = body.game;
-    else return say("home-error", "No room with that code. Check it and try again.");
+    else return say("rooms-error", "No room with that code. Check it and try again.");
   } catch {
-    return say("home-error", "Couldn't reach the arena. Try again.");
+    return say("rooms-error", "Couldn't reach the arena. Try again.");
   }
   openRoom(game, code);
 }
@@ -1938,15 +1939,15 @@ function openRoom(game, code) {
   if (!open) {
     // Better to say so than to guess and open the wrong game, which is
     // exactly what a silent fallback to the crossword used to do.
-    return say("home-error", `That room is a game this version doesn't know (${game}). Update the app.`);
+    return say("rooms-error", `That room is a game this version doesn't know (${game}). Update the app.`);
   }
   open(code, () => { show("home"); loadDojos(); });
 }
 
 $("btn-join").onclick = () => {
   const code = $("join-code").value.trim().toUpperCase();
-  if (code.length < 3) return say("home-error", "That code is too short.");
-  say("home-error", "");
+  if (code.length < 3) return say("rooms-error", "That code is too short.");
+  say("rooms-error", "");
   joinByCode(code);
 };
 $("join-code").addEventListener("keydown", (e) => { if (e.key === "Enter") $("btn-join").click(); });

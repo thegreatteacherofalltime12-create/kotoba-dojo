@@ -1,17 +1,60 @@
 // Every rule of Battleship Royale, with no I/O, so the awkward parts — the
 // target cooldown especially — can be tested directly.
 
-export const SIZE = 10;
+/**
+ * Three theatres.
+ *
+ * The shot count rises with the board on purpose. A 20x20 holds four times
+ * the water of a 10x10 but only about twice the steel, so at two shots a turn
+ * it would take four times as long to clear and feel dead for most of it.
+ * Five shots there keeps a turn worth roughly what a turn is worth on the
+ * small board.
+ */
+export const MAPS = {
+  easy:   { id: "easy",   name: "Skirmish", size: 10, shots: 2 },
+  medium: { id: "medium", name: "Fleet Action", size: 15, shots: 4 },
+  hard:   { id: "hard",   name: "Open Ocean", size: 20, shots: 5 },
+};
 
-export const FLEET = [
-  { id: "carrier",    name: "Carrier",    len: 5 },
-  { id: "battleship", name: "Battleship", len: 4 },
-  { id: "cruiser",    name: "Cruiser",    len: 3 },
-  { id: "submarine",  name: "Submarine",  len: 3 },
-  { id: "destroyer",  name: "Destroyer",  len: 2 },
-];
+const ROMAN = ["", " I", " II", " III", " IV"];
 
-export const SHOTS_PER_TURN = 2;
+/** Several of one class need telling apart in the hit feed. */
+function fleetOf(counts) {
+  const out = [];
+  for (const [type, spec] of Object.entries(HULLS)) {
+    const n = counts[type] || 0;
+    for (let i = 1; i <= n; i++) {
+      out.push({
+        id: n > 1 ? `${type}${i}` : type,
+        name: n > 1 ? `${spec.name}${ROMAN[i]}` : spec.name,
+        len: spec.len,
+      });
+    }
+  }
+  return out;
+}
+
+const HULLS = {
+  carrier:    { name: "Carrier",    len: 5 },
+  battleship: { name: "Battleship", len: 4 },
+  cruiser:    { name: "Cruiser",    len: 3 },
+  submarine:  { name: "Submarine",  len: 3 },
+  destroyer:  { name: "Destroyer",  len: 2 },
+};
+
+export const FLEETS = {
+  easy:   fleetOf({ carrier: 1, battleship: 1, cruiser: 1, submarine: 1, destroyer: 1 }),
+  medium: fleetOf({ carrier: 2, battleship: 1, cruiser: 1, submarine: 1, destroyer: 2 }),
+  hard:   fleetOf({ carrier: 3, battleship: 1, cruiser: 1, submarine: 1, destroyer: 3 }),
+};
+
+export const mapOf = (id) => MAPS[id] || MAPS.easy;
+export const fleetFor = (id) => FLEETS[id] || FLEETS.easy;
+
+// The old names still work, so nothing that hasn't been told about maps breaks.
+export const SIZE = MAPS.easy.size;
+export const FLEET = FLEETS.easy;
+export const SHOTS_PER_TURN = MAPS.easy.shots;
 
 // You must fire at this many other people before coming back to someone.
 export const COOLDOWN_TARGETS = 3;
@@ -30,14 +73,16 @@ export function cellsFor(row, col, dir, len) {
  * Checks a whole fleet placement. Returns the normalised ships or an error —
  * the client draws the board, but the server decides whether it's legal.
  */
-export function validateFleet(placements) {
-  if (!Array.isArray(placements) || placements.length !== FLEET.length)
-    return { ok: false, error: `Place all ${FLEET.length} ships.` };
+export function validateFleet(placements, mapId = "easy") {
+  const fleet = fleetFor(mapId);
+  const size = mapOf(mapId).size;
+  if (!Array.isArray(placements) || placements.length !== fleet.length)
+    return { ok: false, error: `Place all ${fleet.length} ships.` };
 
   const taken = new Set();
   const ships = [];
 
-  for (const spec of FLEET) {
+  for (const spec of fleet) {
     const p = placements.find((x) => x?.id === spec.id);
     if (!p) return { ok: false, error: `${spec.name} hasn't been placed.` };
 
@@ -49,7 +94,7 @@ export function validateFleet(placements) {
 
     const endR = row + (dir === "down" ? spec.len - 1 : 0);
     const endC = col + (dir === "across" ? spec.len - 1 : 0);
-    if (endR >= SIZE || endC >= SIZE)
+    if (endR >= size || endC >= size)
       return { ok: false, error: `${spec.name} hangs off the edge.` };
 
     const cells = cellsFor(row, col, dir, spec.len);
@@ -65,18 +110,20 @@ export function validateFleet(placements) {
 }
 
 /** A fleet placed at random, for the auto-place button and for absent players. */
-export function randomFleet() {
+export function randomFleet(mapId = "easy") {
+  const fleet = fleetFor(mapId);
+  const size = mapOf(mapId).size;
   for (let attempt = 0; attempt < 500; attempt++) {
     const taken = new Set();
     const placements = [];
     let stuck = false;
 
-    for (const spec of FLEET) {
+    for (const spec of fleet) {
       let placed = false;
       for (let tries = 0; tries < 200 && !placed; tries++) {
         const dir = Math.random() < 0.5 ? "across" : "down";
-        const row = Math.floor(Math.random() * (dir === "down" ? SIZE - spec.len + 1 : SIZE));
-        const col = Math.floor(Math.random() * (dir === "across" ? SIZE - spec.len + 1 : SIZE));
+        const row = Math.floor(Math.random() * (dir === "down" ? size - spec.len + 1 : size));
+        const col = Math.floor(Math.random() * (dir === "across" ? size - spec.len + 1 : size));
         const cells = cellsFor(row, col, dir, spec.len);
         if (cells.some((c) => taken.has(c))) continue;
         cells.forEach((c) => taken.add(c));
@@ -148,8 +195,12 @@ export function fireAt(board, cell) {
 export const fleetSunk = (board) => board.ships.every((s) => s.sunk);
 
 /** Points for the round, fed into the same MMR pipeline as a crossword. */
-export function battleScore({ hits = 0, sunk = 0, placement = 1, field = 2, survived = false }) {
-  const base = hits * 4 + sunk * 12;
+export function battleScore({ hits = 0, sunk = 0, placement = 1, field = 2, survived = false, mapId = "easy" }) {
+  // The big boards take longer and land a smaller share of shots, so a hit
+  // there is worth more than a hit on the small one — otherwise the long game
+  // pays less per minute than the short one.
+  const weight = { easy: 1, medium: 1.25, hard: 1.5 }[mapId] || 1;
+  const base = (hits * 4 + sunk * 12) * weight;
   const standing = Math.round((Math.max(0, field - placement) / Math.max(1, field - 1)) * 30);
-  return Math.max(0, Math.min(100, base + standing + (survived ? 20 : 0)));
+  return Math.max(0, Math.min(100, Math.round(base + standing + (survived ? 20 : 0))));
 }

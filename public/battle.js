@@ -1,7 +1,43 @@
 // Battleship Royale, client side. The server owns every fleet and every rule;
 // this draws what it is told and sends intentions.
 
-import { FLEET, SIZE, randomFleet, cellsFor } from "./battleship-rules.js";
+/**
+ * The board comes from the server now rather than a constant here.
+ *
+ * Three theatres mean the size, the fleet and the shots per turn all vary by
+ * room, and a second copy of those numbers in the page is a second copy to get
+ * out of step. These two helpers are geometry, not rules, so they stay.
+ */
+const cellsFor = (row, col, dir, len) => {
+  const out = [];
+  for (let i = 0; i < len; i++) out.push(dir === "down" ? `${row + i},${col}` : `${row},${col + i}`);
+  return out;
+};
+
+/** A fleet laid out at random, for the auto-place button. */
+function randomFleet(fleet, size) {
+  for (let attempt = 0; attempt < 400; attempt++) {
+    const taken = new Set();
+    const out = [];
+    let stuck = false;
+    for (const spec of fleet) {
+      let placed = false;
+      for (let t = 0; t < 200 && !placed; t++) {
+        const dir = Math.random() < 0.5 ? "across" : "down";
+        const row = Math.floor(Math.random() * (dir === "down" ? size - spec.len + 1 : size));
+        const col = Math.floor(Math.random() * (dir === "across" ? size - spec.len + 1 : size));
+        const cells = cellsFor(row, col, dir, spec.len);
+        if (cells.some((c) => taken.has(c))) continue;
+        cells.forEach((c) => taken.add(c));
+        out.push({ id: spec.id, row, col, dir });
+        placed = true;
+      }
+      if (!placed) { stuck = true; break; }
+    }
+    if (!stuck) return out;
+  }
+  return null;
+}
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, cls, text) => {
@@ -18,6 +54,11 @@ export const B = {
   code: null,
   you: null,
   isHost: false,
+  size: 10,          // all three come from the server's welcome
+  ships: [],
+  shotsPerTurn: 2,
+  maps: [],
+  mapId: "easy",
   game: null,
   fleet: null,
   targets: [],
@@ -94,6 +135,11 @@ function handle(msg) {
     case "BATTLE_WELCOME":
       B.you = msg.you;
       B.isHost = !!msg.isHost;
+      B.size = msg.size || 10;
+      B.ships = msg.fleet || [];
+      B.shotsPerTurn = msg.shots || 2;
+      B.maps = msg.maps || [];
+      B.mapId = msg.mapId || "easy";
       break;
     case "BATTLE_STATE":
       B.game = msg.game;
@@ -164,6 +210,7 @@ function draw() {
       ? "Waiting for at least one more captain."
       : `${here} captains here, ${ready} with fleets placed. Anyone still placing gets a random fleet.`;
 
+  drawHostPanel();
   drawRoster();
   if (g.phase === "LOBBY") drawPlacing();
   else drawBattle(me);
@@ -196,6 +243,56 @@ function drawSolo(g) {
     b.onclick = () => send({ type: "BATTLE_SOLO", on: true, level: d.id });
     host.append(b);
   }
+}
+
+/**
+ * The chart, and the two switches.
+ *
+ * Shown to the host in the lobby only: the board decides how big every fleet
+ * is, so changing it once ships are placed would leave them in the sea.
+ */
+function drawHostPanel() {
+  const g = B.game;
+  const host = $("battle-host");
+  if (!host) return;
+  const hosting = B.isHost && g.phase === "LOBBY";
+  host.hidden = !hosting;
+  if (!hosting) return;
+
+  host.textContent = "";
+  host.append(el("span", "ai-label", "Chart"));
+
+  const maps = el("div", "map-picks");
+  for (const m of (g.maps || B.maps || [])) {
+    const b = el("button", "ai-pick" + (g.mapId === m.id ? " on" : ""));
+    b.type = "button";
+    b.append(el("span", "ai-name", m.name));
+    b.append(el("span", "ai-blurb", `${m.size}\u00d7${m.size} \u00b7 ${m.shots} shots a turn`));
+    b.onclick = () => {
+      if (g.mapId === m.id) return;
+      if (!window.confirm(`Switch to ${m.name}? Any fleet already placed has to be laid out again.`)) return;
+      send({ type: "BATTLE_MAP", mapId: m.id });
+    };
+    maps.append(b);
+  }
+  host.append(maps);
+
+  const row = el("div", "host-switches");
+  for (const [what, label, on, note] of [
+    ["hideNames", "Hide captains' names", !!g.hideNames, "Everyone shows as Captain A, B, C."],
+    ["useTokens", "Use tokens for this battle", !!g.useTokens, "Reserved \u2014 the token economy isn't built yet."],
+  ]) {
+    const b = el("button", "hswitch" + (on ? " on" : ""));
+    b.type = "button";
+    b.setAttribute("role", "switch");
+    b.setAttribute("aria-checked", String(on));
+    b.append(el("span", "hsw-dot"));
+    b.append(el("span", "hsw-name", label));
+    b.append(el("span", "hsw-note", note));
+    b.onclick = () => send({ type: "BATTLE_TOGGLE", what, on: !on });
+    row.append(b);
+  }
+  host.append(row);
 }
 
 function drawRoster() {
@@ -236,20 +333,20 @@ function drawTurnClock() {
 // ── placement ───────────────────────────────────────────────────────
 
 function drawPlacing() {
-  const spec = FLEET[B.placeIdx];
+  const spec = B.ships[B.placeIdx];
   $("place-ship").textContent = spec ? `${spec.name} — ${spec.len} squares` : "Fleet ready";
   $("place-dir").textContent = B.dir === "across" ? "Across" : "Down";
 
   const taken = new Map();
   for (const p of B.placing) {
-    const s = FLEET.find((f) => f.id === p.id);
+    const s = B.ships.find((f) => f.id === p.id);
     for (const cell of cellsFor(p.row, p.col, p.dir, s.len)) taken.set(cell, s.id);
   }
 
   const grid = el("div", "bgrid");
-  grid.style.setProperty("--n", String(SIZE));
-  for (let r = 0; r < SIZE; r++) {
-    for (let c = 0; c < SIZE; c++) {
+  grid.style.setProperty("--n", String(B.size));
+  for (let r = 0; r < B.size; r++) {
+    for (let c = 0; c < B.size; c++) {
       const cell = `${r},${c}`;
       const box = el("button", "bcell" + (taken.has(cell) ? " ship" : ""));
       box.type = "button";
@@ -264,29 +361,29 @@ function drawPlacing() {
 }
 
 function preview(grid, r, c, taken) {
-  const spec = FLEET[B.placeIdx];
+  const spec = B.ships[B.placeIdx];
   if (!spec) return;
   grid.querySelectorAll(".ghost").forEach((n) => n.classList.remove("ghost"));
   for (const cell of cellsFor(r, c, B.dir, spec.len)) {
     const [rr, cc] = cell.split(",").map(Number);
-    if (rr >= SIZE || cc >= SIZE || taken.has(cell)) return;
-    grid.children[rr * SIZE + cc]?.classList.add("ghost");
+    if (rr >= B.size || cc >= B.size || taken.has(cell)) return;
+    grid.children[rr * B.size + cc]?.classList.add("ghost");
   }
 }
 
 function placeAt(r, c, taken) {
-  const spec = FLEET[B.placeIdx];
+  const spec = B.ships[B.placeIdx];
   if (!spec) return;
   const cells = cellsFor(r, c, B.dir, spec.len);
   for (const cell of cells) {
     const [rr, cc] = cell.split(",").map(Number);
-    if (rr >= SIZE || cc >= SIZE) return say(`${spec.name} won't fit there.`);
+    if (rr >= B.size || cc >= B.size) return say(`${spec.name} won't fit there.`);
     if (taken.has(cell)) return say("Something's already there.");
   }
   B.placing.push({ id: spec.id, row: r, col: c, dir: B.dir });
   B.placeIdx++;
   say("");
-  if (B.placeIdx >= FLEET.length) send({ type: "BATTLE_PLACE", placements: B.placing });
+  if (B.placeIdx >= B.ships.length) send({ type: "BATTLE_PLACE", placements: B.placing });
   drawPlacing();
 }
 
@@ -299,15 +396,15 @@ export function bindBattleControls() {
   $("btn-rotate").onclick = () => { B.dir = B.dir === "across" ? "down" : "across"; drawPlacing(); };
   $("btn-place-clear").onclick = () => { B.placing = []; B.placeIdx = 0; drawPlacing(); };
   $("btn-place-random").onclick = () => {
-    B.placing = randomFleet() || [];
-    B.placeIdx = FLEET.length;
+    B.placing = randomFleet(B.ships, B.size) || [];
+    B.placeIdx = B.ships.length;
     send({ type: "BATTLE_PLACE", placements: B.placing });
     drawPlacing();
   };
   $("btn-battle-start").onclick = () => send({ type: "BATTLE_START" });
   $("btn-fire").onclick = () => {
     if (!B.target) return say("Choose who you're firing at.");
-    if (B.shots.length !== 2) return say("Choose two squares.");
+    if (B.shots.length !== B.shotsPerTurn) return say(`Choose ${B.shotsPerTurn} squares.`);
     send({ type: "BATTLE_FIRE", target: B.target, cells: B.shots });
     B.shots = [];
   };
@@ -394,9 +491,9 @@ function drawBattle(me) {
     const seen = new Set(enemy.incoming || []);
     const wrecked = new Set(enemy.sunkCells || []);
     const grid = el("div", "bgrid");
-    grid.style.setProperty("--n", String(SIZE));
-    for (let r = 0; r < SIZE; r++) {
-      for (let c = 0; c < SIZE; c++) {
+    grid.style.setProperty("--n", String(B.size));
+    for (let r = 0; r < B.size; r++) {
+      for (let c = 0; c < B.size; c++) {
         const cell = `${r},${c}`;
         const known = seen.has(cell);
         const box = el("button", "bcell" +
@@ -408,7 +505,7 @@ function drawBattle(me) {
         box.onclick = () => {
           const at = B.shots.indexOf(cell);
           if (at !== -1) B.shots.splice(at, 1);
-          else if (B.shots.length < 2) B.shots.push(cell);
+          else if (B.shots.length < B.shotsPerTurn) B.shots.push(cell);
           drawBattle(me);
         };
         grid.append(box);
@@ -420,7 +517,7 @@ function drawBattle(me) {
     board.append(el("p", "panel-sub", "Pick a captain to see their water."));
   }
 
-  const left = 2 - B.shots.length;
+  const left = B.shotsPerTurn - B.shots.length;
   const ready = myTurn && B.target && !blocked && left === 0;
   $("btn-fire").disabled = !ready;
   $("btn-fire").textContent = !myTurn ? "Not your turn"
@@ -439,9 +536,9 @@ function drawBattle(me) {
   for (const s of B.fleet || []) for (const cell of s.cells) shipCells.set(cell, s.sunk);
   const taken = new Set(me?.incoming || []);
   const grid = el("div", "bgrid own");
-  grid.style.setProperty("--n", String(SIZE));
-  for (let r = 0; r < SIZE; r++) {
-    for (let c = 0; c < SIZE; c++) {
+  grid.style.setProperty("--n", String(B.size));
+  for (let r = 0; r < B.size; r++) {
+    for (let c = 0; c < B.size; c++) {
       const cell = `${r},${c}`;
       // Each hit is marked where it landed. A sunk ship is no longer painted
       // red end to end, so you can still read which squares were actually hit.
@@ -491,9 +588,9 @@ function drawReveal(rev) {
   const shot = new Set(rev.incoming || []);
 
   const grid = el("div", "bgrid reveal-grid");
-  grid.style.setProperty("--n", String(rev.size || SIZE));
-  for (let r = 0; r < (rev.size || SIZE); r++) {
-    for (let c = 0; c < (rev.size || SIZE); c++) {
+  grid.style.setProperty("--n", String(rev.size || B.size));
+  for (let r = 0; r < (rev.size || B.size); r++) {
+    for (let c = 0; c < (rev.size || B.size); c++) {
       const cell = `${r},${c}`;
       let cls = "bcell";
       if (ship.has(cell)) cls += " champ";

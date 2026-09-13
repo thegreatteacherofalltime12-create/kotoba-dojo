@@ -1,5 +1,5 @@
 import {
-  SIZE, FLEET, SHOTS_PER_TURN, validateFleet, randomFleet,
+  SIZE, FLEET, SHOTS_PER_TURN, validateFleet, randomFleet, mapOf, fleetFor, MAPS,
   canTarget, targetOptions, fireAt, fleetSunk, battleScore,
 } from "./battleship.js";
 import { chooseShots, remember, freshMemory, DIFFICULTIES } from "./ai.js";
@@ -35,6 +35,24 @@ export class BattleRoyale {
 
   persist() { return this.state.storage.put({ game: this.g }); }
   sockets() { return this.state.getWebSockets(); }
+
+  /** The board this room is fought on, and what it costs to fire. */
+  get map() { return mapOf(this.g?.mapId); }
+  get fleet() { return fleetFor(this.g?.mapId); }
+
+  /**
+   * A captain's name as this viewer is allowed to see it.
+   *
+   * With names hidden they become Captain A, B, C \u2014 steady for the whole
+   * round, because the cooldown rule asks you to remember who you have already
+   * fired at, and that is impossible if the labels move about.
+   */
+  captainName(p, viewerUid) {
+    if (!this.g.hideNames || p.uid === viewerUid) return p.name;
+    const order = Object.keys(this.g.players).sort();
+    const i = order.indexOf(p.uid);
+    return `Captain ${String.fromCharCode(65 + (i % 26))}`;
+  }
 
   send(ws, type, payload = {}) {
     try { ws.send(JSON.stringify({ type, ...payload })); } catch { /* gone */ }
@@ -125,6 +143,9 @@ export class BattleRoyale {
         turnEndsAt: null,
         solo: false,
         aiLevel: "medium",
+        mapId: "easy",        // which of the three theatres
+        hideNames: false,     // captains shown as A, B, C
+        useTokens: false,     // reserved: the token economy isn't built yet
         anon: false,
         aliases: {},
         feed: [],
@@ -180,7 +201,12 @@ export class BattleRoyale {
     }
 
     await this.persist();
-    this.send(ws, "BATTLE_WELCOME", { you: uid, isHost: this.g.hostUid === uid, size: SIZE, fleet: FLEET });
+    this.send(ws, "BATTLE_WELCOME", {
+      you: uid, isHost: this.g.hostUid === uid,
+      size: this.map.size, fleet: this.fleet, shots: this.map.shots,
+      mapId: this.g.mapId, maps: Object.values(MAPS),
+      hideNames: !!this.g.hideNames, useTokens: !!this.g.useTokens,
+    });
     this.pushState();
     this.announce();
     for (const entry of [...this.g.feed].reverse()) this.send(ws, "BATTLE_FEED", { entry });
@@ -220,13 +246,19 @@ export class BattleRoyale {
       code: this.g.code,
       phase: this.g.phase,
       hostUid: this.g.hostUid,
+      mapId: this.g.mapId,
+      maps: Object.values(MAPS),
+      hideNames: !!this.g.hideNames,
+      useTokens: !!this.g.useTokens,
       solo: !!this.g.solo,
       aiLevel: this.g.aiLevel,
       difficulties: DIFFICULTIES,
       turnUid: this.g.turnUid,
       turnEndsAt: this.g.turnEndsAt,
       round: this.g.round,
-      size: SIZE,
+      size: this.map.size,
+      shots: this.map.shots,
+      mapId: this.g.mapId,
       anon: !!this.g.anon,
       players: Object.values(this.g.players).map((p) => ({
         uid: p.uid,
@@ -241,7 +273,7 @@ export class BattleRoyale {
         struck: p.board ? p.board.ships.flatMap((s) => s.hits) : [],
         sunkShips: p.board ? p.board.ships.filter((s) => s.sunk).map((s) => s.name) : [],
         sunkCells: p.board ? p.board.ships.filter((s) => s.sunk).flatMap((s) => s.cells) : [],
-        remaining: p.board ? p.board.ships.filter((s) => !s.sunk).length : FLEET.length,
+        remaining: p.board ? p.board.ships.filter((s) => !s.sunk).length : this.fleet.length,
         hits: p.hits,
       })),
     };
@@ -253,14 +285,22 @@ export class BattleRoyale {
       let uid = null;
       try { uid = ws.deserializeAttachment()?.uid; } catch { /* gone */ }
       const me = uid && this.g.players[uid];
+
+      // Hiding names is per viewer, not per room: you always know your own.
+      const game = this.g.hideNames
+        ? { ...base, players: base.players.map((p) => ({
+            ...p, name: this.captainName(this.g.players[p.uid], uid),
+          })) }
+        : base;
+
       this.send(ws, "BATTLE_STATE", {
-        game: base,
+        game,
         yourFleet: me?.board ? me.board.ships.map((s) => ({
           id: s.id, name: s.name, len: s.len, cells: s.cells, hits: s.hits, sunk: !!s.sunk,
         })) : null,
         targets: me && this.g.phase === "ACTIVE" && this.g.turnUid === uid
           ? targetOptions(uid, this.g.players, me.history).map((t) => ({
-            ...t, name: this.nameOf(this.g.players[t.uid]),
+            ...t, name: this.captainName(this.g.players[t.uid], uid),
           }))
           : [],
       });
@@ -280,9 +320,11 @@ export class BattleRoyale {
       switch (msg.type) {
         case "PING": return this.beat();
         case "BATTLE_PLACE":  return await this.place(ws, uid, msg);
-        case "BATTLE_RANDOM": return await this.place(ws, uid, { placements: randomFleet() });
+        case "BATTLE_RANDOM": return await this.place(ws, uid, { placements: randomFleet(this.g.mapId) });
         case "BATTLE_SOLO":   return await this.setSolo(ws, uid, msg);
         case "BATTLE_ANON":   return await this.setAnon(ws, uid, msg);
+        case "BATTLE_MAP":    return await this.setMap(ws, uid, msg);
+        case "BATTLE_TOGGLE": return await this.setToggle(ws, uid, msg);
         case "BATTLE_START":  return await this.start(ws, uid);
         case "BATTLE_END":    return await this.endEarly(ws, uid);
         case "BATTLE_FIRE":   return await this.fire(ws, uid, msg);
@@ -300,7 +342,7 @@ export class BattleRoyale {
     const p = this.g.players[uid];
     if (!p) return;
 
-    const check = validateFleet(msg.placements);
+    const check = validateFleet(msg.placements, this.g.mapId);
     if (!check.ok) return this.send(ws, "BATTLE_ERROR", { message: check.error });
 
     const joiningLate = this.g.phase === "ACTIVE" && !p.board;
@@ -331,6 +373,48 @@ export class BattleRoyale {
 
     this.g.solo = !!msg.on;
     if (msg.level && DIFFICULTIES.some((d) => d.id === msg.level)) this.g.aiLevel = msg.level;
+    await this.persist();
+    this.pushState();
+  }
+
+  /**
+   * The host picks the board, and it has to be before the fleets go down —
+   * changing the size underneath a placed fleet would put ships in the sea.
+   */
+  async setMap(ws, uid, msg) {
+    if (uid !== this.g.hostUid)
+      return this.send(ws, "BATTLE_ERROR", { message: "Only the host sets this." });
+    if (this.g.phase !== "LOBBY")
+      return this.send(ws, "BATTLE_ERROR", { message: "The fleets are already at sea." });
+    if (!MAPS[msg.mapId])
+      return this.send(ws, "BATTLE_ERROR", { message: "No such chart." });
+
+    this.g.mapId = msg.mapId;
+    // Any fleet already placed was laid out on the old board, so it goes.
+    for (const p of Object.values(this.g.players)) {
+      if (p.ai) continue;
+      p.board = null;
+      p.ready = false;
+    }
+    this.note(`Chart set: ${MAPS[msg.mapId].name} \u2014 ${MAPS[msg.mapId].size}\u00d7${MAPS[msg.mapId].size}, ${MAPS[msg.mapId].shots} shots a turn.`);
+    await this.persist();
+    this.pushState();
+  }
+
+  /** Both switches the host holds, neither of which changes the rules mid-round. */
+  async setToggle(ws, uid, msg) {
+    if (uid !== this.g.hostUid)
+      return this.send(ws, "BATTLE_ERROR", { message: "Only the host sets this." });
+    if (msg.what === "hideNames") {
+      this.g.hideNames = !!msg.on;
+      this.note(this.g.hideNames ? "Captains' names are hidden." : "Captains' names are shown.");
+    }
+    if (msg.what === "useTokens") {
+      if (this.g.phase !== "LOBBY")
+        return this.send(ws, "BATTLE_ERROR", { message: "Set this before the fleets sail." });
+      this.g.useTokens = !!msg.on;
+      this.note(this.g.useTokens ? "Tokens are on for this battle." : "Tokens are off for this battle.");
+    }
     await this.persist();
     this.pushState();
   }
@@ -371,7 +455,7 @@ export class BattleRoyale {
 
     if (this.g.solo) {
       const level = DIFFICULTIES.find((d) => d.id === this.g.aiLevel) || DIFFICULTIES[1];
-      const check = validateFleet(randomFleet());
+      const check = validateFleet(randomFleet(this.g.mapId), this.g.mapId);
       this.g.players[this.aiUid()] = {
         uid: this.aiUid(),
         name: `Sensei (${level.name})`,
@@ -390,7 +474,7 @@ export class BattleRoyale {
     // Anyone who never placed gets a random fleet rather than blocking everyone.
     for (const p of roster) {
       if (!p.board) {
-        const check = validateFleet(randomFleet());
+        const check = validateFleet(randomFleet(this.g.mapId), this.g.mapId);
         p.board = { ships: check.ships, incoming: [] };
         this.log(`${this.nameOf(p)} was given a random fleet.`);
       }
@@ -454,7 +538,7 @@ export class BattleRoyale {
 
       const target = foes[Math.floor(Math.random() * foes.length)];
       me.memory = me.memory || freshMemory();
-      const cells = chooseShots(me.memory, SIZE, me.aiLevel || "medium", SHOTS_PER_TURN)
+      const cells = chooseShots(me.memory, this.map.size, me.aiLevel || "medium", this.map.shots)
         .filter((c) => !target.board.incoming.includes(c));
       if (!cells.length) break;
 
@@ -516,12 +600,12 @@ export class BattleRoyale {
     const verdict = canTarget(me.history, target.uid, aliveOpponents);
     if (!verdict.ok) return this.send(ws, "BATTLE_ERROR", { message: verdict.error });
 
-    const cells = [...new Set((msg.cells || []).map(String))].slice(0, SHOTS_PER_TURN);
-    if (cells.length !== SHOTS_PER_TURN)
-      return this.send(ws, "BATTLE_ERROR", { message: `Choose ${SHOTS_PER_TURN} different squares.` });
+    const cells = [...new Set((msg.cells || []).map(String))].slice(0, this.map.shots);
+    if (cells.length !== this.map.shots)
+      return this.send(ws, "BATTLE_ERROR", { message: `Choose ${this.map.shots} different squares.` });
     for (const cell of cells) {
       const [r, c] = cell.split(",").map(Number);
-      if (!Number.isInteger(r) || !Number.isInteger(c) || r < 0 || c < 0 || r >= SIZE || c >= SIZE)
+      if (!Number.isInteger(r) || !Number.isInteger(c) || r < 0 || c < 0 || r >= this.map.size || c >= this.map.size)
         return this.send(ws, "BATTLE_ERROR", { message: "That square isn't on the board." });
       if (target.board.incoming.includes(cell))
         return this.send(ws, "BATTLE_ERROR", { message: "You've already fired there." });
@@ -595,6 +679,7 @@ export class BattleRoyale {
       const placement = i + 1;
       const score = battleScore({
         hits: p.hits, sunk: p.sunk, placement, field, survived: p.alive,
+        mapId: this.g.mapId,
       });
       const gain = sessionGain({
         score,
@@ -625,7 +710,9 @@ export class BattleRoyale {
     const champ = this.g.players[finishOrder[0]];
     const reveal = champ?.board ? {
       name: this.nameOf(champ),
-      size: SIZE,
+      size: this.map.size,
+      shots: this.map.shots,
+      mapId: this.g.mapId,
       ships: champ.board.ships.map((sh) => ({
         name: sh.name, cells: sh.cells, hits: sh.hits, sunk: !!sh.sunk,
       })),

@@ -17,6 +17,15 @@ export const KEEP_DAYS = 7;
 
 export const UPDATES = [
   {
+    at: "2026-09-13T21:58:58Z",
+    where: "Battleship",
+    title: "Three charts to fight on",
+    text: "The host now picks the theatre. Skirmish is the old 10\u00d710 with five ships and two "
+      + "shots a turn. Fleet Action is 15\u00d715 with seven ships and four shots. Open Ocean is "
+      + "20\u00d720 with nine ships and five shots \u2014 three carriers apiece. The host can also hide "
+      + "captains' names, so everyone shows as Captain A, B and C.",
+  },
+  {
     at: "2026-09-13T14:48:00Z",
     where: "Word-Cross",
     title: "Twenty-four new categories",

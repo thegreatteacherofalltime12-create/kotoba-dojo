@@ -1600,6 +1600,31 @@ h1, h2, h3 { font-family: var(--display); text-transform: none; letter-spacing: 
   padding: .18rem .7rem; color: #8FA3B8;
 }
 [data-theme="os"] .scoring-in .rule b { color: #66C0F4; }
+/* The default theme's ground: Earth and a nebula, behind everything on the
+ * home screen. A dark wash keeps the rankings and chat readable over it, and
+ * the frosted panels blur what sits behind them. If the file is missing the
+ * wash still paints over --paper, so a bad upload never leaves a white page.
+ * The play surfaces (#screen-dojo and friends) keep their own ground. */
+[data-theme="os"] body {
+  background-color: #060a12;
+  background-image:
+    linear-gradient(180deg, rgba(6,10,18,.55), rgba(6,10,18,.35) 40%, rgba(6,10,18,.72)),
+    url("./space-bg.jpg");
+  background-size: auto, cover;
+  background-position: center, center;
+  background-attachment: fixed, fixed;
+  background-repeat: no-repeat;
+}
+/* A quarter of the bytes on a phone, where fixed attachment is ignored anyway. */
+@media (max-width: 700px) {
+  [data-theme="os"] body {
+    background-image:
+      linear-gradient(180deg, rgba(6,10,18,.55), rgba(6,10,18,.35) 40%, rgba(6,10,18,.72)),
+      url("./space-bg-small.jpg");
+    background-attachment: scroll, scroll;
+  }
+}
+
 
 /* Dense rows, striped the way a library list is. */
 [data-theme="os"] .dojo-list li,

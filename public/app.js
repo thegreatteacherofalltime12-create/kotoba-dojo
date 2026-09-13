@@ -6,7 +6,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
   getFirestore, collection, addDoc, getDocs, getDoc, doc, setDoc,
-  query, orderBy, limit, serverTimestamp,
+  query, where, orderBy, limit, serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { firebaseConfig } from "./firebase-config.js";
 import { buildLayout } from "./layout.js";
@@ -450,25 +450,43 @@ let standings = [];
 let bounty = null;          // { holder, kills, defends, history }
 let rankPoll = null;
 
-/** Lifetime standings, written by the Worker after each ranked round. */
+/**
+ * Lifetime standings, written by the Worker after each ranked round.
+ *
+ * Two reads, merged. Prestige outranks MMR — the point of the game is to rank
+ * up, and prestiging costs 3,000 MMR, so a single read ordered by MMR would
+ * drop a freshly promoted officer off the bottom of the list the moment they
+ * were promoted. So the officers are read as a set of their own, everyone
+ * else by MMR, and the order is settled here: rank first, MMR within a rank.
+ * Neither read needs a composite index.
+ */
 async function loadRankings() {
+  const timeout = (ms) => new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), ms));
+  const row = (d) => {
+    const v = d.data();
+    return {
+      uid: v.uid || d.id,
+      name: v.name || "Unknown",
+      mmr: v.totalPoints || 0,
+      best: v.bestScore || 0,
+      rounds: v.roundsPlayed || 0,
+      prestige: v.prestige || 0,
+    };
+  };
   try {
-    const q = query(collection(db, "leaderboard"), orderBy("totalPoints", "desc"), limit(24));
-    const snap = await Promise.race([
-      getDocs(q),
-      new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 6000)),
+    const board = collection(db, "leaderboard");
+    const [officers, byMmr] = await Promise.race([
+      Promise.all([
+        getDocs(query(board, where("prestige", ">", 0), orderBy("prestige", "desc"), limit(60))),
+        getDocs(query(board, orderBy("totalPoints", "desc"), limit(24))),
+      ]),
+      timeout(6000),
     ]);
-    standings = snap.docs.map((d) => {
-      const v = d.data();
-      return {
-        uid: v.uid || d.id,
-        name: v.name || "Unknown",
-        mmr: v.totalPoints || 0,
-        best: v.bestScore || 0,
-        rounds: v.roundsPlayed || 0,
-        prestige: v.prestige || 0,
-      };
-    });
+    const seen = new Map();
+    for (const d of [...officers.docs, ...byMmr.docs]) { const r = row(d); seen.set(r.uid, r); }
+    standings = [...seen.values()]
+      .sort((a, b) => (b.prestige - a.prestige) || (b.mmr - a.mmr) || a.name.localeCompare(b.name))
+      .slice(0, 24);
   } catch {
     standings = [];
   }
@@ -498,23 +516,68 @@ const BLACK_BELT = 2600;
 // that much rather than everything. The server decides; this only draws it.
 const PRESTIGE_COST = 3000;
 const PRESTIGE_RANKS = [
-  ["\u{1F7E1}", "Second Lieutenant"], ["\u26AA", "First Lieutenant"],
-  ["\u26AA\u26AA", "Captain"], ["\u{1F341}", "Major"],
-  ["\u{1F33F}", "Lieutenant Colonel"], ["\u{1F985}", "Colonel"],
-  ["\u2B50", "Brigadier General"], ["\u2B50\u2B50", "Major General"],
-  ["\u2B50\u2B50\u2B50", "Lieutenant General"], ["\u2B50\u2B50\u2B50\u2B50", "General"],
+  "Second Lieutenant", "First Lieutenant", "Captain", "Major", "Lieutenant Colonel",
+  "Colonel", "Brigadier General", "Major General", "Lieutenant General", "General",
 ];
-/** The pip alone, for standing beside a name. Empty for the unprestiged. */
+
+/**
+ * The Space Force officer insignia, drawn rather than approximated.
+ *
+ * A gold bar, a silver bar, two silver bars; a gold oak leaf, a silver oak
+ * leaf; the eagle; and one to four stars. Emoji stood in for these before,
+ * and the stand-ins were wrong where it mattered — a maple leaf for the
+ * Major, a sprig for the Lieutenant Colonel — and rendered differently on
+ * every phone. These render the same everywhere and read at a glance, which
+ * is what an insignia is for: it has to be obvious who outranks whom.
+ */
+const INSIG_INK = { gold: ["#E8C15A", "#7A5A12"], silver: ["#E6EAEE", "#4B5563"] };
+function starPoints(cx, cy, R = 6.2, r = 2.6) {
+  const pts = [];
+  for (let i = 0; i < 10; i++) {
+    const a = -Math.PI / 2 + (i * Math.PI) / 5;
+    const rad = i % 2 ? r : R;
+    pts.push(`${(cx + rad * Math.cos(a)).toFixed(1)},${(cy + rad * Math.sin(a)).toFixed(1)}`);
+  }
+  return pts.join(" ");
+}
+const OAK_LEAF = "M20 2.5 C17.5 4.5 15.5 6.5 13 6.8 C14.6 8.6 13.4 10.6 10.8 11.6 " +
+  "C13.2 12.6 14.6 14.6 13 16.6 C15.4 16.4 17.4 18.2 20 21.5 C22.6 18.2 24.6 16.4 27 16.6 " +
+  "C25.4 14.6 26.8 12.6 29.2 11.6 C26.6 10.6 25.4 8.6 27 6.8 C24.5 6.5 22.5 4.5 20 2.5 Z";
+const EAGLE = "M20 4 L22.6 8.2 L36.5 6.2 L27.4 11.4 L33.5 13.6 L24.2 14.6 L22.2 21 " +
+  "L20 17.4 L17.8 21 L15.8 14.6 L6.5 13.6 L12.6 11.4 L3.5 6.2 L17.4 8.2 Z";
+
+function insigniaSvg(n, cls = "insig") {
+  const rank = Math.min(Math.max(1, Number(n) || 1), PRESTIGE_RANKS.length);
+  const name = PRESTIGE_RANKS[rank - 1];
+  const [fill, stroke] = rank === 1 || rank === 4 ? INSIG_INK.gold : INSIG_INK.silver;
+  let body = "", width = 40;
+  if (rank <= 2) body = `<rect x="16" y="3" width="8" height="18" rx="1.6"/>`;
+  else if (rank === 3) body = `<rect x="10" y="3" width="8" height="18" rx="1.6"/><rect x="22" y="3" width="8" height="18" rx="1.6"/>`;
+  else if (rank <= 5) body = `<path d="${OAK_LEAF}"/><path d="M20 5 L20 20" fill="none" stroke-width="1.1"/>`;
+  else if (rank === 6) body = `<path d="${EAGLE}"/>`;
+  else {
+    const k = rank - 6;
+    width = k * 13 + 4;
+    body = Array.from({ length: k }, (_, i) => `<polygon points="${starPoints(8.5 + i * 13, 12)}"/>`).join("");
+  }
+  return `<svg class="${cls}" viewBox="0 0 ${width} 24" role="img" aria-label="${name}"` +
+    ` fill="${fill}" stroke="${stroke}" stroke-width=".9" stroke-linejoin="round"><title>${name}</title>${body}</svg>`;
+}
+
+/** Insignia beside a name. Empty for the unprestiged. */
 const prestigePip = (n) => {
   if (!n) return "";
-  const [pip, name] = PRESTIGE_RANKS[Math.min(n, PRESTIGE_RANKS.length) - 1];
-  return `<span class="pip" title="${name}${n > 1 ? ` \u00b7 ${n} prestiges` : ""}">${pip}</span>`;
+  const name = PRESTIGE_RANKS[Math.min(n, PRESTIGE_RANKS.length) - 1];
+  const more = n > 1 ? ` \u00b7 ${n} prestiges` : "";
+  return `<span class="pip" title="${name}${more}">${insigniaSvg(n)}</span>`;
 };
 
+/** Insignia and rank name together, as on a profile. */
 const prestigeRank = (n) => {
-  const [pip, name] = PRESTIGE_RANKS[Math.min(Math.max(1, n), PRESTIGE_RANKS.length) - 1];
-  return `${pip} ${name}`;
+  const rank = Math.min(Math.max(1, n), PRESTIGE_RANKS.length);
+  return `<span class="rank-tag">${insigniaSvg(rank)}<span>${PRESTIGE_RANKS[rank - 1]}</span></span>`;
 };
+const prestigeName = (n) => PRESTIGE_RANKS[Math.min(Math.max(1, n), PRESTIGE_RANKS.length) - 1];
 
 function drawMyRank() {
   const me = standings.find((r) => r.uid === S.user?.uid);
@@ -529,7 +592,7 @@ function drawMyRank() {
   // The insignia below already carries its own pips, so this counts prestiges
   // rather than repeating them.
   $("pb-star").textContent = p ? `${p}\u00d7` : "\u2014";
-  $("pb-insignia").textContent = p ? prestigeRank(p) : "Not yet earned";
+  $("pb-insignia").innerHTML = p ? prestigeRank(p) : "Not yet earned";
 
   $("pb-avatar").innerHTML = giSvg(S.avatar, 26);
   $("btn-prestige").hidden = mmr < PRESTIGE_COST;
@@ -538,7 +601,7 @@ function drawMyRank() {
 $("btn-prestige").onclick = async () => {
   // Read from the standings, which is where the prestige count actually lives.
   const held = standings.find((r) => r.uid === S.user?.uid)?.prestige || 0;
-  const next = prestigeRank(held + 1);
+  const next = prestigeName(held + 1);   // plain text: this goes into a confirm()
   if (!window.confirm(
     `Prestige costs ${PRESTIGE_COST.toLocaleString()} MMR and promotes you to ${next}. `
     + `Anything above the cost stays on your rating. This cannot be undone. Continue?`
@@ -548,7 +611,7 @@ $("btn-prestige").onclick = async () => {
     const token = await auth.currentUser.getIdToken();
     const res = await fetch("/api/prestige", { method: "POST", headers: { Authorization: `Bearer ${token}` } });
     const body = await res.json();
-    say("home-error", body.ok ? `Prestiged. ${body.insignia} unlocked.` : body.error, !body.ok);
+    say("home-error", body.ok ? `Prestiged. ${prestigeName(held + 1)} unlocked.` : body.error, !body.ok);
     await loadRankings();
   } catch (e) {
     say("home-error", "Couldn't reach the arena. Try again.");
@@ -590,6 +653,36 @@ async function runDiagnostic() {
   }
 }
 
+// ── the rankings fold ─────────────────────────────────────────────────
+//
+// Three on the podium by default; the bar is the handle. Which way it was
+// left is kept in this browser, so someone who wants the full list open
+// does not have to open it every visit.
+const RANK_FOLD_KEY = "omni.rankings.open";
+function foldRankings(open) {
+  const sec = document.querySelector(".rankings");
+  if (!sec) return;
+  sec.classList.toggle("open", open);
+  const head = sec.querySelector(".rankings-head");
+  if (head) head.setAttribute("aria-expanded", String(open));
+  const hint = $("rank-fold-hint");
+  if (hint) hint.textContent = open ? "Top 3 \u25B4" : `Full list \u00b7 ${standings.length} \u25BE`;
+  try { localStorage.setItem(RANK_FOLD_KEY, open ? "1" : "0"); } catch { /* fine */ }
+}
+function bindRankingsFold() {
+  const head = document.querySelector(".rankings-head");
+  if (!head || head.dataset.bound) return;
+  head.dataset.bound = "1";
+  head.setAttribute("role", "button");
+  head.setAttribute("tabindex", "0");
+  const toggle = () => foldRankings(!document.querySelector(".rankings")?.classList.contains("open"));
+  head.onclick = toggle;
+  head.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); } };
+  let open = false;
+  try { open = localStorage.getItem(RANK_FOLD_KEY) === "1"; } catch { /* fine */ }
+  foldRankings(open);
+}
+
 function drawStrip() {
   // The empty state used to live on the podium, which no longer exists.
   if (!standings.length) {
@@ -603,21 +696,27 @@ function drawStrip() {
   }
 
   // Champion, second and third are marked in the list rather than shown again
-  // above it. The order already says who is winning.
+  // above it. The order already says who is winning: officers first, by rank,
+  // then everyone else by MMR — and the insignia says so at a glance.
   const MEDALS = ["\u{1F3C6}", "\u{1F948}", "\u{1F949}"];
 
   $("strip").innerHTML = standings.map((r, i) => {
     const [, , hex] = belt(r.mmr);
     const wanted = bounty?.holder?.uid === r.uid;
+    const tag = r.prestige
+      ? `<span class="rank-tag">${insigniaSvg(r.prestige)}<span>${prestigeName(r.prestige)}</span></span>`
+      : "";
     return `
-      <div class="slot ${i === 0 ? "lead" : ""} ${r.uid === S.user?.uid ? "you2" : ""} ${wanted ? "wanted-slot" : ""}">
-        <span class="sr">${MEDALS[i] ? `<span class="medal" title="${["Champion", "Second", "Third"][i]}">${MEDALS[i]}</span>` : i + 1}</span>
+      <div class="slot ${i === 0 ? "lead" : ""} ${r.uid === S.user?.uid ? "you2" : ""} ${wanted ? "wanted-slot" : ""} ${r.prestige ? "officer" : ""}">
+        <span class="sr">${MEDALS[i] ? `<span class="medal" title="${["Champion", "Second", "Third"][i]}">${MEDALS[i]}</span>` : ordinal(i + 1)}</span>
         ${wanted ? `<span class="sb-target">\u{1F3AF}</span>` : ""}
         <span class="sb" style="background:${hex}"></span>
-        <span class="sn">${escapeHtml(r.name)}</span>
-        <span class="sp">${r.mmr.toLocaleString()}${prestigePip(r.prestige)}</span>
+        <span class="sn">${escapeHtml(r.name)}${tag}</span>
+        <span class="sp">${r.mmr.toLocaleString()}</span>
       </div>`;
   }).join("");
+  bindRankingsFold();
+  foldRankings(document.querySelector(".rankings")?.classList.contains("open") || false);
 }
 
 function drawRuleBelts(tab = "arena") {

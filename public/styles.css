@@ -256,6 +256,17 @@ input::placeholder { color: var(--muted); }
   background: linear-gradient(90deg, color-mix(in srgb, var(--a1) 22%, transparent), color-mix(in srgb, var(--a2) 6%, transparent) 55%, transparent 80%);
 }
 .rankings-head h2 { font-size: 1.25rem; font-weight: 700; letter-spacing: -.01em; color: var(--text); flex: 1; margin: 0; }
+/* ── the rankings fold ──────────────────────────────────────────────────
+ * Three rows show; the rest are behind the bar. The bar is the handle. */
+.rankings-head { cursor: pointer; user-select: none; }
+.rankings-head:hover h2 { color: var(--accent-hi); }
+#rank-fold-hint {
+  font-family: var(--display); font-size: .72rem; font-weight: 700; letter-spacing: .06em;
+  color: var(--muted); white-space: nowrap;
+}
+.rankings:not(.open) .strip .slot:nth-child(n+4) { display: none; }
+.rankings:not(.open) .strip { max-height: none; overflow: visible; }
+
 .refresh { font-family: var(--display); text-transform: uppercase; font-size: .74rem; letter-spacing: .12em; color: var(--muted); }
 .refresh b { color: var(--text); font-variant-numeric: tabular-nums; font-weight: 700; }
 
@@ -1615,14 +1626,23 @@ h1, h2, h3 { font-family: var(--display); text-transform: none; letter-spacing: 
   background-attachment: fixed, fixed;
   background-repeat: no-repeat;
 }
-/* A quarter of the bytes on a phone, where fixed attachment is ignored anyway. */
+/* On a phone the picture is a portrait crop of the same photograph, centred on
+ * Earth, so cover fills any screen — tall or square — without pushing Earth
+ * out of frame the way a landscape image would. A landscape phone keeps the
+ * small landscape cut. Fixed attachment is ignored on phones, so scroll. */
 @media (max-width: 700px) {
   [data-theme="os"] body {
     background-image:
       linear-gradient(180deg, rgba(6,10,18,.55), rgba(6,10,18,.35) 40%, rgba(6,10,18,.72)),
-      url("./space-bg-small.jpg");
+      url("./space-bg-phone.jpg");
     background-attachment: scroll, scroll;
+    background-position: center, center top;
   }
+}
+@media (max-width: 700px) and (orientation: landscape) {
+  [data-theme="os"] body { background-image:
+    linear-gradient(180deg, rgba(6,10,18,.55), rgba(6,10,18,.35) 40%, rgba(6,10,18,.72)),
+    url("./space-bg-small.jpg"); background-position: center, center; }
 }
 
 
@@ -2530,7 +2550,29 @@ h1, h2, h3 { font-family: var(--display); text-transform: none; letter-spacing: 
 .pp-head .mstep-l { margin: 0; }
 
 /* Rank insignia beside a name in the standings. */
-.pip { margin-left: .3rem; font-size: .82em; letter-spacing: -.06em; white-space: nowrap; }
+.pip { margin-left: .3rem; white-space: nowrap; display: inline-flex; align-items: center; }
+/* ── officer insignia ──────────────────────────────────────────────────
+ * Drawn SVG, sized to be read at a glance. In the rankings the tag sits on
+ * the name; on the profile it stands alone with the rank spelled out. */
+.insig { height: 1.15rem; width: auto; flex: none; vertical-align: middle; filter: drop-shadow(0 1px 0 rgba(0,0,0,.45)); }
+.rank-tag {
+  display: inline-flex; align-items: center; gap: .35rem; margin-left: .5rem;
+  padding: .1rem .5rem .1rem .35rem; border-radius: 999px; vertical-align: middle;
+  background: rgba(0,0,0,.32); border: 1px solid rgba(232,193,90,.45);
+  font-size: .68rem; font-weight: 700; letter-spacing: .04em; color: #F1F5F9; white-space: nowrap;
+}
+.slot .sn { display: flex; align-items: center; min-width: 0; }
+.slot .sn > .rank-tag { flex: none; }
+.slot.officer { background: color-mix(in srgb, #E8C15A 9%, var(--surface)); }
+.slot.officer .sb { box-shadow: 0 0 0 1px rgba(232,193,90,.6); }
+.pip .insig { height: 1rem; margin-left: .35rem; }
+#pb-insignia .rank-tag { font-size: .8rem; margin-left: 0; }
+#pb-insignia .insig { height: 1.5rem; }
+@media (max-width: 480px) {
+  .slot .rank-tag span { display: none; }   /* insignia alone; the name is in the title */
+  .slot .rank-tag { padding: .1rem .3rem; }
+}
+
 .nm3 .pip { font-size: .75em; }
 .pts .pip, .sp .pip { font-size: .6em; vertical-align: .18em; }
 

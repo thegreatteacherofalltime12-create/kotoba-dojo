@@ -199,8 +199,9 @@ if (location.protocol === "file:") {
 
       <main class="col-main">
         <section class="rankings">
-          <div class="rankings-head">
+          <div class="rankings-head" aria-controls="strip">
             <h2>Arena Rankings</h2>
+            <span id="rank-fold-hint"></span>
           </div>
           <div class="strip" id="strip"></div>
         </section>

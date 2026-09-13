@@ -536,6 +536,35 @@ function handRow(cards, key, extra = "") {
 }
 
 /**
+ * The five cross cards, as a cross.
+ *
+ * The server keeps them as [left, right, top, bottom, middle] and turns them
+ * over in that order, two at a time, so `revealed` is always a prefix of it.
+ * A slot that has just turned flips; one that has only just been dealt flies
+ * in like any other card.
+ */
+const CROSS_SLOTS = [
+  ["top", 2, "cc-top"], ["left", 0, "cc-left"], ["mid", 4, "cc-mid"],
+  ["right", 1, "cc-right"], ["bottom", 3, "cc-bottom"],
+];
+function crossGrid(revealed) {
+  const grid = el("div", "cc-cross");
+  for (const [name, idx, cls] of CROSS_SLOTS) {
+    const key = `cross-${name}`;
+    const wasBack = [...(shown.get(key) || [])].some((id) => id.startsWith("back:"));
+    const card = idx < revealed.length ? revealed[idx] : { hidden: true };
+    const cell = handRow([card], key, cls);
+    const node = cell.firstChild;
+    if (node && wasBack && !card.hidden) {
+      node.classList.remove("deal");
+      node.classList.add("hl-flip");
+    }
+    grid.append(cell);
+  }
+  return grid;
+}
+
+/**
  * Easy, Medium, Hard. Medium is the only one that deals the dealer a hand at
  * random; the other two let the house look at several and keep the worst or
  * the best, so the label is doing real work.
@@ -1648,28 +1677,53 @@ function showHand(msg) {
 
   if (msg.game === "crisscross") {
     host.textContent = "";
-    const ccHead = el("div", "hz-head");
-    ccHead.append(el("span", "hz-l", `Betting the ${msg.stage}`));
-    ccHead.append(endHandBtn());
-    host.append(ccHead);
-    host.append(el("p", "fs-note", "Your two cards"));
-    host.append(handRow(msg.cards, "hole", "thand"));
 
-    if (msg.revealed?.length) {
-      host.append(el("p", "fs-note", "Turned over so far:"));
-      host.append(handRow(msg.revealed, "cross", "thand"));
-    }
+    // The table's name and the purse, as the screen the antes were posted on.
+    const head = el("div", "cc-head");
+    const titles = el("div", "cc-titles");
+    titles.append(el("div", "cc-title", "\u271A CRISS CROSS POKER"));
+    titles.append(el("div", "cc-sub", "TWO 5-CARD HANDS \u00b7 WIN ACROSS, DOWN, OR BOTH"));
+    head.append(titles, purseStrip());
+    host.append(head);
 
-    const acts = el("div", "factions");
+    // Your two, and the cross beside them. The cross is laid as a cross:
+    // the horizontal three are the across hand, the vertical three the down
+    // hand, and the middle card belongs to both.
+    const board = el("div", "cc-board");
+    const mine = el("div", "cc-col");
+    mine.append(el("p", "cc-l", "YOUR CARDS"));
+    mine.append(handRow(msg.cards, "hole", "thand"));
+    const cross = el("div", "cc-col");
+    cross.append(el("p", "cc-l", "THE CROSS"));
+    cross.append(crossGrid(msg.revealed || []));
+    board.append(mine, cross);
+    host.append(board);
+
+    const stage = String(msg.stage || "across");
+    host.append(el("p", "cc-stage", `${stage.toUpperCase()} DECISION`));
+    const explain = {
+      across: "Bet the ACROSS hand (your 2 cards + the horizontal 3) at 1\u00d7\u20133\u00d7 your Ante Across \u2014 or fold this line.",
+      down: "Bet the DOWN hand (your 2 cards + the vertical 3) at 1\u00d7\u20133\u00d7 your Ante Down \u2014 or fold this line.",
+      middle: "Bet the MIDDLE at 1\u00d7\u20133\u00d7 \u2014 the last card turns and both hands settle \u2014 or fold it.",
+    };
+    host.append(el("p", "cc-explain", explain[stage] || ""));
+
+    const acts = el("div", "cc-acts");
     for (const m of [1, 2, 3]) {
-      const b = el("button", "fbtn fbtn-go", `${m}\u00d7 (${money(msg.ante * m)})`);
-      b.onclick = () => send({ type: "TABLE_ACT", move: "bet", mult: m });
+      const b = el("button", "fbtn fbtn-go cc-mult", `${m}\u00d7 \u00b7 ${money(msg.ante * m)}`);
+      b.onclick = () => { lockActs(); send({ type: "TABLE_ACT", move: "bet", mult: m }); };
       acts.append(b);
     }
-    const fold = el("button", "fbtn", "Fold this line");
-    fold.onclick = () => send({ type: "TABLE_ACT", move: "fold" });
-    acts.append(fold);
     host.append(acts);
+    const fold = el("button", "fbtn cc-fold", "\u2715 FOLD THIS LINE");
+    fold.onclick = () => { lockActs(); send({ type: "TABLE_ACT", move: "fold" }); };
+    host.append(fold);
+    // One press per decision; the next screen re-arms them.
+    const lockActs = () => { for (const b of [...acts.children, fold]) b.disabled = true; };
+
+    const tail = el("div", "cc-tail");
+    tail.append(endHandBtn());
+    host.append(tail);
     return;
   }
 

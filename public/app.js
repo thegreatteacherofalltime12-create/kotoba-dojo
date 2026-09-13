@@ -1238,21 +1238,49 @@ async function loadRecords(tab = "arena") {
 }
 
 /** The banked side of the casino, and what has gone into it. */
+/** 1st, 2nd, 3rd, 4th … 11th, 12th, 13th … 21st, 22nd, 23rd. */
+function ordinal(n) {
+  const tens = n % 100;
+  if (tens >= 11 && tens <= 13) return `${n}th`;
+  return `${n}${{ 1: "st", 2: "nd", 3: "rd" }[n % 10] || "th"}`;
+}
+
+let walletPoll = null;
+
+/** The two figures the wallet panel shows: yours, and the top ten. */
+async function readWallets() {
+  let mine = null, top = null;
+  try {
+    const res = await fetch("/api/wallet", { headers: { Authorization: `Bearer ${await idToken()}` } });
+    mine = (await res.json()).wallet || 0;
+  } catch { /* keep what we had */ }
+  try {
+    const res = await fetch("/api/wallets/top");
+    top = (await res.json()).wallets || [];
+  } catch { /* keep what we had */ }
+  return { mine, top };
+}
+
+function walletBoard(top) {
+  if (!top.length) return `<p class="panel-sub">Nobody has banked anything yet. Be first.</p>`;
+  const all = top.reduce((a, r) => a + (r.wallet || 0), 0);
+  return `
+    <div class="belt-rows">${top.slice(0, 10).map((r, i) => `
+      <div class="belt-row${r.uid === S.user?.uid ? " mine" : ""}">
+        <span class="bn"><b class="wal-place">${ordinal(i + 1)}</b> ${escapeHtml(r.name)}</span>
+        <span class="bt">$${r.wallet.toLocaleString()}</span>
+      </div>`).join("")}</div>
+    <p class="wal-total">$${all.toLocaleString()} banked across the top ${Math.min(10, top.length)}</p>`;
+}
+
 async function drawWallet(host) {
   host.innerHTML = `<div class="drawer-in"><div class="drawer-head"><h2>Records</h2></div><p class="panel-sub">Counting the takings&hellip;</p></div>`;
 
   // Banking happens on the server, so the figure comes from the server. The
   // copy read at sign-in is always behind by however long you have been playing.
-  let mine = 0, top = [];
-  try {
-    const res = await fetch("/api/wallet", { headers: { Authorization: `Bearer ${await idToken()}` } });
-    mine = (await res.json()).wallet || 0;
-  } catch { mine = S.purse?.wallet || 0; }
-  try {
-    const res = await fetch("/api/wallets/top");
-    top = (await res.json()).wallets || [];
-  } catch { top = []; }
-
+  const first = await readWallets();
+  const mine = first.mine ?? (S.purse?.wallet || 0);
+  const top = first.top ?? [];
   S.purse = { ...(S.purse || {}), wallet: mine };
 
   host.innerHTML = `
@@ -1264,7 +1292,7 @@ async function drawWallet(host) {
       </div>
 
       <div class="wal-figures">
-        <div><span class="wal-l">Your wallet</span><b class="wal-n">$${mine.toLocaleString()}</b></div>
+        <div><span class="wal-l">Your wallet</span><b class="wal-n" id="wal-mine">$${mine.toLocaleString()}</b></div>
       </div>
 
       <p class="panel-sub">Money banks here when a casino session is ended properly with
@@ -1272,14 +1300,25 @@ async function drawWallet(host) {
       Your wallet is yours alone \u2014 only the totals below are shared.</p>
 
       <p class="rec-sub">Biggest wallets on the floor</p>
-      ${top.length ? `<div class="belt-rows">${top.map((r, i) => `
-        <div class="belt-row${r.uid === S.user?.uid ? " mine" : ""}">
-          <span class="bn">${i + 1}. ${escapeHtml(r.name)}</span>
-          <span class="bt">$${r.wallet.toLocaleString()}</span>
-        </div>`).join("")}</div>`
-        : `<p class="panel-sub">Nobody has banked anything yet. Be first.</p>`}
+      <div id="wal-board">${walletBoard(top)}</div>
     </div>`;
   host.querySelectorAll("[data-rec]").forEach((b) => { b.onclick = () => loadRecords(b.dataset.rec); });
+
+  // Live while it is open. Someone banking on the floor should show up here
+  // without the drawer being closed and opened again; the rows are replaced
+  // in place so nothing jumps. The poll stops itself once the panel is gone.
+  clearInterval(walletPoll);
+  walletPoll = setInterval(async () => {
+    const board = document.getElementById("wal-board");
+    if (!board || !board.isConnected || $("drawer-records")?.hidden) { clearInterval(walletPoll); return; }
+    const now = await readWallets();
+    if (now.top) board.innerHTML = walletBoard(now.top);
+    if (now.mine != null) {
+      const me = document.getElementById("wal-mine");
+      if (me) me.textContent = `$${now.mine.toLocaleString()}`;
+      S.purse = { ...(S.purse || {}), wallet: now.mine };
+    }
+  }, 15_000);
 }
 
 // ── what's new ─────────────────────────────────

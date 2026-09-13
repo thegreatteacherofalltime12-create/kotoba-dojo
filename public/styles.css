@@ -1342,6 +1342,13 @@ h1, h2, h3 { font-family: var(--display); text-transform: none; letter-spacing: 
 }
 .wal-n { font-family: var(--display); font-size: 1.5rem; color: #C6A664; }
 .wal-n.risk { color: #FF8A3D; }
+/* The place on the wallet board: 1st, 2nd, 3rd. The top three wear gold. */
+.wal-place {
+  display: inline-block; min-width: 2.4em; margin-right: .3em; text-align: right;
+  font-family: var(--display); font-size: .82em; letter-spacing: .04em; color: #9BAF9F;
+}
+.belt-row:nth-child(-n+3) .wal-place { color: #F4CE5A; }
+.wal-total { margin: .6rem 0 0; font-size: .78rem; text-align: right; color: #9BAF9F; }
 
 /* The warning is set as a plain block so it reads as a notice, not marketing. */
 .wal-flow { font-size: .84rem; line-height: 1.5; color: #9BAF9F; margin: 0 0 .7rem; }
@@ -2161,6 +2168,63 @@ h1, h2, h3 { font-family: var(--display); text-transform: none; letter-spacing: 
   .pcard.hl-flip, .hl-result > p, .bstep-v.bump { animation: none; }
   .hl-pick, .bstep-b, .hchip { transition: none; }
 }
+/* ── criss cross ───────────────────────────────────────────────────────
+ * Your two on the left, the cross on the right, laid as a cross: the
+ * horizontal three are the across hand, the vertical three the down hand,
+ * the middle belongs to both. Cards that have not turned yet wear a red
+ * back with a star, so the two hands can be read off the shape.
+ */
+.cc-head { display: flex; justify-content: space-between; align-items: flex-start; gap: .8rem; margin-bottom: .6rem; }
+.cc-head .tpurse { margin: 0; }
+.cc-title {
+  font-family: var(--display); font-weight: 800; font-size: 1rem;
+  letter-spacing: .12em; color: #4ADE80;
+}
+.cc-sub { margin-top: .15rem; font-size: .62rem; font-weight: 700; letter-spacing: .1em; color: var(--muted); }
+
+.cc-board { display: flex; justify-content: center; align-items: flex-start; gap: 1.6rem; margin: .4rem 0 .6rem; }
+.cc-col { display: flex; flex-direction: column; align-items: center; gap: .4rem; }
+.cc-l { margin: 0; font-size: .66rem; font-weight: 800; letter-spacing: .16em; color: #F4CE5A; }
+
+.cc-cross {
+  display: grid; gap: .35rem;
+  grid-template-columns: repeat(3, auto); grid-template-rows: repeat(3, auto);
+  grid-template-areas: ". top ." "left mid right" ". bottom .";
+}
+.cc-cross .chand { margin: 0; }
+.cc-top { grid-area: top; } .cc-left { grid-area: left; } .cc-mid { grid-area: mid; }
+.cc-right { grid-area: right; } .cc-bottom { grid-area: bottom; }
+.cc-cross .pcard.back {
+  background: linear-gradient(135deg, #7F1D1D, #991B1B 55%, #7F1D1D);
+  border-color: #FCA5A5; position: relative;
+}
+.cc-cross .pcard.back .pc-weave { display: none; }
+.cc-cross .pcard.back::after {
+  content: "\2605"; position: absolute; inset: 0; display: grid; place-items: center;
+  font-size: calc(var(--cw, 3.2rem) * .42); color: #FECACA; opacity: .9;
+  text-shadow: 0 1px 0 rgba(0,0,0,.4);
+}
+.cc-cross { perspective: 720px; }
+
+.cc-stage {
+  margin: .6rem 0 .3rem; text-align: center; font-size: .72rem; font-weight: 800;
+  letter-spacing: .18em; color: #F4CE5A;
+}
+.cc-explain { margin: 0 0 .7rem; text-align: center; font-size: .82rem; line-height: 1.45; color: rgba(255,255,255,.88); }
+.cc-acts { display: flex; gap: .5rem; justify-content: center; }
+.cc-mult { flex: 1; max-width: 9rem; letter-spacing: .06em; }
+.cc-fold {
+  width: 100%; margin-top: .55rem; letter-spacing: .08em; font-weight: 800;
+  background: rgba(127, 29, 29, .85); border-color: #F87171; color: #FEE2E2;
+}
+.cc-fold:hover { background: rgba(153, 27, 27, .95); }
+.cc-tail { display: flex; justify-content: flex-end; margin-top: .6rem; opacity: .75; }
+
+@media (max-width: 520px) {
+  .cc-board { flex-direction: column; align-items: center; gap: .9rem; }
+  .cc-head { flex-direction: column; }
+}
+
 
 
 /* ── the hold'em felt ─────────────────────────────────────────────────── */

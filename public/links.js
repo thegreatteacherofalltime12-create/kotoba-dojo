@@ -45,6 +45,13 @@ async function loadCourses() {
   }
 
   const c = $("sel-course");
+  // Nothing is chosen until the player chooses it. The first entry is a
+  // prompt, not a course, and the tee stays closed while it is the one showing.
+  const ask = el("option", "", "Choose a course\u2026");
+  ask.value = "";
+  ask.disabled = true;
+  ask.selected = true;
+  c.append(ask);
   // Resolved on the server, not here: the room has to agree on the course, and
   // a random pick made in one browser is not a pick the room has made.
   const anyOne = el("option", "", "🎲 Random course");
@@ -64,6 +71,7 @@ async function loadCourses() {
     t.append(o);
   }
   t.value = "easy";
+  c.onchange = syncPlayMode;
   syncPlayMode();
 }
 
@@ -71,6 +79,10 @@ async function loadCourses() {
 function syncPlayMode() {
   const solo = $("sel-play").value === "solo";
   $("wrap-code").hidden = solo;
+  // No course, no tee. The button says why rather than doing nothing.
+  const chosen = !!$("sel-course").value;
+  $("btn-start").disabled = !chosen;
+  $("btn-start").textContent = chosen ? "Go to the tee" : "Choose a course first";
   $("lobby-note").textContent = solo
     ? "A private round, just you. Nobody else can find it, and it still banks MMR when you finish."
     : "Anyone joining the same room code plays the same eighteen holes with the same words. "
@@ -82,7 +94,10 @@ const randomCode = () =>
 
 /* ── the round ─────────────────────────────────────────────────────── */
 
-async function connect() {
+async function connect({ joining = false } = {}) {
+  // A joiner takes the course the room already has; only a room being opened
+  // has to have chosen one.
+  if (!joining && !$("sel-course").value) return say("Choose a course \u2014 or Random \u2014 before you tee off.", "bad");
   const solo = $("sel-play").value === "solo";
   // Solo always gets a fresh code of its own. Reusing one you had typed would
   // drop you into a room somebody else may already be standing in.
@@ -320,7 +335,18 @@ onAuthStateChanged(auth, async (user) => {
 
   // Arrived from Open Rooms with a code attached: join straight into it
   // rather than making them type the code they just clicked.
-  const invited = decodeURIComponent(location.hash.slice(1)).toUpperCase();
+  const arrived = decodeURIComponent(location.hash.slice(1)).toUpperCase();
+  const creating = arrived.startsWith("NEW:");
+  const invited = creating ? "" : arrived;
+  if (creating) {
+    // Create Match reserved a code from the shared pool. Hold it, open the
+    // room mode, and leave the course to the player: nothing is dealt and
+    // nothing is chosen until they have chosen it and gone to the tee.
+    $("sel-play").value = "room";
+    $("in-code").value = arrived.slice(4);
+    syncPlayMode();
+    $("lobby-note").textContent = `Your room is ${arrived.slice(4)}. Pick a course and tees, then go to the tee.`;
+  }
   if (invited) {
     // An invitation is by definition not a solo round. Set the mode before
     // connecting: solo draws itself a fresh code, which would land them in an
@@ -329,6 +355,6 @@ onAuthStateChanged(auth, async (user) => {
     syncPlayMode();
     $("in-code").value = invited;
     $("lobby-note").textContent = `Joining ${invited}. If a round is already under way you walk straight into it; if not, you wait on the tee with everyone else.`;
-    connect();
+    connect({ joining: true });
   }
 });

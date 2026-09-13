@@ -1165,7 +1165,7 @@ function drawCreate() {
       closeCreate();
       const res = await fetch("/api/dojo/new");
       const { code } = await res.json();
-      openRoom(b.dataset.game || "crossword", code);
+      openRoom(b.dataset.game || "crossword", code, true);
     };
   });
 }
@@ -1910,7 +1910,9 @@ const ROOMS = {
   minesweeper: (code, back) => { show("mines"); enterMines(code, idToken, back); },
   // Multiverse Golf runs on its own page: a full-screen course doesn't fit
   // inside a panel, and the round is long enough to want the whole window.
-  links: (code) => { location.href = `/links.html#${code || ""}`; },
+  // A room being created lands on the lobby with its code, to choose a course
+  // before anything is dealt; an invitation to a room already open walks in.
+  links: (code, _back, fresh) => { location.href = `/links.html#${fresh ? "new:" : ""}${code || ""}`; },
   // Solo against the house: no room to join, so the code is ignored.
   casino: (_code, back) => {
     show("casino");
@@ -1934,14 +1936,14 @@ async function joinByCode(code) {
   openRoom(game, code);
 }
 
-function openRoom(game, code) {
+function openRoom(game, code, fresh = false) {
   const open = ROOMS[game];
   if (!open) {
     // Better to say so than to guess and open the wrong game, which is
     // exactly what a silent fallback to the crossword used to do.
     return say("rooms-error", `That room is a game this version doesn't know (${game}). Update the app.`);
   }
-  open(code, () => { show("home"); loadDojos(); });
+  open(code, () => { show("home"); loadDojos(); }, fresh);
 }
 
 $("btn-join").onclick = () => {

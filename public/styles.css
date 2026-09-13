@@ -1348,7 +1348,6 @@ h1, h2, h3 { font-family: var(--display); text-transform: none; letter-spacing: 
   font-family: var(--display); font-size: .82em; letter-spacing: .04em; color: #9BAF9F;
 }
 .belt-row:nth-child(-n+3) .wal-place { color: #F4CE5A; }
-.wal-total { margin: .6rem 0 0; font-size: .78rem; text-align: right; color: #9BAF9F; }
 
 /* The warning is set as a plain block so it reads as a notice, not marketing. */
 .wal-flow { font-size: .84rem; line-height: 1.5; color: #9BAF9F; margin: 0 0 .7rem; }

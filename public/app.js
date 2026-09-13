@@ -1263,14 +1263,16 @@ async function readWallets() {
 
 function walletBoard(top) {
   if (!top.length) return `<p class="panel-sub">Nobody has banked anything yet. Be first.</p>`;
-  const all = top.reduce((a, r) => a + (r.wallet || 0), 0);
+  // Largest first, ten of them. The server already sends them that way;
+  // sorting again here costs nothing and makes the order a promise of the
+  // board rather than of the query.
+  const ranked = [...top].sort((a, b) => (b.wallet || 0) - (a.wallet || 0)).slice(0, 10);
   return `
-    <div class="belt-rows">${top.slice(0, 10).map((r, i) => `
+    <div class="belt-rows">${ranked.map((r, i) => `
       <div class="belt-row${r.uid === S.user?.uid ? " mine" : ""}">
         <span class="bn"><b class="wal-place">${ordinal(i + 1)}</b> ${escapeHtml(r.name)}</span>
         <span class="bt">$${r.wallet.toLocaleString()}</span>
-      </div>`).join("")}</div>
-    <p class="wal-total">$${all.toLocaleString()} banked across the top ${Math.min(10, top.length)}</p>`;
+      </div>`).join("")}</div>`;
 }
 
 async function drawWallet(host) {

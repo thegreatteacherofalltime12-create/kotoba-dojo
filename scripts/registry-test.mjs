@@ -37,5 +37,18 @@ console.log('\nno silent fallback');
 ok('an unknown game is reported, not guessed',
   /this version doesn't know/.test(app) && !/enterDojo\(code\);\s*\n\}/.test(app.split('function openRoom')[1] || ''));
 
+
+console.log('\nthe build stamp');
+{
+  // The page says what it was built from; version.json says what is current.
+  // The update bar is the difference between them, so a deploy that moved one
+  // and not the other nags every player on every load.
+  const meta = /<meta name="build" content="([^"]*)"/.exec(read('public/index.html'))?.[1];
+  const json = JSON.parse(read('public/version.json')).build;
+  ok('index.html carries a build stamp', !!meta);
+  ok('version.json carries a build stamp', !!json);
+  ok('and they agree (run `npm run stamp` if not)', meta === json);
+}
+
 console.log(bad ? `\n${bad} failing` : '\nall registry checks passed');
 process.exit(bad ? 1 : 0);

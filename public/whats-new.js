@@ -17,6 +17,111 @@ export const KEEP_DAYS = 7;
 
 export const UPDATES = [
   {
+    at: "2026-09-13T14:48:00Z",
+    where: "Word-Cross",
+    title: "Twenty-four new categories",
+    text: "Science, Math, American History and American Myths — six categories each, every "
+      + "one at easy, medium and hard. Biology to The Human Body, Arithmetic to Probability, "
+      + "The Revolution to Civil Rights, Tall Tales to Founding Legends. Six hundred puzzles "
+      + "in all. The category list shows six at a time and scrolls for the rest.",
+  },
+  {
+    at: "2026-09-13T14:48:00Z",
+    where: "Arena",
+    title: "Chat lets you know",
+    text: "When somebody posts and you haven't seen it, the Chat tab pulses gold until you "
+      + "open it. Your own lines don't count. And the sign-in page stands on Earth again.",
+  },
+  {
+    at: "2026-09-13T14:16:00Z",
+    where: "Word-Cross",
+    title: "The crossword plays in orbit",
+    text: "Earth and the nebula behind the grid. Every game will get a ground of its own.",
+  },
+  {
+    at: "2026-09-13T14:09:00Z",
+    where: "Arena",
+    title: "The home screen, tidied",
+    text: "Chat, Feed and Open Rooms are one panel now, closed until you tap a tab; it "
+      + "remembers which you left open. Belts moved into View Rules. Bounty moved into "
+      + "Records beside Wallets. And the default theme has a new ground — the cobra in "
+      + "orbit — with a crop that fits any phone.",
+  },
+  {
+    at: "2026-09-13T13:49:00Z",
+    where: "Rankings",
+    title: "Officers outrank everyone",
+    text: "Prestige comes first in the Arena Rankings now: every officer above everyone "
+      + "unranked, higher rank first, MMR only settling ties within a rank. Each officer wears "
+      + "their Space Force insignia and title beside their name — drawn properly, from the "
+      + "gold bar up to four stars. Three on the podium by default; tap the bar for the full "
+      + "list.",
+  },
+  {
+    at: "2026-09-13T12:39:00Z",
+    where: "Fix",
+    title: "No more phantom updates",
+    text: "The app was telling everyone a new version was ready on every load, reload or not, "
+      + "because two build stamps had drifted apart. They're written together now. You'll see "
+      + "the bar only when there's actually something new.",
+  },
+  {
+    at: "2026-09-13T12:26:00Z",
+    where: "Casino",
+    title: "Pai Gow, set on the table",
+    text: "Pick your two-card low hand with both hands named as you tap, house way to start, "
+      + "and Set Hand & Compare when you're happy. The result lays out yours and the dealer's "
+      + "as high and low, then a line per bet and the net.",
+  },
+  {
+    at: "2026-09-13T01:26:00Z",
+    where: "Casino",
+    title: "Three-Card and Criss Cross, dealt properly",
+    text: "Three-Card deals the dealer's three face down over your three face up, fold and "
+      + "play side by side. Criss Cross lays the cross out as a cross — the horizontal three "
+      + "are your across hand, the vertical three your down hand, the middle belongs to both — "
+      + "and turns each arm as you bet it.",
+  },
+  {
+    at: "2026-09-13T01:18:00Z",
+    where: "Casino",
+    title: "Hi-Lo, one card at a time",
+    text: "Bet, deal, see your card, then call higher or lower and eight-or-higher or under "
+      + "eight. The second card turns over on a beat and the verdict lands after it. Also: the "
+      + "Wallets board in Records places the top ten, 1st to 10th, and stays live while it's open.",
+  },
+  {
+    at: "2026-09-13T01:18:00Z",
+    where: "Feed",
+    title: "Every game, and who played",
+    text: "Golf rounds were showing up as Word-Cross. Every game is named now, and the line "
+      + "says who else was in it — “Ana won Battleship · vs Bo, Cy”.",
+  },
+  {
+    at: "2026-09-13T01:00:00Z",
+    where: "Multiverse Golf",
+    title: "Every hole is a scramble",
+    text: "The letters of the word are dealt face up, shuffled, and the swing is putting them "
+      + "right — on every tee. Green is in place, gold is the wrong spot, and the ball goes as "
+      + "far as the letters that landed.",
+  },
+  {
+    at: "2026-09-11T14:07:00Z",
+    where: "Multiverse Golf",
+    title: "You call the start",
+    text: "Nothing tees off on its own. Create a match, pick a course — or Random, which "
+      + "draws a new one every round — and press Tee off when you're ready. Play solo, or open "
+      + "a room where you call the start. A solo round is yours alone; nobody else can walk in.",
+  },
+  {
+    at: "2026-09-11T14:07:00Z",
+    where: "Battleship",
+    title: "Latecomers are welcome",
+    text: "Walk into a battle already under way and you get ten seconds to lay a fleet, then a "
+      + "slot behind whoever's firing. Nobody can shoot at you while you're placing. The door "
+      + "closes once it's down to the last two captains.",
+  },
+  {
     at: "2026-09-10T16:00:00Z",
     where: "New game",
     title: "Multiverse Golf",

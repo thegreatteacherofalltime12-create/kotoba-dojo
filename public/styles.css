@@ -1227,7 +1227,7 @@ h1, h2, h3 { font-family: var(--display); text-transform: none; letter-spacing: 
   position: relative;
   background-image:
     linear-gradient(180deg, rgba(10,10,12,.78), rgba(10,10,12,.6) 40%, rgba(10,10,12,.86)),
-    url("./cobra-bg.jpg");
+    url("./cobra-bg.jpg?v=d71cafed");
   background-size: cover;
   background-position: center;
   background-attachment: fixed;
@@ -1239,13 +1239,13 @@ h1, h2, h3 { font-family: var(--display); text-transform: none; letter-spacing: 
 #screen-dojo {
   background-image:
     linear-gradient(180deg, rgba(6,10,18,.72), rgba(6,10,18,.55) 40%, rgba(6,10,18,.82)),
-    url("./crossword-bg.jpg");
+    url("./crossword-bg.jpg?v=a683ba36");
 }
 @media (max-width: 700px) {
   #screen-dojo {
     background-image:
       linear-gradient(180deg, rgba(6,10,18,.72), rgba(6,10,18,.55) 40%, rgba(6,10,18,.82)),
-      url("./crossword-bg-phone.jpg");
+      url("./crossword-bg-phone.jpg?v=2f374af5");
     background-attachment: scroll;
   }
 }
@@ -1635,7 +1635,7 @@ h1, h2, h3 { font-family: var(--display); text-transform: none; letter-spacing: 
   background-color: #060a12;
   background-image:
     linear-gradient(180deg, rgba(6,10,18,.55), rgba(6,10,18,.35) 40%, rgba(6,10,18,.72)),
-    url("./space-bg.jpg");
+    url("./space-bg.jpg?v=536f6d0b");
   background-size: auto, cover;
   background-position: center, center;
   background-attachment: fixed, fixed;
@@ -1649,7 +1649,7 @@ h1, h2, h3 { font-family: var(--display); text-transform: none; letter-spacing: 
   [data-theme="os"] body {
     background-image:
       linear-gradient(180deg, rgba(6,10,18,.55), rgba(6,10,18,.35) 40%, rgba(6,10,18,.72)),
-      url("./space-bg-phone.jpg");
+      url("./space-bg-phone.jpg?v=cb21ad42");
     background-attachment: scroll, scroll;
     background-position: center, center top;
   }
@@ -1657,7 +1657,7 @@ h1, h2, h3 { font-family: var(--display); text-transform: none; letter-spacing: 
 @media (max-width: 700px) and (orientation: landscape) {
   [data-theme="os"] body { background-image:
     linear-gradient(180deg, rgba(6,10,18,.55), rgba(6,10,18,.35) 40%, rgba(6,10,18,.72)),
-    url("./space-bg-small.jpg"); background-position: center, center; }
+    url("./space-bg-small.jpg?v=e8e5e0af"); background-position: center, center; }
 }
 
 
@@ -1728,7 +1728,7 @@ h1, h2, h3 { font-family: var(--display); text-transform: none; letter-spacing: 
   --gold: #F0CE6E;
   --paper-red: #FF8A7A;
   background: #0A2418;
-  background-image: url("./poker-table.jpg");
+  background-image: url("./poker-table.jpg?v=1025b32b");
   background-size: cover;
   background-position: center;
   background-attachment: fixed;

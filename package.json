@@ -8,6 +8,7 @@
     "dev": "wrangler dev",
     "deploy": "node scripts/stamp.mjs && wrangler deploy",
     "stamp": "node scripts/stamp.mjs",
+    "import": "node scripts/import-zip.mjs",
     "seed": "node scripts/seed-puzzles.js",
     "kv:upload": "node scripts/kv-upload.js --remote",
     "tail": "wrangler tail",

@@ -148,6 +148,29 @@ npx wrangler deploy
 Local development: `npx wrangler dev`. Sign-in needs `localhost` in the
 Firebase authorized-domain list.
 
+## Bringing work in from a Claude chat
+
+Do not unzip a chat's zip over the folder. The chat built it from whatever
+version was uploaded to it, days ago, and every file in it is that old except
+the ones the chat changed; dropping it in puts the rest of the project back
+to that day. That has happened twice, once at twenty-four files.
+
+Instead:
+
+```bash
+npm run import -- D:path	o	he-chat.zip
+```
+
+It reads the zip and, file by file, works out what the chat actually changed
+and merges only that onto the current code. Files the chat left alone are
+kept as they are here. A file the chat edited is three-way merged; a clean
+merge is written in place, a conflict is written with `<<<<<<<` markers and
+named in the summary for you to settle. A copy that mostly takes away is
+treated as older than anything on record and kept current — the summary
+names it with its numbers, and `--take <file>` merges it anyway if you know
+you edited it. Nothing is committed and nothing is deployed; run `npm test`,
+look over the result, then commit and `npm run deploy`.
+
 ## Adding a game
 
 Codes come from one pool, so a code alone doesn't say which game it belongs

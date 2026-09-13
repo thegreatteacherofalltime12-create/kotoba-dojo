@@ -11,6 +11,7 @@ import { readFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { buildLayout } from "../public/layout.js";
+import { STARTER_PUZZLES } from "../src/starter-puzzles.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, "..");
@@ -68,6 +69,19 @@ for (const theme of bank.themes) {
       console.warn(`Only built ${made}/${PER_LEVEL} for ${theme.name} ${level}. Add more words to that pool.`);
   }
 }
+
+// Scrolls written by hand rather than seeded from the bank — America, St.
+// Louis City — live only in starter-puzzles.js. KV replaces the built-in
+// archive wholesale once it has content, so they ride along here or they
+// vanish from the picker the moment KV takes over.
+const banked = new Set(bank.themes.map((t) => t.id));
+let carried = 0;
+for (const p of Object.values(STARTER_PUZZLES)) {
+  if (banked.has(p.theme)) continue;
+  puzzles.push(p);
+  carried++;
+}
+if (carried) console.log(`Carried ${carried} hand-made scroll(s) from starter-puzzles.js.`);
 
 const outDir = join(root, "dist", "puzzles");
 mkdirSync(outDir, { recursive: true });

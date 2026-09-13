@@ -2970,3 +2970,59 @@ body.panel-open { overflow: hidden; }
 
 /* The way through to Lexicon Links, sitting with the other tabs. */
 a.dtab { text-decoration: none; display: inline-block; }
+
+/* ── the category dropdown ────────────────────────────────────────────
+ * Six rows tall, then it scrolls. The native select underneath is hidden. */
+.catdrop { position: relative; }
+.catdrop-btn {
+  width: 100%; display: flex; align-items: center; justify-content: space-between; gap: .5rem;
+  font: inherit; text-align: left; cursor: pointer; padding: .45rem .6rem; border-radius: 6px;
+  background: var(--surface); color: var(--text); border: 1px solid var(--edge);
+}
+.catdrop-btn:hover { border-color: var(--accent-hi); }
+.catdrop-caret { color: var(--muted); }
+.catdrop-list {
+  position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 30;
+  margin: 0; padding: .25rem; list-style: none;
+  max-height: calc(6 * 2.1rem + .5rem); overflow-y: auto;
+  background: var(--surface); border: 1px solid var(--edge); border-radius: 8px;
+  box-shadow: 0 10px 24px rgba(0,0,0,.45);
+}
+.catdrop-item { height: 2.1rem; display: flex; align-items: center; padding: 0 .6rem; border-radius: 5px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.catdrop-item:hover { background: color-mix(in srgb, var(--a1) 18%, transparent); }
+.catdrop-item.on { background: color-mix(in srgb, var(--a1) 28%, transparent); font-weight: 700; }
+
+/* ── the gate ──────────────────────────────────────────────────────────
+ * Sign-in stands on the first picture — Earth and the nebula — whatever the
+ * home screen behind it wears. Same wash as the play surfaces. */
+[data-theme="os"] #screen-gate {
+  min-height: 100vh;
+  background-image:
+    linear-gradient(180deg, rgba(6,10,18,.55), rgba(6,10,18,.35) 40%, rgba(6,10,18,.72)),
+    url("./crossword-bg.jpg");
+  background-size: auto, cover;
+  background-position: center, center;
+  background-attachment: fixed, fixed;
+  background-repeat: no-repeat;
+}
+@media (max-width: 700px) {
+  [data-theme="os"] #screen-gate {
+    background-image:
+      linear-gradient(180deg, rgba(6,10,18,.55), rgba(6,10,18,.35) 40%, rgba(6,10,18,.72)),
+      url("./crossword-bg-phone.jpg");
+    background-attachment: scroll, scroll;
+  }
+}
+
+/* ── unread chat ──────────────────────────────────────────────────────
+ * Somebody said something and you have not seen it: the tab pulses yellow
+ * until the chat is open in front of you. */
+@keyframes chat-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(244,206,90,0); color: inherit; }
+  50% { box-shadow: 0 0 0 4px rgba(244,206,90,.45), 0 0 14px rgba(244,206,90,.55); color: #F4CE5A; }
+}
+.ctab.unread { animation: chat-pulse 1.4s ease-in-out infinite; color: #F4CE5A; }
+.ctab.unread::after { content: " \25CF"; font-size: .6em; vertical-align: middle; }
+@media (prefers-reduced-motion: reduce) {
+  .ctab.unread { animation: none; box-shadow: 0 0 0 2px rgba(244,206,90,.6); }
+}

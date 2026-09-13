@@ -1,0 +1,1808 @@
+[
+  {
+    "id": "talltales",
+    "name": "Tall Tales",
+    "subject": "American Myths",
+    "levels": {
+      "easy": [
+        {
+          "answer": "PAUL",
+          "clue": "Bunyan, the giant lumberjack"
+        },
+        {
+          "answer": "BUNYAN",
+          "clue": "Paul, who dug the Great Lakes"
+        },
+        {
+          "answer": "BABE",
+          "clue": "Paul Bunyan's blue ox"
+        },
+        {
+          "answer": "BLUE",
+          "clue": "The colour of Babe the ox"
+        },
+        {
+          "answer": "AXE",
+          "clue": "Paul Bunyan's tool"
+        },
+        {
+          "answer": "GIANT",
+          "clue": "Paul Bunyan was one"
+        },
+        {
+          "answer": "APPLE",
+          "clue": "Johnny planted the seeds"
+        },
+        {
+          "answer": "SEED",
+          "clue": "Johnny Appleseed scattered them"
+        },
+        {
+          "answer": "JOHNNY",
+          "clue": "Appleseed, who walked the frontier"
+        },
+        {
+          "answer": "POT",
+          "clue": "Johnny Appleseed wore one as a hat"
+        },
+        {
+          "answer": "HAMMER",
+          "clue": "John Henry swung one"
+        },
+        {
+          "answer": "STEEL",
+          "clue": "John Henry drove it"
+        },
+        {
+          "answer": "RAILROAD",
+          "clue": "John Henry worked on it"
+        },
+        {
+          "answer": "COWBOY",
+          "clue": "Pecos Bill was the wildest"
+        },
+        {
+          "answer": "LASSO",
+          "clue": "Pecos Bill roped a tornado with one"
+        },
+        {
+          "answer": "TORNADO",
+          "clue": "Pecos Bill rode one"
+        },
+        {
+          "answer": "COYOTE",
+          "clue": "Pecos Bill was raised by them"
+        },
+        {
+          "answer": "BEAR",
+          "clue": "Davy Crockett killed one at three"
+        },
+        {
+          "answer": "CAP",
+          "clue": "Davy Crockett's coonskin hat"
+        },
+        {
+          "answer": "RIVER",
+          "clue": "Mike Fink was king of the keelboat men on it"
+        },
+        {
+          "answer": "BOAT",
+          "clue": "Mike Fink's keelboat"
+        },
+        {
+          "answer": "STORY",
+          "clue": "A tall tale is one that grew in the telling"
+        },
+        {
+          "answer": "HERO",
+          "clue": "Bigger than life, in a tall tale"
+        },
+        {
+          "answer": "LEGEND",
+          "clue": "A story passed down as true"
+        }
+      ],
+      "medium": [
+        {
+          "answer": "APPLESEED",
+          "clue": "Johnny, who planted orchards across Ohio"
+        },
+        {
+          "answer": "JOHNHENRY",
+          "clue": "The steel-driving man"
+        },
+        {
+          "answer": "PECOSBILL",
+          "clue": "The cowboy who rode a cyclone"
+        },
+        {
+          "answer": "CROCKETT",
+          "clue": "Davy, king of the wild frontier"
+        },
+        {
+          "answer": "MIKEFINK",
+          "clue": "The half horse, half alligator of the Mississippi"
+        },
+        {
+          "answer": "SLUEFOOTSUE",
+          "clue": "Pecos Bill's bride, who rode a catfish"
+        },
+        {
+          "answer": "WIDOWMAKER",
+          "clue": "Pecos Bill's horse, that no one else could ride"
+        },
+        {
+          "answer": "STEAMDRILL",
+          "clue": "The machine John Henry raced"
+        },
+        {
+          "answer": "LUMBERJACK",
+          "clue": "Paul Bunyan's trade"
+        },
+        {
+          "answer": "BLUEOX",
+          "clue": "Babe, by colour and kind"
+        },
+        {
+          "answer": "GREATLAKES",
+          "clue": "Paul Bunyan dug them to water Babe"
+        },
+        {
+          "answer": "GRANDCANYON",
+          "clue": "Paul Bunyan dragged his axe and made it"
+        },
+        {
+          "answer": "KEELBOAT",
+          "clue": "Mike Fink's craft"
+        },
+        {
+          "answer": "FRONTIER",
+          "clue": "Where tall tales grew"
+        },
+        {
+          "answer": "CAMPFIRE",
+          "clue": "Where tall tales were told"
+        },
+        {
+          "answer": "BOAST",
+          "clue": "The tall tale's favourite form"
+        },
+        {
+          "answer": "EXAGGERATE",
+          "clue": "What every tall tale does"
+        },
+        {
+          "answer": "FOLKLORE",
+          "clue": "The stories of the people"
+        },
+        {
+          "answer": "ORCHARD",
+          "clue": "What Johnny Appleseed left behind"
+        },
+        {
+          "answer": "COONSKIN",
+          "clue": "The cap, by material"
+        },
+        {
+          "answer": "SHARPSHOOTER",
+          "clue": "Annie Oakley was one"
+        },
+        {
+          "answer": "ANNIEOAKLEY",
+          "clue": "Little Sure Shot"
+        },
+        {
+          "answer": "BUFFALOBILL",
+          "clue": "Cody, whose Wild West show toured the world"
+        },
+        {
+          "answer": "CALAMITYJANE",
+          "clue": "The frontierswoman of Deadwood"
+        }
+      ],
+      "hard": [
+        {
+          "answer": "STORMALONG",
+          "clue": "Alfred Bulltop, the giant sailor"
+        },
+        {
+          "answer": "FEBOLDSON",
+          "clue": "Febold, the Nebraska farmer who out-tricked the weather"
+        },
+        {
+          "answer": "JOEMAGARAC",
+          "clue": "The steelworker made of steel"
+        },
+        {
+          "answer": "CASEYJONES",
+          "clue": "The engineer who died at the throttle"
+        },
+        {
+          "answer": "OLDSTORMALONG",
+          "clue": "His ship was too big for the Channel"
+        },
+        {
+          "answer": "SALLYANN",
+          "clue": "Thunder Ann Whirlwind, Crockett's wife in the tales"
+        },
+        {
+          "answer": "BIGTIMBER",
+          "clue": "The north woods where Bunyan logged"
+        },
+        {
+          "answer": "BLIZZARD",
+          "clue": "The popcorn one, in a Bunyan yarn"
+        },
+        {
+          "answer": "SOURDOUGHSAM",
+          "clue": "Bunyan's camp cook"
+        },
+        {
+          "answer": "GUMBEROO",
+          "clue": "A fearsome critter of the lumber camps"
+        },
+        {
+          "answer": "HODAG",
+          "clue": "The Wisconsin lumber-camp beast"
+        },
+        {
+          "answer": "SNIPEHUNT",
+          "clue": "The prank sending a greenhorn after nothing"
+        },
+        {
+          "answer": "CRACKERBARREL",
+          "clue": "Where the general-store tales were spun"
+        },
+        {
+          "answer": "GREENHORN",
+          "clue": "The newcomer the tale is told to"
+        },
+        {
+          "answer": "YARN",
+          "clue": "A long, winding tale"
+        },
+        {
+          "answer": "BRAGGADOCIO",
+          "clue": "The boastful spirit of the tall tale"
+        },
+        {
+          "answer": "RINGTAILED",
+          "clue": "Roarer, the frontier brawler's boast"
+        },
+        {
+          "answer": "HALFHORSE",
+          "clue": "Half alligator, Mike Fink's own description"
+        },
+        {
+          "answer": "BIGMOSE",
+          "clue": "The giant New York firefighter of the Bowery"
+        },
+        {
+          "answer": "PANHANDLE",
+          "clue": "Pecos Bill's stretch of Texas"
+        },
+        {
+          "answer": "SCHOOLCRAFT",
+          "clue": "Ohio was seeded with these, tale by tale"
+        },
+        {
+          "answer": "ROUNDRIVER",
+          "clue": "The Bunyan river that flowed in a circle"
+        },
+        {
+          "answer": "IRONHORSE",
+          "clue": "The locomotive John Henry beat"
+        },
+        {
+          "answer": "TUNNEL",
+          "clue": "Big Bend, where John Henry's race was run"
+        }
+      ]
+    }
+  },
+  {
+    "id": "cryptids",
+    "name": "Cryptids",
+    "subject": "American Myths",
+    "levels": {
+      "easy": [
+        {
+          "answer": "BIGFOOT",
+          "clue": "The hairy giant of the Northwest"
+        },
+        {
+          "answer": "FOOT",
+          "clue": "The print that named Bigfoot"
+        },
+        {
+          "answer": "HAIR",
+          "clue": "Bigfoot is covered in it"
+        },
+        {
+          "answer": "WOODS",
+          "clue": "Where Bigfoot is said to live"
+        },
+        {
+          "answer": "MONSTER",
+          "clue": "The lake kind, the swamp kind"
+        },
+        {
+          "answer": "LAKE",
+          "clue": "Champ lives in one"
+        },
+        {
+          "answer": "SWAMP",
+          "clue": "Where the Skunk Ape lurks"
+        },
+        {
+          "answer": "MOTH",
+          "clue": "The man of Point Pleasant was part one"
+        },
+        {
+          "answer": "WING",
+          "clue": "Mothman has two"
+        },
+        {
+          "answer": "DEVIL",
+          "clue": "The Jersey one"
+        },
+        {
+          "answer": "GOAT",
+          "clue": "The chupacabra's favourite meal"
+        },
+        {
+          "answer": "BLOOD",
+          "clue": "What the chupacabra drinks"
+        },
+        {
+          "answer": "TRACK",
+          "clue": "A footprint, to a hunter"
+        },
+        {
+          "answer": "SIGHTING",
+          "clue": "A reported glimpse"
+        },
+        {
+          "answer": "PHOTO",
+          "clue": "Always blurry"
+        },
+        {
+          "answer": "CAMERA",
+          "clue": "Never quite in focus"
+        },
+        {
+          "answer": "LEGEND",
+          "clue": "Every cryptid is one"
+        },
+        {
+          "answer": "HUNT",
+          "clue": "What believers go on"
+        },
+        {
+          "answer": "HOWL",
+          "clue": "Heard in the woods at night"
+        },
+        {
+          "answer": "CAVE",
+          "clue": "Where a beast might hide"
+        },
+        {
+          "answer": "SCALE",
+          "clue": "A lake monster has them"
+        },
+        {
+          "answer": "FANG",
+          "clue": "A long, sharp tooth"
+        },
+        {
+          "answer": "HOAX",
+          "clue": "A fake sighting"
+        },
+        {
+          "answer": "MYSTERY",
+          "clue": "What every cryptid remains"
+        }
+      ],
+      "medium": [
+        {
+          "answer": "SASQUATCH",
+          "clue": "Bigfoot's other name"
+        },
+        {
+          "answer": "MOTHMAN",
+          "clue": "The winged figure of West Virginia"
+        },
+        {
+          "answer": "JERSEYDEVIL",
+          "clue": "The Pine Barrens' horned horror"
+        },
+        {
+          "answer": "CHUPACABRA",
+          "clue": "The goat sucker"
+        },
+        {
+          "answer": "CHAMP",
+          "clue": "The monster of Lake Champlain"
+        },
+        {
+          "answer": "SKUNKAPE",
+          "clue": "Florida's smelly Bigfoot"
+        },
+        {
+          "answer": "WENDIGO",
+          "clue": "The hungry spirit of the northern woods"
+        },
+        {
+          "answer": "THUNDERBIRD",
+          "clue": "The giant bird of the Plains"
+        },
+        {
+          "answer": "GOWROW",
+          "clue": "The tusked beast of the Ozarks"
+        },
+        {
+          "answer": "GOATMAN",
+          "clue": "The horned figure of Maryland"
+        },
+        {
+          "answer": "LIZARDMAN",
+          "clue": "The scaly thing of Scape Ore Swamp"
+        },
+        {
+          "answer": "FLATWOODS",
+          "clue": "The West Virginia monster with the spade-shaped head"
+        },
+        {
+          "answer": "OGOPOGO",
+          "clue": "Canada's lake serpent, cousin to Champ"
+        },
+        {
+          "answer": "PINEBARRENS",
+          "clue": "The Jersey Devil's home"
+        },
+        {
+          "answer": "POINTPLEASANT",
+          "clue": "The town Mothman haunted"
+        },
+        {
+          "answer": "SILVERBRIDGE",
+          "clue": "It fell after Mothman was seen"
+        },
+        {
+          "answer": "PATTERSON",
+          "clue": "The famous shaky Bigfoot film"
+        },
+        {
+          "answer": "CRYPTOZOOLOGY",
+          "clue": "The study of hidden animals"
+        },
+        {
+          "answer": "FOOTPRINT",
+          "clue": "Sixteen inches long, in the plaster cast"
+        },
+        {
+          "answer": "PLASTERCAST",
+          "clue": "How a footprint is preserved"
+        },
+        {
+          "answer": "SERPENT",
+          "clue": "What most lake monsters are described as"
+        },
+        {
+          "answer": "HUMANOID",
+          "clue": "Shaped like a person"
+        },
+        {
+          "answer": "NOCTURNAL",
+          "clue": "Active at night, like most cryptids"
+        },
+        {
+          "answer": "FOLKLORE",
+          "clue": "Where cryptids live for certain"
+        }
+      ],
+      "hard": [
+        {
+          "answer": "DOVERDEMON",
+          "clue": "The big-eyed thing seen in Massachusetts in 1977"
+        },
+        {
+          "answer": "LOVELANDFROG",
+          "clue": "Ohio's upright frog man"
+        },
+        {
+          "answer": "BEASTOFBRAY",
+          "clue": "Road, the Wisconsin werewolf"
+        },
+        {
+          "answer": "FOUKEMONSTER",
+          "clue": "The Boggy Creek creature of Arkansas"
+        },
+        {
+          "answer": "HONEYISLAND",
+          "clue": "The swamp monster of Louisiana"
+        },
+        {
+          "answer": "MOMO",
+          "clue": "The Missouri Monster"
+        },
+        {
+          "answer": "GRASSMAN",
+          "clue": "Ohio's own Bigfoot"
+        },
+        {
+          "answer": "NIGHTCRAWLER",
+          "clue": "The Fresno pair of walking legs caught on camera"
+        },
+        {
+          "answer": "MELONHEADS",
+          "clue": "The big-headed children of Connecticut lore"
+        },
+        {
+          "answer": "BUNNYMAN",
+          "clue": "The axe-wielding figure of Virginia"
+        },
+        {
+          "answer": "SNALLYGASTER",
+          "clue": "The dragon-bird of Maryland"
+        },
+        {
+          "answer": "DWAYYO",
+          "clue": "The Snallygaster's wolf-like enemy"
+        },
+        {
+          "answer": "ALTAMAHAHA",
+          "clue": "The river monster of Georgia"
+        },
+        {
+          "answer": "BESSIE",
+          "clue": "The monster of Lake Erie"
+        },
+        {
+          "answer": "TAHOETESSIE",
+          "clue": "The creature of Lake Tahoe"
+        },
+        {
+          "answer": "PUKWUDGIE",
+          "clue": "The little people of Wampanoag lore"
+        },
+        {
+          "answer": "HODAG",
+          "clue": "Rhinelander's spiky beast, and a hoax"
+        },
+        {
+          "answer": "JACKALOPE",
+          "clue": "The horned rabbit of Wyoming"
+        },
+        {
+          "answer": "FURTROUT",
+          "clue": "The fish with a coat, a taxidermy joke"
+        },
+        {
+          "answer": "SKINWALKER",
+          "clue": "The shape-shifter of Navajo lore"
+        },
+        {
+          "answer": "GIMLIN",
+          "clue": "Bob, who held the horses during the famous film"
+        },
+        {
+          "answer": "BLUFFCREEK",
+          "clue": "Where the Patterson film was shot"
+        },
+        {
+          "answer": "ICEMAN",
+          "clue": "The Minnesota body frozen in the carnival sideshow"
+        },
+        {
+          "answer": "BOGGYCREEK",
+          "clue": "The film that made the Fouke Monster famous"
+        }
+      ]
+    }
+  },
+  {
+    "id": "ghosts",
+    "name": "Ghost Stories",
+    "subject": "American Myths",
+    "levels": {
+      "easy": [
+        {
+          "answer": "GHOST",
+          "clue": "A spirit that lingers"
+        },
+        {
+          "answer": "HAUNT",
+          "clue": "What a ghost does to a house"
+        },
+        {
+          "answer": "SPIRIT",
+          "clue": "A soul without a body"
+        },
+        {
+          "answer": "HOUSE",
+          "clue": "The haunted kind"
+        },
+        {
+          "answer": "ATTIC",
+          "clue": "Where the footsteps come from"
+        },
+        {
+          "answer": "CELLAR",
+          "clue": "The dark room below"
+        },
+        {
+          "answer": "CANDLE",
+          "clue": "It flickers when a ghost is near"
+        },
+        {
+          "answer": "SHADOW",
+          "clue": "It moves when nothing casts it"
+        },
+        {
+          "answer": "CHAIN",
+          "clue": "The ghost rattles them"
+        },
+        {
+          "answer": "GRAVE",
+          "clue": "Where the story starts"
+        },
+        {
+          "answer": "TOMB",
+          "clue": "A grand grave"
+        },
+        {
+          "answer": "NIGHT",
+          "clue": "When the ghosts walk"
+        },
+        {
+          "answer": "MOON",
+          "clue": "Full, for a proper haunting"
+        },
+        {
+          "answer": "FOG",
+          "clue": "It rolls in before the ghost does"
+        },
+        {
+          "answer": "SCREAM",
+          "clue": "Heard from the empty room"
+        },
+        {
+          "answer": "WHISPER",
+          "clue": "A voice with no one there"
+        },
+        {
+          "answer": "CHILL",
+          "clue": "The cold spot in the hall"
+        },
+        {
+          "answer": "MIRROR",
+          "clue": "Say her name three times in one"
+        },
+        {
+          "answer": "DOOR",
+          "clue": "It creaks open by itself"
+        },
+        {
+          "answer": "STAIR",
+          "clue": "The creaking step"
+        },
+        {
+          "answer": "LANTERN",
+          "clue": "The ghost light on the road"
+        },
+        {
+          "answer": "WIDOW",
+          "clue": "The lady in white is often one"
+        },
+        {
+          "answer": "CURSE",
+          "clue": "The reason the ghost can't rest"
+        },
+        {
+          "answer": "TALE",
+          "clue": "Told around the campfire"
+        }
+      ],
+      "medium": [
+        {
+          "answer": "HEADLESS",
+          "clue": "The Horseman of Sleepy Hollow"
+        },
+        {
+          "answer": "HORSEMAN",
+          "clue": "He rides without a head"
+        },
+        {
+          "answer": "SLEEPYHOLLOW",
+          "clue": "Ichabod Crane's town"
+        },
+        {
+          "answer": "ICHABOD",
+          "clue": "Crane, the schoolmaster who fled"
+        },
+        {
+          "answer": "BLOODYMARY",
+          "clue": "Say it three times in the mirror"
+        },
+        {
+          "answer": "BELLWITCH",
+          "clue": "The Tennessee spirit that tormented a family"
+        },
+        {
+          "answer": "LALLORONA",
+          "clue": "The weeping woman by the river"
+        },
+        {
+          "answer": "WINCHESTER",
+          "clue": "The mystery house with stairs to nowhere"
+        },
+        {
+          "answer": "AMITYVILLE",
+          "clue": "The Long Island horror house"
+        },
+        {
+          "answer": "GETTYSBURG",
+          "clue": "The battlefield where soldiers still march"
+        },
+        {
+          "answer": "ALCATRAZ",
+          "clue": "The haunted prison in the bay"
+        },
+        {
+          "answer": "STANLEY",
+          "clue": "The hotel that inspired The Shining"
+        },
+        {
+          "answer": "MYRTLES",
+          "clue": "The Louisiana plantation with the ghost in the mirror"
+        },
+        {
+          "answer": "LIZZIEBORDEN",
+          "clue": "Her house is a bed and breakfast now"
+        },
+        {
+          "answer": "RESURRECTION",
+          "clue": "Mary, the hitchhiking ghost of Chicago"
+        },
+        {
+          "answer": "POLTERGEIST",
+          "clue": "A noisy ghost that throws things"
+        },
+        {
+          "answer": "SEANCE",
+          "clue": "A gathering to speak with the dead"
+        },
+        {
+          "answer": "MEDIUM",
+          "clue": "One who speaks for the dead"
+        },
+        {
+          "answer": "OUIJA",
+          "clue": "The board with the planchette"
+        },
+        {
+          "answer": "APPARITION",
+          "clue": "A ghost you can see"
+        },
+        {
+          "answer": "PHANTOM",
+          "clue": "A ghost, by another name"
+        },
+        {
+          "answer": "SPECTER",
+          "clue": "A ghost, by yet another"
+        },
+        {
+          "answer": "BANSHEE",
+          "clue": "Her wail means a death is coming"
+        },
+        {
+          "answer": "WRAITH",
+          "clue": "A ghost seen just before or after a death"
+        }
+      ],
+      "hard": [
+        {
+          "answer": "GREYLADY",
+          "clue": "The ghost of Willard Library in Indiana"
+        },
+        {
+          "answer": "BROWNLADY",
+          "clue": "The famous staircase photograph"
+        },
+        {
+          "answer": "WHALEYHOUSE",
+          "clue": "San Diego's most haunted"
+        },
+        {
+          "answer": "LEMPMANSION",
+          "clue": "The St. Louis brewing family's cursed home"
+        },
+        {
+          "answer": "WAVERLYHILLS",
+          "clue": "The Kentucky sanatorium with the death tunnel"
+        },
+        {
+          "answer": "EASTERNSTATE",
+          "clue": "The Philadelphia penitentiary with the cellblock shadows"
+        },
+        {
+          "answer": "ASYLUM",
+          "clue": "Trans-Allegheny, the haunted one in West Virginia"
+        },
+        {
+          "answer": "QUEENMARY",
+          "clue": "The haunted ocean liner at Long Beach"
+        },
+        {
+          "answer": "OCTAGONHOUSE",
+          "clue": "Washington's haunted eight-sided mansion"
+        },
+        {
+          "answer": "LINCOLNGHOST",
+          "clue": "Seen in the White House by Churchill and others"
+        },
+        {
+          "answer": "MOUNDSVILLE",
+          "clue": "The West Virginia penitentiary and its shadow man"
+        },
+        {
+          "answer": "BACHELORS",
+          "clue": "Grove, the haunted cemetery outside Chicago"
+        },
+        {
+          "answer": "SALEM",
+          "clue": "The witch trials, and the ghosts left over"
+        },
+        {
+          "answer": "GILESCOREY",
+          "clue": "Pressed to death, cursing Salem's sheriffs"
+        },
+        {
+          "answer": "SEVENGABLES",
+          "clue": "The house of, in Salem"
+        },
+        {
+          "answer": "HULLHOUSE",
+          "clue": "Chicago's devil baby legend"
+        },
+        {
+          "answer": "DEVILBABY",
+          "clue": "The child said to be hidden in Hull House"
+        },
+        {
+          "answer": "GHOSTLIGHT",
+          "clue": "The lone bulb left burning on a stage"
+        },
+        {
+          "answer": "PAULDINGLIGHT",
+          "clue": "The mystery light on a Michigan road"
+        },
+        {
+          "answer": "MARFALIGHTS",
+          "clue": "The glowing orbs of West Texas"
+        },
+        {
+          "answer": "BROWNMOUNTAIN",
+          "clue": "North Carolina's lights on the ridge"
+        },
+        {
+          "answer": "GURDONLIGHT",
+          "clue": "The ghost lantern on the Arkansas tracks"
+        },
+        {
+          "answer": "HITCHHIKER",
+          "clue": "The phantom rider who vanishes from the back seat"
+        },
+        {
+          "answer": "ECTOPLASM",
+          "clue": "The ghostly substance mediums produced"
+        }
+      ]
+    }
+  },
+  {
+    "id": "oldwest",
+    "name": "Legends of the Old West",
+    "subject": "American Myths",
+    "levels": {
+      "easy": [
+        {
+          "answer": "OUTLAW",
+          "clue": "Wanted, dead or alive"
+        },
+        {
+          "answer": "SHERIFF",
+          "clue": "The badge in town"
+        },
+        {
+          "answer": "BADGE",
+          "clue": "The star on the lawman's chest"
+        },
+        {
+          "answer": "GUN",
+          "clue": "The six-shooter"
+        },
+        {
+          "answer": "DUEL",
+          "clue": "High noon, ten paces"
+        },
+        {
+          "answer": "SALOON",
+          "clue": "Swinging doors and a piano"
+        },
+        {
+          "answer": "POKER",
+          "clue": "The game at the back table"
+        },
+        {
+          "answer": "HORSE",
+          "clue": "The outlaw's getaway"
+        },
+        {
+          "answer": "BANK",
+          "clue": "What the James gang robbed"
+        },
+        {
+          "answer": "TRAIN",
+          "clue": "The other thing they robbed"
+        },
+        {
+          "answer": "GOLD",
+          "clue": "In the stagecoach strongbox"
+        },
+        {
+          "answer": "POSSE",
+          "clue": "The riders chasing the outlaw"
+        },
+        {
+          "answer": "WANTED",
+          "clue": "The poster's first word"
+        },
+        {
+          "answer": "REWARD",
+          "clue": "Offered on the poster"
+        },
+        {
+          "answer": "JAIL",
+          "clue": "Where the sheriff put them"
+        },
+        {
+          "answer": "NOOSE",
+          "clue": "The hanging rope"
+        },
+        {
+          "answer": "BOOT",
+          "clue": "Hill, where the gunfighters were buried"
+        },
+        {
+          "answer": "SPUR",
+          "clue": "It jingles on the boot"
+        },
+        {
+          "answer": "HAT",
+          "clue": "Ten gallons"
+        },
+        {
+          "answer": "DUST",
+          "clue": "It rises on the trail"
+        },
+        {
+          "answer": "CANYON",
+          "clue": "Where the ambush waits"
+        },
+        {
+          "answer": "GULCH",
+          "clue": "Deadwood was one"
+        },
+        {
+          "answer": "GANG",
+          "clue": "The James one, the Dalton one"
+        },
+        {
+          "answer": "LEGEND",
+          "clue": "What every gunfighter became"
+        }
+      ],
+      "medium": [
+        {
+          "answer": "JESSEJAMES",
+          "clue": "The most famous outlaw of all"
+        },
+        {
+          "answer": "BILLYTHEKID",
+          "clue": "Twenty-one dead by twenty-one, the legend says"
+        },
+        {
+          "answer": "WYATTEARP",
+          "clue": "The lawman of Tombstone"
+        },
+        {
+          "answer": "DOCHOLLIDAY",
+          "clue": "The dentist with the pistol"
+        },
+        {
+          "answer": "OKCORRAL",
+          "clue": "The gunfight of 1881"
+        },
+        {
+          "answer": "TOMBSTONE",
+          "clue": "The Arizona town too tough to die"
+        },
+        {
+          "answer": "DEADWOOD",
+          "clue": "The lawless gulch of the Black Hills"
+        },
+        {
+          "answer": "WILDBILL",
+          "clue": "Hickok, shot holding aces and eights"
+        },
+        {
+          "answer": "DEADMANSHAND",
+          "clue": "Aces and eights"
+        },
+        {
+          "answer": "BUTCHCASSIDY",
+          "clue": "Leader of the Wild Bunch"
+        },
+        {
+          "answer": "SUNDANCE",
+          "clue": "The Kid who rode with Butch"
+        },
+        {
+          "answer": "WILDBUNCH",
+          "clue": "Butch Cassidy's gang"
+        },
+        {
+          "answer": "PATGARRETT",
+          "clue": "The sheriff who shot Billy the Kid"
+        },
+        {
+          "answer": "BELLESTARR",
+          "clue": "The Bandit Queen"
+        },
+        {
+          "answer": "DALTONGANG",
+          "clue": "Wiped out robbing two banks at once"
+        },
+        {
+          "answer": "COFFEYVILLE",
+          "clue": "Where the Daltons died"
+        },
+        {
+          "answer": "PINKERTON",
+          "clue": "The detective agency that hunted outlaws"
+        },
+        {
+          "answer": "BOOTHILL",
+          "clue": "The gunfighters' cemetery"
+        },
+        {
+          "answer": "GUNSLINGER",
+          "clue": "A hired gun"
+        },
+        {
+          "answer": "BOUNTYHUNTER",
+          "clue": "He brought them in for the reward"
+        },
+        {
+          "answer": "STAGECOACH",
+          "clue": "Robbed on the lonely road"
+        },
+        {
+          "answer": "VIGILANTE",
+          "clue": "Justice without a judge"
+        },
+        {
+          "answer": "SIXSHOOTER",
+          "clue": "The Colt revolver"
+        },
+        {
+          "answer": "WINCHESTER",
+          "clue": "The gun that won the West"
+        }
+      ],
+      "hard": [
+        {
+          "answer": "CLANTONS",
+          "clue": "The cowboys who faced the Earps"
+        },
+        {
+          "answer": "MCLAURYS",
+          "clue": "The brothers who died at the O.K. Corral"
+        },
+        {
+          "answer": "JOHNNYRINGO",
+          "clue": "The educated gunman of Tombstone"
+        },
+        {
+          "answer": "BATMASTERSON",
+          "clue": "The lawman turned sportswriter"
+        },
+        {
+          "answer": "BASSREEVES",
+          "clue": "The deputy marshal said to inspire the Lone Ranger"
+        },
+        {
+          "answer": "LONERANGER",
+          "clue": "The masked rider and Tonto"
+        },
+        {
+          "answer": "TONTO",
+          "clue": "The Lone Ranger's companion"
+        },
+        {
+          "answer": "BLACKBART",
+          "clue": "The stagecoach robber who left poems"
+        },
+        {
+          "answer": "SAMBASS",
+          "clue": "The Texas train robber"
+        },
+        {
+          "answer": "BOBFORD",
+          "clue": "The coward who shot Jesse James"
+        },
+        {
+          "answer": "LINCOLNCOUNTY",
+          "clue": "The war that made Billy the Kid"
+        },
+        {
+          "answer": "TUNSTALL",
+          "clue": "The rancher whose murder started that war"
+        },
+        {
+          "answer": "REGULATORS",
+          "clue": "Billy the Kid's side in the county war"
+        },
+        {
+          "answer": "HOLEINTHEWALL",
+          "clue": "The outlaw hideout in Wyoming"
+        },
+        {
+          "answer": "ROBBERSROOST",
+          "clue": "The Wild Bunch's Utah hideout"
+        },
+        {
+          "answer": "NORTHFIELD",
+          "clue": "The Minnesota raid that broke the James gang"
+        },
+        {
+          "answer": "COLEYOUNGER",
+          "clue": "He rode with Jesse and survived Northfield"
+        },
+        {
+          "answer": "QUANTRILL",
+          "clue": "The guerrilla raider Jesse rode with"
+        },
+        {
+          "answer": "BLOODYBILL",
+          "clue": "Anderson, the bushwhacker"
+        },
+        {
+          "answer": "JUDGEROYBEAN",
+          "clue": "The law west of the Pecos"
+        },
+        {
+          "answer": "HANGINGJUDGE",
+          "clue": "Isaac Parker of Fort Smith"
+        },
+        {
+          "answer": "TEXASRANGERS",
+          "clue": "One riot, one Ranger"
+        },
+        {
+          "answer": "BUCKAROO",
+          "clue": "The cowboy, from the Spanish vaquero"
+        },
+        {
+          "answer": "LONGHORN",
+          "clue": "The cattle of the trail drives"
+        }
+      ]
+    }
+  },
+  {
+    "id": "urbanlegends",
+    "name": "Urban Legends",
+    "subject": "American Myths",
+    "levels": {
+      "easy": [
+        {
+          "answer": "HOOK",
+          "clue": "The man with one for a hand"
+        },
+        {
+          "answer": "CAR",
+          "clue": "Where the couple parked"
+        },
+        {
+          "answer": "DOOR",
+          "clue": "The handle the hook was hanging from"
+        },
+        {
+          "answer": "PHONE",
+          "clue": "The call is coming from inside the house"
+        },
+        {
+          "answer": "BABYSITTER",
+          "clue": "She answered that phone"
+        },
+        {
+          "answer": "MIRROR",
+          "clue": "Bloody Mary appears in it"
+        },
+        {
+          "answer": "CANDY",
+          "clue": "The razor blade was said to be in it"
+        },
+        {
+          "answer": "RAZOR",
+          "clue": "Hidden in the Halloween apple, they said"
+        },
+        {
+          "answer": "SEWER",
+          "clue": "Where the alligators live"
+        },
+        {
+          "answer": "GATOR",
+          "clue": "Flushed as a baby, grown up below New York"
+        },
+        {
+          "answer": "SPIDER",
+          "clue": "The eggs in the beehive hairdo"
+        },
+        {
+          "answer": "KIDNEY",
+          "clue": "Woke up in a bathtub of ice missing one"
+        },
+        {
+          "answer": "BATHTUB",
+          "clue": "Full of ice, in that story"
+        },
+        {
+          "answer": "GUM",
+          "clue": "Swallowed, it stays seven years, they say"
+        },
+        {
+          "answer": "POPROCKS",
+          "clue": "Mixed with soda, they said it was fatal"
+        },
+        {
+          "answer": "SODA",
+          "clue": "The other half of that mix"
+        },
+        {
+          "answer": "RAT",
+          "clue": "Found in the fried chicken, so the story goes"
+        },
+        {
+          "answer": "RUMOR",
+          "clue": "How a legend spreads"
+        },
+        {
+          "answer": "FRIEND",
+          "clue": "It happened to one of a friend"
+        },
+        {
+          "answer": "TRUE",
+          "clue": "What the teller swears it is"
+        },
+        {
+          "answer": "SCARY",
+          "clue": "What a good one is"
+        },
+        {
+          "answer": "CAMP",
+          "clue": "Where they get told"
+        },
+        {
+          "answer": "DARK",
+          "clue": "When the story works best"
+        },
+        {
+          "answer": "WARNING",
+          "clue": "Every urban legend carries one"
+        }
+      ],
+      "medium": [
+        {
+          "answer": "THEHOOK",
+          "clue": "The lovers' lane classic"
+        },
+        {
+          "answer": "LOVERSLANE",
+          "clue": "Where the hook man prowls"
+        },
+        {
+          "answer": "BLOODYMARY",
+          "clue": "The mirror summoning"
+        },
+        {
+          "answer": "VANISHING",
+          "clue": "The hitchhiker who isn't in the back seat"
+        },
+        {
+          "answer": "HITCHHIKER",
+          "clue": "Picked up on a rainy night, gone by morning"
+        },
+        {
+          "answer": "BACKSEAT",
+          "clue": "Why the driver behind kept flashing his lights"
+        },
+        {
+          "answer": "SEWERGATORS",
+          "clue": "The reptiles under Manhattan"
+        },
+        {
+          "answer": "KIDNEYHEIST",
+          "clue": "The organ thieves and the ice bath"
+        },
+        {
+          "answer": "MEXICANPET",
+          "clue": "The little dog that was a rat"
+        },
+        {
+          "answer": "MICROWAVEDPET",
+          "clue": "The poodle dried in the oven"
+        },
+        {
+          "answer": "SPIDEREGGS",
+          "clue": "Hatched in the cactus, or the hair"
+        },
+        {
+          "answer": "BEEHIVEHAIRDO",
+          "clue": "The nest that housed the spider"
+        },
+        {
+          "answer": "DOBERMAN",
+          "clue": "The choking dog with fingers in its throat"
+        },
+        {
+          "answer": "LICKEDHAND",
+          "clue": "Humans can lick too"
+        },
+        {
+          "answer": "SLENDERMAN",
+          "clue": "The tall faceless figure born online"
+        },
+        {
+          "answer": "CANDYMAN",
+          "clue": "Say it five times in the mirror"
+        },
+        {
+          "answer": "MOMO",
+          "clue": "The bird-woman challenge hoax"
+        },
+        {
+          "answer": "POLYBIUS",
+          "clue": "The arcade game that never existed"
+        },
+        {
+          "answer": "BLUEWHALE",
+          "clue": "The challenge that was a panic"
+        },
+        {
+          "answer": "GLOWSTICK",
+          "clue": "The liquid inside is not that dangerous"
+        },
+        {
+          "answer": "HEADLIGHTS",
+          "clue": "Flash them at a dark car and the gang gives chase, they said"
+        },
+        {
+          "answer": "FOAF",
+          "clue": "Friend of a friend, the legend's source"
+        },
+        {
+          "answer": "CHAINLETTER",
+          "clue": "Break it and bad luck follows"
+        },
+        {
+          "answer": "SNOPES",
+          "clue": "Where legends go to be checked"
+        }
+      ],
+      "hard": [
+        {
+          "answer": "BUNNYMAN",
+          "clue": "The Virginia bridge legend with the axe"
+        },
+        {
+          "answer": "CROPSEY",
+          "clue": "The Staten Island boogeyman"
+        },
+        {
+          "answer": "CHARHENRY",
+          "clue": "The Charlie Charlie pencil game"
+        },
+        {
+          "answer": "CLINTONROAD",
+          "clue": "New Jersey's most haunted highway"
+        },
+        {
+          "answer": "OLDALTON",
+          "clue": "The Texas bridge the Goatman haunts"
+        },
+        {
+          "answer": "HELLSGATE",
+          "clue": "The bridge with a demon underneath"
+        },
+        {
+          "answer": "CRYBABYBRIDGE",
+          "clue": "Where the infant's wail is heard"
+        },
+        {
+          "answer": "GRAVITYHILL",
+          "clue": "Where your car rolls uphill"
+        },
+        {
+          "answer": "BLACKEYEDKIDS",
+          "clue": "They knock and ask to be let in"
+        },
+        {
+          "answer": "MARYWORTH",
+          "clue": "One name given to the mirror witch"
+        },
+        {
+          "answer": "HOTELBED",
+          "clue": "The mattress with a secret underneath"
+        },
+        {
+          "answer": "HAIRYARMS",
+          "clue": "The old woman hitchhiker who was not a woman"
+        },
+        {
+          "answer": "COLCHESTER",
+          "clue": "The overpass in Fairfax County"
+        },
+        {
+          "answer": "GREENMAN",
+          "clue": "Charlie No-Face of Pennsylvania"
+        },
+        {
+          "answer": "CHARLIENOFACE",
+          "clue": "The burned man who walked the roads at night"
+        },
+        {
+          "answer": "HOOKMAN",
+          "clue": "The escaped killer with the prosthetic"
+        },
+        {
+          "answer": "DEADPETROBBER",
+          "clue": "The story of the dog and the diamond ring"
+        },
+        {
+          "answer": "FOLKLORIST",
+          "clue": "One who collects these stories seriously"
+        },
+        {
+          "answer": "BRUNVAND",
+          "clue": "Jan Harold, who named the urban legend"
+        },
+        {
+          "answer": "MEMETIC",
+          "clue": "Spreading like a meme"
+        },
+        {
+          "answer": "CREEPYPASTA",
+          "clue": "The internet's horror fiction"
+        },
+        {
+          "answer": "PROPHECIES",
+          "clue": "The Mothman book that made Point Pleasant famous"
+        },
+        {
+          "answer": "OSTENSION",
+          "clue": "Acting out a legend for real"
+        },
+        {
+          "answer": "CAUTIONARY",
+          "clue": "The kind of tale every legend is"
+        }
+      ]
+    }
+  },
+  {
+    "id": "founding",
+    "name": "Founding Legends",
+    "subject": "American Myths",
+    "levels": {
+      "easy": [
+        {
+          "answer": "CHERRY",
+          "clue": "The tree young Washington chopped down"
+        },
+        {
+          "answer": "TREE",
+          "clue": "He could not tell a lie about it"
+        },
+        {
+          "answer": "LIE",
+          "clue": "What Washington could not tell"
+        },
+        {
+          "answer": "FLAG",
+          "clue": "Betsy Ross sewed the first"
+        },
+        {
+          "answer": "BETSY",
+          "clue": "Ross, seamstress of legend"
+        },
+        {
+          "answer": "STAR",
+          "clue": "Thirteen on the first flag"
+        },
+        {
+          "answer": "KITE",
+          "clue": "Franklin flew one in the storm"
+        },
+        {
+          "answer": "KEY",
+          "clue": "It hung from Franklin's kite string"
+        },
+        {
+          "answer": "BOLT",
+          "clue": "Lightning, the kite's catch"
+        },
+        {
+          "answer": "RIDE",
+          "clue": "Paul Revere's midnight one"
+        },
+        {
+          "answer": "BELL",
+          "clue": "The Liberty one, cracked"
+        },
+        {
+          "answer": "CRACK",
+          "clue": "The Liberty Bell has a famous one"
+        },
+        {
+          "answer": "TEETH",
+          "clue": "Washington's were not wooden"
+        },
+        {
+          "answer": "WOODEN",
+          "clue": "What the false teeth legend says they were"
+        },
+        {
+          "answer": "COIN",
+          "clue": "Washington threw one across the Potomac"
+        },
+        {
+          "answer": "RIVER",
+          "clue": "The Potomac, in that throw"
+        },
+        {
+          "answer": "TURKEY",
+          "clue": "Franklin wanted it as the national bird, they say"
+        },
+        {
+          "answer": "EAGLE",
+          "clue": "The bird that won instead"
+        },
+        {
+          "answer": "PLYMOUTH",
+          "clue": "The rock the Pilgrims stepped on"
+        },
+        {
+          "answer": "ROCK",
+          "clue": "Plymouth's, which they may never have touched"
+        },
+        {
+          "answer": "PILGRIM",
+          "clue": "One who came on the Mayflower"
+        },
+        {
+          "answer": "TURKEYDAY",
+          "clue": "The first Thanksgiving may not have had one"
+        },
+        {
+          "answer": "HATCHET",
+          "clue": "The cherry tree's downfall"
+        },
+        {
+          "answer": "HERO",
+          "clue": "What every founding legend makes"
+        }
+      ],
+      "medium": [
+        {
+          "answer": "CHERRYTREE",
+          "clue": "The tale invented by a biographer"
+        },
+        {
+          "answer": "PARSONWEEMS",
+          "clue": "The biographer who made up the cherry tree"
+        },
+        {
+          "answer": "BETSYROSS",
+          "clue": "The flag story her grandson told"
+        },
+        {
+          "answer": "MIDNIGHTRIDE",
+          "clue": "Longfellow's poem, not quite the history"
+        },
+        {
+          "answer": "LONGFELLOW",
+          "clue": "He made Revere famous, eighty years on"
+        },
+        {
+          "answer": "WILLIAMDAWES",
+          "clue": "He rode too, and nobody wrote a poem"
+        },
+        {
+          "answer": "PRESCOTT",
+          "clue": "The third rider, who actually reached Concord"
+        },
+        {
+          "answer": "LIBERTYBELL",
+          "clue": "Not rung on July fourth, 1776"
+        },
+        {
+          "answer": "SILVERDOLLAR",
+          "clue": "Thrown across the Potomac, the tale says"
+        },
+        {
+          "answer": "WOODENTEETH",
+          "clue": "Ivory and gold, actually"
+        },
+        {
+          "answer": "HIPPOIVORY",
+          "clue": "One thing the teeth were really made of"
+        },
+        {
+          "answer": "LIGHTNINGROD",
+          "clue": "What Franklin's kite really led to"
+        },
+        {
+          "answer": "SIGNINGDAY",
+          "clue": "Most signed in August, not on the fourth"
+        },
+        {
+          "answer": "PLYMOUTHROCK",
+          "clue": "First mentioned a century after the landing"
+        },
+        {
+          "answer": "MAYFLOWER",
+          "clue": "The Pilgrims' ship"
+        },
+        {
+          "answer": "THANKSGIVING",
+          "clue": "The first, three days of venison and fowl"
+        },
+        {
+          "answer": "POCAHONTAS",
+          "clue": "Did she really save John Smith"
+        },
+        {
+          "answer": "JOHNSMITH",
+          "clue": "The captain who told that story years later"
+        },
+        {
+          "answer": "MOLLYPITCHER",
+          "clue": "The water carrier who took the cannon"
+        },
+        {
+          "answer": "NATHANHALE",
+          "clue": "His last words may have been borrowed"
+        },
+        {
+          "answer": "UNCLESAM",
+          "clue": "The meat packer who became the nation"
+        },
+        {
+          "answer": "YANKEEDOODLE",
+          "clue": "The British mocked, the colonists sang"
+        },
+        {
+          "answer": "DONTTREAD",
+          "clue": "On me, the rattlesnake flag"
+        },
+        {
+          "answer": "GADSDENFLAG",
+          "clue": "The rattlesnake on yellow"
+        }
+      ],
+      "hard": [
+        {
+          "answer": "IRVING",
+          "clue": "Washington, who invented the Knickerbocker history"
+        },
+        {
+          "answer": "KNICKERBOCKER",
+          "clue": "Irving's fictional Dutch historian"
+        },
+        {
+          "answer": "RIPVANWINKLE",
+          "clue": "He slept through the Revolution"
+        },
+        {
+          "answer": "WEEMS",
+          "clue": "Parson, the source of the cherry tree"
+        },
+        {
+          "answer": "CANBYCLAIM",
+          "clue": "William Canby, who told the Betsy Ross story in 1870"
+        },
+        {
+          "answer": "HOPKINSON",
+          "clue": "Francis, who actually designed the flag"
+        },
+        {
+          "answer": "BRITISH",
+          "clue": "What Revere never shouted were coming"
+        },
+        {
+          "answer": "REGULARS",
+          "clue": "Closer to what Revere said were out"
+        },
+        {
+          "answer": "OLDNORTH",
+          "clue": "The church where the lanterns hung"
+        },
+        {
+          "answer": "LIBERTYTREE",
+          "clue": "The Boston elm where the Sons met"
+        },
+        {
+          "answer": "MASONICLEGEND",
+          "clue": "The tale that the founders planned it all in lodges"
+        },
+        {
+          "answer": "GREATSEAL",
+          "clue": "The eagle, the pyramid and the eye"
+        },
+        {
+          "answer": "ALLSEEINGEYE",
+          "clue": "On the dollar, and the source of theories"
+        },
+        {
+          "answer": "NOVUSORDO",
+          "clue": "Seclorum, the new order of the ages"
+        },
+        {
+          "answer": "LOSTCOLONY",
+          "clue": "Roanoke, and the word Croatoan"
+        },
+        {
+          "answer": "CROATOAN",
+          "clue": "The word carved on the post"
+        },
+        {
+          "answer": "VIRGINIADARE",
+          "clue": "The first English child, who vanished with the colony"
+        },
+        {
+          "answer": "CONVICT",
+          "clue": "John Henry may have been one, laying track in Virginia"
+        },
+        {
+          "answer": "SAMPSON",
+          "clue": "Deborah, who fought the Revolution disguised as a man"
+        },
+        {
+          "answer": "LUDINGTON",
+          "clue": "Sybil, the girl who rode farther than Revere"
+        },
+        {
+          "answer": "PRINCEWHIPPLE",
+          "clue": "The Black soldier said to be in the Delaware painting"
+        },
+        {
+          "answer": "LEUTZE",
+          "clue": "He painted Washington crossing the Delaware, in Germany"
+        },
+        {
+          "answer": "FOUNDERS",
+          "clue": "The term Founding Fathers dates only to 1916"
+        },
+        {
+          "answer": "HARDING",
+          "clue": "The president who coined that term"
+        }
+      ]
+    }
+  }
+]

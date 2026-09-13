@@ -1,11 +1,13 @@
 #!/usr/bin/env node
-// Uploads dist/puzzles/ to KV. Works the same on Windows, macOS and Linux —
-// no shell required.
+// Uploads dist/puzzles/ to KV in one bulk put. Works the same on Windows,
+// macOS and Linux — no shell required.
 //
 //   npm run kv:upload         → the deployed Worker's namespace
 //   npm run kv:upload:local   → the store wrangler dev keeps on this machine
-
-import { readdirSync, existsSync } from "node:fs";
+//
+// One process per key was fine for fifty puzzles and unbearable for six
+// hundred; wrangler's bulk put takes the whole archive as one JSON file.
+import { readdirSync, readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -20,33 +22,25 @@ if (!existsSync(dir)) {
 }
 
 const files = readdirSync(dir).filter((f) => f.endsWith(".json"));
+const entries = files.map((file) => ({
+  key: file === "index.json" ? "index" : `puzzle:${file.replace(/\.json$/, "")}`,
+  value: readFileSync(join(dir, file), "utf8"),
+}));
+
+const bulkDir = join(root, "dist");
+mkdirSync(bulkDir, { recursive: true });
+const bulk = join(bulkDir, "kv-bulk.json");
+writeFileSync(bulk, JSON.stringify(entries));
+
 const npx = process.platform === "win32" ? "npx.cmd" : "npx";
-
-function put(key, file) {
-  const r = spawnSync(
-    npx,
-    ["wrangler", "kv", "key", "put", key, "--binding=PUZZLES", scope, "--path", join(dir, file)],
-    {
-      stdio: "inherit",
-      cwd: root,
-      // Node 20+ refuses to execute .cmd shims without a shell, so on Windows
-      // the spawn fails before wrangler ever runs.
-      shell: process.platform === "win32",
-    }
-  );
-  if (r.error) console.error(`Could not run wrangler: ${r.error.message}`);
-  return r.status === 0;
+const r = spawnSync(
+  npx,
+  ["wrangler", "kv", "bulk", "put", bulk, "--binding=PUZZLES", scope],
+  { stdio: "inherit", cwd: root, shell: process.platform === "win32" },
+);
+if (r.error) { console.error(`Could not run wrangler: ${r.error.message}`); process.exit(1); }
+if (r.status !== 0) {
+  console.error(`\nBulk put failed. The wrangler output above says why. To retry by hand:\n  npx wrangler kv bulk put dist/kv-bulk.json --binding=PUZZLES ${scope}`);
+  process.exit(1);
 }
-
-let done = 0;
-for (const file of files) {
-  const key = file === "index.json" ? "index" : `puzzle:${file.replace(/\.json$/, "")}`;
-  if (put(key, file)) done++;
-  else {
-    console.error(`\nFailed on ${key}. The wrangler output above says why.`);
-    console.error(`Run this by hand to see it in full:\n  npx wrangler kv key put ${key} --binding=PUZZLES ${scope} --path dist/puzzles/${file}`);
-    process.exit(1);
-  }
-}
-
-console.log(`\nUploaded ${done} keys ${scope === "--local" ? "to the local dev store" : "to your KV namespace"}.`);
+console.log(`\nUploaded ${entries.length} keys ${scope === "--local" ? "to the local dev store" : "to your KV namespace"}.`);

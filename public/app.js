@@ -1616,6 +1616,23 @@ async function loadFeed() {
     </div>`).join("");
 }
 
+const CHAT_SEEN_KEY = "omni.chat.seen";
+let chatSeen = 0;
+try { chatSeen = Number(localStorage.getItem(CHAT_SEEN_KEY) || 0); } catch { /* fine */ }
+
+/** Is the chat actually in front of the player right now? */
+function chatInView() {
+  return !document.hidden && commonsOpen() && commonsTab === "chat";
+}
+
+/** Everything up to now counts as read. */
+function markChatRead(rows) {
+  const newest = Math.max(chatSeen, ...rows.map((r) => new Date(r.at).getTime() || 0));
+  chatSeen = newest;
+  try { localStorage.setItem(CHAT_SEEN_KEY, String(newest)); } catch { /* fine */ }
+  $("ct-chat")?.classList.remove("unread");
+}
+
 async function loadChat() {
   const host = $("commons-chat");
   if (!host) return;
@@ -1624,6 +1641,17 @@ async function loadChat() {
     const res = await fetch("/api/chat");
     rows = (await res.json()).chat || [];
   } catch { rows = []; }
+
+  // Somebody else has spoken since you last looked: say so on the tab, and
+  // keep saying so until the chat is open in front of you. Your own lines
+  // never count — you have read what you wrote.
+  const others = rows.filter((r) => r.uid !== S.user?.uid);
+  const newest = Math.max(0, ...others.map((r) => new Date(r.at).getTime() || 0));
+  if (chatInView()) markChatRead(rows);
+  else if (newest > chatSeen) $("ct-chat")?.classList.add("unread");
+
+  // Nothing to draw into while the panel is closed or on another tab.
+  if (!commonsOpen() || commonsTab !== "chat") return;
 
   const stuck = host.scrollTop + host.clientHeight >= host.scrollHeight - 30;
   host.innerHTML = rows.length ? rows.map((r) => `
@@ -1668,6 +1696,7 @@ function showCommons(which) {
   $("chat-composer").hidden = which !== "chat";
   foldCommons(true);
   if (which === "feed") loadFeed(); else if (which === "chat") loadChat();
+  if (which === "chat") $("ct-chat").classList.remove("unread");
 }
 
 async function sendChat() {
@@ -1701,14 +1730,16 @@ function startCommons() {
   // Nothing is fetched while the panel is closed; there is nothing to show it in.
   clearInterval(commonsPoll);
   commonsPoll = setInterval(() => {
-    if (!commonsOpen() || commonsTab === "rooms") return;
-    if (commonsTab === "feed") loadFeed(); else loadChat();
+    loadChat();                                       // always: it owns the unread mark
+    if (commonsOpen() && commonsTab === "feed") loadFeed();
   }, 15_000);
+  loadChat();
   // Coming back to the tab after a while, the first thing you see should be
   // current rather than whatever the last poll caught before you left.
   document.addEventListener("visibilitychange", () => {
-    if (document.hidden || !commonsOpen() || commonsTab === "rooms") return;
-    if (commonsTab === "feed") loadFeed(); else loadChat();
+    if (document.hidden) return;
+    loadChat();
+    if (commonsOpen() && commonsTab === "feed") loadFeed();
   });
 }
 
@@ -2584,6 +2615,64 @@ function paintLobby() {
 
 // Category first, then the twenty-four inside it. One flat list of forty-eight
 // puzzles is a scroll-wheel; two steps is a choice.
+// ── the category dropdown ──────────────────────────────────────────
+//
+// Twenty-eight categories is too many for a native select, which opens as
+// tall as the screen allows. This is a dropdown that shows six and scrolls
+// for the rest. The native <select> stays underneath as the value and the
+// change event; everything else keeps reading and writing that.
+function catDrop() {
+  const sel = $("cat-select");
+  if (!sel || sel.dataset.dropped) return;
+  sel.dataset.dropped = "1";
+  sel.hidden = true;
+
+  const wrap = el("div", "catdrop");
+  const btn = el("button", "catdrop-btn");
+  btn.type = "button";
+  btn.setAttribute("aria-haspopup", "listbox");
+  btn.setAttribute("aria-expanded", "false");
+  const label = el("span", "catdrop-label", "");
+  const caret = el("span", "catdrop-caret", "▾");
+  btn.append(label, caret);
+  const list = el("ul", "catdrop-list");
+  list.setAttribute("role", "listbox");
+  list.hidden = true;
+  wrap.append(btn, list);
+  sel.after(wrap);
+
+  const close = () => { list.hidden = true; btn.setAttribute("aria-expanded", "false"); };
+  const open = () => {
+    list.hidden = false;
+    btn.setAttribute("aria-expanded", "true");
+    list.querySelector(".on")?.scrollIntoView({ block: "nearest" });
+  };
+  const sync = () => {
+    label.textContent = sel.options[sel.selectedIndex]?.textContent || "Choose a category";
+    list.textContent = "";
+    for (const o of sel.options) {
+      const li = el("li", `catdrop-item${o.value === sel.value ? " on" : ""}`, o.textContent);
+      li.setAttribute("role", "option");
+      li.setAttribute("aria-selected", String(o.value === sel.value));
+      li.onclick = () => {
+        sel.value = o.value;
+        sel.dispatchEvent(new Event("change", { bubbles: true }));
+        sync();
+        close();
+      };
+      list.append(li);
+    }
+  };
+  btn.onclick = () => { if (list.hidden) open(); else close(); };
+  document.addEventListener("click", (e) => { if (!wrap.contains(e.target)) close(); });
+  btn.onkeydown = (e) => { if (e.key === "Escape") close(); };
+
+  // Redraws of the select re-run through here.
+  new MutationObserver(sync).observe(sel, { childList: true });
+  sel.addEventListener("change", sync);
+  sync();
+}
+
 function drawCategorySelect() {
   const sel = $("cat-select");
   const want = sel.value || S.category || (categories()[0]?.id ?? "");
@@ -2600,6 +2689,7 @@ function drawCategorySelect() {
   }
   sel.value = [...sel.options].some((o) => o.value === want) ? want : (sel.options[0]?.value ?? "");
   S.category = sel.value;
+  catDrop();
 }
 
 function drawScrollSelect() {

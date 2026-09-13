@@ -1,0 +1,1808 @@
+[
+  {
+    "id": "biology",
+    "name": "Biology",
+    "subject": "Science",
+    "levels": {
+      "easy": [
+        {
+          "answer": "CELL",
+          "clue": "The smallest unit of life"
+        },
+        {
+          "answer": "GENE",
+          "clue": "A unit of heredity"
+        },
+        {
+          "answer": "LEAF",
+          "clue": "Where a plant makes its food"
+        },
+        {
+          "answer": "ROOT",
+          "clue": "The part of a plant underground"
+        },
+        {
+          "answer": "SEED",
+          "clue": "A plant starts as one"
+        },
+        {
+          "answer": "EGG",
+          "clue": "A bird hatches from one"
+        },
+        {
+          "answer": "BONE",
+          "clue": "Part of a skeleton"
+        },
+        {
+          "answer": "BLOOD",
+          "clue": "It carries oxygen around the body"
+        },
+        {
+          "answer": "HEART",
+          "clue": "The pump in your chest"
+        },
+        {
+          "answer": "LUNG",
+          "clue": "You breathe with it"
+        },
+        {
+          "answer": "SKIN",
+          "clue": "The body's largest organ"
+        },
+        {
+          "answer": "BRAIN",
+          "clue": "The organ that thinks"
+        },
+        {
+          "answer": "NERVE",
+          "clue": "It carries signals to the brain"
+        },
+        {
+          "answer": "MUSCLE",
+          "clue": "It contracts to move a bone"
+        },
+        {
+          "answer": "SPECIES",
+          "clue": "A kind of living thing"
+        },
+        {
+          "answer": "HABITAT",
+          "clue": "Where an animal naturally lives"
+        },
+        {
+          "answer": "FOSSIL",
+          "clue": "Ancient remains preserved in rock"
+        },
+        {
+          "answer": "INSECT",
+          "clue": "Six legs and three body parts"
+        },
+        {
+          "answer": "MAMMAL",
+          "clue": "Warm-blooded and feeds milk to its young"
+        },
+        {
+          "answer": "REPTILE",
+          "clue": "Cold-blooded and scaly"
+        },
+        {
+          "answer": "OXYGEN",
+          "clue": "The gas you breathe in"
+        },
+        {
+          "answer": "POLLEN",
+          "clue": "Bees carry it from flower to flower"
+        },
+        {
+          "answer": "PREDATOR",
+          "clue": "An animal that hunts others"
+        },
+        {
+          "answer": "VIRUS",
+          "clue": "A tiny agent that causes colds and flu"
+        }
+      ],
+      "medium": [
+        {
+          "answer": "NUCLEUS",
+          "clue": "The control centre of a cell"
+        },
+        {
+          "answer": "PROTEIN",
+          "clue": "Built from amino acids"
+        },
+        {
+          "answer": "ENZYME",
+          "clue": "A protein that speeds up a reaction"
+        },
+        {
+          "answer": "MEMBRANE",
+          "clue": "The thin wall around a cell"
+        },
+        {
+          "answer": "MITOSIS",
+          "clue": "One cell divides into two identical cells"
+        },
+        {
+          "answer": "ORGANISM",
+          "clue": "Any individual living thing"
+        },
+        {
+          "answer": "BACTERIA",
+          "clue": "Single-celled life without a nucleus"
+        },
+        {
+          "answer": "GENETICS",
+          "clue": "The study of heredity"
+        },
+        {
+          "answer": "EVOLUTION",
+          "clue": "Change in species over generations"
+        },
+        {
+          "answer": "MUTATION",
+          "clue": "A change in a gene"
+        },
+        {
+          "answer": "GLUCOSE",
+          "clue": "The sugar cells burn for energy"
+        },
+        {
+          "answer": "OSMOSIS",
+          "clue": "Water moving across a membrane"
+        },
+        {
+          "answer": "DIFFUSION",
+          "clue": "Particles spreading from high to low concentration"
+        },
+        {
+          "answer": "ECOSYSTEM",
+          "clue": "A community of living things and their surroundings"
+        },
+        {
+          "answer": "HORMONE",
+          "clue": "A chemical messenger in the blood"
+        },
+        {
+          "answer": "ANTIBODY",
+          "clue": "The immune system makes it to fight infection"
+        },
+        {
+          "answer": "VERTEBRA",
+          "clue": "One bone of the spine"
+        },
+        {
+          "answer": "AMPHIBIAN",
+          "clue": "A frog is one"
+        },
+        {
+          "answer": "PARASITE",
+          "clue": "It lives on a host and harms it"
+        },
+        {
+          "answer": "PLANKTON",
+          "clue": "Tiny drifting life in the sea"
+        },
+        {
+          "answer": "SYMBIOSIS",
+          "clue": "Two species living closely together"
+        },
+        {
+          "answer": "CARNIVORE",
+          "clue": "A meat eater"
+        },
+        {
+          "answer": "HERBIVORE",
+          "clue": "A plant eater"
+        },
+        {
+          "answer": "OMNIVORE",
+          "clue": "It eats plants and animals"
+        }
+      ],
+      "hard": [
+        {
+          "answer": "RIBOSOME",
+          "clue": "Where a cell assembles proteins"
+        },
+        {
+          "answer": "CHROMOSOME",
+          "clue": "A coiled strand of DNA in the nucleus"
+        },
+        {
+          "answer": "MEIOSIS",
+          "clue": "Cell division that makes sperm and eggs"
+        },
+        {
+          "answer": "PHENOTYPE",
+          "clue": "The traits you can actually see"
+        },
+        {
+          "answer": "GENOTYPE",
+          "clue": "The genes behind the traits"
+        },
+        {
+          "answer": "HOMEOSTASIS",
+          "clue": "Keeping the body's conditions steady"
+        },
+        {
+          "answer": "CHLOROPLAST",
+          "clue": "Where photosynthesis happens"
+        },
+        {
+          "answer": "CYTOPLASM",
+          "clue": "The jelly inside a cell"
+        },
+        {
+          "answer": "PROKARYOTE",
+          "clue": "A cell with no nucleus"
+        },
+        {
+          "answer": "EUKARYOTE",
+          "clue": "A cell with a nucleus"
+        },
+        {
+          "answer": "ALLELE",
+          "clue": "One version of a gene"
+        },
+        {
+          "answer": "HETEROZYGOUS",
+          "clue": "Two different alleles for a trait"
+        },
+        {
+          "answer": "TAXONOMY",
+          "clue": "The science of classifying life"
+        },
+        {
+          "answer": "PHYLOGENY",
+          "clue": "The evolutionary family tree"
+        },
+        {
+          "answer": "ADAPTATION",
+          "clue": "A trait that helps survival"
+        },
+        {
+          "answer": "BIODIVERSITY",
+          "clue": "The variety of life in a place"
+        },
+        {
+          "answer": "VACUOLE",
+          "clue": "A storage bubble inside a cell"
+        },
+        {
+          "answer": "LYSOSOME",
+          "clue": "The cell's recycling centre"
+        },
+        {
+          "answer": "TRANSCRIPTION",
+          "clue": "Copying DNA into RNA"
+        },
+        {
+          "answer": "TRANSLATION",
+          "clue": "Reading RNA to build a protein"
+        },
+        {
+          "answer": "NUCLEOTIDE",
+          "clue": "One building block of DNA"
+        },
+        {
+          "answer": "PATHOGEN",
+          "clue": "Anything that causes disease"
+        },
+        {
+          "answer": "METABOLISM",
+          "clue": "All the chemical reactions keeping you alive"
+        },
+        {
+          "answer": "CAPILLARY",
+          "clue": "The thinnest blood vessel"
+        }
+      ]
+    }
+  },
+  {
+    "id": "chemistry",
+    "name": "Chemistry",
+    "subject": "Science",
+    "levels": {
+      "easy": [
+        {
+          "answer": "ATOM",
+          "clue": "The smallest piece of an element"
+        },
+        {
+          "answer": "ACID",
+          "clue": "Lemon juice is one"
+        },
+        {
+          "answer": "BASE",
+          "clue": "The opposite of an acid"
+        },
+        {
+          "answer": "GAS",
+          "clue": "Steam is water as one"
+        },
+        {
+          "answer": "SOLID",
+          "clue": "Ice is water as one"
+        },
+        {
+          "answer": "LIQUID",
+          "clue": "It takes the shape of its container"
+        },
+        {
+          "answer": "METAL",
+          "clue": "Iron and gold are this"
+        },
+        {
+          "answer": "GOLD",
+          "clue": "Symbol Au"
+        },
+        {
+          "answer": "IRON",
+          "clue": "Symbol Fe"
+        },
+        {
+          "answer": "SALT",
+          "clue": "Sodium chloride on the table"
+        },
+        {
+          "answer": "WATER",
+          "clue": "H two O"
+        },
+        {
+          "answer": "OXYGEN",
+          "clue": "Symbol O"
+        },
+        {
+          "answer": "CARBON",
+          "clue": "Diamonds and pencil lead are made of it"
+        },
+        {
+          "answer": "HELIUM",
+          "clue": "The gas that makes balloons float"
+        },
+        {
+          "answer": "COPPER",
+          "clue": "Pennies and wires are made of it"
+        },
+        {
+          "answer": "SILVER",
+          "clue": "Symbol Ag"
+        },
+        {
+          "answer": "MELT",
+          "clue": "What ice does when it warms"
+        },
+        {
+          "answer": "BOIL",
+          "clue": "Water does this at 100 degrees"
+        },
+        {
+          "answer": "FREEZE",
+          "clue": "Water does this at zero degrees"
+        },
+        {
+          "answer": "MIXTURE",
+          "clue": "Sand and salt stirred together"
+        },
+        {
+          "answer": "ELEMENT",
+          "clue": "A substance made of one kind of atom"
+        },
+        {
+          "answer": "RUST",
+          "clue": "Iron plus oxygen plus time"
+        },
+        {
+          "answer": "BUBBLE",
+          "clue": "Gas escaping a fizzy drink"
+        },
+        {
+          "answer": "FLAME",
+          "clue": "The visible part of a fire"
+        }
+      ],
+      "medium": [
+        {
+          "answer": "MOLECULE",
+          "clue": "Two or more atoms bonded together"
+        },
+        {
+          "answer": "PROTON",
+          "clue": "A positive particle in the nucleus"
+        },
+        {
+          "answer": "NEUTRON",
+          "clue": "A particle with no charge"
+        },
+        {
+          "answer": "ELECTRON",
+          "clue": "A negative particle orbiting the nucleus"
+        },
+        {
+          "answer": "COMPOUND",
+          "clue": "Two or more elements chemically joined"
+        },
+        {
+          "answer": "REACTION",
+          "clue": "Substances changing into new ones"
+        },
+        {
+          "answer": "SOLUTION",
+          "clue": "Salt dissolved in water is one"
+        },
+        {
+          "answer": "SOLVENT",
+          "clue": "The liquid that does the dissolving"
+        },
+        {
+          "answer": "SOLUTE",
+          "clue": "The substance that gets dissolved"
+        },
+        {
+          "answer": "CATALYST",
+          "clue": "It speeds up a reaction without being used up"
+        },
+        {
+          "answer": "PERIODIC",
+          "clue": "The table of elements is this kind"
+        },
+        {
+          "answer": "ISOTOPE",
+          "clue": "Same element, different number of neutrons"
+        },
+        {
+          "answer": "NITROGEN",
+          "clue": "Most of the air you breathe"
+        },
+        {
+          "answer": "HYDROGEN",
+          "clue": "The lightest element"
+        },
+        {
+          "answer": "SODIUM",
+          "clue": "Symbol Na"
+        },
+        {
+          "answer": "CHLORINE",
+          "clue": "The green gas that keeps pools clean"
+        },
+        {
+          "answer": "OXIDATION",
+          "clue": "Losing electrons, as when iron rusts"
+        },
+        {
+          "answer": "COMBUSTION",
+          "clue": "Burning, chemically speaking"
+        },
+        {
+          "answer": "DENSITY",
+          "clue": "Mass divided by volume"
+        },
+        {
+          "answer": "POLYMER",
+          "clue": "A long chain of repeating units, like plastic"
+        },
+        {
+          "answer": "ALKALI",
+          "clue": "A base that dissolves in water"
+        },
+        {
+          "answer": "NEUTRAL",
+          "clue": "pH of seven"
+        },
+        {
+          "answer": "CRYSTAL",
+          "clue": "A solid with an orderly repeating pattern"
+        },
+        {
+          "answer": "EVAPORATE",
+          "clue": "Turn from liquid to vapour"
+        }
+      ],
+      "hard": [
+        {
+          "answer": "COVALENT",
+          "clue": "A bond where atoms share electrons"
+        },
+        {
+          "answer": "IONIC",
+          "clue": "A bond where one atom gives an electron to another"
+        },
+        {
+          "answer": "VALENCE",
+          "clue": "The outer electrons that form bonds"
+        },
+        {
+          "answer": "AVOGADRO",
+          "clue": "His number is six point oh two times ten to the twenty-third"
+        },
+        {
+          "answer": "MOLARITY",
+          "clue": "Moles of solute per litre of solution"
+        },
+        {
+          "answer": "STOICHIOMETRY",
+          "clue": "The maths of a balanced equation"
+        },
+        {
+          "answer": "EXOTHERMIC",
+          "clue": "A reaction that gives off heat"
+        },
+        {
+          "answer": "ENDOTHERMIC",
+          "clue": "A reaction that absorbs heat"
+        },
+        {
+          "answer": "EQUILIBRIUM",
+          "clue": "Forward and reverse reactions at the same rate"
+        },
+        {
+          "answer": "TITRATION",
+          "clue": "Finding a concentration drop by drop"
+        },
+        {
+          "answer": "HALOGEN",
+          "clue": "Fluorine, chlorine, bromine and their group"
+        },
+        {
+          "answer": "LANTHANIDE",
+          "clue": "One of the rare earth row"
+        },
+        {
+          "answer": "ELECTROLYSIS",
+          "clue": "Splitting a compound with electric current"
+        },
+        {
+          "answer": "ENTHALPY",
+          "clue": "The heat content of a system"
+        },
+        {
+          "answer": "ENTROPY",
+          "clue": "A measure of disorder"
+        },
+        {
+          "answer": "HYDROCARBON",
+          "clue": "Hydrogen and carbon only, like methane"
+        },
+        {
+          "answer": "ISOMER",
+          "clue": "Same formula, different structure"
+        },
+        {
+          "answer": "SUBLIMATION",
+          "clue": "Solid straight to gas, like dry ice"
+        },
+        {
+          "answer": "PRECIPITATE",
+          "clue": "A solid that forms out of a solution"
+        },
+        {
+          "answer": "SPECTROSCOPY",
+          "clue": "Reading a substance by the light it absorbs"
+        },
+        {
+          "answer": "ALLOTROPE",
+          "clue": "Graphite and diamond are these of carbon"
+        },
+        {
+          "answer": "REAGENT",
+          "clue": "A substance added to cause a reaction"
+        },
+        {
+          "answer": "BUFFER",
+          "clue": "A solution that resists changes in pH"
+        },
+        {
+          "answer": "ORBITAL",
+          "clue": "The region where an electron is likely found"
+        }
+      ]
+    }
+  },
+  {
+    "id": "physics",
+    "name": "Physics",
+    "subject": "Science",
+    "levels": {
+      "easy": [
+        {
+          "answer": "FORCE",
+          "clue": "A push or a pull"
+        },
+        {
+          "answer": "MASS",
+          "clue": "How much matter is in something"
+        },
+        {
+          "answer": "SPEED",
+          "clue": "Distance over time"
+        },
+        {
+          "answer": "LIGHT",
+          "clue": "It travels faster than anything else"
+        },
+        {
+          "answer": "SOUND",
+          "clue": "It travels as a wave through air"
+        },
+        {
+          "answer": "HEAT",
+          "clue": "Energy that flows from hot to cold"
+        },
+        {
+          "answer": "ENERGY",
+          "clue": "The ability to do work"
+        },
+        {
+          "answer": "MOTION",
+          "clue": "Movement, to a physicist"
+        },
+        {
+          "answer": "GRAVITY",
+          "clue": "It pulls the apple down"
+        },
+        {
+          "answer": "MAGNET",
+          "clue": "It sticks to the fridge"
+        },
+        {
+          "answer": "LENS",
+          "clue": "Glass that bends light"
+        },
+        {
+          "answer": "MIRROR",
+          "clue": "It reflects your face"
+        },
+        {
+          "answer": "WAVE",
+          "clue": "Light and sound both travel as one"
+        },
+        {
+          "answer": "VOLT",
+          "clue": "A unit of electrical push"
+        },
+        {
+          "answer": "WATT",
+          "clue": "A unit of power"
+        },
+        {
+          "answer": "BATTERY",
+          "clue": "Stored electrical energy"
+        },
+        {
+          "answer": "CIRCUIT",
+          "clue": "A complete path for current"
+        },
+        {
+          "answer": "WIRE",
+          "clue": "Current flows along it"
+        },
+        {
+          "answer": "LEVER",
+          "clue": "A seesaw is one"
+        },
+        {
+          "answer": "PULLEY",
+          "clue": "A wheel and rope for lifting"
+        },
+        {
+          "answer": "FRICTION",
+          "clue": "It slows a sliding object"
+        },
+        {
+          "answer": "ORBIT",
+          "clue": "The Moon's path around Earth"
+        },
+        {
+          "answer": "ATOM",
+          "clue": "Everything is made of them"
+        },
+        {
+          "answer": "PRISM",
+          "clue": "It splits white light into a rainbow"
+        }
+      ],
+      "medium": [
+        {
+          "answer": "VELOCITY",
+          "clue": "Speed with a direction"
+        },
+        {
+          "answer": "ACCELERATION",
+          "clue": "The rate velocity changes"
+        },
+        {
+          "answer": "MOMENTUM",
+          "clue": "Mass times velocity"
+        },
+        {
+          "answer": "INERTIA",
+          "clue": "An object's resistance to changing motion"
+        },
+        {
+          "answer": "NEWTON",
+          "clue": "The unit of force, and the man"
+        },
+        {
+          "answer": "JOULE",
+          "clue": "The unit of energy"
+        },
+        {
+          "answer": "KINETIC",
+          "clue": "The energy of motion"
+        },
+        {
+          "answer": "POTENTIAL",
+          "clue": "Stored energy, like a stretched spring"
+        },
+        {
+          "answer": "PRESSURE",
+          "clue": "Force spread over an area"
+        },
+        {
+          "answer": "DENSITY",
+          "clue": "Why oil floats on water"
+        },
+        {
+          "answer": "FREQUENCY",
+          "clue": "Waves per second"
+        },
+        {
+          "answer": "AMPLITUDE",
+          "clue": "The height of a wave"
+        },
+        {
+          "answer": "WAVELENGTH",
+          "clue": "The distance from crest to crest"
+        },
+        {
+          "answer": "REFRACTION",
+          "clue": "Light bending as it enters water"
+        },
+        {
+          "answer": "REFLECTION",
+          "clue": "Light bouncing off a surface"
+        },
+        {
+          "answer": "SPECTRUM",
+          "clue": "The full range of light's colours"
+        },
+        {
+          "answer": "CURRENT",
+          "clue": "The flow of electric charge"
+        },
+        {
+          "answer": "RESISTANCE",
+          "clue": "Measured in ohms"
+        },
+        {
+          "answer": "CONDUCTOR",
+          "clue": "Copper is a good one"
+        },
+        {
+          "answer": "INSULATOR",
+          "clue": "Rubber is a good one"
+        },
+        {
+          "answer": "TORQUE",
+          "clue": "A twisting force"
+        },
+        {
+          "answer": "VACUUM",
+          "clue": "Space with nothing in it"
+        },
+        {
+          "answer": "PENDULUM",
+          "clue": "It swings in a grandfather clock"
+        },
+        {
+          "answer": "THERMAL",
+          "clue": "Relating to heat"
+        }
+      ],
+      "hard": [
+        {
+          "answer": "QUANTUM",
+          "clue": "The physics of the very small"
+        },
+        {
+          "answer": "RELATIVITY",
+          "clue": "Einstein's theory of space and time"
+        },
+        {
+          "answer": "PHOTON",
+          "clue": "A particle of light"
+        },
+        {
+          "answer": "ELECTRON",
+          "clue": "The particle that carries current"
+        },
+        {
+          "answer": "NEUTRINO",
+          "clue": "A near-massless particle that passes through Earth"
+        },
+        {
+          "answer": "ENTROPY",
+          "clue": "It always increases in a closed system"
+        },
+        {
+          "answer": "ADIABATIC",
+          "clue": "A change with no heat exchanged"
+        },
+        {
+          "answer": "MAGNETISM",
+          "clue": "The force from a moving charge"
+        },
+        {
+          "answer": "INTERFERENCE",
+          "clue": "Two waves combining, crest on crest or crest on trough"
+        },
+        {
+          "answer": "DIFFRACTION",
+          "clue": "Waves bending around an edge"
+        },
+        {
+          "answer": "DOPPLER",
+          "clue": "Why a siren changes pitch as it passes"
+        },
+        {
+          "answer": "SUPERFLUID",
+          "clue": "A liquid that flows with no friction at all"
+        },
+        {
+          "answer": "CENTRIPETAL",
+          "clue": "The force that keeps something moving in a circle"
+        },
+        {
+          "answer": "OSCILLATION",
+          "clue": "Repeated back-and-forth motion"
+        },
+        {
+          "answer": "RESONANCE",
+          "clue": "Why a glass shatters at the right note"
+        },
+        {
+          "answer": "CAPACITOR",
+          "clue": "It stores charge between two plates"
+        },
+        {
+          "answer": "INDUCTANCE",
+          "clue": "A changing current making a magnetic field"
+        },
+        {
+          "answer": "FISSION",
+          "clue": "Splitting a heavy nucleus"
+        },
+        {
+          "answer": "FUSION",
+          "clue": "Joining light nuclei, as in the Sun"
+        },
+        {
+          "answer": "ISOTOPE",
+          "clue": "Same element, different mass"
+        },
+        {
+          "answer": "HALFLIFE",
+          "clue": "Time for half a sample to decay"
+        },
+        {
+          "answer": "PLASMA",
+          "clue": "The fourth state of matter"
+        },
+        {
+          "answer": "ANTIMATTER",
+          "clue": "It annihilates on contact with matter"
+        },
+        {
+          "answer": "SINGULARITY",
+          "clue": "The point at the heart of a black hole"
+        }
+      ]
+    }
+  },
+  {
+    "id": "astronomy",
+    "name": "Astronomy",
+    "subject": "Science",
+    "levels": {
+      "easy": [
+        {
+          "answer": "SUN",
+          "clue": "Our star"
+        },
+        {
+          "answer": "MOON",
+          "clue": "Earth's only natural satellite"
+        },
+        {
+          "answer": "STAR",
+          "clue": "A distant sun"
+        },
+        {
+          "answer": "MARS",
+          "clue": "The red planet"
+        },
+        {
+          "answer": "EARTH",
+          "clue": "The third rock from the Sun"
+        },
+        {
+          "answer": "VENUS",
+          "clue": "The hottest planet"
+        },
+        {
+          "answer": "SATURN",
+          "clue": "The planet with the famous rings"
+        },
+        {
+          "answer": "JUPITER",
+          "clue": "The biggest planet"
+        },
+        {
+          "answer": "MERCURY",
+          "clue": "The planet closest to the Sun"
+        },
+        {
+          "answer": "PLANET",
+          "clue": "It orbits a star"
+        },
+        {
+          "answer": "COMET",
+          "clue": "An icy visitor with a tail"
+        },
+        {
+          "answer": "ORBIT",
+          "clue": "A path around a body"
+        },
+        {
+          "answer": "ROCKET",
+          "clue": "It launches a spacecraft"
+        },
+        {
+          "answer": "SPACE",
+          "clue": "Where the stars are"
+        },
+        {
+          "answer": "GALAXY",
+          "clue": "The Milky Way is one"
+        },
+        {
+          "answer": "CRATER",
+          "clue": "A bowl left by an impact"
+        },
+        {
+          "answer": "ECLIPSE",
+          "clue": "When the Moon covers the Sun"
+        },
+        {
+          "answer": "METEOR",
+          "clue": "A shooting star"
+        },
+        {
+          "answer": "TELESCOPE",
+          "clue": "It brings the stars closer"
+        },
+        {
+          "answer": "ASTRONAUT",
+          "clue": "A traveller in space"
+        },
+        {
+          "answer": "SOLAR",
+          "clue": "Relating to the Sun"
+        },
+        {
+          "answer": "LUNAR",
+          "clue": "Relating to the Moon"
+        },
+        {
+          "answer": "GRAVITY",
+          "clue": "It holds the planets in orbit"
+        },
+        {
+          "answer": "NEPTUNE",
+          "clue": "The farthest planet"
+        }
+      ],
+      "medium": [
+        {
+          "answer": "ASTEROID",
+          "clue": "A rocky body orbiting the Sun"
+        },
+        {
+          "answer": "NEBULA",
+          "clue": "A cloud of gas where stars are born"
+        },
+        {
+          "answer": "SUPERNOVA",
+          "clue": "A star's explosive death"
+        },
+        {
+          "answer": "BLACKHOLE",
+          "clue": "Gravity so strong light can't escape"
+        },
+        {
+          "answer": "SATELLITE",
+          "clue": "Anything orbiting a planet"
+        },
+        {
+          "answer": "CONSTELLATION",
+          "clue": "Orion is one"
+        },
+        {
+          "answer": "LIGHTYEAR",
+          "clue": "The distance light travels in a year"
+        },
+        {
+          "answer": "URANUS",
+          "clue": "The planet that spins on its side"
+        },
+        {
+          "answer": "PLUTO",
+          "clue": "Demoted to dwarf planet in 2006"
+        },
+        {
+          "answer": "TITAN",
+          "clue": "Saturn's largest moon"
+        },
+        {
+          "answer": "EUROPA",
+          "clue": "Jupiter's icy moon with an ocean"
+        },
+        {
+          "answer": "MILKYWAY",
+          "clue": "Our home galaxy"
+        },
+        {
+          "answer": "ANDROMEDA",
+          "clue": "The nearest large galaxy"
+        },
+        {
+          "answer": "SOLSTICE",
+          "clue": "The longest or shortest day"
+        },
+        {
+          "answer": "EQUINOX",
+          "clue": "When day and night are equal"
+        },
+        {
+          "answer": "AURORA",
+          "clue": "The northern lights"
+        },
+        {
+          "answer": "HUBBLE",
+          "clue": "The famous space telescope"
+        },
+        {
+          "answer": "APOLLO",
+          "clue": "The program that reached the Moon"
+        },
+        {
+          "answer": "REDGIANT",
+          "clue": "A swollen, cooling old star"
+        },
+        {
+          "answer": "WHITEDWARF",
+          "clue": "The dense core left after a star dies"
+        },
+        {
+          "answer": "METEORITE",
+          "clue": "A meteor that reached the ground"
+        },
+        {
+          "answer": "OBSERVATORY",
+          "clue": "A building for watching the sky"
+        },
+        {
+          "answer": "COSMOS",
+          "clue": "The universe as an ordered whole"
+        },
+        {
+          "answer": "ZENITH",
+          "clue": "The point directly overhead"
+        }
+      ],
+      "hard": [
+        {
+          "answer": "PULSAR",
+          "clue": "A spinning neutron star that flashes"
+        },
+        {
+          "answer": "QUASAR",
+          "clue": "A brilliantly bright galactic core"
+        },
+        {
+          "answer": "PARALLAX",
+          "clue": "How astronomers measure a nearby star's distance"
+        },
+        {
+          "answer": "REDSHIFT",
+          "clue": "Light stretched by a receding galaxy"
+        },
+        {
+          "answer": "EXOPLANET",
+          "clue": "A planet around another star"
+        },
+        {
+          "answer": "PERIHELION",
+          "clue": "The closest point to the Sun in an orbit"
+        },
+        {
+          "answer": "APHELION",
+          "clue": "The farthest point from the Sun in an orbit"
+        },
+        {
+          "answer": "MAGNETOSPHERE",
+          "clue": "Earth's magnetic shield"
+        },
+        {
+          "answer": "HELIOSPHERE",
+          "clue": "The bubble the solar wind carves"
+        },
+        {
+          "answer": "KUIPER",
+          "clue": "The belt of icy bodies past Neptune"
+        },
+        {
+          "answer": "OORT",
+          "clue": "The distant cloud where comets come from"
+        },
+        {
+          "answer": "ACCRETION",
+          "clue": "Matter piling onto a growing body"
+        },
+        {
+          "answer": "PROTOSTAR",
+          "clue": "A star still forming"
+        },
+        {
+          "answer": "MAGNETAR",
+          "clue": "A neutron star with an immense magnetic field"
+        },
+        {
+          "answer": "COSMOLOGY",
+          "clue": "The study of the universe as a whole"
+        },
+        {
+          "answer": "DARKMATTER",
+          "clue": "Unseen mass holding galaxies together"
+        },
+        {
+          "answer": "SPECTROGRAPH",
+          "clue": "It splits starlight to read its makeup"
+        },
+        {
+          "answer": "OCCULTATION",
+          "clue": "One body hiding another"
+        },
+        {
+          "answer": "ECLIPTIC",
+          "clue": "The Sun's apparent path across the sky"
+        },
+        {
+          "answer": "ALBEDO",
+          "clue": "How much light a body reflects"
+        },
+        {
+          "answer": "PERIGEE",
+          "clue": "The Moon's closest approach to Earth"
+        },
+        {
+          "answer": "TRANSIT",
+          "clue": "A planet crossing the face of its star"
+        },
+        {
+          "answer": "SYNCHRONOUS",
+          "clue": "An orbit that keeps pace with Earth's spin"
+        },
+        {
+          "answer": "LAGRANGE",
+          "clue": "The points where gravity balances"
+        }
+      ]
+    }
+  },
+  {
+    "id": "earthscience",
+    "name": "Earth Science",
+    "subject": "Science",
+    "levels": {
+      "easy": [
+        {
+          "answer": "ROCK",
+          "clue": "Granite is one"
+        },
+        {
+          "answer": "SOIL",
+          "clue": "Plants grow in it"
+        },
+        {
+          "answer": "SAND",
+          "clue": "A beach is made of it"
+        },
+        {
+          "answer": "RIVER",
+          "clue": "Flowing water headed for the sea"
+        },
+        {
+          "answer": "OCEAN",
+          "clue": "The Pacific is the biggest"
+        },
+        {
+          "answer": "LAKE",
+          "clue": "Water surrounded by land"
+        },
+        {
+          "answer": "MOUNTAIN",
+          "clue": "Everest is the tallest"
+        },
+        {
+          "answer": "VALLEY",
+          "clue": "The low ground between hills"
+        },
+        {
+          "answer": "VOLCANO",
+          "clue": "It erupts lava"
+        },
+        {
+          "answer": "LAVA",
+          "clue": "Molten rock on the surface"
+        },
+        {
+          "answer": "EARTHQUAKE",
+          "clue": "When the ground shakes"
+        },
+        {
+          "answer": "CLOUD",
+          "clue": "Water droplets floating in the sky"
+        },
+        {
+          "answer": "RAIN",
+          "clue": "Water falling from clouds"
+        },
+        {
+          "answer": "SNOW",
+          "clue": "Frozen rain"
+        },
+        {
+          "answer": "WIND",
+          "clue": "Moving air"
+        },
+        {
+          "answer": "STORM",
+          "clue": "Thunder and lightning"
+        },
+        {
+          "answer": "DESERT",
+          "clue": "Very dry land"
+        },
+        {
+          "answer": "ISLAND",
+          "clue": "Land surrounded by water"
+        },
+        {
+          "answer": "CANYON",
+          "clue": "The Grand one is in Arizona"
+        },
+        {
+          "answer": "GLACIER",
+          "clue": "A slow river of ice"
+        },
+        {
+          "answer": "FOSSIL",
+          "clue": "An ancient life form turned to stone"
+        },
+        {
+          "answer": "CRUST",
+          "clue": "Earth's outer shell"
+        },
+        {
+          "answer": "CORE",
+          "clue": "Earth's centre"
+        },
+        {
+          "answer": "CLIMATE",
+          "clue": "The usual weather of a place"
+        }
+      ],
+      "medium": [
+        {
+          "answer": "MANTLE",
+          "clue": "The thick layer under the crust"
+        },
+        {
+          "answer": "MAGMA",
+          "clue": "Molten rock underground"
+        },
+        {
+          "answer": "TECTONIC",
+          "clue": "The plates that move continents"
+        },
+        {
+          "answer": "EROSION",
+          "clue": "Wind and water wearing land away"
+        },
+        {
+          "answer": "SEDIMENT",
+          "clue": "Sand and mud settling in layers"
+        },
+        {
+          "answer": "IGNEOUS",
+          "clue": "Rock made from cooled magma"
+        },
+        {
+          "answer": "MINERAL",
+          "clue": "Quartz is one"
+        },
+        {
+          "answer": "TSUNAMI",
+          "clue": "A giant wave from an undersea quake"
+        },
+        {
+          "answer": "HURRICANE",
+          "clue": "A spinning tropical storm"
+        },
+        {
+          "answer": "TORNADO",
+          "clue": "A twisting funnel of wind"
+        },
+        {
+          "answer": "HUMIDITY",
+          "clue": "Moisture in the air"
+        },
+        {
+          "answer": "PRESSURE",
+          "clue": "A barometer measures it"
+        },
+        {
+          "answer": "ATMOSPHERE",
+          "clue": "The blanket of air around Earth"
+        },
+        {
+          "answer": "OZONE",
+          "clue": "The layer that blocks ultraviolet"
+        },
+        {
+          "answer": "MONSOON",
+          "clue": "A seasonal wind that brings heavy rain"
+        },
+        {
+          "answer": "DROUGHT",
+          "clue": "A long spell without rain"
+        },
+        {
+          "answer": "AQUIFER",
+          "clue": "Water stored in underground rock"
+        },
+        {
+          "answer": "DELTA",
+          "clue": "Where a river fans out into the sea"
+        },
+        {
+          "answer": "PLATEAU",
+          "clue": "A high, flat area of land"
+        },
+        {
+          "answer": "PENINSULA",
+          "clue": "Land with water on three sides"
+        },
+        {
+          "answer": "EQUATOR",
+          "clue": "The line halfway between the poles"
+        },
+        {
+          "answer": "LATITUDE",
+          "clue": "Distance north or south of the equator"
+        },
+        {
+          "answer": "LONGITUDE",
+          "clue": "Distance east or west of Greenwich"
+        },
+        {
+          "answer": "GEYSER",
+          "clue": "Old Faithful is one"
+        }
+      ],
+      "hard": [
+        {
+          "answer": "LITHOSPHERE",
+          "clue": "The rigid outer layer of Earth"
+        },
+        {
+          "answer": "ASTHENOSPHERE",
+          "clue": "The soft layer the plates ride on"
+        },
+        {
+          "answer": "SUBDUCTION",
+          "clue": "One plate sliding beneath another"
+        },
+        {
+          "answer": "METAMORPHIC",
+          "clue": "Rock changed by heat and pressure"
+        },
+        {
+          "answer": "SEDIMENTARY",
+          "clue": "Rock built from layers of sediment"
+        },
+        {
+          "answer": "STRATIGRAPHY",
+          "clue": "Reading rock layers to tell time"
+        },
+        {
+          "answer": "SEISMOGRAPH",
+          "clue": "It records an earthquake"
+        },
+        {
+          "answer": "EPICENTER",
+          "clue": "The ground directly above a quake's start"
+        },
+        {
+          "answer": "PANGAEA",
+          "clue": "The ancient supercontinent"
+        },
+        {
+          "answer": "CONTINENTAL",
+          "clue": "The drift Wegener proposed"
+        },
+        {
+          "answer": "STALACTITE",
+          "clue": "It hangs from a cave ceiling"
+        },
+        {
+          "answer": "STALAGMITE",
+          "clue": "It rises from a cave floor"
+        },
+        {
+          "answer": "PERMAFROST",
+          "clue": "Ground frozen all year"
+        },
+        {
+          "answer": "TROPOSPHERE",
+          "clue": "The lowest layer of the atmosphere"
+        },
+        {
+          "answer": "STRATOSPHERE",
+          "clue": "The layer above the troposphere"
+        },
+        {
+          "answer": "JETSTREAM",
+          "clue": "A fast river of air high overhead"
+        },
+        {
+          "answer": "CORIOLIS",
+          "clue": "The effect that curves winds and currents"
+        },
+        {
+          "answer": "ELNINO",
+          "clue": "A warming of the Pacific that shifts weather"
+        },
+        {
+          "answer": "BAROMETER",
+          "clue": "The instrument for air pressure"
+        },
+        {
+          "answer": "ANEMOMETER",
+          "clue": "The instrument for wind speed"
+        },
+        {
+          "answer": "CARTOGRAPHY",
+          "clue": "The making of maps"
+        },
+        {
+          "answer": "TOPOGRAPHY",
+          "clue": "The shape of the land"
+        },
+        {
+          "answer": "WATERSHED",
+          "clue": "The land that drains into one river"
+        },
+        {
+          "answer": "BIOSPHERE",
+          "clue": "Every part of Earth where life exists"
+        }
+      ]
+    }
+  },
+  {
+    "id": "humanbody",
+    "name": "The Human Body",
+    "subject": "Science",
+    "levels": {
+      "easy": [
+        {
+          "answer": "HEART",
+          "clue": "It beats about seventy times a minute"
+        },
+        {
+          "answer": "LUNG",
+          "clue": "You have two of them for breathing"
+        },
+        {
+          "answer": "BRAIN",
+          "clue": "It controls everything"
+        },
+        {
+          "answer": "BONE",
+          "clue": "You have about two hundred and six"
+        },
+        {
+          "answer": "SKULL",
+          "clue": "The bone around the brain"
+        },
+        {
+          "answer": "RIB",
+          "clue": "A bone protecting the chest"
+        },
+        {
+          "answer": "SPINE",
+          "clue": "The backbone"
+        },
+        {
+          "answer": "SKIN",
+          "clue": "Your outer covering"
+        },
+        {
+          "answer": "BLOOD",
+          "clue": "Red and it flows"
+        },
+        {
+          "answer": "VEIN",
+          "clue": "It carries blood back to the heart"
+        },
+        {
+          "answer": "ARTERY",
+          "clue": "It carries blood away from the heart"
+        },
+        {
+          "answer": "MUSCLE",
+          "clue": "Biceps and triceps"
+        },
+        {
+          "answer": "STOMACH",
+          "clue": "Where food goes after you swallow"
+        },
+        {
+          "answer": "LIVER",
+          "clue": "The organ that cleans the blood"
+        },
+        {
+          "answer": "KIDNEY",
+          "clue": "It filters waste into urine"
+        },
+        {
+          "answer": "TOOTH",
+          "clue": "You have thirty-two as an adult"
+        },
+        {
+          "answer": "TONGUE",
+          "clue": "The muscle you taste with"
+        },
+        {
+          "answer": "NOSE",
+          "clue": "You smell with it"
+        },
+        {
+          "answer": "EAR",
+          "clue": "You hear with it"
+        },
+        {
+          "answer": "EYE",
+          "clue": "You see with it"
+        },
+        {
+          "answer": "NERVE",
+          "clue": "It carries messages from the brain"
+        },
+        {
+          "answer": "JOINT",
+          "clue": "Where two bones meet"
+        },
+        {
+          "answer": "ELBOW",
+          "clue": "The joint in the middle of the arm"
+        },
+        {
+          "answer": "KNEE",
+          "clue": "The joint in the middle of the leg"
+        }
+      ],
+      "medium": [
+        {
+          "answer": "CARDIAC",
+          "clue": "Relating to the heart"
+        },
+        {
+          "answer": "PULMONARY",
+          "clue": "Relating to the lungs"
+        },
+        {
+          "answer": "DIGESTION",
+          "clue": "Breaking food down"
+        },
+        {
+          "answer": "INTESTINE",
+          "clue": "The long tube after the stomach"
+        },
+        {
+          "answer": "PANCREAS",
+          "clue": "It makes insulin"
+        },
+        {
+          "answer": "INSULIN",
+          "clue": "The hormone that controls blood sugar"
+        },
+        {
+          "answer": "SKELETON",
+          "clue": "All the bones together"
+        },
+        {
+          "answer": "CARTILAGE",
+          "clue": "The flexible tissue in your nose and ears"
+        },
+        {
+          "answer": "TENDON",
+          "clue": "It attaches muscle to bone"
+        },
+        {
+          "answer": "LIGAMENT",
+          "clue": "It attaches bone to bone"
+        },
+        {
+          "answer": "FEMUR",
+          "clue": "The thigh bone, the longest in the body"
+        },
+        {
+          "answer": "CRANIUM",
+          "clue": "The skull's braincase"
+        },
+        {
+          "answer": "RETINA",
+          "clue": "The screen at the back of the eye"
+        },
+        {
+          "answer": "CORNEA",
+          "clue": "The clear window at the front of the eye"
+        },
+        {
+          "answer": "EARDRUM",
+          "clue": "The membrane that vibrates with sound"
+        },
+        {
+          "answer": "LARYNX",
+          "clue": "The voice box"
+        },
+        {
+          "answer": "TRACHEA",
+          "clue": "The windpipe"
+        },
+        {
+          "answer": "DIAPHRAGM",
+          "clue": "The muscle under the lungs that pulls air in"
+        },
+        {
+          "answer": "PLATELET",
+          "clue": "It helps blood clot"
+        },
+        {
+          "answer": "PLASMA",
+          "clue": "The liquid part of blood"
+        },
+        {
+          "answer": "IMMUNE",
+          "clue": "The system that fights infection"
+        },
+        {
+          "answer": "REFLEX",
+          "clue": "An automatic response, like a knee jerk"
+        },
+        {
+          "answer": "SPINALCORD",
+          "clue": "The nerve highway down the back"
+        },
+        {
+          "answer": "ENZYME",
+          "clue": "It helps break down food"
+        }
+      ],
+      "hard": [
+        {
+          "answer": "HEMOGLOBIN",
+          "clue": "The protein that carries oxygen in blood"
+        },
+        {
+          "answer": "VENTRICLE",
+          "clue": "A lower chamber of the heart"
+        },
+        {
+          "answer": "ATRIUM",
+          "clue": "An upper chamber of the heart"
+        },
+        {
+          "answer": "AORTA",
+          "clue": "The largest artery"
+        },
+        {
+          "answer": "ALVEOLI",
+          "clue": "The tiny air sacs in the lungs"
+        },
+        {
+          "answer": "BRONCHI",
+          "clue": "The two tubes into the lungs"
+        },
+        {
+          "answer": "CEREBRUM",
+          "clue": "The largest part of the brain"
+        },
+        {
+          "answer": "CEREBELLUM",
+          "clue": "The part of the brain for balance"
+        },
+        {
+          "answer": "HYPOTHALAMUS",
+          "clue": "The brain's thermostat"
+        },
+        {
+          "answer": "PITUITARY",
+          "clue": "The master gland"
+        },
+        {
+          "answer": "THYROID",
+          "clue": "The gland in the neck that sets metabolism"
+        },
+        {
+          "answer": "ADRENAL",
+          "clue": "The gland that makes adrenaline"
+        },
+        {
+          "answer": "NEPHRON",
+          "clue": "The kidney's filtering unit"
+        },
+        {
+          "answer": "ESOPHAGUS",
+          "clue": "The tube from throat to stomach"
+        },
+        {
+          "answer": "PERISTALSIS",
+          "clue": "The muscle waves that move food along"
+        },
+        {
+          "answer": "VERTEBRAE",
+          "clue": "The bones of the spine"
+        },
+        {
+          "answer": "CLAVICLE",
+          "clue": "The collarbone"
+        },
+        {
+          "answer": "SCAPULA",
+          "clue": "The shoulder blade"
+        },
+        {
+          "answer": "PATELLA",
+          "clue": "The kneecap"
+        },
+        {
+          "answer": "SYNAPSE",
+          "clue": "The gap between two nerve cells"
+        },
+        {
+          "answer": "NEURON",
+          "clue": "A nerve cell"
+        },
+        {
+          "answer": "LYMPHOCYTE",
+          "clue": "A white blood cell of the immune system"
+        },
+        {
+          "answer": "EPIDERMIS",
+          "clue": "The outer layer of skin"
+        },
+        {
+          "answer": "METABOLISM",
+          "clue": "How fast your body burns fuel"
+        }
+      ]
+    }
+  }
+]

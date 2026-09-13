@@ -1,0 +1,1808 @@
+[
+  {
+    "id": "revolution",
+    "name": "The Revolution",
+    "subject": "American History",
+    "levels": {
+      "easy": [
+        {
+          "answer": "KING",
+          "clue": "George the Third was one"
+        },
+        {
+          "answer": "TEA",
+          "clue": "Dumped into Boston Harbor"
+        },
+        {
+          "answer": "TAX",
+          "clue": "No taxation without representation"
+        },
+        {
+          "answer": "FLAG",
+          "clue": "Betsy Ross is said to have sewn one"
+        },
+        {
+          "answer": "MUSKET",
+          "clue": "A soldier's long gun"
+        },
+        {
+          "answer": "REDCOAT",
+          "clue": "A British soldier, by his uniform"
+        },
+        {
+          "answer": "PATRIOT",
+          "clue": "A colonist for independence"
+        },
+        {
+          "answer": "COLONY",
+          "clue": "There were thirteen"
+        },
+        {
+          "answer": "BRITAIN",
+          "clue": "The mother country"
+        },
+        {
+          "answer": "BOSTON",
+          "clue": "The tea party city"
+        },
+        {
+          "answer": "LIBERTY",
+          "clue": "Give me this or give me death"
+        },
+        {
+          "answer": "FREEDOM",
+          "clue": "What the colonies fought for"
+        },
+        {
+          "answer": "REVERE",
+          "clue": "Paul rode to warn of the British"
+        },
+        {
+          "answer": "WASHINGTON",
+          "clue": "The general who led the army"
+        },
+        {
+          "answer": "FRANKLIN",
+          "clue": "Ben went to France for help"
+        },
+        {
+          "answer": "JEFFERSON",
+          "clue": "He wrote the Declaration"
+        },
+        {
+          "answer": "ADAMS",
+          "clue": "John, Sam, and later a president"
+        },
+        {
+          "answer": "LANTERN",
+          "clue": "One if by land, two if by sea"
+        },
+        {
+          "answer": "CANNON",
+          "clue": "The big gun of the war"
+        },
+        {
+          "answer": "SHIP",
+          "clue": "The British came by these"
+        },
+        {
+          "answer": "ARMY",
+          "clue": "The Continental one"
+        },
+        {
+          "answer": "BATTLE",
+          "clue": "Lexington was the first"
+        },
+        {
+          "answer": "SIGN",
+          "clue": "What fifty-six men did to the Declaration"
+        },
+        {
+          "answer": "FOURTH",
+          "clue": "Of July, the day it was adopted"
+        }
+      ],
+      "medium": [
+        {
+          "answer": "LEXINGTON",
+          "clue": "Where the shot heard round the world was fired"
+        },
+        {
+          "answer": "CONCORD",
+          "clue": "The second battle of that first day"
+        },
+        {
+          "answer": "BUNKERHILL",
+          "clue": "Don't fire until you see the whites of their eyes"
+        },
+        {
+          "answer": "SARATOGA",
+          "clue": "The victory that brought France in"
+        },
+        {
+          "answer": "YORKTOWN",
+          "clue": "Where Cornwallis surrendered"
+        },
+        {
+          "answer": "TRENTON",
+          "clue": "Washington crossed the Delaware to attack it"
+        },
+        {
+          "answer": "DELAWARE",
+          "clue": "The river crossed on Christmas night"
+        },
+        {
+          "answer": "VALLEYFORGE",
+          "clue": "The brutal winter camp"
+        },
+        {
+          "answer": "DECLARATION",
+          "clue": "Of Independence, 1776"
+        },
+        {
+          "answer": "CONTINENTAL",
+          "clue": "The Congress, and the Army"
+        },
+        {
+          "answer": "LOYALIST",
+          "clue": "A colonist who sided with the crown"
+        },
+        {
+          "answer": "MINUTEMEN",
+          "clue": "Ready to fight at a minute's notice"
+        },
+        {
+          "answer": "STAMPACT",
+          "clue": "The tax on paper that started the anger"
+        },
+        {
+          "answer": "INTOLERABLE",
+          "clue": "The acts that punished Boston"
+        },
+        {
+          "answer": "HANCOCK",
+          "clue": "The biggest signature on the Declaration"
+        },
+        {
+          "answer": "PAINE",
+          "clue": "Thomas wrote Common Sense"
+        },
+        {
+          "answer": "COMMONSENSE",
+          "clue": "The pamphlet that made the case"
+        },
+        {
+          "answer": "LAFAYETTE",
+          "clue": "The young French general who joined"
+        },
+        {
+          "answer": "HESSIAN",
+          "clue": "A German soldier hired by Britain"
+        },
+        {
+          "answer": "CORNWALLIS",
+          "clue": "The British general who surrendered"
+        },
+        {
+          "answer": "PARLIAMENT",
+          "clue": "Britain's lawmakers"
+        },
+        {
+          "answer": "MASSACRE",
+          "clue": "Boston, 1770, five colonists dead"
+        },
+        {
+          "answer": "TREATY",
+          "clue": "Of Paris, 1783, the war's end"
+        },
+        {
+          "answer": "MILITIA",
+          "clue": "Citizen soldiers"
+        }
+      ],
+      "hard": [
+        {
+          "answer": "TOWNSHEND",
+          "clue": "The acts that taxed glass, paint and tea"
+        },
+        {
+          "answer": "QUARTERING",
+          "clue": "The act forcing colonists to house soldiers"
+        },
+        {
+          "answer": "PROCLAMATION",
+          "clue": "Of 1763, no settling past the Appalachians"
+        },
+        {
+          "answer": "OLIVEBRANCH",
+          "clue": "The petition that was the last try at peace"
+        },
+        {
+          "answer": "TICONDEROGA",
+          "clue": "The fort Ethan Allen took"
+        },
+        {
+          "answer": "GREENMOUNTAIN",
+          "clue": "The boys from Vermont"
+        },
+        {
+          "answer": "STEUBEN",
+          "clue": "The Prussian who drilled the army"
+        },
+        {
+          "answer": "ROCHAMBEAU",
+          "clue": "The French commander at Yorktown"
+        },
+        {
+          "answer": "DEGRASSE",
+          "clue": "The French admiral who sealed the bay"
+        },
+        {
+          "answer": "ARNOLD",
+          "clue": "Benedict, the hero who turned traitor"
+        },
+        {
+          "answer": "MONMOUTH",
+          "clue": "The battle where Molly Pitcher fought"
+        },
+        {
+          "answer": "BRANDYWINE",
+          "clue": "The defeat before Philadelphia fell"
+        },
+        {
+          "answer": "COWPENS",
+          "clue": "Daniel Morgan's perfect trap"
+        },
+        {
+          "answer": "KINGSMOUNTAIN",
+          "clue": "The over-mountain men's victory"
+        },
+        {
+          "answer": "PRIVATEER",
+          "clue": "A licensed private warship"
+        },
+        {
+          "answer": "JOHNPAULJONES",
+          "clue": "I have not yet begun to fight"
+        },
+        {
+          "answer": "CONFEDERATION",
+          "clue": "The articles that came before the Constitution"
+        },
+        {
+          "answer": "SONSOFLIBERTY",
+          "clue": "Sam Adams's secret society"
+        },
+        {
+          "answer": "COMMITTEES",
+          "clue": "Of correspondence, the colonies' network"
+        },
+        {
+          "answer": "GASPEE",
+          "clue": "The customs ship burned in Rhode Island"
+        },
+        {
+          "answer": "GAGE",
+          "clue": "The British governor of Massachusetts"
+        },
+        {
+          "answer": "HOWE",
+          "clue": "The British general who took New York"
+        },
+        {
+          "answer": "BURGOYNE",
+          "clue": "Gentleman Johnny, beaten at Saratoga"
+        },
+        {
+          "answer": "NATHANHALE",
+          "clue": "I regret that I have but one life to give"
+        }
+      ]
+    }
+  },
+  {
+    "id": "constitution",
+    "name": "The Constitution",
+    "subject": "American History",
+    "levels": {
+      "easy": [
+        {
+          "answer": "LAW",
+          "clue": "A rule everyone must follow"
+        },
+        {
+          "answer": "VOTE",
+          "clue": "How citizens choose leaders"
+        },
+        {
+          "answer": "RIGHT",
+          "clue": "Free speech is one"
+        },
+        {
+          "answer": "SPEECH",
+          "clue": "The First Amendment protects it"
+        },
+        {
+          "answer": "PRESS",
+          "clue": "Newspapers, protected by the First"
+        },
+        {
+          "answer": "JURY",
+          "clue": "Twelve citizens deciding a trial"
+        },
+        {
+          "answer": "JUDGE",
+          "clue": "The one in the robe"
+        },
+        {
+          "answer": "COURT",
+          "clue": "Where cases are heard"
+        },
+        {
+          "answer": "SENATE",
+          "clue": "One hundred members, two per state"
+        },
+        {
+          "answer": "HOUSE",
+          "clue": "Of Representatives"
+        },
+        {
+          "answer": "CONGRESS",
+          "clue": "The Senate and House together"
+        },
+        {
+          "answer": "PRESIDENT",
+          "clue": "The head of the executive branch"
+        },
+        {
+          "answer": "BRANCH",
+          "clue": "There are three"
+        },
+        {
+          "answer": "STATE",
+          "clue": "There are fifty"
+        },
+        {
+          "answer": "CAPITOL",
+          "clue": "The building where Congress meets"
+        },
+        {
+          "answer": "BILL",
+          "clue": "A proposed law"
+        },
+        {
+          "answer": "VETO",
+          "clue": "The president's power to reject a bill"
+        },
+        {
+          "answer": "OATH",
+          "clue": "The president swears one"
+        },
+        {
+          "answer": "TERM",
+          "clue": "Four years for a president"
+        },
+        {
+          "answer": "PEOPLE",
+          "clue": "We the ..."
+        },
+        {
+          "answer": "UNION",
+          "clue": "A more perfect one"
+        },
+        {
+          "answer": "JUSTICE",
+          "clue": "A Supreme Court judge"
+        },
+        {
+          "answer": "FREEDOM",
+          "clue": "Of religion, speech, press"
+        },
+        {
+          "answer": "ELECTION",
+          "clue": "Held every November"
+        }
+      ],
+      "medium": [
+        {
+          "answer": "PREAMBLE",
+          "clue": "We the People, the opening"
+        },
+        {
+          "answer": "AMENDMENT",
+          "clue": "A change to the Constitution"
+        },
+        {
+          "answer": "BILLOFRIGHTS",
+          "clue": "The first ten amendments"
+        },
+        {
+          "answer": "LEGISLATIVE",
+          "clue": "The branch that makes laws"
+        },
+        {
+          "answer": "EXECUTIVE",
+          "clue": "The branch that enforces laws"
+        },
+        {
+          "answer": "JUDICIAL",
+          "clue": "The branch that interprets laws"
+        },
+        {
+          "answer": "SUPREME",
+          "clue": "The highest court"
+        },
+        {
+          "answer": "FEDERAL",
+          "clue": "The national government"
+        },
+        {
+          "answer": "REPUBLIC",
+          "clue": "A government of elected representatives"
+        },
+        {
+          "answer": "DEMOCRACY",
+          "clue": "Rule by the people"
+        },
+        {
+          "answer": "CHECKS",
+          "clue": "And balances, each branch limits the others"
+        },
+        {
+          "answer": "RATIFY",
+          "clue": "Formally approve"
+        },
+        {
+          "answer": "DELEGATE",
+          "clue": "One sent to the convention"
+        },
+        {
+          "answer": "CONVENTION",
+          "clue": "Philadelphia, 1787"
+        },
+        {
+          "answer": "MADISON",
+          "clue": "The father of the Constitution"
+        },
+        {
+          "answer": "HAMILTON",
+          "clue": "He wrote most of the Federalist Papers"
+        },
+        {
+          "answer": "FEDERALIST",
+          "clue": "The papers arguing for ratification"
+        },
+        {
+          "answer": "COMPROMISE",
+          "clue": "The Great one gave every state two senators"
+        },
+        {
+          "answer": "IMPEACH",
+          "clue": "Charge an official with wrongdoing"
+        },
+        {
+          "answer": "CABINET",
+          "clue": "The president's top advisers"
+        },
+        {
+          "answer": "CITIZEN",
+          "clue": "A full member of the nation"
+        },
+        {
+          "answer": "SEARCH",
+          "clue": "The Fourth protects against unreasonable ones"
+        },
+        {
+          "answer": "BEARARMS",
+          "clue": "The Second Amendment's right"
+        },
+        {
+          "answer": "ELECTORAL",
+          "clue": "The college that picks the president"
+        }
+      ],
+      "hard": [
+        {
+          "answer": "SEPARATION",
+          "clue": "Of powers, the three-branch design"
+        },
+        {
+          "answer": "SUPREMACY",
+          "clue": "The clause making federal law the highest"
+        },
+        {
+          "answer": "COMMERCE",
+          "clue": "The clause letting Congress regulate trade"
+        },
+        {
+          "answer": "NECESSARY",
+          "clue": "And proper, the elastic clause"
+        },
+        {
+          "answer": "ENUMERATED",
+          "clue": "The powers listed by name"
+        },
+        {
+          "answer": "IMPLIED",
+          "clue": "The powers not listed but reasoned"
+        },
+        {
+          "answer": "FEDERALISM",
+          "clue": "Power shared between nation and states"
+        },
+        {
+          "answer": "DUEPROCESS",
+          "clue": "Fair treatment through the courts"
+        },
+        {
+          "answer": "HABEASCORPUS",
+          "clue": "The right not to be jailed without cause"
+        },
+        {
+          "answer": "REVIEW",
+          "clue": "Judicial, the court's power to strike down laws"
+        },
+        {
+          "answer": "MARBURY",
+          "clue": "Versus Madison, which established that power"
+        },
+        {
+          "answer": "HENRY",
+          "clue": "Patrick, who smelled a rat and stayed home from the convention"
+        },
+        {
+          "answer": "THREEFIFTHS",
+          "clue": "The compromise on counting enslaved people"
+        },
+        {
+          "answer": "VIRGINIAPLAN",
+          "clue": "The big-state proposal"
+        },
+        {
+          "answer": "NEWJERSEYPLAN",
+          "clue": "The small-state proposal"
+        },
+        {
+          "answer": "GERRYMANDER",
+          "clue": "Draw a district to rig it"
+        },
+        {
+          "answer": "FILIBUSTER",
+          "clue": "Talk a bill to death in the Senate"
+        },
+        {
+          "answer": "QUORUM",
+          "clue": "The minimum present to do business"
+        },
+        {
+          "answer": "SUFFRAGE",
+          "clue": "The right to vote"
+        },
+        {
+          "answer": "NINETEENTH",
+          "clue": "The amendment that gave women the vote"
+        },
+        {
+          "answer": "THIRTEENTH",
+          "clue": "The amendment that ended slavery"
+        },
+        {
+          "answer": "FOURTEENTH",
+          "clue": "The amendment promising equal protection"
+        },
+        {
+          "answer": "PROHIBITION",
+          "clue": "The eighteenth banned alcohol; the twenty-first undid it"
+        },
+        {
+          "answer": "INCORPORATION",
+          "clue": "Applying the Bill of Rights to the states"
+        }
+      ]
+    }
+  },
+  {
+    "id": "civilwar",
+    "name": "The Civil War",
+    "subject": "American History",
+    "levels": {
+      "easy": [
+        {
+          "answer": "NORTH",
+          "clue": "The Union side"
+        },
+        {
+          "answer": "SOUTH",
+          "clue": "The Confederate side"
+        },
+        {
+          "answer": "UNION",
+          "clue": "The states that stayed"
+        },
+        {
+          "answer": "SLAVE",
+          "clue": "The war was fought over slavery"
+        },
+        {
+          "answer": "LINCOLN",
+          "clue": "The president who held the Union together"
+        },
+        {
+          "answer": "GRANT",
+          "clue": "The Union's winning general"
+        },
+        {
+          "answer": "LEE",
+          "clue": "The Confederacy's greatest general"
+        },
+        {
+          "answer": "BLUE",
+          "clue": "The colour of the Union uniform"
+        },
+        {
+          "answer": "GRAY",
+          "clue": "The colour of the Confederate uniform"
+        },
+        {
+          "answer": "CANNON",
+          "clue": "Artillery"
+        },
+        {
+          "answer": "RIFLE",
+          "clue": "The soldier's gun"
+        },
+        {
+          "answer": "FORT",
+          "clue": "Sumter, where it began"
+        },
+        {
+          "answer": "FLAG",
+          "clue": "The Stars and Bars was one"
+        },
+        {
+          "answer": "SOLDIER",
+          "clue": "About three million served"
+        },
+        {
+          "answer": "BATTLE",
+          "clue": "Gettysburg was the biggest"
+        },
+        {
+          "answer": "CAMP",
+          "clue": "Where soldiers slept"
+        },
+        {
+          "answer": "DRUM",
+          "clue": "Boys as young as twelve played it"
+        },
+        {
+          "answer": "HORSE",
+          "clue": "The cavalry rode them"
+        },
+        {
+          "answer": "TRAIN",
+          "clue": "Railroads moved the armies"
+        },
+        {
+          "answer": "FREED",
+          "clue": "What the Emancipation Proclamation did"
+        },
+        {
+          "answer": "SPEECH",
+          "clue": "Lincoln gave a short one at Gettysburg"
+        },
+        {
+          "answer": "SURRENDER",
+          "clue": "Lee did it at Appomattox"
+        },
+        {
+          "answer": "REBEL",
+          "clue": "A Confederate, to the North"
+        },
+        {
+          "answer": "YANKEE",
+          "clue": "A Union soldier, to the South"
+        }
+      ],
+      "medium": [
+        {
+          "answer": "GETTYSBURG",
+          "clue": "Three days in Pennsylvania, July 1863"
+        },
+        {
+          "answer": "ANTIETAM",
+          "clue": "The bloodiest single day"
+        },
+        {
+          "answer": "SUMTER",
+          "clue": "The fort where the first shots fell"
+        },
+        {
+          "answer": "APPOMATTOX",
+          "clue": "Where Lee surrendered"
+        },
+        {
+          "answer": "VICKSBURG",
+          "clue": "The siege that split the South"
+        },
+        {
+          "answer": "SHILOH",
+          "clue": "The Tennessee battle that shocked both sides"
+        },
+        {
+          "answer": "BULLRUN",
+          "clue": "The first major battle, a Union rout"
+        },
+        {
+          "answer": "CONFEDERACY",
+          "clue": "The eleven seceding states"
+        },
+        {
+          "answer": "SECESSION",
+          "clue": "Leaving the Union"
+        },
+        {
+          "answer": "EMANCIPATION",
+          "clue": "The proclamation of 1863"
+        },
+        {
+          "answer": "SHERMAN",
+          "clue": "He marched to the sea"
+        },
+        {
+          "answer": "JACKSON",
+          "clue": "Stonewall, Lee's right arm"
+        },
+        {
+          "answer": "DAVIS",
+          "clue": "Jefferson, president of the Confederacy"
+        },
+        {
+          "answer": "IRONCLAD",
+          "clue": "The Monitor and the Merrimack were these"
+        },
+        {
+          "answer": "BLOCKADE",
+          "clue": "The Union navy's stranglehold on the South"
+        },
+        {
+          "answer": "ANACONDA",
+          "clue": "The plan to squeeze the South"
+        },
+        {
+          "answer": "CAVALRY",
+          "clue": "Soldiers on horseback"
+        },
+        {
+          "answer": "INFANTRY",
+          "clue": "Soldiers on foot"
+        },
+        {
+          "answer": "ARTILLERY",
+          "clue": "The big guns"
+        },
+        {
+          "answer": "ABOLITION",
+          "clue": "The movement to end slavery"
+        },
+        {
+          "answer": "DOUGLASS",
+          "clue": "Frederick, the great abolitionist voice"
+        },
+        {
+          "answer": "TUBMAN",
+          "clue": "Harriet, conductor of the Underground Railroad"
+        },
+        {
+          "answer": "RICHMOND",
+          "clue": "The Confederate capital"
+        },
+        {
+          "answer": "BOOTH",
+          "clue": "The actor who shot Lincoln"
+        }
+      ],
+      "hard": [
+        {
+          "answer": "HOOKER",
+          "clue": "The Union general Lee outfoxed at Chancellorsville"
+        },
+        {
+          "answer": "MARYESHEIGHTS",
+          "clue": "The stone wall the Union charged at Fredericksburg"
+        },
+        {
+          "answer": "CHICKAMAUGA",
+          "clue": "The bloodiest battle in the West"
+        },
+        {
+          "answer": "CHATTANOOGA",
+          "clue": "Grant's breakout after the siege"
+        },
+        {
+          "answer": "WILDERNESS",
+          "clue": "The tangled forest battle of 1864"
+        },
+        {
+          "answer": "PETERSBURG",
+          "clue": "The nine-month siege before Richmond fell"
+        },
+        {
+          "answer": "PICKETT",
+          "clue": "His charge broke on Cemetery Ridge"
+        },
+        {
+          "answer": "MEADE",
+          "clue": "The Union commander at Gettysburg"
+        },
+        {
+          "answer": "MCCLELLAN",
+          "clue": "The general Lincoln kept waiting on"
+        },
+        {
+          "answer": "BURNSIDE",
+          "clue": "The general with the famous whiskers"
+        },
+        {
+          "answer": "FARRAGUT",
+          "clue": "Damn the torpedoes, full speed ahead"
+        },
+        {
+          "answer": "MONITOR",
+          "clue": "The Union's ironclad"
+        },
+        {
+          "answer": "MERRIMACK",
+          "clue": "The Confederate ironclad, renamed Virginia"
+        },
+        {
+          "answer": "COPPERHEAD",
+          "clue": "A Northerner who wanted peace with the South"
+        },
+        {
+          "answer": "CARPETBAGGER",
+          "clue": "A Northerner who went South after the war"
+        },
+        {
+          "answer": "SCALAWAG",
+          "clue": "A white Southerner who backed Reconstruction"
+        },
+        {
+          "answer": "FREEDMEN",
+          "clue": "The bureau that aided the newly freed"
+        },
+        {
+          "answer": "ANDERSONVILLE",
+          "clue": "The notorious Confederate prison"
+        },
+        {
+          "answer": "HARPERSFERRY",
+          "clue": "John Brown's raid on the arsenal"
+        },
+        {
+          "answer": "DREDSCOTT",
+          "clue": "The decision that said a slave was property"
+        },
+        {
+          "answer": "MISSOURI",
+          "clue": "The compromise that drew a line at 36-30"
+        },
+        {
+          "answer": "POPULAR",
+          "clue": "Sovereignty, letting a territory vote on slavery"
+        },
+        {
+          "answer": "BORDERSTATE",
+          "clue": "A slave state that stayed in the Union"
+        },
+        {
+          "answer": "GREENBACK",
+          "clue": "The paper money the Union printed"
+        }
+      ]
+    }
+  },
+  {
+    "id": "westward",
+    "name": "Westward Expansion",
+    "subject": "American History",
+    "levels": {
+      "easy": [
+        {
+          "answer": "WAGON",
+          "clue": "The covered kind rolled west"
+        },
+        {
+          "answer": "TRAIL",
+          "clue": "The Oregon one"
+        },
+        {
+          "answer": "GOLD",
+          "clue": "Found in California in 1848"
+        },
+        {
+          "answer": "MINER",
+          "clue": "A forty-niner"
+        },
+        {
+          "answer": "COWBOY",
+          "clue": "He drove the cattle"
+        },
+        {
+          "answer": "HORSE",
+          "clue": "Transport on the frontier"
+        },
+        {
+          "answer": "CATTLE",
+          "clue": "Driven north to the railheads"
+        },
+        {
+          "answer": "RANCH",
+          "clue": "A big cattle farm"
+        },
+        {
+          "answer": "SETTLER",
+          "clue": "One who moved west to stay"
+        },
+        {
+          "answer": "PIONEER",
+          "clue": "One of the first to go"
+        },
+        {
+          "answer": "FRONTIER",
+          "clue": "The edge of settled land"
+        },
+        {
+          "answer": "PRAIRIE",
+          "clue": "The great grassland"
+        },
+        {
+          "answer": "BUFFALO",
+          "clue": "Millions once roamed the plains"
+        },
+        {
+          "answer": "RIVER",
+          "clue": "The Mississippi divided East from West"
+        },
+        {
+          "answer": "MOUNTAIN",
+          "clue": "The Rockies stood in the way"
+        },
+        {
+          "answer": "RAILROAD",
+          "clue": "It crossed the continent in 1869"
+        },
+        {
+          "answer": "FORT",
+          "clue": "The army built them along the trails"
+        },
+        {
+          "answer": "CABIN",
+          "clue": "A log home on the frontier"
+        },
+        {
+          "answer": "SHERIFF",
+          "clue": "The law in a frontier town"
+        },
+        {
+          "answer": "SALOON",
+          "clue": "The frontier bar"
+        },
+        {
+          "answer": "TEPEE",
+          "clue": "A Plains tribe's cone-shaped home"
+        },
+        {
+          "answer": "CANOE",
+          "clue": "Lewis and Clark paddled them"
+        },
+        {
+          "answer": "MAP",
+          "clue": "Explorers drew them"
+        },
+        {
+          "answer": "LAND",
+          "clue": "What everyone went west for"
+        }
+      ],
+      "medium": [
+        {
+          "answer": "LOUISIANA",
+          "clue": "The purchase that doubled the country"
+        },
+        {
+          "answer": "JEFFERSON",
+          "clue": "The president who bought it"
+        },
+        {
+          "answer": "LEWISANDCLARK",
+          "clue": "The expedition to the Pacific"
+        },
+        {
+          "answer": "SACAGAWEA",
+          "clue": "The Shoshone guide"
+        },
+        {
+          "answer": "OREGON",
+          "clue": "The trail to the Northwest"
+        },
+        {
+          "answer": "MANIFEST",
+          "clue": "Destiny, the belief in expansion"
+        },
+        {
+          "answer": "HOMESTEAD",
+          "clue": "The act that gave free land to farmers"
+        },
+        {
+          "answer": "GOLDRUSH",
+          "clue": "California, 1849"
+        },
+        {
+          "answer": "SUTTER",
+          "clue": "Gold was found at his mill"
+        },
+        {
+          "answer": "ALAMO",
+          "clue": "Remember it"
+        },
+        {
+          "answer": "TEXAS",
+          "clue": "The Lone Star Republic, then a state"
+        },
+        {
+          "answer": "MEXICO",
+          "clue": "The war with it won the Southwest"
+        },
+        {
+          "answer": "PONYEXPRESS",
+          "clue": "Mail by relay rider, for eighteen months"
+        },
+        {
+          "answer": "UNIONPACIFIC",
+          "clue": "The railroad built west from Omaha"
+        },
+        {
+          "answer": "GOLDENSPIKE",
+          "clue": "Driven to finish the railroad"
+        },
+        {
+          "answer": "DONNER",
+          "clue": "The party trapped in the Sierra snow"
+        },
+        {
+          "answer": "MORMON",
+          "clue": "Brigham Young led them to Utah"
+        },
+        {
+          "answer": "SANTAFE",
+          "clue": "The trade trail to New Mexico"
+        },
+        {
+          "answer": "CHISHOLM",
+          "clue": "The great cattle trail to Kansas"
+        },
+        {
+          "answer": "SODHOUSE",
+          "clue": "A prairie home built of turf"
+        },
+        {
+          "answer": "STAGECOACH",
+          "clue": "Wells Fargo ran them"
+        },
+        {
+          "answer": "TELEGRAPH",
+          "clue": "It put the Pony Express out of business"
+        },
+        {
+          "answer": "RESERVATION",
+          "clue": "Land set aside for a tribe"
+        },
+        {
+          "answer": "BARBEDWIRE",
+          "clue": "It fenced the open range"
+        }
+      ],
+      "hard": [
+        {
+          "answer": "PROMONTORY",
+          "clue": "The Utah summit where the rails met"
+        },
+        {
+          "answer": "GADSDEN",
+          "clue": "The purchase that finished the southern border"
+        },
+        {
+          "answer": "GUADALUPE",
+          "clue": "Hidalgo, the treaty that ended the Mexican War"
+        },
+        {
+          "answer": "TRAILOFTEARS",
+          "clue": "The Cherokee removal"
+        },
+        {
+          "answer": "INDIANREMOVAL",
+          "clue": "Jackson's act of 1830"
+        },
+        {
+          "answer": "LITTLEBIGHORN",
+          "clue": "Custer's last stand"
+        },
+        {
+          "answer": "WOUNDEDKNEE",
+          "clue": "The massacre of 1890"
+        },
+        {
+          "answer": "SITTINGBULL",
+          "clue": "The Lakota leader who beat Custer"
+        },
+        {
+          "answer": "CRAZYHORSE",
+          "clue": "The Lakota war leader"
+        },
+        {
+          "answer": "GERONIMO",
+          "clue": "The Apache who fought longest"
+        },
+        {
+          "answer": "CHIEFJOSEPH",
+          "clue": "I will fight no more forever"
+        },
+        {
+          "answer": "DAWESACT",
+          "clue": "It broke reservations into allotments"
+        },
+        {
+          "answer": "MOUNTAINMAN",
+          "clue": "A fur trapper of the Rockies"
+        },
+        {
+          "answer": "JIMBRIDGER",
+          "clue": "The famous scout and trapper"
+        },
+        {
+          "answer": "SOUTHPASS",
+          "clue": "The gap through the Rockies the trails used"
+        },
+        {
+          "answer": "FORTLARAMIE",
+          "clue": "The trail fort, and the treaties signed there"
+        },
+        {
+          "answer": "COMSTOCK",
+          "clue": "The Nevada silver lode"
+        },
+        {
+          "answer": "BOOMTOWN",
+          "clue": "A city that grew overnight on a strike"
+        },
+        {
+          "answer": "GHOSTTOWN",
+          "clue": "A boomtown after the ore ran out"
+        },
+        {
+          "answer": "LONGDRIVE",
+          "clue": "Moving cattle hundreds of miles to rail"
+        },
+        {
+          "answer": "OPENRANGE",
+          "clue": "Unfenced grazing land"
+        },
+        {
+          "answer": "VAQUERO",
+          "clue": "The Mexican cowboy who taught the trade"
+        },
+        {
+          "answer": "LANDRUSH",
+          "clue": "Oklahoma, 1889, at the sound of a gun"
+        },
+        {
+          "answer": "SOONER",
+          "clue": "One who slipped in before the gun"
+        }
+      ]
+    }
+  },
+  {
+    "id": "wwii",
+    "name": "World War II",
+    "subject": "American History",
+    "levels": {
+      "easy": [
+        {
+          "answer": "WAR",
+          "clue": "It lasted from 1939 to 1945"
+        },
+        {
+          "answer": "ALLY",
+          "clue": "Britain was one"
+        },
+        {
+          "answer": "ENEMY",
+          "clue": "The Axis powers"
+        },
+        {
+          "answer": "TANK",
+          "clue": "The armored vehicle"
+        },
+        {
+          "answer": "PLANE",
+          "clue": "Bombers and fighters"
+        },
+        {
+          "answer": "BOMB",
+          "clue": "Dropped from a plane"
+        },
+        {
+          "answer": "NAVY",
+          "clue": "The fleet"
+        },
+        {
+          "answer": "SHIP",
+          "clue": "Battleships and carriers"
+        },
+        {
+          "answer": "PILOT",
+          "clue": "One who flies"
+        },
+        {
+          "answer": "SOLDIER",
+          "clue": "A GI"
+        },
+        {
+          "answer": "GENERAL",
+          "clue": "Eisenhower's rank"
+        },
+        {
+          "answer": "RADIO",
+          "clue": "FDR's fireside chats came by it"
+        },
+        {
+          "answer": "RATION",
+          "clue": "A limited share of sugar or gas"
+        },
+        {
+          "answer": "FACTORY",
+          "clue": "Rosie the Riveter worked in one"
+        },
+        {
+          "answer": "HITLER",
+          "clue": "Germany's dictator"
+        },
+        {
+          "answer": "JAPAN",
+          "clue": "It attacked Pearl Harbor"
+        },
+        {
+          "answer": "GERMANY",
+          "clue": "It invaded Poland to start the war"
+        },
+        {
+          "answer": "BRITAIN",
+          "clue": "It stood alone in 1940"
+        },
+        {
+          "answer": "PEARL",
+          "clue": "Harbor, December seventh"
+        },
+        {
+          "answer": "HAWAII",
+          "clue": "Where Pearl Harbor is"
+        },
+        {
+          "answer": "EUROPE",
+          "clue": "One theater of the war"
+        },
+        {
+          "answer": "PACIFIC",
+          "clue": "The other theater"
+        },
+        {
+          "answer": "VICTORY",
+          "clue": "V for it"
+        },
+        {
+          "answer": "PEACE",
+          "clue": "What came in 1945"
+        }
+      ],
+      "medium": [
+        {
+          "answer": "PEARLHARBOR",
+          "clue": "A date which will live in infamy"
+        },
+        {
+          "answer": "ROOSEVELT",
+          "clue": "The president for most of the war"
+        },
+        {
+          "answer": "TRUMAN",
+          "clue": "The president who ended it"
+        },
+        {
+          "answer": "EISENHOWER",
+          "clue": "Supreme Allied Commander in Europe"
+        },
+        {
+          "answer": "MACARTHUR",
+          "clue": "I shall return"
+        },
+        {
+          "answer": "PATTON",
+          "clue": "The hard-charging tank general"
+        },
+        {
+          "answer": "NORMANDY",
+          "clue": "Where D-Day landed"
+        },
+        {
+          "answer": "DDAY",
+          "clue": "June sixth, 1944"
+        },
+        {
+          "answer": "MIDWAY",
+          "clue": "The carrier battle that turned the Pacific"
+        },
+        {
+          "answer": "IWOJIMA",
+          "clue": "The flag raised on Mount Suribachi"
+        },
+        {
+          "answer": "OKINAWA",
+          "clue": "The last great island battle"
+        },
+        {
+          "answer": "BULGE",
+          "clue": "The battle of the, Hitler's last offensive"
+        },
+        {
+          "answer": "HIROSHIMA",
+          "clue": "The first atomic bomb fell here"
+        },
+        {
+          "answer": "NAGASAKI",
+          "clue": "The second atomic bomb fell here"
+        },
+        {
+          "answer": "MANHATTAN",
+          "clue": "The project that built the bomb"
+        },
+        {
+          "answer": "HOLOCAUST",
+          "clue": "The murder of six million Jews"
+        },
+        {
+          "answer": "AXIS",
+          "clue": "Germany, Italy and Japan"
+        },
+        {
+          "answer": "ALLIES",
+          "clue": "America, Britain, the Soviets and more"
+        },
+        {
+          "answer": "CHURCHILL",
+          "clue": "Britain's wartime prime minister"
+        },
+        {
+          "answer": "STALIN",
+          "clue": "The Soviet dictator"
+        },
+        {
+          "answer": "MUSSOLINI",
+          "clue": "Italy's dictator"
+        },
+        {
+          "answer": "BLITZ",
+          "clue": "The bombing of London"
+        },
+        {
+          "answer": "LENDLEASE",
+          "clue": "Arms to the Allies before America joined"
+        },
+        {
+          "answer": "ROSIE",
+          "clue": "The Riveter, the women in the factories"
+        }
+      ],
+      "hard": [
+        {
+          "answer": "GUADALCANAL",
+          "clue": "The first American offensive in the Pacific"
+        },
+        {
+          "answer": "LEYTEGULF",
+          "clue": "The largest naval battle in history"
+        },
+        {
+          "answer": "CORALSEA",
+          "clue": "The first battle fought entirely by carriers"
+        },
+        {
+          "answer": "BATAAN",
+          "clue": "The death march in the Philippines"
+        },
+        {
+          "answer": "DOOLITTLE",
+          "clue": "The raid that bombed Tokyo in 1942"
+        },
+        {
+          "answer": "ENOLAGAY",
+          "clue": "The plane that dropped the first bomb"
+        },
+        {
+          "answer": "OPPENHEIMER",
+          "clue": "The scientist who led the bomb project"
+        },
+        {
+          "answer": "LOSALAMOS",
+          "clue": "Where the bomb was designed"
+        },
+        {
+          "answer": "TRINITY",
+          "clue": "The first atomic test"
+        },
+        {
+          "answer": "MARKETGARDEN",
+          "clue": "The failed airborne push into Holland"
+        },
+        {
+          "answer": "BASTOGNE",
+          "clue": "Nuts, said the general under siege"
+        },
+        {
+          "answer": "ANZIO",
+          "clue": "The stalled Italian beachhead"
+        },
+        {
+          "answer": "MONTECASSINO",
+          "clue": "The abbey on the road to Rome"
+        },
+        {
+          "answer": "OMAHA",
+          "clue": "The bloodiest D-Day beach"
+        },
+        {
+          "answer": "UTAH",
+          "clue": "The other American D-Day beach"
+        },
+        {
+          "answer": "TUSKEGEE",
+          "clue": "The Black airmen who never lost a bomber"
+        },
+        {
+          "answer": "NAVAJO",
+          "clue": "The code talkers"
+        },
+        {
+          "answer": "INTERNMENT",
+          "clue": "The camps for Japanese Americans"
+        },
+        {
+          "answer": "YALTA",
+          "clue": "The conference that carved up postwar Europe"
+        },
+        {
+          "answer": "POTSDAM",
+          "clue": "The conference that demanded Japan's surrender"
+        },
+        {
+          "answer": "NUREMBERG",
+          "clue": "The trials of the Nazi leaders"
+        },
+        {
+          "answer": "KAMIKAZE",
+          "clue": "The suicide pilots"
+        },
+        {
+          "answer": "NIMITZ",
+          "clue": "The admiral who commanded the Pacific"
+        },
+        {
+          "answer": "BRADLEY",
+          "clue": "The GI's general"
+        }
+      ]
+    }
+  },
+  {
+    "id": "civilrights",
+    "name": "Civil Rights",
+    "subject": "American History",
+    "levels": {
+      "easy": [
+        {
+          "answer": "RIGHTS",
+          "clue": "What the movement fought for"
+        },
+        {
+          "answer": "EQUAL",
+          "clue": "Treated the same"
+        },
+        {
+          "answer": "VOTE",
+          "clue": "The right many were denied"
+        },
+        {
+          "answer": "MARCH",
+          "clue": "On Washington, 1963"
+        },
+        {
+          "answer": "DREAM",
+          "clue": "King had one"
+        },
+        {
+          "answer": "KING",
+          "clue": "Martin Luther, Jr."
+        },
+        {
+          "answer": "ROSA",
+          "clue": "Parks, who kept her seat"
+        },
+        {
+          "answer": "BUS",
+          "clue": "Montgomery boycotted them"
+        },
+        {
+          "answer": "SEAT",
+          "clue": "Rosa Parks wouldn't give hers up"
+        },
+        {
+          "answer": "SCHOOL",
+          "clue": "Little Rock's had to be integrated"
+        },
+        {
+          "answer": "LAW",
+          "clue": "The Civil Rights Act was one"
+        },
+        {
+          "answer": "PEACE",
+          "clue": "King's method was nonviolent"
+        },
+        {
+          "answer": "SPEECH",
+          "clue": "I Have a Dream was one"
+        },
+        {
+          "answer": "SIGN",
+          "clue": "Whites Only was on many"
+        },
+        {
+          "answer": "LUNCH",
+          "clue": "Counter sit-ins started in Greensboro"
+        },
+        {
+          "answer": "SITIN",
+          "clue": "Taking a seat and refusing to leave"
+        },
+        {
+          "answer": "PROTEST",
+          "clue": "A public demand for change"
+        },
+        {
+          "answer": "JUSTICE",
+          "clue": "Fairness under the law"
+        },
+        {
+          "answer": "FREEDOM",
+          "clue": "The riders rode for it"
+        },
+        {
+          "answer": "CHURCH",
+          "clue": "Where much of the movement organized"
+        },
+        {
+          "answer": "JAIL",
+          "clue": "King wrote a letter from Birmingham's"
+        },
+        {
+          "answer": "SOUTH",
+          "clue": "Where segregation was law"
+        },
+        {
+          "answer": "UNITY",
+          "clue": "Standing together"
+        },
+        {
+          "answer": "HOPE",
+          "clue": "What kept the marchers going"
+        }
+      ],
+      "medium": [
+        {
+          "answer": "SEGREGATION",
+          "clue": "Keeping the races apart by law"
+        },
+        {
+          "answer": "INTEGRATION",
+          "clue": "Bringing the races together"
+        },
+        {
+          "answer": "BOYCOTT",
+          "clue": "Montgomery's lasted 381 days"
+        },
+        {
+          "answer": "MONTGOMERY",
+          "clue": "The Alabama city of the bus boycott"
+        },
+        {
+          "answer": "BIRMINGHAM",
+          "clue": "Where the fire hoses and dogs were turned loose"
+        },
+        {
+          "answer": "SELMA",
+          "clue": "The march across the Edmund Pettus Bridge"
+        },
+        {
+          "answer": "LITTLEROCK",
+          "clue": "The nine who integrated Central High"
+        },
+        {
+          "answer": "GREENSBORO",
+          "clue": "The Woolworth's lunch counter sit-in"
+        },
+        {
+          "answer": "NONVIOLENT",
+          "clue": "King's method, learned from Gandhi"
+        },
+        {
+          "answer": "BROWN",
+          "clue": "Versus Board of Education, 1954"
+        },
+        {
+          "answer": "MARSHALL",
+          "clue": "Thurgood, who argued Brown and joined the Court"
+        },
+        {
+          "answer": "PARKS",
+          "clue": "Rosa, the mother of the movement"
+        },
+        {
+          "answer": "MALCOLM",
+          "clue": "X, who spoke of any means necessary"
+        },
+        {
+          "answer": "NAACP",
+          "clue": "The oldest civil rights organization"
+        },
+        {
+          "answer": "FREEDOMRIDE",
+          "clue": "Buses through the South to test the law"
+        },
+        {
+          "answer": "JIMCROW",
+          "clue": "The name for the segregation laws"
+        },
+        {
+          "answer": "LYNCHING",
+          "clue": "Mob murder, used to terrorize"
+        },
+        {
+          "answer": "EMMETTTILL",
+          "clue": "The boy whose murder shocked the nation"
+        },
+        {
+          "answer": "VOTINGRIGHTS",
+          "clue": "The act of 1965"
+        },
+        {
+          "answer": "CIVILRIGHTS",
+          "clue": "The act of 1964"
+        },
+        {
+          "answer": "JOHNSON",
+          "clue": "The president who signed both acts"
+        },
+        {
+          "answer": "KENNEDY",
+          "clue": "The president who proposed the 1964 act"
+        },
+        {
+          "answer": "MEMPHIS",
+          "clue": "Where King was assassinated"
+        },
+        {
+          "answer": "ABERNATHY",
+          "clue": "Ralph, King's closest ally"
+        }
+      ],
+      "hard": [
+        {
+          "answer": "PLESSY",
+          "clue": "Versus Ferguson, separate but equal"
+        },
+        {
+          "answer": "SEPARATE",
+          "clue": "But equal, the doctrine Brown overturned"
+        },
+        {
+          "answer": "SCLC",
+          "clue": "King's Southern Christian Leadership Conference"
+        },
+        {
+          "answer": "SNCC",
+          "clue": "The student committee that led the sit-ins"
+        },
+        {
+          "answer": "CORE",
+          "clue": "The Congress of Racial Equality"
+        },
+        {
+          "answer": "BLOODYSUNDAY",
+          "clue": "March seventh, 1965, on the bridge"
+        },
+        {
+          "answer": "PETTUSBRIDGE",
+          "clue": "Where the Selma marchers were beaten"
+        },
+        {
+          "answer": "FREEDOMSUMMER",
+          "clue": "The 1964 Mississippi voter drive"
+        },
+        {
+          "answer": "MEDGAREVERS",
+          "clue": "The NAACP leader shot in his driveway"
+        },
+        {
+          "answer": "HAMER",
+          "clue": "Fannie Lou, sick and tired of being sick and tired"
+        },
+        {
+          "answer": "BAYARDRUSTIN",
+          "clue": "The organizer of the March on Washington"
+        },
+        {
+          "answer": "JOHNLEWIS",
+          "clue": "The SNCC chairman beaten at Selma, later a congressman"
+        },
+        {
+          "answer": "POLLTAX",
+          "clue": "A fee to vote, banned by the 24th Amendment"
+        },
+        {
+          "answer": "LITERACYTEST",
+          "clue": "A trick exam to keep Black voters out"
+        },
+        {
+          "answer": "GRANDFATHER",
+          "clue": "The clause that exempted whites from those tests"
+        },
+        {
+          "answer": "BLACKPOWER",
+          "clue": "Stokely Carmichael's cry"
+        },
+        {
+          "answer": "BLACKPANTHERS",
+          "clue": "The party founded in Oakland"
+        },
+        {
+          "answer": "FOURGIRLS",
+          "clue": "Killed in the Birmingham church bombing of 1963"
+        },
+        {
+          "answer": "FAIRHOUSING",
+          "clue": "The act of 1968, passed after King's death"
+        },
+        {
+          "answer": "AFFIRMATIVE",
+          "clue": "Action, to correct past discrimination"
+        },
+        {
+          "answer": "DESEGREGATE",
+          "clue": "End the separation"
+        },
+        {
+          "answer": "BUSING",
+          "clue": "Moving students to integrate schools"
+        },
+        {
+          "answer": "CONNOR",
+          "clue": "Bull, Birmingham's police commissioner"
+        },
+        {
+          "answer": "WALLACE",
+          "clue": "The governor who stood in the schoolhouse door"
+        }
+      ]
+    }
+  }
+]

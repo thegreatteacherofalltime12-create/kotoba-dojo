@@ -548,7 +548,7 @@ const CROSS_SLOTS = [
   ["right", 1, "cc-right"], ["bottom", 3, "cc-bottom"],
 ];
 function crossGrid(revealed) {
-  const grid = el("div", "cc-cross");
+  const grid = el("div", "cc-cross red-backs");
   for (const [name, idx, cls] of CROSS_SLOTS) {
     const key = `cross-${name}`;
     const wasBack = [...(shown.get(key) || [])].some((id) => id.startsWith("back:"));
@@ -1728,13 +1728,35 @@ function showHand(msg) {
   }
 
   if (msg.game === "threecard") {
-    const acts = el("div", "factions");
-    const play = el("button", "fbtn fbtn-go", `Play (${money(msg.ante)} more)`);
-    play.onclick = () => send({ type: "TABLE_ACT", move: "play" });
-    const fold = el("button", "fbtn", "Fold");
-    fold.onclick = () => send({ type: "TABLE_ACT", move: "fold" });
-    acts.append(play, fold);
+    host.textContent = "";
+
+    const head = el("div", "cc-head");
+    const titles = el("div", "cc-titles");
+    titles.append(el("div", "cc-title", "\u{1F0CF} THREE-CARD POKER"));
+    head.append(titles, purseStrip());
+    host.append(head);
+
+    // The dealer's three stay face down until the hand settles; the row is
+    // there so the table reads as two hands facing each other.
+    host.append(el("p", "tc-l", "DEALER \u00b7 hidden"));
+    host.append(handRow([{ hidden: true }, { hidden: true }, { hidden: true }], "tc-dealer", "thand red-backs"));
+
+    const side = msg.side ? ` \u00b7 pair plus ${money(msg.side)}` : "";
+    host.append(el("p", "tc-l", `YOU \u00b7 ${msg.rank} \u00b7 ante ${money(msg.ante)}${side}`));
+    host.append(handRow(msg.cards, "tc-mine", "thand"));
+
+    const acts = el("div", "tc-acts");
+    const fold = el("button", "fbtn cc-fold tc-btn", "\u2715 FOLD");
+    const play = el("button", "fbtn fbtn-go tc-btn", `\u2713 PLAY (+${money(msg.ante)})`);
+    const lock = () => { fold.disabled = true; play.disabled = true; };
+    fold.onclick = () => { lock(); send({ type: "TABLE_ACT", move: "fold" }); };
+    play.onclick = () => { lock(); send({ type: "TABLE_ACT", move: "play" }); };
+    acts.append(fold, play);
     host.append(acts);
+
+    const tail = el("div", "cc-tail");
+    tail.append(endHandBtn());
+    host.append(tail);
     return;
   }
 

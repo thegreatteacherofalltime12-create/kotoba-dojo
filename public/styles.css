@@ -2193,12 +2193,12 @@ h1, h2, h3 { font-family: var(--display); text-transform: none; letter-spacing: 
 .cc-cross .chand { margin: 0; }
 .cc-top { grid-area: top; } .cc-left { grid-area: left; } .cc-mid { grid-area: mid; }
 .cc-right { grid-area: right; } .cc-bottom { grid-area: bottom; }
-.cc-cross .pcard.back {
+.red-backs .pcard.back {
   background: linear-gradient(135deg, #7F1D1D, #991B1B 55%, #7F1D1D);
   border-color: #FCA5A5; position: relative;
 }
-.cc-cross .pcard.back .pc-weave { display: none; }
-.cc-cross .pcard.back::after {
+.red-backs .pcard.back .pc-weave { display: none; }
+.red-backs .pcard.back::after {
   content: "\2605"; position: absolute; inset: 0; display: grid; place-items: center;
   font-size: calc(var(--cw, 3.2rem) * .42); color: #FECACA; opacity: .9;
   text-shadow: 0 1px 0 rgba(0,0,0,.4);
@@ -2218,6 +2218,17 @@ h1, h2, h3 { font-family: var(--display); text-transform: none; letter-spacing: 
 }
 .cc-fold:hover { background: rgba(153, 27, 27, .95); }
 .cc-tail { display: flex; justify-content: flex-end; margin-top: .6rem; opacity: .75; }
+/* ── three-card ────────────────────────────────────────────────────────
+ * Dealer's three face down over your three face up, fold and play side by
+ * side under them. The header and the red backs are shared with criss cross.
+ */
+.tc-l {
+  margin: .5rem 0 .3rem; font-size: .64rem; font-weight: 800;
+  letter-spacing: .14em; color: #9BAF9F;
+}
+.tc-acts { display: flex; gap: .6rem; margin-top: .8rem; }
+.tc-btn { flex: 1; margin-top: 0; letter-spacing: .08em; font-weight: 800; }
+
 
 @media (max-width: 520px) {
   .cc-board { flex-direction: column; align-items: center; gap: .9rem; }

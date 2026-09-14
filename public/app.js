@@ -608,7 +608,9 @@ function drawMyRank() {
 // the banner is a different height on every width.
 function reserveCardSpace() {
   const card = $("playerbox"), bar = document.querySelector(".ladder-bar");
-  if (!card || !bar || card.offsetParent === null) return;
+  // Not offsetParent: a fixed element reports none, so that check never let
+  // this run. A hidden card has no client rects; a shown one has.
+  if (!card || !bar || card.getClientRects().length === 0) return;
   // The belt ladder runs the full width under the banner, so it is the first
   // thing the card would cover. Push it down to clear the card and everything
   // beneath it moves with it.
@@ -620,6 +622,9 @@ function reserveCardSpace() {
   if (side) side.style.paddingTop = "";
 }
 addEventListener("resize", reserveCardSpace);
+// Any change to the card's size — it appearing, the name arriving, Prestige
+// being offered — re-measures. The observer fires for each of those.
+if ("ResizeObserver" in window) new ResizeObserver(reserveCardSpace).observe($("playerbox"));
 
 // ── the avatar overlay ───────────────────────────────────────────────
 //

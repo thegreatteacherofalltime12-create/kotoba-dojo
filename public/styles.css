@@ -368,7 +368,7 @@ input::placeholder { color: var(--muted); }
    invite and sign out all live in the Profile card now, and two copies of the
    same information is one too many. The markup stays so the values it holds
    can still be written to without a special case in the drawing code. */
-.playerbox { display: none; }
+.playerbox { display: flex; }
 .pb-top { display: grid; grid-template-columns: 1fr auto; }
 .pb-rank { padding: .5rem .8rem .6rem; border-right: 1px solid var(--edge); }
 .pb-prestige { padding: .5rem .8rem .6rem; text-align: right; min-width: 7.5rem; }
@@ -3055,3 +3055,73 @@ a.dtab { text-decoration: none; display: inline-block; }
 /* The big charts need smaller squares or they won't fit a phone. */
 .bgrid { --n: 10; }
 @media (max-width: 700px) { .bgrid { font-size: .55rem; } }
+
+/* ── the player's card ─────────────────────────────────────────────────
+ * Pinned to the top-right of the landing page, on every screen size. The
+ * insignia over the name, the gi in a ring, MMR and belt and rank beside it,
+ * Profile and Log out beneath. Tapping the gi opens the avatar overlay. */
+.playerbox {
+  position: fixed; top: 12px; right: 12px; z-index: 35;
+  width: 236px; display: flex; flex-direction: column;
+  padding: .55rem .7rem .6rem; border-radius: 12px;
+  background: rgba(8, 12, 20, .92); border: 1px solid rgba(255,255,255,.14);
+  box-shadow: 0 10px 28px rgba(0,0,0,.55);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+}
+.pb-head { display: flex; flex-direction: column; align-items: flex-end; gap: .1rem; margin-bottom: .35rem; }
+.pb-insig-top { display: inline-flex; min-height: 1.1rem; }
+.pb-insig-top .insig { height: 1rem; }
+.playerbox .whoami {
+  cursor: default; text-transform: none; letter-spacing: 0; font-weight: 800; font-size: .92rem;
+  color: #F1F5F9; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.pb-main { display: grid; grid-template-columns: auto 1fr; gap: .7rem; align-items: center; }
+.pb-avatar {
+  width: 78px; height: 78px; padding: 0; border-radius: 50%; cursor: pointer; display: grid; place-items: center;
+  background: radial-gradient(circle at 50% 40%, #182a3a, #0b1420 70%);
+  border: 3px solid #7FB425; box-shadow: 0 0 0 2px #0b1420, 0 0 0 4px #E8C15A, 0 6px 16px rgba(0,0,0,.5);
+  transition: transform .12s ease, box-shadow .15s ease;
+}
+.pb-avatar:hover { transform: scale(1.04); box-shadow: 0 0 0 2px #0b1420, 0 0 0 4px #F4CE5A, 0 0 18px rgba(244,206,90,.45); }
+.pb-avatar svg { display: block; width: 64px; height: 64px; }
+.pb-stats { display: flex; flex-direction: column; align-items: flex-end; text-align: right; gap: .1rem; }
+.playerbox .pb-label { font-size: .58rem; letter-spacing: .2em; color: #C7D2DC; margin: 0; }
+.playerbox .pb-label-p { color: #C4B5FD; margin-top: .3rem; }
+.playerbox .pb-belt {
+  gap: .35rem; font-size: .68rem; font-weight: 800; letter-spacing: .12em; padding: .18rem .55rem;
+  border-radius: 999px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.22); color: #F1F5F9;
+}
+.playerbox .pb-belt .belt { width: 10px; height: 10px; border-radius: 3px; box-shadow: 0 0 0 1px rgba(255,255,255,.35); }
+.playerbox .pb-amount { font-size: 1.35rem; color: #F4CE5A; line-height: 1.1; }
+.playerbox .pb-insignia { min-height: 1.1rem; display: inline-flex; }
+.playerbox .pb-insignia .insig { height: 1rem; }
+.playerbox .pb-star { font-family: var(--display); font-weight: 800; font-size: .78rem; letter-spacing: .12em; color: #C4B5FD; line-height: 1.2; }
+.pb-acts { display: grid; grid-template-columns: 1fr 1fr; gap: .4rem; margin-top: .55rem; }
+.pb-btn {
+  font: inherit; font-size: .64rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; cursor: pointer;
+  padding: .45rem .3rem; border-radius: 7px; color: #E5E7EB;
+  background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.28);
+}
+.pb-btn:hover { background: rgba(255,255,255,.12); border-color: #F4CE5A; color: #F4CE5A; }
+.pb-btn.is-on { background: rgba(244,206,90,.18); border-color: #F4CE5A; color: #F4CE5A; }
+.pb-prestige-btn {
+  margin-top: .4rem; font: inherit; font-size: .64rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase;
+  cursor: pointer; padding: .42rem; border-radius: 7px; color: #241B00; background: #F4CE5A; border: 1px solid #C9A23C;
+}
+.playerbox .pb-invite { margin-top: .4rem; font-size: .62rem; padding: .32rem; border-radius: 7px; }
+
+/* Room for the card: the banner's title and tabs stay clear of it. */
+.banner-in { padding-right: 264px; }
+@media (max-width: 700px) {
+  .playerbox { width: 176px; top: 8px; right: 8px; padding: .4rem .5rem .45rem; }
+  .pb-avatar { width: 54px; height: 54px; border-width: 2px; }
+  .pb-avatar svg { width: 44px; height: 44px; }
+  .playerbox .whoami { font-size: .78rem; }
+  .playerbox .pb-amount { font-size: 1.05rem; }
+  .playerbox .pb-belt { font-size: .58rem; padding: .12rem .4rem; }
+  .pb-btn { font-size: .56rem; padding: .36rem .2rem; }
+  .banner-in { padding-right: 190px; }
+}
+
+/* The avatar overlay. */
+.avatar-card { max-width: 30rem; }

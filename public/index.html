@@ -120,34 +120,36 @@ if (location.protocol === "file:") {
         <div class="build-stamp" id="build-stamp"></div>
         <div class="drawer-tabs">
           <button id="tab-create" class="dtab dtab-go" aria-expanded="false" aria-controls="drawer-create">+ Create Match</button>
-          <button id="tab-profile" class="dtab dtab-red" aria-expanded="false" aria-controls="drawer-profile">Profile</button>
           <button id="tab-news" class="dtab" aria-expanded="false" aria-controls="drawer-news">What's New</button>
           <button id="tab-records" class="dtab" aria-expanded="false" aria-controls="drawer-records">Records</button>
           <button id="tab-rules" class="dtab dtab-guide" aria-expanded="false" aria-controls="drawer-rules"><span aria-hidden="true">📖</span> View Rules</button>
           <button id="tab-scrolls" class="dtab" aria-expanded="false" aria-controls="drawer-scrolls">Word-Cross Scrolls</button>
         </div>
       </div>
-      <div class="playerbox">
-        <div class="pb-top">
-          <div class="pb-rank">
+      <aside class="playerbox" id="playerbox" aria-label="Your card">
+        <div class="pb-head">
+          <span class="pb-insig-top" id="pb-insignia-top"></span>
+          <span id="home-name" class="whoami"></span>
+        </div>
+        <div class="pb-main">
+          <button class="pb-avatar" id="pb-avatar" type="button" title="Change your avatar" aria-label="Change your avatar"></button>
+          <div class="pb-stats">
             <span class="pb-label">MMR</span>
             <div class="pb-belt"><span class="belt" id="pb-swatch"></span><span id="pb-beltname">Unranked</span></div>
             <div class="pb-amount" id="pb-mmr">0</div>
-          </div>
-          <div class="pb-prestige">
-            <span class="pb-label">Prestige</span>
-            <div class="pb-star" id="pb-star">&mdash;</div>
+            <span class="pb-label pb-label-p">Prestige</span>
             <div class="pb-insignia" id="pb-insignia"></div>
+            <div class="pb-star" id="pb-star">&mdash;</div>
           </div>
         </div>
-        <div class="pb-bottom">
-          <span class="pb-avatar" id="pb-avatar"></span>
-          <span id="home-name" class="whoami"></span>
-          <button id="btn-prestige" class="btn btn-small" hidden>Prestige</button>
-          <button id="btn-signout" class="btn btn-tiny">Sign out</button>
+        <div class="pb-acts">
+          <button id="tab-profile" class="pb-btn" aria-expanded="false" aria-controls="drawer-profile"><span aria-hidden="true">&#128100;</span> Profile</button>
+          <button id="btn-signout" class="pb-btn">Log out</button>
         </div>
-        <button id="tab-invite" class="pb-invite" aria-expanded="false" aria-controls="drawer-invite">Invite to the Dojo</button>
-      </div>
+        <button id="btn-prestige" class="pb-prestige-btn" hidden>Prestige</button>
+        <!-- Invite lives in the Profile drawer; this stays for the drawer wiring. -->
+        <button id="tab-invite" class="pb-invite" aria-expanded="false" aria-controls="drawer-invite" hidden>Invite to the Dojo</button>
+      </aside>
     </div>
   </header>
 
@@ -159,6 +161,7 @@ if (location.protocol === "file:") {
 
     <div class="modal" id="drawer-create" role="dialog" aria-modal="true" aria-label="Create a match" hidden></div>
     <div class="modal" id="drawer-profile" role="dialog" aria-modal="true" aria-label="Profile" hidden></div>
+    <div class="modal" id="avatar-modal" role="dialog" aria-modal="true" aria-label="Your avatar" hidden></div>
     <div class="modal" id="drawer-invite" role="dialog" aria-modal="true" aria-label="Invite to the Dojo" hidden></div>
 
     <div class="drawer as-modal" id="drawer-records" role="dialog" aria-modal="true" aria-label="Records" hidden></div>

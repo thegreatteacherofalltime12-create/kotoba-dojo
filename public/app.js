@@ -272,6 +272,7 @@ $("btn-guest").onclick = async () => {
 };
 
 $("btn-signout").onclick = () => { closeSocket(); signOut(auth); };
+$("pb-avatar").onclick = drawAvatarPicker;
 
 onAuthStateChanged(auth, async (user) => {
   clearTimeout(bootTimeout);
@@ -579,6 +580,8 @@ const prestigeRank = (n) => {
 };
 const prestigeName = (n) => PRESTIGE_RANKS[Math.min(Math.max(1, n), PRESTIGE_RANKS.length) - 1];
 
+const RANK_ABBR = ["2LT", "1LT", "CPT", "MAJ", "LTC", "COL", "BG", "MG", "LTG", "GEN"];
+
 function drawMyRank() {
   const me = standings.find((r) => r.uid === S.user?.uid);
   const mmr = me?.mmr ?? 0;
@@ -586,16 +589,69 @@ function drawMyRank() {
   const [, name, hex] = belt(mmr);
 
   $("pb-swatch").style.background = hex;
-  $("pb-beltname").innerHTML = `${escapeHtml(name)}${prestigePip(p)}`;
-  $("pb-mmr").innerHTML = `${mmr.toLocaleString()}${prestigePip(p)}`;
+  $("pb-beltname").textContent = name;
+  $("pb-mmr").textContent = mmr.toLocaleString();
 
-  // The insignia below already carries its own pips, so this counts prestiges
-  // rather than repeating them.
-  $("pb-star").textContent = p ? `${p}\u00d7` : "\u2014";
-  $("pb-insignia").innerHTML = p ? prestigeRank(p) : "Not yet earned";
+  // The insignia twice: over the name, and beside the rank. The abbreviation
+  // is the Space Force one, GEN for a General and so on down to 2LT.
+  const insig = p ? insigniaSvg(p, "insig pb-insig") : "";
+  $("pb-insignia-top").innerHTML = insig;
+  $("pb-insignia").innerHTML = insig;
+  $("pb-star").textContent = p ? RANK_ABBR[Math.min(p, RANK_ABBR.length) - 1] : "—";
+  $("pb-star").title = p ? prestigeName(p) : "Not yet earned";
 
-  $("pb-avatar").innerHTML = giSvg(S.avatar, 26);
+  $("pb-avatar").innerHTML = giSvg(S.avatar, 64);
   $("btn-prestige").hidden = mmr < PRESTIGE_COST;
+  reserveCardSpace();
+}
+
+// The card floats over the page, so the column beneath it starts below it.
+// Measured rather than guessed: the card grows when Prestige is offered and
+// the banner is a different height on every width.
+function reserveCardSpace() {
+  const card = $("playerbox"), side = document.querySelector(".col-side");
+  if (!card || !side || card.offsetParent === null) return;
+  const want = card.getBoundingClientRect().bottom + 12;
+  side.style.paddingTop = "0px";
+  const have = side.getBoundingClientRect().top;
+  side.style.paddingTop = `${Math.max(0, want - have)}px`;
+}
+addEventListener("resize", reserveCardSpace);
+
+// ── the avatar overlay ───────────────────────────────────────────────
+//
+// The only way to change the gi. Tap the avatar on the card and the choices
+// open over the page; pick one and it saves and closes.
+function drawAvatarPicker() {
+  const host = $("avatar-modal");
+  host.hidden = false;
+  host.innerHTML = `
+    <div class="modal-back" data-close></div>
+    <div class="modal-card avatar-card">
+      <div class="modal-head">
+        <h2>Your avatar</h2>
+        <button class="modal-close" data-close aria-label="Close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="panel-sub">Pick your gi. It shows on your card and in the rankings.</p>
+        <div class="gis">
+          ${GI_COLORS.map((g) => `
+            <button class="gi ${g.id === S.avatar ? "is-on" : ""}" data-gi="${g.id}" title="${g.name}">
+              ${giSvg(g.id, 52)}<span>${g.name}</span>
+            </button>`).join("")}
+        </div>
+      </div>
+    </div>`;
+  const close = () => { host.hidden = true; host.textContent = ""; };
+  host.querySelectorAll("[data-close]").forEach((n) => { n.onclick = close; });
+  host.querySelectorAll("button[data-gi]").forEach((b) => {
+    b.onclick = () => {
+      S.avatar = b.dataset.gi;
+      drawMyRank();
+      saveProfile();
+      close();
+    };
+  });
 }
 
 $("btn-prestige").onclick = async () => {
@@ -1117,7 +1173,7 @@ document.addEventListener("keydown", (e) => {
   if (!$("points-modal").hidden) return closePoints();
   for (const [tab, panel] of DRAWERS) if (!$(panel).hidden) closePanel(panel, tab);
 });
-$("tab-profile").onclick = () => { if (drawer("drawer-profile")) drawProfile("avatar"); };
+$("tab-profile").onclick = () => { if (drawer("drawer-profile")) drawProfile("info"); };
 $("tab-invite").onclick = () => { if (drawer("drawer-invite")) drawInvite(); };
 
 // ── create match ──────────────────────────────────────────────────
@@ -1783,7 +1839,6 @@ function drawProfile(tab) {
       <div class="modal-body">
         ${profileSummary()}
         <div class="subtabs">
-          <button class="stab ${tab === "avatar" ? "is-on" : ""}" data-tab="avatar">Avatar</button>
           <button class="stab ${tab === "info" ? "is-on" : ""}" data-tab="info">Info</button>
         <button class="stab ${tab === "theme" ? "is-on" : ""}" data-tab="theme">Theme</button>
         <button class="stab ${tab === "billing" ? "is-on" : ""}" data-tab="billing">Billing</button>
@@ -1806,25 +1861,6 @@ function drawProfile(tab) {
 
   const body = $("profile-body");
 
-  if (tab === "avatar") {
-    body.innerHTML = `
-      <p class="panel-sub">Pick your gi.</p>
-      <div class="gis">
-        ${GI_COLORS.map((g) => `
-          <button class="gi ${g.id === S.avatar ? "is-on" : ""}" data-gi="${g.id}" title="${g.name}">
-            ${giSvg(g.id, 52)}<span>${g.name}</span>
-          </button>`).join("")}
-      </div>`;
-    body.querySelectorAll("button[data-gi]").forEach((b) => {
-      b.onclick = async () => {
-        S.avatar = b.dataset.gi;
-        drawProfile("avatar");
-        drawMyRank();
-        saveProfile();
-      };
-    });
-    return;
-  }
 
 
   if (tab === "theme") {

@@ -3068,9 +3068,7 @@ a.dtab { text-decoration: none; display: inline-block; }
   box-shadow: 0 10px 28px rgba(0,0,0,.55);
   backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
 }
-.pb-head { display: flex; flex-direction: column; align-items: flex-end; gap: .1rem; margin-bottom: .35rem; }
-.pb-insig-top { display: inline-flex; min-height: 1.1rem; }
-.pb-insig-top .insig { height: 1rem; }
+.pb-head { display: flex; justify-content: flex-end; margin-bottom: .4rem; }
 .playerbox .whoami {
   cursor: default; text-transform: none; letter-spacing: 0; font-weight: 800; font-size: .92rem;
   color: #F1F5F9; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;

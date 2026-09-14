@@ -592,11 +592,9 @@ function drawMyRank() {
   $("pb-beltname").textContent = name;
   $("pb-mmr").textContent = mmr.toLocaleString();
 
-  // The insignia twice: over the name, and beside the rank. The abbreviation
-  // is the Space Force one, GEN for a General and so on down to 2LT.
-  const insig = p ? insigniaSvg(p, "insig pb-insig") : "";
-  $("pb-insignia-top").innerHTML = insig;
-  $("pb-insignia").innerHTML = insig;
+  // The insignia beside the rank. The abbreviation is the Space Force one,
+  // GEN for a General and so on down to 2LT.
+  $("pb-insignia").innerHTML = p ? insigniaSvg(p, "insig pb-insig") : "";
   $("pb-star").textContent = p ? RANK_ABBR[Math.min(p, RANK_ABBR.length) - 1] : "—";
   $("pb-star").title = p ? prestigeName(p) : "Not yet earned";
 
@@ -609,12 +607,17 @@ function drawMyRank() {
 // Measured rather than guessed: the card grows when Prestige is offered and
 // the banner is a different height on every width.
 function reserveCardSpace() {
-  const card = $("playerbox"), side = document.querySelector(".col-side");
-  if (!card || !side || card.offsetParent === null) return;
-  const want = card.getBoundingClientRect().bottom + 12;
-  side.style.paddingTop = "0px";
-  const have = side.getBoundingClientRect().top;
-  side.style.paddingTop = `${Math.max(0, want - have)}px`;
+  const card = $("playerbox"), bar = document.querySelector(".ladder-bar");
+  if (!card || !bar || card.offsetParent === null) return;
+  // The belt ladder runs the full width under the banner, so it is the first
+  // thing the card would cover. Push it down to clear the card and everything
+  // beneath it moves with it.
+  const want = card.getBoundingClientRect().bottom + 10;
+  bar.style.marginTop = "0px";
+  const have = bar.getBoundingClientRect().top;
+  bar.style.marginTop = `${Math.max(0, want - have)}px`;
+  const side = document.querySelector(".col-side");
+  if (side) side.style.paddingTop = "";
 }
 addEventListener("resize", reserveCardSpace);
 

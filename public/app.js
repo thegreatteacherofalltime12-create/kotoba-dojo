@@ -607,19 +607,19 @@ function drawMyRank() {
 // Measured rather than guessed: the card grows when Prestige is offered and
 // the banner is a different height on every width.
 function reserveCardSpace() {
-  const card = $("playerbox"), bar = document.querySelector(".ladder-bar");
+  const card = $("playerbox"), bar = document.querySelector(".ladder-bar"), tabs = document.querySelector(".drawer-tabs");
   // Not offsetParent: a fixed element reports none, so that check never let
   // this run. A hidden card has no client rects; a shown one has.
-  if (!card || !bar || card.getClientRects().length === 0) return;
+  if (!card || !bar || !tabs || card.getClientRects().length === 0) return;
   // The belt ladder runs the full width under the banner, so it is the first
-  // thing the card would cover. Push it down to clear the card and everything
-  // beneath it moves with it.
+  // thing the card would cover. The room is made above the tab row, not
+  // above the ladder: the tabs slide down and the ladder follows them, so
+  // the tabs stay sitting on the belts as they always did.
   const want = card.getBoundingClientRect().bottom + 10;
+  tabs.style.marginTop = "0px";
   bar.style.marginTop = "0px";
   const have = bar.getBoundingClientRect().top;
-  bar.style.marginTop = `${Math.max(0, want - have)}px`;
-  const side = document.querySelector(".col-side");
-  if (side) side.style.paddingTop = "";
+  tabs.style.marginTop = `${Math.max(0, want - have)}px`;
 }
 addEventListener("resize", reserveCardSpace);
 // Any change to the card's size — it appearing, the name arriving, Prestige

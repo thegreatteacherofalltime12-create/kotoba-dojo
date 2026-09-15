@@ -35,6 +35,10 @@ const DIRTY_MS = 5_000;            // a writer could not say what it wrote
 const CHAT_LINES_PER_MIN = 12;
 
 const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+// Rows are ordered by the time they carry, parsed rather than compared as
+// text: Firestore writes a whole second as "…:23Z" and the next millisecond
+// as "…:23.001Z", and as strings those sort the wrong way round.
+const ms = (r) => Date.parse(r?.at) || 0;
 
 export class Commons {
   constructor(state, env) {
@@ -50,13 +54,16 @@ export class Commons {
       this.chat = chat || [];        // oldest first, as the client draws it
       this.feed = feed || [];        // newest first
       this.board = board || {};      // uid -> leaderboard row
-      this.wallets = wallets || {};  // uid -> { uid, name, wallet }
+      this.wallets = wallets || {};  // uid -> { uid, name, wallet, touchedAt }
       this.mine = mine || {};        // uid -> { wallet, at }
       this.meta = meta || { hydratedAt: 0, nextHydrateAt: 0, lastReadAt: 0 };
     });
   }
 
   save() {
+    // A player's own figure is only kept while it could still be served.
+    const cutoff = Date.now() - 2 * MINE_TTL_MS;
+    for (const [uid, m] of Object.entries(this.mine)) if (m.at < cutoff) delete this.mine[uid];
     return this.state.storage.put({
       chat: this.chat, feed: this.feed, board: this.board,
       wallets: this.wallets, mine: this.mine, meta: this.meta,
@@ -67,25 +74,26 @@ export class Commons {
 
   /**
    * Reads the record when it is due. The first time it blocks, so the first
-   * poll after a cold start has something to show; after that a due
+   * polls after a cold start have something to show; after that a due
    * hydration runs behind the request and the poll is answered from what is
    * already here. Never inside the constructor: a slow Firestore call there
    * would freeze every poll behind it.
    */
   async ready() {
+    if (this.hydrating) { if (!this.meta.hydratedAt) await this.hydrating; return; }
     if (Date.now() < this.meta.nextHydrateAt) return;
-    if (!this.hydrating) {
-      this.hydrating = this.hydrate().catch((err) => {
-        console.error(`[commons] hydrate: ${err.message}`);
-      }).finally(() => { this.hydrating = null; });
-    }
+    this.hydrating = this.hydrate().catch((err) => {
+      console.error(`[commons] hydrate: ${err.message}`);
+    }).finally(() => { this.hydrating = null; });
     if (!this.meta.hydratedAt) await this.hydrating;
   }
 
   async hydrate() {
-    const now = Date.now();
-    // Nobody else starts one while this runs.
-    this.meta.nextHydrateAt = now + RETRY_MS;
+    const started = Date.now();
+    // Nobody else starts one while this runs. A writer that reports itself
+    // dirty meanwhile lowers this, and that earlier time is honoured below.
+    const guard = started + RETRY_MS;
+    this.meta.nextHydrateAt = guard;
     const quiet = (p) => p.catch(() => null);
     const [chat, feed, officers, top, wallets] = await Promise.all([
       quiet(readChat(this.env, CHAT_KEEP)),
@@ -94,28 +102,58 @@ export class Commons {
       quiet(topPlayers(this.env, TOP_KEEP)),
       quiet(topWallets(this.env, WALLETS_KEEP)),
     ]);
+    const whole = this.absorb({ chat, feed, officers, top, wallets }, started);
 
-    // A slice is replaced only by a read that succeeded. A refused query
-    // returns null, never an empty list, so an outage cannot wipe the copy.
+    const now = Date.now();
+    if (whole) this.meta.hydratedAt = now;
+    const due = now + (whole ? RECONCILE_MS : RETRY_MS);
+    this.meta.nextHydrateAt = this.meta.nextHydrateAt < guard ? this.meta.nextHydrateAt : due;
+    await this.save();
+    // Reconcile again later only while someone is actually reading — or
+    // sooner, if a writer asked for that during the read.
+    if (this.meta.nextHydrateAt < guard || (whole && now - this.meta.lastReadAt < RECONCILE_MS)) {
+      await this.state.storage.setAlarm(this.meta.nextHydrateAt);
+    }
+  }
+
+  /**
+   * Folds a reading of the record into the copy. Merged rather than
+   * replaced: a write-through that landed while the queries were in flight
+   * is newer than what they returned, and must not be undone by it. Rows are
+   * matched by id, and a board or wallet row touched since the read began
+   * is left as the writer put it.
+   *
+   * A slice is replaced only by a read that succeeded. A refused query is
+   * null, never an empty list, so an outage cannot wipe the copy. Returns
+   * whether every slice was read.
+   */
+  absorb({ chat, feed, officers, top, wallets }, started) {
     let whole = true;
-    if (chat) this.chat = chat.slice(-CHAT_KEEP); else whole = false;
-    if (feed) this.feed = [...feed].sort((a, b) => b.at.localeCompare(a.at)).slice(0, FEED_KEEP);
-    else whole = false;
+    if (chat) { for (const row of chat) this.appendChat(row); } else whole = false;
+    if (feed) { for (const row of feed) this.appendFeed(row); } else whole = false;
     if (officers && top) {
-      for (const row of [...officers, ...top]) this.board[row.uid] = { ...this.board[row.uid], ...row };
+      for (const row of [...officers, ...top]) {
+        const have = this.board[row.uid];
+        if (have && (have.touchedAt || 0) >= started) continue;
+        this.board[row.uid] = { ...have, ...row };
+      }
       this.pruneBoard();
     } else whole = false;
     if (wallets) {
-      this.wallets = Object.fromEntries(wallets.map((w) => [w.uid, w]));
+      const fresh = {};
+      for (const w of wallets) {
+        const have = this.wallets[w.uid];
+        fresh[w.uid] = have && (have.touchedAt || 0) >= started ? have : { ...w };
+      }
+      // A row that moved while the query ran is real even if the query
+      // did not see it.
+      for (const have of Object.values(this.wallets)) {
+        if ((have.touchedAt || 0) >= started) fresh[have.uid] = have;
+      }
+      this.wallets = fresh;
+      this.pruneWallets();
     } else whole = false;
-
-    if (whole) this.meta.hydratedAt = now;
-    this.meta.nextHydrateAt = now + (whole ? RECONCILE_MS : RETRY_MS);
-    await this.save();
-    // Reconcile again later only while someone is actually reading.
-    if (whole && now - this.meta.lastReadAt < RECONCILE_MS) {
-      await this.state.storage.setAlarm(this.meta.nextHydrateAt);
-    }
+    return whole;
   }
 
   async alarm() {
@@ -136,6 +174,12 @@ export class Commons {
     [...rows].sort((a, b) => num(b.touchedAt) - num(a.touchedAt))
       .forEach((r) => { if (keep.size < BOARD_CAP) keep.add(r.uid); });
     for (const r of rows) if (!keep.has(r.uid)) delete this.board[r.uid];
+  }
+
+  pruneWallets() {
+    const top = Object.values(this.wallets)
+      .sort((a, b) => num(b.wallet) - num(a.wallet)).slice(0, WALLETS_KEEP);
+    this.wallets = Object.fromEntries(top.map((w) => [w.uid, w]));
   }
 
   // ── what the home screen reads ─────────────────────────────────────
@@ -172,14 +216,15 @@ export class Commons {
   }
 
   feedNow() {
-    const since = new Date(Date.now() - FEED_WINDOW_MS).toISOString();
-    return this.feed.filter((r) => r.at > since).slice(0, FEED_SERVE);
+    const since = Date.now() - FEED_WINDOW_MS;
+    return this.feed.filter((r) => ms(r) > since).slice(0, FEED_SERVE);
   }
 
   walletBoard() {
     return Object.values(this.wallets)
       .sort((a, b) => num(b.wallet) - num(a.wallet))
-      .slice(0, WALLETS_SHOWN);
+      .slice(0, WALLETS_SHOWN)
+      .map(({ uid, name, wallet }) => ({ uid, name, wallet }));
   }
 
   /** A player's own figure: from the copy while it is fresh, else one live read. */
@@ -198,19 +243,19 @@ export class Commons {
 
   /** Placed by time rather than appended: writers run in more than one place. */
   appendChat(row) {
-    if (!row?.id || this.chat.some((r) => r.id === row.id)) return;
+    if (!row?.id || !row.at || this.chat.some((r) => r.id === row.id)) return;
     this.chat.push({ id: row.id, at: row.at, uid: row.uid, name: row.name, text: row.text });
-    this.chat.sort((a, b) => a.at.localeCompare(b.at));
+    this.chat.sort((a, b) => ms(a) - ms(b));
     this.chat = this.chat.slice(-CHAT_KEEP);
   }
 
   appendFeed(row) {
-    if (!row?.id || this.feed.some((r) => r.id === row.id)) return;
+    if (!row?.id || !row.at || this.feed.some((r) => r.id === row.id)) return;
     this.feed.push({
       id: row.id, at: row.at, kind: row.kind || "note",
       text: row.text || "", name: row.name || "", detail: row.detail || "",
     });
-    this.feed.sort((a, b) => b.at.localeCompare(a.at));
+    this.feed.sort((a, b) => ms(b) - ms(a));
     this.feed = this.feed.slice(0, FEED_KEEP);
   }
 
@@ -222,7 +267,7 @@ export class Commons {
     const now = Date.now();
     for (const row of rows || []) {
       if (!row?.uid) continue;
-      const clean = {};
+        const clean = {};
       for (const [k, v] of Object.entries(row)) if (v != null) clean[k] = v;
       this.board[row.uid] = { ...this.board[row.uid], ...clean, uid: row.uid, touchedAt: now };
     }
@@ -231,17 +276,23 @@ export class Commons {
 
   upsertWallet({ uid, name, wallet, mine }) {
     if (!uid) return;
+    const now = Date.now();
     if (Number.isFinite(Number(wallet))) {
-      this.wallets[uid] = { uid, name: name || this.wallets[uid]?.name || "Someone", wallet: Number(wallet) };
-      const top = Object.values(this.wallets).sort((a, b) => num(b.wallet) - num(a.wallet)).slice(0, WALLETS_KEEP);
-      this.wallets = Object.fromEntries(top.map((w) => [w.uid, w]));
+      this.wallets[uid] = {
+        uid, name: name || this.wallets[uid]?.name || "Someone", wallet: Number(wallet), touchedAt: now,
+      };
+      this.pruneWallets();
     }
-    if (Number.isFinite(Number(mine))) this.mine[uid] = { wallet: Number(mine), at: Date.now() };
+    if (Number.isFinite(Number(mine))) this.mine[uid] = { wallet: Number(mine), at: now };
   }
 
-  /** A writer could not say what it wrote, so the record is read again soon. */
+  /**
+   * A writer could not say what it wrote, so the record is read again soon,
+   * and every player's own figure is read live next time it is asked for.
+   */
   async markDirty() {
     const at = Date.now() + DIRTY_MS;
+    this.mine = {};
     this.meta.nextHydrateAt = Math.min(this.meta.nextHydrateAt || at, at);
     await this.state.storage.setAlarm(at);
   }
@@ -269,8 +320,8 @@ export class Commons {
       else if (path === "/feed/append") this.appendFeed(body);
       else if (path === "/board/upsert") this.upsertBoard(body.rows);
       else if (path === "/wallets/upsert") this.upsertWallet(body);
-      else if (path === "/dirty") { await this.markDirty(); return Response.json({ ok: true }); }
-      else if (path === "/rehydrate") { this.meta.nextHydrateAt = 0; }
+      else if (path === "/dirty") await this.markDirty();
+      else if (path === "/rehydrate") this.meta.nextHydrateAt = 0;
       else return Response.json({ error: "no such door" }, { status: 404 });
       await this.save();
       return Response.json({ ok: true });

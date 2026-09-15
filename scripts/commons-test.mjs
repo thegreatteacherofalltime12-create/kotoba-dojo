@@ -29,8 +29,11 @@ function makeState() {
 // mint refuses before any request, but count anyway.
 let fetches = 0;
 globalThis.fetch = async () => { fetches++; return new Response("{}", { status: 500 }); };
+// Every attempt to reach Firestore logs a [firestore] refusal here, so the
+// count of those is the count of attempts.
+let asked = 0;
 const quiet = console.error;
-console.error = () => {};
+console.error = (m) => { if (String(m).includes("[firestore]")) asked++; };
 
 const env = { FIREBASE_PROJECT_ID: "test" };
 const state = makeState();
@@ -137,12 +140,56 @@ for (let i = 0; i < 15; i++) await post("/wallets/upsert", { uid: `w${i}`, name:
 const wallets = (await get("/wallets/top")).wallets;
 ok("ten wallets, largest first", wallets.length === 10 && wallets[0].uid === "w14" && wallets[9].uid === "w5");
 ok("in the shape the board draws", Object.keys(wallets[0]).sort().join() === "name,uid,wallet");
-const before = fetches;
+let before = asked;
 ok("your own figure comes from the copy", (await get("/wallet?uid=w3")).wallet === 307);
-ok("without asking Firestore", fetches === before);
+ok("without asking Firestore", asked === before);
+room.mine.w3.at -= 2 * 3600_000;
+before = asked;
+ok("a stale figure is asked for live, and the old one stands in when that fails",
+  (await get("/wallet?uid=w3")).wallet === 307 && asked === before + 1);
 await post("/wallets/upsert", { uid: "w3", name: "W3", wallet: 1, mine: 1 });
-ok("a withdrawal moves both figures", (await get("/wallet?uid=w3")).wallet === 1
-  && !(await get("/wallets/top")).wallets.some((w) => w.uid === "w3" && w.wallet !== 1));
+ok("a withdrawal moves both figures", (await get("/wallet?uid=w3")).wallet === 1 && room.wallets.w3.wallet === 1);
+await post("/wallets/upsert", { uid: "w3", name: "W3", wallet: 5000, mine: 5000 });
+ok("and the board shows the move", (await get("/wallets/top")).wallets[0].uid === "w3");
+ok("without the room's own bookkeeping", !("touchedAt" in (await get("/wallets/top")).wallets[0]));
+await post("/dirty", {});
+ok("a writer that lost count clears every player's own figure", Object.keys(room.mine).length === 0);
+
+console.log("\nordering");
+const st4 = makeState(); const r4 = new Commons(st4, env); await st4._init;
+r4.appendChat({ id: "a", at: "2026-09-15T13:57:23.500Z", uid: "u", name: "U", text: "half" });
+r4.appendChat({ id: "b", at: "2026-09-15T13:57:23Z", uid: "u", name: "U", text: "whole" });
+r4.appendChat({ id: "c", at: "2026-09-15T13:57:23.000500Z", uid: "u", name: "U", text: "micro" });
+ok("a whole-second stamp from the record sorts before the half-second one",
+  r4.chat.map((r) => r.id).join() === "b,c,a");
+r4.appendChat({ id: "d", uid: "u", name: "U", text: "no time" });
+ok("a row with no time is not kept", r4.chat.length === 3);
+
+console.log("\nreading the record while writers are busy");
+// The queries were started at T; a match and a chat line land after T and
+// before the results are folded in. They must survive the fold.
+const st5 = makeState(); const r5 = new Commons(st5, env); await st5._init;
+const T = Date.now() - 1000;
+r5.upsertBoard([{ uid: "p1", name: "P1", totalPoints: 900, roundsPlayed: 9, bestScore: 90 }]);   // touched after T
+r5.upsertWallet({ uid: "w1", name: "W1", wallet: 700, mine: 700 });
+r5.board.p2 = { uid: "p2", name: "P2", totalPoints: 1, touchedAt: T - 5000 };                   // touched before T
+r5.appendChat({ id: "new", at: iso(0), uid: "u", name: "U", text: "just now" });
+const whole = r5.absorb({
+  chat: [{ id: "old", at: iso(90_000), uid: "u", name: "U", text: "earlier" }],
+  feed: [],
+  officers: [],
+  top: [{ uid: "p1", name: "P1", totalPoints: 800, roundsPlayed: 8, bestScore: 80, prestige: 0 },
+         { uid: "p2", name: "P2", totalPoints: 500, roundsPlayed: 5, bestScore: 50, prestige: 0 }],
+  wallets: [{ uid: "w1", name: "W1", wallet: 600 }, { uid: "w2", name: "W2", wallet: 100 }],
+}, T);
+ok("every slice was read", whole === true);
+ok("a total the writer just reported outlives an older reading", r5.board.p1.totalPoints === 900);
+ok("a row not touched since takes the reading", r5.board.p2.totalPoints === 500);
+ok("a wallet that just moved keeps its figure", r5.wallets.w1.wallet === 700);
+ok("a wallet the reading knew about is added", r5.wallets.w2.wallet === 100);
+ok("the chat is merged, not replaced", r5.chat.map((r) => r.id).join() === "old,new");
+ok("a refused slice leaves the copy alone and says so",
+  r5.absorb({ chat: null, feed: [], officers: [], top: [], wallets: [] }, Date.now()) === false && r5.chat.length === 2);
 
 console.log("\nthe record");
 ok("nothing so far asked Firestore", fetches === 0);

@@ -307,7 +307,7 @@ export async function bankWallet(env, uid, amount, name = "Player") {
  * public row takes its fields and its increment in a single write, so a bank
  * or a withdrawal is two writes billed rather than three.
  */
-function walletWrites(path, board, uid, name, delta) {
+export function walletWrites(path, board, uid, name, delta) {
   return [
     {
       transform: {

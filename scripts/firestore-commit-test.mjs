@@ -5,7 +5,7 @@
 // found by tag, and a tag that drifts from its write would put the wrong
 // number on every home screen — so it is pinned here.
 import {
-  matchWrites, boardRowsFromCommit, transformNumbers, walletTotals,
+  matchWrites, boardRowsFromCommit, transformNumbers, walletTotals, walletWrites,
 } from "../src/firestore.js";
 import { tellCommons } from "../src/commons-notify.js";
 
@@ -70,6 +70,16 @@ ok("too few results is null", transformNumbers({ writeResults: [{ transformResul
 ok("no body is null", transformNumbers(null, 0, 1) === null);
 
 console.log("\nwallets");
+const ww = walletWrites("B/users/u1", "B/wallets/u1", "u1", "Ana", 250);
+ok("a bank is two writes", ww.length === 2);
+ok("the private document first, increments only, nothing else on it touched",
+  ww[0].transform?.document === "B/users/u1" && !ww[0].update
+  && ww[0].transform.fieldTransforms.map((t) => t.fieldPath).join() === "casino.wallet,casino.banked");
+ok("the public row second, as one write", ww[1].update?.name === "B/wallets/u1" && ww[1].updateMask.fieldPaths.join() === "uid,name"
+  && ww[1].updateTransforms.length === 1 && ww[1].updateTransforms[0].fieldPath === "wallet");
+const wd = walletWrites("B/users/u1", "B/wallets/u1", "u1", "Ana", -40);
+ok("a withdrawal does not count as banked", wd[0].transform.fieldTransforms.length === 1
+  && wd[0].transform.fieldTransforms[0].increment.integerValue === "-40");
 const walletCommit = { writeResults: [{ transformResults: [iv(950), iv(2000)] }, { transformResults: [iv(950)] }] };
 const totals = walletTotals(walletCommit);
 ok("the private figure comes from the first write", totals.mine === 950);

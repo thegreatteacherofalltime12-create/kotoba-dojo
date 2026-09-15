@@ -9,6 +9,8 @@
 // If FIREBASE_SERVICE_ACCOUNT isn't set, every function here quietly no-ops
 // and the game still works — you just lose ranked history.
 
+import { tellCommons } from "./commons-notify.js";
+
 let tokenCache = { token: null, expiresAt: 0 };
 
 function pemToPkcs8(pem) {
@@ -103,6 +105,35 @@ async function accessToken(env) {
 const S = (v) => ({ stringValue: String(v) });
 const I = (v) => ({ integerValue: String(Math.round(v)) });
 
+/**
+ * The numbers a commit hands back for one write's transforms, in the order
+ * the transforms were given. Null when any of them is missing or not a
+ * number — the caller then tells the room it is dirty rather than pushing a
+ * guess onto every home screen.
+ */
+export function transformNumbers(body, index, count) {
+  const out = body?.writeResults?.[index]?.transformResults;
+  if (!Array.isArray(out) || out.length < count) return null;
+  const nums = out.slice(0, count).map((v) => Number(v?.integerValue ?? v?.doubleValue));
+  return nums.every((n) => Number.isFinite(n)) ? nums : null;
+}
+
+/** One leaderboard document as the room keeps it. */
+function boardRow(doc) {
+  const f = doc.fields || {};
+  const n = (k) => Number(f[k]?.integerValue || 0);
+  return {
+    uid: doc.name.split("/").pop(),
+    name: f.name?.stringValue || "Someone",
+    totalPoints: n("totalPoints"),
+    roundsPlayed: n("roundsPlayed"),
+    bestScore: n("bestScore"),
+    lastRate: n("lastRate"),
+    prestige: n("prestige"),
+    insignia: f.insignia?.stringValue || "",
+  };
+}
+
 function base(env) {
   return `projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents`;
 }
@@ -162,32 +193,34 @@ export async function prestigePlayer(env, uid, name) {
   }
 
   const rank = prestigeInsignia(already + 1);
+  // One write: the fields and the increments land on the document together,
+  // which is one write billed rather than two.
   const res = await fetch(`https://firestore.googleapis.com/v1/${base(env)}:commit`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      writes: [
-        {
-          update: {
-            name: path,
-            fields: { uid: S(uid), name: S(name || "Unknown"), insignia: S(rank) },
-          },
-          updateMask: { fieldPaths: ["uid", "name", "insignia"] },
+      writes: [{
+        update: {
+          name: path,
+          fields: { uid: S(uid), name: S(name || "Unknown"), insignia: S(rank) },
         },
-        {
-          transform: {
-            document: path,
-            fieldTransforms: [
-              // Negative increments are how Firestore spends a balance.
-              { fieldPath: "totalPoints", increment: I(-PRESTIGE_COST) },
-              { fieldPath: "prestige", increment: I(1) },
-            ],
-          },
-        },
-      ],
+        updateMask: { fieldPaths: ["uid", "name", "insignia"] },
+        updateTransforms: [
+          // Negative increments are how Firestore spends a balance.
+          { fieldPath: "totalPoints", increment: I(-PRESTIGE_COST) },
+          { fieldPath: "prestige", increment: I(1) },
+        ],
+      }],
     }),
   });
   if (!res.ok) return { ok: false, error: "Firestore refused the write." };
+
+  const got = transformNumbers(await res.json().catch(() => null), 0, 2);
+  await (got
+    ? tellCommons(env, "/board/upsert", {
+      rows: [{ uid, name: name || "Unknown", insignia: rank, totalPoints: got[0], prestige: got[1] }],
+    })
+    : tellCommons(env, "/dirty", {}));
 
   postFeed(env, {
     kind: "prestige", name: name || "Someone",
@@ -199,39 +232,44 @@ export async function prestigePlayer(env, uid, name) {
 }
 
 /**
- * The top of the leaderboard, for rotating an unclaimed bounty. Uses a
- * structured query rather than fetching everyone, since this runs on a timer
- * and the collection only grows.
+ * The top of the leaderboard by MMR. The room reads this once to fill its
+ * copy; the bounty office reads the room. Null when the query was refused,
+ * so a refusal is never mistaken for an empty board.
  */
 export async function topPlayers(env, limit = 10) {
-  const token = await accessToken(env);
-  if (!token) return [];
+  return boardQuery(env, {
+    orderBy: [{ field: { fieldPath: "totalPoints" }, direction: "DESCENDING" }],
+    limit,
+  }, "top-player");
+}
 
+/** Everyone holding prestige, highest first — the other half of the strip. */
+export async function topOfficers(env, limit = 60) {
+  return boardQuery(env, {
+    where: {
+      fieldFilter: { field: { fieldPath: "prestige" }, op: "GREATER_THAN", value: I(0) },
+    },
+    orderBy: [{ field: { fieldPath: "prestige" }, direction: "DESCENDING" }],
+    limit,
+  }, "officer");
+}
+
+async function boardQuery(env, structuredQuery, what) {
+  const token = await accessToken(env);
+  if (!token) return null;
   const res = await fetch(
     `https://firestore.googleapis.com/v1/${base(env)}:runQuery`,
     {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        structuredQuery: {
-          from: [{ collectionId: "leaderboard" }],
-          orderBy: [{ field: { fieldPath: "totalPoints" }, direction: "DESCENDING" }],
-          limit,
-        },
+        structuredQuery: { from: [{ collectionId: "leaderboard" }], ...structuredQuery },
       }),
     }
   );
-  if (!res.ok) { fail(`Firestore refused the top-player query (${res.status})`); return []; }
-
+  if (!res.ok) { fail(`Firestore refused the ${what} query (${res.status})`); return null; }
   const rows = await res.json();
-  return rows
-    .filter((r) => r.document)
-    .map((r) => ({
-      uid: r.document.name.split("/").pop(),
-      name: r.document.fields?.name?.stringValue || "Someone",
-      bestScore: Number(r.document.fields?.bestScore?.integerValue || 0),
-      lastRate: Number(r.document.fields?.lastRate?.integerValue || 0),
-    }));
+  return rows.filter((r) => r.document).map((r) => boardRow(r.document));
 }
 
 /**
@@ -255,28 +293,51 @@ export async function bankWallet(env, uid, amount, name = "Player") {
   const res = await fetch(`https://firestore.googleapis.com/v1/${base(env)}:commit`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      writes: [
-        {
-          transform: {
-            document: path,
-            fieldTransforms: [
-              { fieldPath: "casino.wallet", increment: I(amount) },
-              { fieldPath: "casino.banked", increment: I(amount) },
-            ],
-          },
-        },
-        {
-          update: { name: board, fields: { uid: S(uid), name: S(name || "Player") } },
-          updateMask: { fieldPaths: ["uid", "name"] },
-        },
-        { transform: { document: board, fieldTransforms: [{ fieldPath: "wallet", increment: I(amount) }] } },
-      ],
-    }),
+    body: JSON.stringify({ writes: walletWrites(path, board, uid, name, amount) }),
   });
   if (!res.ok) return !!fail(`Firestore refused the wallet write (${res.status}): ${(await res.text()).slice(0, 200)}`);
   console.log(`[firestore] banked ${amount} to ${uid}`);
+  await tellWallet(env, uid, name, await res.json().catch(() => null));
   return true;
+}
+
+/**
+ * The two wallet writes, as one commit. The private document takes its
+ * increments alone, as it always did — nothing else on it is touched. The
+ * public row takes its fields and its increment in a single write, so a bank
+ * or a withdrawal is two writes billed rather than three.
+ */
+function walletWrites(path, board, uid, name, delta) {
+  return [
+    {
+      transform: {
+        document: path,
+        fieldTransforms: [
+          { fieldPath: "casino.wallet", increment: I(delta) },
+          ...(delta > 0 ? [{ fieldPath: "casino.banked", increment: I(delta) }] : []),
+        ],
+      },
+    },
+    {
+      update: { name: board, fields: { uid: S(uid), name: S(name || "Player") } },
+      updateMask: { fieldPaths: ["uid", "name"] },
+      updateTransforms: [{ fieldPath: "wallet", increment: I(delta) }],
+    },
+  ];
+}
+
+/** What the commit says the two totals are now, told to the room. */
+export function walletTotals(body) {
+  const mine = transformNumbers(body, 0, 1);
+  const pub = transformNumbers(body, 1, 1);
+  return mine && pub ? { mine: mine[0], wallet: pub[0] } : null;
+}
+
+async function tellWallet(env, uid, name, body) {
+  const got = walletTotals(body);
+  return got
+    ? tellCommons(env, "/wallets/upsert", { uid, name: name || "Player", wallet: got.wallet, mine: got.mine })
+    : tellCommons(env, "/dirty", {});
 }
 
 /**
@@ -469,13 +530,17 @@ export async function postFeed(env, entry) {
     }),
   });
   if (!res.ok) return !!fail(`Firestore refused a feed row (${res.status})`);
+  await tellCommons(env, "/feed/append", {
+    id, at: new Date(at).toISOString(), kind: entry.kind || "note",
+    text: entry.text || "", name: entry.name || "", detail: entry.detail || "",
+  });
   return true;
 }
 
 /** Everything that happened in the last day, newest first. */
 export async function readFeed(env, hours = 24) {
   const token = await accessToken(env);
-  if (!token) return [];
+  if (!token) return null;
   const since = new Date(Date.now() - hours * 3600_000).toISOString();
   const res = await fetch(`https://firestore.googleapis.com/v1/${base(env)}:runQuery`, {
     method: "POST",
@@ -494,9 +559,10 @@ export async function readFeed(env, hours = 24) {
       },
     }),
   });
-  if (!res.ok) { fail(`Firestore refused the feed (${res.status})`); return []; }
+  if (!res.ok) { fail(`Firestore refused the feed (${res.status})`); return null; }
   const rows = await res.json();
   return rows.filter((r) => r.document).map((r) => ({
+    id: r.document.name.split("/").pop(),
     at: r.document.fields?.at?.timestampValue || null,
     kind: r.document.fields?.kind?.stringValue || "note",
     text: r.document.fields?.text?.stringValue || "",
@@ -532,12 +598,15 @@ export async function postChat(env, { uid, name, text }) {
     }),
   });
   if (!res.ok) return !!fail(`Firestore refused a chat line (${res.status})`);
+  await tellCommons(env, "/chat/append", {
+    id, at: new Date(at).toISOString(), uid, name: name || "Someone", text: clean,
+  });
   return true;
 }
 
 export async function readChat(env, limit = 60) {
   const token = await accessToken(env);
-  if (!token) return [];
+  if (!token) return null;
   const res = await fetch(`https://firestore.googleapis.com/v1/${base(env)}:runQuery`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
@@ -549,9 +618,10 @@ export async function readChat(env, limit = 60) {
       },
     }),
   });
-  if (!res.ok) return [];
+  if (!res.ok) return null;
   const rows = await res.json();
   return rows.filter((r) => r.document).map((r) => ({
+    id: r.document.name.split("/").pop(),
     at: r.document.fields?.at?.timestampValue || null,
     uid: r.document.fields?.uid?.stringValue || "",
     name: r.document.fields?.name?.stringValue || "Someone",
@@ -574,7 +644,9 @@ export async function withdrawWallet(env, uid, amount, name = "Player") {
   const want = Math.max(0, Math.round(Number(amount) || 0));
   if (!want) return { ok: false, error: "Choose an amount first." };
 
-  const held = await readWallet(env, uid);
+  // Read live, always: this is the overdraft check, and the room's copy is
+  // for showing a figure, not for moving money on.
+  const held = (await readWallet(env, uid)) ?? 0;
   if (want > held) {
     return { ok: false, error: `Your wallet holds $${held.toLocaleString()}.` };
   }
@@ -584,23 +656,10 @@ export async function withdrawWallet(env, uid, amount, name = "Player") {
   const res = await fetch(`https://firestore.googleapis.com/v1/${base(env)}:commit`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      writes: [
-        {
-          transform: {
-            document: path,
-            fieldTransforms: [{ fieldPath: "casino.wallet", increment: I(-want) }],
-          },
-        },
-        {
-          update: { name: board, fields: { uid: S(uid), name: S(name || "Player") } },
-          updateMask: { fieldPaths: ["uid", "name"] },
-        },
-        { transform: { document: board, fieldTransforms: [{ fieldPath: "wallet", increment: I(-want) }] } },
-      ],
-    }),
+    body: JSON.stringify({ writes: walletWrites(path, board, uid, name, -want) }),
   });
   if (!res.ok) return { ok: false, error: "Firestore refused the withdrawal." };
+  await tellWallet(env, uid, name, await res.json().catch(() => null));
   return { ok: true, amount: want, remaining: held - want };
 }
 
@@ -612,12 +671,13 @@ export async function refundWallet(env, uid, amount, name) {
 /** One player's banked total, for their own eyes. */
 export async function readWallet(env, uid) {
   const token = await accessToken(env);
-  if (!token) return 0;
+  if (!token) return null;
   const res = await fetch(
     `https://firestore.googleapis.com/v1/${base(env)}/users/${uid}`,
     { headers: { Authorization: `Bearer ${token}` } }
   );
-  if (!res.ok) return 0;
+  if (res.status === 404) return 0;
+  if (!res.ok) return null;
   const doc = await res.json();
   return Number(doc.fields?.casino?.mapValue?.fields?.wallet?.integerValue || 0);
 }
@@ -630,7 +690,7 @@ export async function readWallet(env, uid) {
  */
 export async function topWallets(env, limit = 10) {
   const token = await accessToken(env);
-  if (!token) return [];
+  if (!token) return null;
   const res = await fetch(
     `https://firestore.googleapis.com/v1/${base(env)}:runQuery`,
     {
@@ -645,7 +705,7 @@ export async function topWallets(env, limit = 10) {
       }),
     }
   );
-  if (!res.ok) { fail(`Firestore refused the wallet board (${res.status})`); return []; }
+  if (!res.ok) { fail(`Firestore refused the wallet board (${res.status})`); return null; }
   const rows = await res.json();
   return rows
     .filter((r) => r.document)
@@ -665,93 +725,11 @@ export async function recordMatch(env, match) {
   const base = `projects/${projectId}/databases/(default)/documents`;
   const matchId = `${match.code}-${match.roundNo}-${match.finishedAt}`;
 
-  const writes = [
-    {
-      update: {
-        name: `${base}/matches/${matchId}`,
-        fields: {
-          dojoCode: S(match.code),
-          puzzleId: S(match.puzzleId),
-          roundNo: I(match.roundNo),
-          finishedAt: { timestampValue: new Date(match.finishedAt).toISOString() },
-          results: {
-            arrayValue: {
-              values: match.results.map((r) => ({
-                mapValue: {
-                  fields: {
-                    uid: S(r.uid),
-                    name: S(r.name),
-                    score: I(r.score),
-                    gain: I(r.gain ?? r.score),
-                    status: S(r.status),
-                    elapsedMs: r.elapsedMs == null ? { nullValue: null } : I(r.elapsedMs),
-                  },
-                },
-              })),
-            },
-          },
-        },
-      },
-    },
-  ];
-
-  // The player's own log. Written here rather than from the browser: the
-  // client write was silently swallowed by a catch, and three of the four
-  // games never wrote one at all. The document id is the match id, so a retry
-  // updates the row instead of doubling it.
-  //
-  // The arcade and the diagnostic are deliberately absent — one would flood
-  // the log a sum at a time, the other isn't a game.
+  // The arcade and the diagnostic are deliberately absent from the logs —
+  // one would flood them a sum at a time, the other isn't a game. Nothing
+  // reads the match record itself, so those two skip it as well.
   const logged = match.code !== "ARCADE" && match.code !== "DIAG";
-  const field = match.results.length;
-
-  if (logged) {
-    for (const r of match.results) {
-      writes.push({
-        update: {
-          name: `${base}/users/${r.uid}/history/${matchId}`,
-          fields: {
-            at: { timestampValue: new Date(match.finishedAt).toISOString() },
-            game: S(match.game || "crossword"),
-            mode: S(match.mode || "match"),
-            solo: { booleanValue: field === 1 },
-            score: I(r.score),
-            gain: I(r.gain ?? r.score),
-            placement: r.placement == null ? { nullValue: null } : I(r.placement),
-            field: I(field),
-            elapsedMs: r.elapsedMs == null ? { nullValue: null } : I(r.elapsedMs),
-            solved: r.solved == null ? { nullValue: null } : I(r.solved),
-            status: S(r.status),
-            belt: S(r.belt || ""),
-          },
-        },
-      });
-    }
-  }
-
-  for (const r of match.results) {
-    const path = `${base}/leaderboard/${r.uid}`;
-    writes.push({
-      transform: {
-        document: path,
-        fieldTransforms: [
-          { fieldPath: "totalPoints", increment: I(r.gain ?? r.score) },
-          { fieldPath: "roundsPlayed", increment: I(1) },
-          { fieldPath: "bestScore", maximum: I(r.score) },
-
-        ],
-      },
-    });
-    writes.push({
-      update: {
-        name: path,
-        fields: r.rate
-          ? { uid: S(r.uid), name: S(r.name), lastRate: I(r.rate) }
-          : { uid: S(r.uid), name: S(r.name) },
-      },
-      updateMask: { fieldPaths: r.rate ? ["uid", "name", "lastRate"] : ["uid", "name"] },
-    });
-  }
+  const { writes, tags } = matchWrites(base, matchId, match, logged);
 
   const res = await fetch(
     `https://firestore.googleapis.com/v1/${base}:commit`,
@@ -764,6 +742,11 @@ export async function recordMatch(env, match) {
   if (!res.ok) return !!fail(`Firestore refused the write (${res.status}): ${(await res.text()).slice(0, 300)}`);
   lastFirestoreError = null;
   console.log(`[firestore] recorded ${match.results.length} results for ${match.puzzleId}`);
+
+  // The room hears the totals the commit came back with — the exact numbers
+  // on the board now, not what this side thinks they should be.
+  const rows = boardRowsFromCommit(tags, await res.json().catch(() => null));
+  await (rows ? tellCommons(env, "/board/upsert", { rows }) : tellCommons(env, "/dirty", {}));
 
   // The feed hears about it, unless it was the arcade or a diagnostic.
   if (logged && match.results.length) {
@@ -804,4 +787,116 @@ export async function recordMatch(env, match) {
     }
   }
   return true;
+}
+
+/**
+ * Every write a finished match makes, each carrying a tag that says what it
+ * is. The commit's results come back in the same order, and the tags are how
+ * the leaderboard totals are found in them — by name, never by counting.
+ *
+ * A player's leaderboard row is one write: the fields and the increments
+ * together, rather than a transform and an update billed separately.
+ */
+export function matchWrites(base, matchId, match, logged) {
+  const writes = [];
+  const tags = [];
+  const field = match.results.length;
+  const at = { timestampValue: new Date(match.finishedAt).toISOString() };
+
+  if (logged) {
+    writes.push({
+      update: {
+        name: `${base}/matches/${matchId}`,
+        fields: {
+          dojoCode: S(match.code),
+          puzzleId: S(match.puzzleId),
+          roundNo: I(match.roundNo),
+          finishedAt: at,
+          results: {
+            arrayValue: {
+              values: match.results.map((r) => ({
+                mapValue: {
+                  fields: {
+                    uid: S(r.uid),
+                    name: S(r.name),
+                    score: I(r.score),
+                    gain: I(r.gain ?? r.score),
+                    status: S(r.status),
+                    elapsedMs: r.elapsedMs == null ? { nullValue: null } : I(r.elapsedMs),
+                  },
+                },
+              })),
+            },
+          },
+        },
+      },
+    });
+    tags.push({ kind: "match" });
+
+    // The player's own log. Written here rather than from the browser: the
+    // client write was silently swallowed by a catch, and three of the four
+    // games never wrote one at all. The document id is the match id, so a
+    // retry updates the row instead of doubling it.
+    for (const r of match.results) {
+      writes.push({
+        update: {
+          name: `${base}/users/${r.uid}/history/${matchId}`,
+          fields: {
+            at,
+            game: S(match.game || "crossword"),
+            mode: S(match.mode || "match"),
+            solo: { booleanValue: field === 1 },
+            score: I(r.score),
+            gain: I(r.gain ?? r.score),
+            placement: r.placement == null ? { nullValue: null } : I(r.placement),
+            field: I(field),
+            elapsedMs: r.elapsedMs == null ? { nullValue: null } : I(r.elapsedMs),
+            solved: r.solved == null ? { nullValue: null } : I(r.solved),
+            status: S(r.status),
+            belt: S(r.belt || ""),
+          },
+        },
+      });
+      tags.push({ kind: "history", uid: r.uid });
+    }
+  }
+
+  for (const r of match.results) {
+    writes.push({
+      update: {
+        name: `${base}/leaderboard/${r.uid}`,
+        fields: r.rate
+          ? { uid: S(r.uid), name: S(r.name), lastRate: I(r.rate) }
+          : { uid: S(r.uid), name: S(r.name) },
+      },
+      updateMask: { fieldPaths: r.rate ? ["uid", "name", "lastRate"] : ["uid", "name"] },
+      updateTransforms: [
+        { fieldPath: "totalPoints", increment: I(r.gain ?? r.score) },
+        { fieldPath: "roundsPlayed", increment: I(1) },
+        { fieldPath: "bestScore", maximum: I(r.score) },
+      ],
+    });
+    tags.push({ kind: "board", uid: r.uid, name: r.name, rate: r.rate || null });
+  }
+  return { writes, tags };
+}
+
+/**
+ * The board rows a commit produced, read from its results by tag. Null if
+ * any number is missing, so the caller can say the room is dirty instead.
+ */
+export function boardRowsFromCommit(tags, body) {
+  const rows = [];
+  for (let i = 0; i < tags.length; i++) {
+    const t = tags[i];
+    if (t.kind !== "board") continue;
+    const got = transformNumbers(body, i, 3);
+    if (!got) return null;
+    rows.push({
+      uid: t.uid, name: t.name,
+      totalPoints: got[0], roundsPlayed: got[1], bestScore: got[2],
+      ...(t.rate ? { lastRate: t.rate } : {}),
+    });
+  }
+  return rows;
 }

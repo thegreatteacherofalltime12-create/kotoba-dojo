@@ -5,8 +5,7 @@ import {
   EmailAuthProvider, reauthenticateWithCredential, updatePassword,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
-  getFirestore, collection, addDoc, getDocs, getDoc, doc, setDoc,
-  query, where, orderBy, limit, serverTimestamp,
+  getFirestore, getDoc, doc, setDoc,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { firebaseConfig } from "./firebase-config.js";
 import { buildLayout } from "./layout.js";
@@ -285,11 +284,10 @@ onAuthStateChanged(auth, async (user) => {
     show("home");
     window.__ready = true;
     drawRuleBelts();
-    loadAvatar();
     // Firestore is optional — the game runs on the built-in puzzles without
     // it. None of these may block the screen from drawing: if no database has
     // been provisioned, the SDK retries forever rather than failing.
-    saveProfile();
+    loadAvatar();
     loadBank();
     loadScrolls();
   } catch (err) {
@@ -301,6 +299,11 @@ function render() {
   $("home-name").textContent = S.user?.displayName || "Student";
 }
 
+// Reads the profile, and writes it back only when something differs: a new
+// account, a name changed elsewhere, a theme from before the current house
+// look. A visit that changes nothing writes nothing — it used to write every
+// time, and before the read had even come back, so a slow read could put
+// the default gi over a saved one.
 async function loadAvatar() {
   try {
     const snap = await Promise.race([
@@ -309,15 +312,17 @@ async function loadAvatar() {
     ]);
     const v = snap.data();
     if (v?.avatar) S.avatar = v.avatar;
+    let write = !snap.exists() || (v.displayName || "") !== (S.user?.displayName || "");
     // The theme follows the player between the desktop and the phone.
     // A saved theme from before the current house look is moved on once. The
     // next choice a player makes sticks as normal.
     if (isStale(v?.themeEpoch)) {
       applyTheme(DEFAULT_THEME);
-      saveProfile();
+      write = true;
     } else if (v?.theme && themeById(v.theme).id === v.theme) {
       applyTheme(v.theme);
     }
+    if (write) saveProfile();
     if (v?.casino) {
       // Older saves kept a single "cash" figure; treat it as banked. This is a
       // starting point only — the live figure is read from the server, because
@@ -338,7 +343,6 @@ async function saveProfile() {
         uid: u.uid, displayName: u.displayName || "Student", avatar: S.avatar,
         theme: document.documentElement.dataset.theme || savedTheme(),
         themeEpoch: THEME_EPOCH,
-        lastSeen: serverTimestamp(),
       },
       { merge: true }
     );
@@ -454,40 +458,22 @@ let rankPoll = null;
 /**
  * Lifetime standings, written by the Worker after each ranked round.
  *
- * Two reads, merged. Prestige outranks MMR — the point of the game is to rank
- * up, and prestiging costs 3,000 MMR, so a single read ordered by MMR would
+ * Read from the Worker's reading room, which holds a copy of the board and
+ * settles the order: prestige outranks MMR — the point of the game is to
+ * rank up, and prestiging costs 3,000 MMR, so an order by MMR alone would
  * drop a freshly promoted officer off the bottom of the list the moment they
- * were promoted. So the officers are read as a set of their own, everyone
- * else by MMR, and the order is settled here: rank first, MMR within a rank.
- * Neither read needs a composite index.
+ * were promoted. This used to be two Firestore queries from every browser
+ * every thirty seconds; now it is one request that costs the database
+ * nothing.
  */
 async function loadRankings() {
   const timeout = (ms) => new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), ms));
-  const row = (d) => {
-    const v = d.data();
-    return {
-      uid: v.uid || d.id,
-      name: v.name || "Unknown",
-      mmr: v.totalPoints || 0,
-      best: v.bestScore || 0,
-      rounds: v.roundsPlayed || 0,
-      prestige: v.prestige || 0,
-    };
-  };
   try {
-    const board = collection(db, "leaderboard");
-    const [officers, byMmr] = await Promise.race([
-      Promise.all([
-        getDocs(query(board, where("prestige", ">", 0), orderBy("prestige", "desc"), limit(60))),
-        getDocs(query(board, orderBy("totalPoints", "desc"), limit(24))),
-      ]),
+    const res = await Promise.race([
+      fetch("/api/rankings", { headers: { Authorization: `Bearer ${await idToken()}` } }),
       timeout(6000),
     ]);
-    const seen = new Map();
-    for (const d of [...officers.docs, ...byMmr.docs]) { const r = row(d); seen.set(r.uid, r); }
-    standings = [...seen.values()]
-      .sort((a, b) => (b.prestige - a.prestige) || (b.mmr - a.mmr) || a.name.localeCompare(b.name))
-      .slice(0, 24);
+    standings = (await res.json()).standings || [];
   } catch {
     standings = [];
   }
@@ -654,9 +640,11 @@ function drawAvatarPicker() {
   host.querySelectorAll("[data-close]").forEach((n) => { n.onclick = close; });
   host.querySelectorAll("button[data-gi]").forEach((b) => {
     b.onclick = () => {
-      S.avatar = b.dataset.gi;
-      drawMyRank();
-      saveProfile();
+      if (b.dataset.gi !== S.avatar) {
+        S.avatar = b.dataset.gi;
+        drawMyRank();
+        saveProfile();
+      }
       close();
     };
   });
@@ -1533,6 +1521,7 @@ async function drawWallet(host) {
   walletPoll = setInterval(async () => {
     const board = document.getElementById("wal-board");
     if (!board || !board.isConnected || $("drawer-records")?.hidden) { clearInterval(walletPoll); return; }
+    if (document.hidden) return;
     const now = await readWallets();
     if (now.top) board.innerHTML = walletBoard(now.top);
     if (now.mine != null) {
@@ -1791,21 +1780,27 @@ function startCommons() {
   if (saved.startsWith("1:")) showCommons(["feed", "rooms"].includes(saved.slice(2)) ? saved.slice(2) : "chat");
   else foldCommons(false);
 
-  // Nothing is fetched while the panel is closed; there is nothing to show it in.
+  // Nothing is fetched while the panel is closed; there is nothing to show
+  // it in. Nor while the tab is hidden: the return is caught below.
   clearInterval(commonsPoll);
   commonsPoll = setInterval(() => {
+    if (document.hidden) return;
     loadChat();                                       // always: it owns the unread mark
     if (commonsOpen() && commonsTab === "feed") loadFeed();
   }, 15_000);
   loadChat();
-  // Coming back to the tab after a while, the first thing you see should be
-  // current rather than whatever the last poll caught before you left.
-  document.addEventListener("visibilitychange", () => {
-    if (document.hidden) return;
-    loadChat();
-    if (commonsOpen() && commonsTab === "feed") loadFeed();
-  });
 }
+
+// Coming back to the tab after a while, the first thing you see should be
+// current rather than whatever the last poll caught before you left. Bound
+// once: bound in startCommons, every return to the home screen stacked
+// another copy, and each tab-focus fetched the chat that many times.
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden || !rankPoll) return;
+  loadRankings();
+  loadChat();
+  if (commonsOpen() && commonsTab === "feed") loadFeed();
+});
 
 // ── profile ───────────────────────────────────────────────────────
 /** Everything about the player lives here: rank, prestige, name, invite, exit. */
@@ -1890,6 +1885,7 @@ function drawProfile(tab) {
       </div>`;
     body.querySelectorAll("[data-theme]").forEach((b) => {
       b.onclick = () => {
+        if (b.dataset.theme === (document.documentElement.dataset.theme || savedTheme())) return;
         applyTheme(b.dataset.theme);
         saveProfile();
         drawProfile("theme");
@@ -1933,6 +1929,7 @@ function drawProfile(tab) {
   $("pf-save-name").onclick = async () => {
     const next = $("pf-name").value.trim();
     if (next.length < 2) return say("pf-status", "That name is too short.");
+    if (next.slice(0, 24) === auth.currentUser.displayName) return say("pf-status", "That is your name already.", false);
     await updateProfile(auth.currentUser, { displayName: next.slice(0, 24) });
     saveProfile();
     render();
@@ -1965,11 +1962,12 @@ function drawProfile(tab) {
 function watchRankings(on) {
   clearInterval(rankPoll);
   rankPoll = null;
-  if (!on) return;
+  // The chat poll goes with it: inside a game there is no panel to draw into.
+  if (!on) { clearInterval(commonsPoll); commonsPoll = null; return; }
   // Every thirty seconds, quietly. A visible countdown told people to wait
   // for something that takes no waiting.
   loadRankings();
-  rankPoll = setInterval(loadRankings, 30_000);
+  rankPoll = setInterval(() => { if (!document.hidden) loadRankings(); }, 30_000);
   startCommons();
   refreshNewsPulse();
 }

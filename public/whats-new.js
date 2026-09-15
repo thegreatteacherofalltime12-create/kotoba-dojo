@@ -17,6 +17,15 @@ export const KEEP_DAYS = 7;
 
 export const UPDATES = [
   {
+    at: "2026-09-15T00:00:00Z",
+    where: "Everywhere",
+    title: "A lighter arena",
+    text: "The home screen used to ask the database for the chat, the feed and the rankings from every "
+      + "browser, every few seconds. It now asks once and shares the answer, so the game costs a "
+      + "fraction of what it did to keep open and nothing you see has changed. Polls also rest while "
+      + "a tab is in the background, and the chat takes twelve lines a minute from one person.",
+  },
+  {
     at: "2026-09-13T21:58:58Z",
     where: "Battleship",
     title: "Three charts to fight on",

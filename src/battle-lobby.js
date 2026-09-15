@@ -258,7 +258,6 @@ export class BattleRoyale {
       round: this.g.round,
       size: this.map.size,
       shots: this.map.shots,
-      mapId: this.g.mapId,
       anon: !!this.g.anon,
       players: Object.values(this.g.players).map((p) => ({
         uid: p.uid,

@@ -1,7 +1,7 @@
 import { verifyIdToken } from "./jwt.js";
 import {
-  prestigePlayer, recordMatch, readRatings, readWallet, topWallets,
-  readFeed, postChat, readChat, postFeed, withdrawWallet, refundWallet,
+  prestigePlayer, recordMatch, readRatings,
+  postChat, postFeed, withdrawWallet, refundWallet,
   publishScroll, listScrolls, lastFirestoreError,
 } from "./firestore.js";
 import { makePuzzle, scoreSolve, cashReward, MAX_AWARD, LIMIT_MS, FAST_MS, FAST_MULTIPLIER } from "./puzzle.js";
@@ -14,6 +14,7 @@ export { MineField } from "./mine-lobby.js";
 export { LinksCourse } from "./links-course.js";
 export { BountyOffice } from "./bounty-office.js";
 export { CasinoFloor } from "./casino-floor.js";
+export { Commons } from "./commons.js";
 
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no I/O/0/1
 const CODE_LENGTH = 5;
@@ -22,6 +23,12 @@ function newCode() {
   const bytes = crypto.getRandomValues(new Uint8Array(CODE_LENGTH));
   return [...bytes].map((b) => CODE_ALPHABET[b % CODE_ALPHABET.length]).join("");
 }
+
+// The reading room: one object that holds what every home screen polls.
+// Chat, feed, rankings and the wallet board are answered from its memory,
+// so a poll costs Firestore nothing.
+const commons = (env) => env.COMMONS.get(env.COMMONS.idFromName("global"));
+const fromCommons = (env, path) => commons(env).fetch(`https://commons${path}`);
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -241,10 +248,17 @@ export default {
     }
 
     // Everything that happened in the last day. Public: it is a scoreboard.
-    if (path === "/api/feed") return json({ feed: await readFeed(env, 24) });
+    if (path === "/api/feed") return fromCommons(env, "/feed");
 
-    if (path === "/api/chat" && request.method === "GET")
-      return json({ chat: await readChat(env, 60) });
+    if (path === "/api/chat" && request.method === "GET") return fromCommons(env, "/chat");
+
+    // The strip. Signed in, as reading the leaderboard always was.
+    if (path === "/api/rankings") {
+      const token = (request.headers.get("Authorization") || "").replace(/^Bearer /, "");
+      try { await verifyIdToken(token, env.FIREBASE_PROJECT_ID); }
+      catch { return json({ error: "Sign in first." }, 401); }
+      return fromCommons(env, "/rankings");
+    }
 
     // Posting is signed in, and always as yourself: the name on the line comes
     // from the verified token, never from the body.
@@ -254,6 +268,11 @@ export default {
       try { user = await verifyIdToken(token, env.FIREBASE_PROJECT_ID); }
       catch { return json({ error: "Sign in first." }, 401); }
       const body = await request.json().catch(() => ({}));
+      // So many lines a minute and no more: each one is a write.
+      const gate = await commons(env).fetch("https://commons/chat/allow", {
+        method: "POST", body: JSON.stringify({ uid: user.uid }),
+      }).then((r) => r.json()).catch(() => ({ ok: true }));
+      if (!gate.ok) return json({ error: "Slow down a little." }, 429);
       const ok = await postChat(env, { uid: user.uid, name: user.name, text: body.text });
       return json({ ok }, ok ? 200 : 400);
     }
@@ -277,7 +296,7 @@ export default {
       let user;
       try { user = await verifyIdToken(token, env.FIREBASE_PROJECT_ID); }
       catch { return json({ error: "Sign in first." }, 401); }
-      return json({ wallet: await readWallet(env, user.uid) });
+      return fromCommons(env, `/wallet?uid=${encodeURIComponent(user.uid)}`);
     }
 
     // Wallet to table. The money leaves the wallet first and is put straight
@@ -313,9 +332,7 @@ export default {
     }
 
     // The showcase: names and totals, nothing else, so it needs no sign-in.
-    if (path === "/api/wallets/top") {
-      return json({ wallets: await topWallets(env, 10) });
-    }
+    if (path === "/api/wallets/top") return fromCommons(env, "/wallets/top");
 
     if (path === "/api/bounty") {
       const stub = env.BOUNTY.get(env.BOUNTY.idFromName("global"));

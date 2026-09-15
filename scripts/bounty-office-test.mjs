@@ -108,5 +108,34 @@ ok("the row says what happened", verdict?.claim ? winner.bounty.kind === "claime
 ok("every row carries its rate", results.every((r) => typeof r.rate === "number"));
 ok("nobody's MMR went backwards", results.every((r) => r.gain >= 0));
 
+console.log("\nrotating from the reading room");
+// The room holds the board's copy, so an unclaimed bounty rotates without a
+// Firestore query. A fetch here would be one, and fails the check.
+const noFetch = globalThis.fetch;
+globalThis.fetch = async () => { ok("Firestore was asked for the top ten", false); return new Response("[]"); };
+const roomEnv = {
+  FIREBASE_PROJECT_ID: "test",
+  COMMONS: {
+    idFromName: () => "global",
+    get: () => ({ fetch: async () => Response.json({ top: [{ uid: "z", name: "Z", bestScore: 50, lastRate: 40 }] }) }),
+  },
+};
+const st2 = makeState();
+const office2 = new BountyOffice(st2, roomEnv);
+await st2._init;
+const cur2 = await office2.current();
+ok("an unheld bounty rotates onto the room's top ten", cur2.holder?.uid === "z");
+ok("with their last rate as the mark", cur2.holder?.perHour === 40);
+
+const emptyEnv = { ...roomEnv, COMMONS: { idFromName: () => "global", get: () => ({ fetch: async () => Response.json({ top: [] }) }) } };
+const st3 = makeState();
+const office3 = new BountyOffice(st3, emptyEnv);
+await st3._init;
+let asked = 0;
+emptyEnv.COMMONS.get = () => ({ fetch: async () => { asked++; return Response.json({ top: [] }); } });
+await office3.current(); await office3.current(); await office3.current();
+ok("an empty board is asked once, not on every poll", asked === 1);
+globalThis.fetch = noFetch;
+
 console.log(bad ? `\n${bad} failing\n` : "\nall bounty office checks passed\n");
 process.exit(bad ? 1 : 0);

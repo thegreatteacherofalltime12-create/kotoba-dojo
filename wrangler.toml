@@ -70,6 +70,17 @@ class_name = "LinksCourse"
 tag = "v7"
 new_sqlite_classes = ["LinksCourse"]
 
+# One reading room for the whole arena. Holds a copy of what every home
+# screen polls — chat, feed, rankings, the wallet board — so the polls read
+# memory here rather than querying Firestore once per browser.
+[[durable_objects.bindings]]
+name = "COMMONS"
+class_name = "Commons"
+
+[[migrations]]
+tag = "v8"
+new_sqlite_classes = ["Commons"]
+
 # Curated puzzle bank. Game content, not user data — the DO reads answers
 # from here at round start.
 [[kv_namespaces]]

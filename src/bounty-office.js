@@ -4,6 +4,9 @@ import {
 } from "./bounty.js";
 import { topPlayers } from "./firestore.js";
 
+// A rotation that found nobody is not tried again for this long.
+const RETRY_MS = 60_000;
+
 // One instance for the whole arena.
 //
 // A bounty can only be held by one person, and two matches can finish in the
@@ -35,10 +38,13 @@ export class BountyOffice {
    * The mark to beat becomes their own last recorded rate.
    */
   async rotate() {
+    // An empty board stays empty for a while. Without this, every poll of
+    // the bounty re-asked the question until somebody played a round.
+    if (Date.now() - (this.rotateTriedAt || 0) < RETRY_MS) return false;
     let top = [];
-    try { top = await topPlayers(this.env, 10); } catch { top = []; }
+    try { top = await this.topTen(); } catch { top = []; }
     const pool = top.filter((p) => p.uid && p.uid !== this.b.holder?.uid);
-    if (!pool.length) return false;
+    if (!pool.length) { this.rotateTriedAt = Date.now(); return false; }
 
     const pick = pool[Math.floor(Math.random() * pool.length)];
     const previous = this.b.holder?.name || null;
@@ -53,6 +59,16 @@ export class BountyOffice {
     this.note({ kind: "rotated", to: this.b.holder.name, from: previous });
     await this.save();
     return true;
+  }
+
+  /** The top of the board, from the reading room's copy when there is one. */
+  async topTen() {
+    const room = this.env?.COMMONS;
+    if (room) {
+      const res = await room.get(room.idFromName("global")).fetch("https://commons/top?limit=10");
+      if (res.ok) return (await res.json()).top || [];
+    }
+    return (await topPlayers(this.env, 10)) || [];
   }
 
   async current() {

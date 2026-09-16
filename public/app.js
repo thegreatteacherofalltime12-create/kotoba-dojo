@@ -1155,6 +1155,20 @@ for (const id of ["drawer-records", "drawer-rules", "drawer-scrolls", "drawer-ne
   $(id).addEventListener("click", (e) => { if (e.target === $(id)) closeOpenPanel(); });
 }
 
+// The phone's one button for everything but Create Match. Picking anything
+// inside it closes it; so does tapping anywhere else.
+const moreMenu = (open) => {
+  const on = open ?? !$("more-menu").classList.contains("is-open");
+  $("more-menu").classList.toggle("is-open", on);
+  $("tab-more").classList.toggle("is-on", on);
+  $("tab-more").setAttribute("aria-expanded", String(on));
+};
+$("tab-more").onclick = (e) => { e.stopPropagation(); moreMenu(); };
+$("more-menu").addEventListener("click", () => moreMenu(false));
+document.addEventListener("click", (e) => {
+  if (!$("more-menu").contains(e.target) && !$("tab-more").contains(e.target)) moreMenu(false);
+});
+
 $("tab-rules").onclick = () => drawer("drawer-rules");
 $("tab-records").onclick = () => { if (drawer("drawer-records")) loadRecords(); };
 if ($("tab-news")) {
@@ -1577,6 +1591,8 @@ function refreshNewsPulse() {
   const n = unreadNews().length;
   tab.classList.toggle("pulse", n > 0);
   tab.textContent = n > 0 ? `What's New (${n})` : "What's New";
+  // On a phone the tab is behind one button, which pulses in its place.
+  $("tab-more")?.classList.toggle("pulse", n > 0);
 }
 
 function drawNews() {

@@ -1,5 +1,5 @@
 import {
-  readChat, readFeed, topOfficers, topPlayers, topWallets, readWallet,
+  readChat, readFeed, topOfficers, topPlayers, topWallets, readWallet, alignWallet,
 } from "./firestore.js";
 
 // One instance for the whole arena: the reading room.
@@ -235,6 +235,12 @@ export class Commons {
     try { live = await readWallet(this.env, uid); } catch { live = null; }
     if (live == null) return have ? have.wallet : 0;
     this.mine[uid] = { wallet: live, at: Date.now() };
+    // The public row should say the same. A balance from before the rows
+    // existed never reached the board; this is where it catches up.
+    const pub = this.wallets[uid];
+    if (pub && pub.wallet !== live && await alignWallet(this.env, uid, pub.name, live).catch(() => false)) {
+      this.upsertWallet({ uid, name: pub.name, wallet: live });
+    }
     await this.save();
     return live;
   }

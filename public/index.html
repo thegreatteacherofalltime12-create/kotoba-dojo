@@ -120,10 +120,14 @@ if (location.protocol === "file:") {
         <div class="build-stamp" id="build-stamp"></div>
         <div class="drawer-tabs">
           <button id="tab-create" class="dtab dtab-go" aria-expanded="false" aria-controls="drawer-create">+ Create Match</button>
-          <button id="tab-news" class="dtab" aria-expanded="false" aria-controls="drawer-news">What's New</button>
-          <button id="tab-records" class="dtab" aria-expanded="false" aria-controls="drawer-records">Records</button>
-          <button id="tab-rules" class="dtab dtab-guide" aria-expanded="false" aria-controls="drawer-rules"><span aria-hidden="true">📖</span> View Rules</button>
-          <button id="tab-scrolls" class="dtab" aria-expanded="false" aria-controls="drawer-scrolls">Word-Cross Scrolls</button>
+          <!-- On a phone these fold into one button; on a desktop the wrapper is invisible. -->
+          <button id="tab-more" class="dtab dtab-more" aria-expanded="false" aria-controls="more-menu">Everything else <span class="more-caret" aria-hidden="true">&#9662;</span></button>
+          <div class="more-menu" id="more-menu">
+            <button id="tab-news" class="dtab" aria-expanded="false" aria-controls="drawer-news">What's New</button>
+            <button id="tab-records" class="dtab" aria-expanded="false" aria-controls="drawer-records">Records</button>
+            <button id="tab-rules" class="dtab dtab-guide" aria-expanded="false" aria-controls="drawer-rules"><span aria-hidden="true">📖</span> View Rules</button>
+            <button id="tab-scrolls" class="dtab" aria-expanded="false" aria-controls="drawer-scrolls">Word-Cross Scrolls</button>
+          </div>
         </div>
       </div>
       <aside class="playerbox" id="playerbox" aria-label="Your card">

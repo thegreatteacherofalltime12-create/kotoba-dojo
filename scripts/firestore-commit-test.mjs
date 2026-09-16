@@ -77,9 +77,14 @@ ok("the private document first, increments only, nothing else on it touched",
   && ww[0].transform.fieldTransforms.map((t) => t.fieldPath).join() === "casino.wallet,casino.banked");
 ok("the public row second, as one write", ww[1].update?.name === "B/wallets/u1" && ww[1].updateMask.fieldPaths.join() === "uid,name"
   && ww[1].updateTransforms.length === 1 && ww[1].updateTransforms[0].fieldPath === "wallet");
-const wd = walletWrites("B/users/u1", "B/wallets/u1", "u1", "Ana", -40);
+const wd = walletWrites("B/users/u1", "B/wallets/u1", "u1", "Ana", -40, 210);
 ok("a withdrawal does not count as banked", wd[0].transform.fieldTransforms.length === 1
   && wd[0].transform.fieldTransforms[0].increment.integerValue === "-40");
+ok("a withdrawal sets the public row to what is left, rather than nudging it",
+  !wd[1].updateTransforms && wd[1].update.fields.wallet.integerValue === "210"
+  && wd[1].updateMask.fieldPaths.join() === "uid,name,wallet");
+ok("and its totals are read with that figure",
+  walletTotals({ writeResults: [{ transformResults: [iv(210)] }, {}] }, 210).wallet === 210);
 const walletCommit = { writeResults: [{ transformResults: [iv(950), iv(2000)] }, { transformResults: [iv(950)] }] };
 const totals = walletTotals(walletCommit);
 ok("the private figure comes from the first write", totals.mine === 950);

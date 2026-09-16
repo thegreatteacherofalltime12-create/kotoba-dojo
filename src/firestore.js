@@ -306,8 +306,14 @@ export async function bankWallet(env, uid, amount, name = "Player") {
  * increments alone, as it always did — nothing else on it is touched. The
  * public row takes its fields and its increment in a single write, so a bank
  * or a withdrawal is two writes billed rather than three.
+ *
+ * A withdrawal knows the exact figure it leaves behind and writes the public
+ * row to that rather than nudging it. The row can be off: the private wallet
+ * is older than the public rows, so a balance banked before they existed was
+ * never on the board, and a withdrawal against it drove the row below zero.
  */
-export function walletWrites(path, board, uid, name, delta) {
+export function walletWrites(path, board, uid, name, delta, settle = null) {
+  const who = { uid: S(uid), name: S(name || "Player") };
   return [
     {
       transform: {
@@ -318,26 +324,58 @@ export function walletWrites(path, board, uid, name, delta) {
         ],
       },
     },
-    {
-      update: { name: board, fields: { uid: S(uid), name: S(name || "Player") } },
-      updateMask: { fieldPaths: ["uid", "name"] },
-      updateTransforms: [{ fieldPath: "wallet", increment: I(delta) }],
-    },
+    settle == null
+      ? {
+        update: { name: board, fields: who },
+        updateMask: { fieldPaths: ["uid", "name"] },
+        updateTransforms: [{ fieldPath: "wallet", increment: I(delta) }],
+      }
+      : {
+        update: { name: board, fields: { ...who, wallet: I(settle) } },
+        updateMask: { fieldPaths: ["uid", "name", "wallet"] },
+      },
   ];
 }
 
-/** What the commit says the two totals are now, told to the room. */
-export function walletTotals(body) {
+/** What the commit says the two totals are now. */
+export function walletTotals(body, settle = null) {
   const mine = transformNumbers(body, 0, 1);
-  const pub = transformNumbers(body, 1, 1);
-  return mine && pub ? { mine: mine[0], wallet: pub[0] } : null;
+  if (!mine) return null;
+  const pub = settle == null ? transformNumbers(body, 1, 1) : [settle];
+  return pub ? { mine: mine[0], wallet: pub[0] } : null;
 }
 
-async function tellWallet(env, uid, name, body) {
-  const got = walletTotals(body);
-  return got
-    ? tellCommons(env, "/wallets/upsert", { uid, name: name || "Player", wallet: got.wallet, mine: got.mine })
-    : tellCommons(env, "/dirty", {});
+/** Sets the public row to the private figure. One write; only when they differ. */
+export async function alignWallet(env, uid, name, wallet) {
+  const token = await accessToken(env);
+  if (!token) return false;
+  const res = await fetch(`https://firestore.googleapis.com/v1/${base(env)}:commit`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      writes: [{
+        update: {
+          name: `${base(env)}/wallets/${uid}`,
+          fields: { uid: S(uid), name: S(name || "Player"), wallet: I(wallet) },
+        },
+        updateMask: { fieldPaths: ["uid", "name", "wallet"] },
+      }],
+    }),
+  });
+  if (!res.ok) return !!fail(`Firestore refused to align a wallet (${res.status})`);
+  console.log(`[firestore] aligned the public wallet of ${uid} to ${wallet}`);
+  return true;
+}
+
+/**
+ * The totals, told to the room. The public row is meant to equal the
+ * private one; if the commit shows them apart, the row is put right first.
+ */
+async function tellWallet(env, uid, name, body, settle = null) {
+  const got = walletTotals(body, settle);
+  if (!got) return tellCommons(env, "/dirty", {});
+  if (got.wallet !== got.mine && await alignWallet(env, uid, name, got.mine)) got.wallet = got.mine;
+  return tellCommons(env, "/wallets/upsert", { uid, name: name || "Player", wallet: got.wallet, mine: got.mine });
 }
 
 /**
@@ -656,10 +694,10 @@ export async function withdrawWallet(env, uid, amount, name = "Player") {
   const res = await fetch(`https://firestore.googleapis.com/v1/${base(env)}:commit`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ writes: walletWrites(path, board, uid, name, -want) }),
+    body: JSON.stringify({ writes: walletWrites(path, board, uid, name, -want, held - want) }),
   });
   if (!res.ok) return { ok: false, error: "Firestore refused the withdrawal." };
-  await tellWallet(env, uid, name, await res.json().catch(() => null));
+  await tellWallet(env, uid, name, await res.json().catch(() => null), held - want);
   return { ok: true, amount: want, remaining: held - want };
 }
 

@@ -352,6 +352,27 @@ input::placeholder { color: var(--muted); }
 }
 .dtab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
+/* ── everything else, on a phone ──────────────────────────────────────
+ * Five tabs wrap into two ragged rows on a narrow screen. Create Match
+ * stays out; the rest fold into one button that drops a menu. On a
+ * desktop the wrapper has no box of its own and the bar reads as before. */
+.more-menu { display: contents; }
+#tab-more { display: none; }
+.dtab-more .more-caret { display: inline-block; margin-left: .2rem; transition: transform .15s ease; }
+.dtab-more.is-on .more-caret { transform: rotate(180deg); }
+@media (max-width: 760px) {
+  .drawer-tabs { position: relative; }
+  #tab-more { display: inline-flex; align-items: center; }
+  .more-menu {
+    display: none; position: absolute; left: 0; right: 0; top: calc(100% + .35rem); z-index: 30;
+    flex-direction: column; gap: .35rem; padding: .45rem;
+    background: rgba(8, 12, 20, .96); border: 1px solid rgba(255,255,255,.16); border-radius: 10px;
+    box-shadow: 0 12px 30px rgba(0,0,0,.55);
+  }
+  .more-menu.is-open { display: flex; }
+  .more-menu .dtab { width: 100%; justify-content: flex-start; }
+}
+
 .drawer {
   border: 1px solid var(--edge); background: var(--glass);
   backdrop-filter: blur(14px) saturate(140%); -webkit-backdrop-filter: blur(14px) saturate(140%);

@@ -258,6 +258,7 @@ export class BattleRoyale {
       round: this.g.round,
       size: this.map.size,
       shots: this.map.shots,
+      fleet: this.fleet,
       anon: !!this.g.anon,
       players: Object.values(this.g.players).map((p) => ({
         uid: p.uid,
@@ -395,7 +396,7 @@ export class BattleRoyale {
       p.board = null;
       p.ready = false;
     }
-    this.note(`Chart set: ${MAPS[msg.mapId].name} \u2014 ${MAPS[msg.mapId].size}\u00d7${MAPS[msg.mapId].size}, ${MAPS[msg.mapId].shots} shots a turn.`);
+    this.log(`Chart set: ${MAPS[msg.mapId].name} \u2014 ${MAPS[msg.mapId].size}\u00d7${MAPS[msg.mapId].size}, ${MAPS[msg.mapId].shots} shots a turn.`);
     await this.persist();
     this.pushState();
   }
@@ -406,13 +407,13 @@ export class BattleRoyale {
       return this.send(ws, "BATTLE_ERROR", { message: "Only the host sets this." });
     if (msg.what === "hideNames") {
       this.g.hideNames = !!msg.on;
-      this.note(this.g.hideNames ? "Captains' names are hidden." : "Captains' names are shown.");
+      this.log(this.g.hideNames ? "Captains' names are hidden." : "Captains' names are shown.");
     }
     if (msg.what === "useTokens") {
       if (this.g.phase !== "LOBBY")
         return this.send(ws, "BATTLE_ERROR", { message: "Set this before the fleets sail." });
       this.g.useTokens = !!msg.on;
-      this.note(this.g.useTokens ? "Tokens are on for this battle." : "Tokens are off for this battle.");
+      this.log(this.g.useTokens ? "Tokens are on for this battle." : "Tokens are off for this battle.");
     }
     await this.persist();
     this.pushState();

@@ -17,6 +17,15 @@ export const KEEP_DAYS = 7;
 
 export const UPDATES = [
   {
+    at: "2026-09-16T18:40:00Z",
+    where: "Battleship",
+    title: "Fleet Action and Open Ocean open for business",
+    text: "Picking the bigger charts used to leave the room on the old 10\u00d710 board and the "
+      + "server refusing every fleet. The chart, its fleet and its shots a turn now reach every "
+      + "captain the moment the host picks it. Also: on a phone, the header folds into Create Match "
+      + "and one Everything else button.",
+  },
+  {
     at: "2026-09-15T00:00:00Z",
     where: "Everywhere",
     title: "A lighter arena",

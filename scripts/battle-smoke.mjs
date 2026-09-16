@@ -54,6 +54,14 @@ ok("others are not", socks.u1.last("BATTLE_WELCOME").isHost === false);
 ok("everyone is on the roster", socks.u0.last("BATTLE_STATE").game.players.length === 5);
 ok("board size is published", socks.u0.last("BATTLE_WELCOME").size === SIZE);
 
+console.log("\nchoosing a chart");
+await say("u0", { type: "BATTLE_MAP", mapId: "hard" });
+let chart = socks.u1.last("BATTLE_STATE").game;
+ok("the new size reaches every client in the state", chart.size === 20 && chart.mapId === "hard");
+ok("and so does its fleet", Array.isArray(chart.fleet) && chart.fleet.length > 5);
+ok("and its shots a turn", chart.shots === 5);
+await say("u0", { type: "BATTLE_MAP", mapId: "easy" });
+
 console.log("\nplacing");
 await say("u1", { type: "BATTLE_START" });
 ok("only the host can start", /Only the host/.test(socks.u1.last("BATTLE_ERROR").message));

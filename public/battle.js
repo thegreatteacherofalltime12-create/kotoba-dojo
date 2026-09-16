@@ -143,6 +143,15 @@ function handle(msg) {
       break;
     case "BATTLE_STATE":
       B.game = msg.game;
+      // The chart can change in the lobby, and the board, the fleet and the
+      // shots go with it. Taking these only from the welcome left a 10x10
+      // grid and five ships on the screen after the host picked Open Ocean.
+      if (msg.game?.size) {
+        if (msg.game.size !== B.size) { B.placing = []; B.placeIdx = 0; B.shots = []; }
+        B.size = msg.game.size;
+      }
+      if (msg.game?.fleet?.length) B.ships = msg.game.fleet;
+      if (msg.game?.shots) B.shotsPerTurn = msg.game.shots;
       B.fleet = msg.yourFleet;
       B.targets = msg.targets || [];
       draw();

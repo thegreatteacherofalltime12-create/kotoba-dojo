@@ -3144,3 +3144,98 @@ a.dtab { text-decoration: none; display: inline-block; }
 
 /* The avatar overlay. */
 .avatar-card { max-width: 30rem; }
+
+
+/* ── what a fighter wears ──────────────────────────────────────────────
+ * Avatars: a gi, an emoji, or a team emoji on its disc. Frames: a ring
+ * round the avatar in the frame's shape — still for Rare, colours
+ * travelling round for Epic, pulsing for Legendary. af-frozen holds a
+ * moving frame still; the rankings use it below the podium. */
+.av { display: inline-grid; place-items: center; width: var(--s); height: var(--s); line-height: 1; }
+.av-emoji { font-size: calc(var(--s) * .72); background: #0f1116; }
+.av-team { font-size: calc(var(--s) * .56); background: var(--bg); border-radius: 50%; }
+
+@property --ang { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+.af { position: relative; display: inline-grid; place-items: center; width: var(--s); height: var(--s); flex: none; }
+.af-none .av, .af-none svg { border-radius: 50%; overflow: hidden; }
+.af .af-ring, .af .af-in { position: absolute; inset: 0; }
+.af .af-ring { background: conic-gradient(from var(--ang), var(--stops)); }
+.af .af-in { inset: calc(var(--s) * .09); background: #0f1116; display: grid; place-items: center; overflow: hidden; }
+.af .af-in > * { width: 100% !important; height: 100% !important; }
+.af-still .af-ring { background: linear-gradient(135deg, var(--c1), var(--c2)); }
+/* shapes */
+.af-circle .af-ring, .af-circle .af-in { border-radius: 50%; }
+.af-rounded .af-ring, .af-rounded .af-in { border-radius: 26%; }
+.af-square .af-ring, .af-square .af-in { border-radius: 8%; }
+.af-hex .af-ring, .af-hex .af-in { clip-path: polygon(50% 0, 95% 25%, 95% 75%, 50% 100%, 5% 75%, 5% 25%); }
+.af-diamond .af-ring, .af-diamond .af-in { clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
+.af-shield .af-ring, .af-shield .af-in { clip-path: polygon(0 0, 100% 0, 100% 62%, 50% 100%, 0 62%); }
+/* motion */
+@keyframes af-turn { to { --ang: 360deg; } }
+@keyframes af-pulse {
+  0%, 100% { filter: drop-shadow(0 0 0 var(--c1)) brightness(1); }
+  50% { filter: drop-shadow(0 0 calc(var(--s) * .18) var(--c1)) brightness(1.35); }
+}
+.af-spin .af-ring { animation: af-turn 3s linear infinite; }
+.af-pulse .af-ring { animation: af-pulse 1.6s ease-in-out infinite; }
+.af-frozen .af-ring { animation: none; }
+@media (prefers-reduced-motion: reduce) { .af .af-ring { animation: none; } }
+
+/* the overlay */
+.cos-card { max-width: 34rem; display: flex; flex-direction: column; max-height: 90vh; }
+.cos-preview { display: flex; align-items: center; gap: .8rem; padding: .7rem .9rem 0; }
+.cos-preview-name { font-family: var(--display); font-weight: 800; font-size: 1rem; }
+.cos-preview-title { font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
+.cos-tabs { margin: .5rem .9rem 0; flex-wrap: wrap; }
+.cos-body { overflow-y: auto; flex: 1; min-height: 0; }
+.cos-label { font-family: var(--display); font-size: .66rem; letter-spacing: .2em; text-transform: uppercase; color: var(--muted); margin: .7rem 0 .4rem; }
+.cos-label-sport { color: var(--accent); }
+.cos-league { font-size: .62rem; letter-spacing: .18em; color: var(--muted); margin: .5rem 0 .25rem; }
+.cos-box {
+  display: grid; grid-template-columns: repeat(5, 1fr); gap: .35rem; padding: .35rem;
+  max-height: calc(3 * 3.4rem + 2 * .35rem + .7rem); overflow-y: auto;
+  border: 1px solid var(--edge); border-radius: 10px; background: rgba(0,0,0,.25);
+}
+.cos-box-teams { max-height: calc(3 * 3.4rem + 2 * .35rem + .7rem); }
+.cos-cell {
+  font: inherit; font-size: 1.7rem; line-height: 1; height: 3.4rem; cursor: pointer; border-radius: 9px;
+  background: #0f1116; border: 2px solid transparent; display: grid; place-items: center;
+}
+.cos-cell:hover { border-color: var(--accent-dim); }
+.cos-cell.is-on { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--a1) 40%, transparent); }
+.cos-team { font-size: 1.35rem; background: radial-gradient(circle at 50% 50%, var(--bg) 0 58%, transparent 60%); }
+.cos-frames { display: grid; grid-template-columns: repeat(5, 1fr); gap: .4rem; }
+.cos-frame {
+  font: inherit; font-size: .58rem; cursor: pointer; display: grid; place-items: center; gap: .3rem; padding: .45rem .2rem;
+  background: rgba(255,255,255,.04); border: 2px solid var(--edge); border-radius: 10px; color: var(--muted);
+}
+.cos-frame:hover { border-color: var(--accent-dim); color: var(--text); }
+.cos-frame.is-on { border-color: var(--accent); color: var(--accent); }
+.cos-frame:disabled { opacity: .35; cursor: not-allowed; filter: grayscale(.8); }
+.cos-tier-epic { color: #C4B5FD; }
+.cos-tier-legendary { color: #F4CE5A; }
+.cos-titles { display: grid; gap: .35rem; }
+.cos-title {
+  font: inherit; text-align: left; cursor: pointer; display: grid; grid-template-columns: 1fr auto auto; gap: .6rem; align-items: center;
+  padding: .5rem .7rem; background: rgba(255,255,255,.04); border: 2px solid var(--edge); border-radius: 9px; color: var(--text);
+}
+.cos-title:hover { border-color: var(--accent-dim); }
+.cos-title.is-on { border-color: var(--accent); }
+.cos-title.locked { opacity: .45; cursor: not-allowed; }
+.cos-title .ct-name { font-family: var(--display); font-weight: 700; font-size: .86rem; }
+.cos-title .ct-game { font-size: .62rem; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.cos-title .ct-need { font-size: .66rem; color: var(--accent); }
+.cos-acts { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; padding: .7rem .9rem .9rem; border-top: 1px solid var(--edge); }
+.cos-save { background: var(--accent); color: #241B00; border-color: var(--accent); font-weight: 800; }
+
+/* in the rankings */
+.slot .sa { flex: none; }
+.slot .sn-in { display: flex; flex-direction: column; min-width: 0; line-height: 1.15; }
+.slot .sn-name { display: flex; align-items: center; gap: .3rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.slot .st { font-family: var(--body); font-weight: 600; font-size: .62rem; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); }
+@media (max-width: 760px) {
+  .cos-card { max-height: 92vh; }
+  .cos-box, .cos-frames { grid-template-columns: repeat(5, 1fr); }
+  .cos-cell { font-size: 1.4rem; height: 3rem; }
+  .cos-box { max-height: calc(3 * 3rem + 2 * .35rem + .7rem); }
+}

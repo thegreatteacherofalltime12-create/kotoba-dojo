@@ -10,6 +10,10 @@ import {
 import { firebaseConfig } from "./firebase-config.js";
 import { buildLayout } from "./layout.js";
 import { GI_COLORS, giSvg, GAME_MODES } from "./arena.js";
+import {
+  AVATARS, LEAGUES, FRAMES, FRAME_TIERS, TITLES, GAME_NAMES,
+  avatarHtml, framedHtml, titleById, meets, needText,
+} from "./cosmetics.js";
 import { enterBattle, closeBattle, bindBattleControls } from "./battle.js";
 import { enterMines, closeMines, bindMineControls } from "./mines.js";
 import { THEMES, applyTheme, savedTheme, themeById, THEME_EPOCH, DEFAULT_THEME, isStale } from "./theme.js";
@@ -132,6 +136,8 @@ const S = {
   padEntry: null,    // entry open in the phone pad
   roundMs: 900_000,
   avatar: "white",
+  frame: "none",
+  title: "",
   // The banked wallet, plus a short history of what has gone into it.
   purse: { wallet: 100, tokens: 0, log: [] },
   bank: [],
@@ -312,6 +318,8 @@ async function loadAvatar() {
     ]);
     const v = snap.data();
     if (v?.avatar) S.avatar = v.avatar;
+    if (v?.frame) S.frame = v.frame;
+    if (typeof v?.title === "string") S.title = v.title;
     let write = !snap.exists() || (v.displayName || "") !== (S.user?.displayName || "");
     // The theme follows the player between the desktop and the phone.
     // A saved theme from before the current house look is moved on once. The
@@ -341,6 +349,7 @@ async function saveProfile() {
       doc(db, "users", u.uid),
       {
         uid: u.uid, displayName: u.displayName || "Student", avatar: S.avatar,
+        frame: S.frame || "none", title: S.title || "",
         theme: document.documentElement.dataset.theme || savedTheme(),
         themeEpoch: THEME_EPOCH,
       },
@@ -584,7 +593,7 @@ function drawMyRank() {
   $("pb-star").textContent = p ? RANK_ABBR[Math.min(p, RANK_ABBR.length) - 1] : "—";
   $("pb-star").title = p ? prestigeName(p) : "Not yet earned";
 
-  $("pb-avatar").innerHTML = giSvg(S.avatar, 64);
+  $("pb-avatar").innerHTML = framedHtml(avatarHtml(S.avatar, 56, giSvg), S.frame, 56, true);
   $("btn-prestige").hidden = mmr < PRESTIGE_COST;
   reserveCardSpace();
 }
@@ -616,38 +625,141 @@ if ("ResizeObserver" in window) new ResizeObserver(reserveCardSpace).observe($("
 //
 // The only way to change the gi. Tap the avatar on the card and the choices
 // open over the page; pick one and it saves and closes.
+// ── the fighter profile overlay ──────────────────────────────────────
+//
+// Tap the avatar on the card and this opens over the page: OG Robes, a
+// hundred-odd emoji and the four leagues, thirty frames in three tiers, and
+// the titles — greyed until earned. Nothing is saved until Save Profile.
+// The server checks every choice against the board before it is shown to
+// anyone else, so the picker's own greying is a courtesy, not the gate.
+let cosTab = "robes";
+
+function myStanding() {
+  const me = standings.find((r) => r.uid === S.user?.uid);
+  return { mmr: me?.mmr ?? 0, prestige: me?.prestige ?? 0 };
+}
+
 function drawAvatarPicker() {
   const host = $("avatar-modal");
+  const pick = { avatar: S.avatar, frame: S.frame || "none", title: S.title || "" };
+  const standing = myStanding();
   host.hidden = false;
-  host.innerHTML = `
-    <div class="modal-back" data-close></div>
-    <div class="modal-card avatar-card">
-      <div class="modal-head">
-        <h2>Your avatar</h2>
-        <button class="modal-close" data-close aria-label="Close">&times;</button>
+
+  const tabs = [["robes", "OG Robes"], ["avatars", "Avatars"], ["frames", "Frames"], ["titles", "Titles"], ["banners", "Banners"]];
+  const av = (id, size) => avatarHtml(id, size, giSvg);
+
+  const body = () => {
+    if (cosTab === "robes") return `
+      <p class="panel-sub">The original gis.</p>
+      <div class="gis">
+        ${GI_COLORS.map((g) => `
+          <button class="gi ${g.id === pick.avatar ? "is-on" : ""}" data-av="${g.id}" title="${g.name}">
+            ${giSvg(g.id, 52)}<span>${g.name}</span>
+          </button>`).join("")}
+      </div>`;
+
+    if (cosTab === "avatars") return `
+      <div class="cos-label">Choose avatar</div>
+      <div class="cos-box">
+        ${AVATARS.map((e) => `<button class="cos-cell ${"e:" + e === pick.avatar ? "is-on" : ""}" data-av="e:${e}">${e}</button>`).join("")}
       </div>
-      <div class="modal-body">
-        <p class="panel-sub">Pick your gi. It shows on your card and in the rankings.</p>
-        <div class="gis">
-          ${GI_COLORS.map((g) => `
-            <button class="gi ${g.id === S.avatar ? "is-on" : ""}" data-gi="${g.id}" title="${g.name}">
-              ${giSvg(g.id, 52)}<span>${g.name}</span>
+      <div class="cos-label cos-label-sport">\u{1F3C6} Sports team avatars</div>
+      ${LEAGUES.map((l) => `
+        <div class="cos-league">${l.name}</div>
+        <div class="cos-box cos-box-teams">
+          ${l.teams.map((t) => `
+            <button class="cos-cell cos-team ${"t:" + t.id === pick.avatar ? "is-on" : ""}" data-av="t:${t.id}" title="${t.name}" style="--bg:${t.bg}">${t.emoji}</button>`).join("")}
+        </div>`).join("")}`;
+
+    if (cosTab === "frames") return Object.entries(FRAME_TIERS).map(([tier, t]) => {
+      const open = meets(t.need, standing);
+      return `
+        <div class="cos-label cos-tier-${tier}">${t.name}${open ? "" : ` · \u{1F512} ${needText(t.need)}`}</div>
+        <div class="cos-frames">
+          ${FRAMES.filter((f) => f.tier === tier).map((f) => `
+            <button class="cos-frame ${f.id === pick.frame ? "is-on" : ""}" data-frame="${f.id}" ${open ? "" : "disabled"} title="${f.name}">
+              ${framedHtml(av(pick.avatar, 40), f.id, 40, true)}<span>${f.name}</span>
             </button>`).join("")}
+        </div>`;
+    }).join("");
+
+    if (cosTab === "titles") return `
+      <p class="panel-sub">Earned by lifetime MMR — what is on your rating plus what prestige has spent. Shown beside your name in the Arena Rankings.</p>
+      <div class="cos-titles">
+        <button class="cos-title ${pick.title === "" ? "is-on" : ""}" data-title=""><span class="ct-name">No title</span></button>
+        ${TITLES.map((t) => {
+          const open = meets(t.need, standing);
+          return `
+            <button class="cos-title ${t.id === pick.title ? "is-on" : ""} ${open ? "" : "locked"}" data-title="${t.id}" ${open ? "" : "disabled"}>
+              <span class="ct-name">${open ? "" : "\u{1F512} "}${t.name}</span>
+              <span class="ct-game">${GAME_NAMES[t.game]}</span>
+              <span class="ct-need">${open ? "Earned" : needText(t.need)}</span>
+            </button>`;
+        }).join("")}
+      </div>`;
+
+    return `<p class="panel-sub">Banners arrive in the next update: moving banners themed on each game, earned by what you achieve in it.</p>`;
+  };
+
+  const render = () => {
+    host.innerHTML = `
+      <div class="modal-back" data-close></div>
+      <div class="modal-card cos-card">
+        <div class="modal-head">
+          <h2>Fighter profile</h2>
+          <button class="modal-close" data-close aria-label="Close">&times;</button>
         </div>
-      </div>
-    </div>`;
-  const close = () => { host.hidden = true; host.textContent = ""; };
-  host.querySelectorAll("[data-close]").forEach((n) => { n.onclick = close; });
-  host.querySelectorAll("button[data-gi]").forEach((b) => {
-    b.onclick = () => {
-      if (b.dataset.gi !== S.avatar) {
-        S.avatar = b.dataset.gi;
-        drawMyRank();
-        saveProfile();
-      }
+        <div class="cos-preview">
+          ${framedHtml(av(pick.avatar, 64), pick.frame, 64, true)}
+          <div class="cos-preview-txt">
+            <div class="cos-preview-name">${escapeHtml(S.user?.displayName || "Student")}</div>
+            <div class="cos-preview-title">${pick.title ? escapeHtml(titleById(pick.title)?.name || "") : "—"}</div>
+          </div>
+        </div>
+        <div class="subtabs cos-tabs">
+          ${tabs.map(([id, name]) => `<button class="stab ${cosTab === id ? "is-on" : ""}" data-tab="${id}">${name}</button>`).join("")}
+        </div>
+        <div class="modal-body cos-body">${body()}</div>
+        <div class="cos-acts">
+          <button class="btn cos-save" data-save>✓ Save profile</button>
+          <button class="btn btn-ghost" data-close>Cancel</button>
+        </div>
+      </div>`;
+    const close = () => { host.hidden = true; host.textContent = ""; };
+    host.querySelectorAll("[data-close]").forEach((n) => { n.onclick = close; });
+    host.querySelectorAll("[data-tab]").forEach((b) => { b.onclick = () => { cosTab = b.dataset.tab; render(); }; });
+    host.querySelectorAll("[data-av]").forEach((b) => { b.onclick = () => { pick.avatar = b.dataset.av; render(); }; });
+    host.querySelectorAll("[data-frame]").forEach((b) => { b.onclick = () => { pick.frame = b.dataset.frame; render(); }; });
+    host.querySelectorAll("[data-title]").forEach((b) => { b.onclick = () => { pick.title = b.dataset.title; render(); }; });
+    host.querySelector("[data-save]").onclick = async () => {
+      const changed = pick.avatar !== S.avatar || pick.frame !== (S.frame || "none") || pick.title !== (S.title || "");
       close();
+      if (!changed) return;
+      Object.assign(S, pick);
+      drawMyRank();
+      saveProfile();
+      // The board's copy, checked by the server. What comes back is what
+      // everyone else sees, so it is what the card shows too.
+      try {
+        const res = await fetch("/api/cosmetics", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${await idToken()}` },
+          body: JSON.stringify(pick),
+        });
+        const out = await res.json();
+        if (out.ok && out.cosmetics) {
+          const kept = out.cosmetics;
+          if (kept.frame !== S.frame || kept.title !== S.title || kept.avatar !== S.avatar) {
+            Object.assign(S, kept);
+            drawMyRank();
+            saveProfile();
+          }
+          loadRankings();
+        }
+      } catch { /* the card still shows it; the board catches up next save */ }
     };
-  });
+  };
+  render();
 }
 
 $("btn-prestige").onclick = async () => {
@@ -758,12 +870,17 @@ function drawStrip() {
     const tag = r.prestige
       ? `<span class="rank-tag">${insigniaSvg(r.prestige)}<span>${prestigeName(r.prestige)}</span></span>`
       : "";
+    // What they wear. Frames and banners move only on the podium; everyone
+    // else's hold still until they climb into the top three.
+    const cos = r.cos || {};
+    const worn = cos.title ? titleById(cos.title) : null;
     return `
       <div class="slot ${i === 0 ? "lead" : ""} ${r.uid === S.user?.uid ? "you2" : ""} ${wanted ? "wanted-slot" : ""} ${r.prestige ? "officer" : ""}">
         <span class="sr">${MEDALS[i] ? `<span class="medal" title="${["Champion", "Second", "Third"][i]}">${MEDALS[i]}</span>` : ordinal(i + 1)}</span>
         ${wanted ? `<span class="sb-target">\u{1F3AF}</span>` : ""}
+        <span class="sa">${framedHtml(avatarHtml(cos.avatar || "white", 30, giSvg), cos.frame || "none", 30, i < 3)}</span>
         <span class="sb" style="background:${hex}"></span>
-        <span class="sn">${escapeHtml(r.name)}${tag}</span>
+        <span class="sn"><span class="sn-in"><span class="sn-name">${escapeHtml(r.name)}${tag}</span>${worn ? `<span class="st">${escapeHtml(worn.name)}</span>` : ""}</span></span>
         <span class="sp">${r.mmr.toLocaleString()}</span>
       </div>`;
   }).join("");
@@ -1827,7 +1944,7 @@ function profileSummary() {
   const p = me?.prestige || 0;
   return `
     <div class="pf-summary">
-      <span class="pf-face">${giSvg(S.avatar, 54)}</span>
+      <span class="pf-face">${framedHtml(avatarHtml(S.avatar, 54, giSvg), S.frame, 54, true)}</span>
       <div class="pf-id">
         <div class="pf-name">${escapeHtml(S.user?.displayName || "Student")}</div>
         <div class="pf-beltline"><span class="belt" style="background:${hex}"></span>${name} belt</div>

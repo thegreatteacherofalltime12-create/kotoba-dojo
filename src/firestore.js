@@ -10,6 +10,8 @@
 // and the game still works — you just lose ranked history.
 
 import { tellCommons } from "./commons-notify.js";
+import { allowed } from "../public/cosmetics.js";
+import { GI_COLORS } from "../public/arena.js";
 
 let tokenCache = { token: null, expiresAt: 0 };
 
@@ -131,7 +133,61 @@ function boardRow(doc) {
     lastRate: n("lastRate"),
     prestige: n("prestige"),
     insignia: f.insignia?.stringValue || "",
+    cosmetics: cosmeticsOf(f.cosmetics),
   };
+}
+
+/** The avatar, frame and title a board document carries, or nothing. */
+function cosmeticsOf(field) {
+  const m = field?.mapValue?.fields;
+  if (!m) return null;
+  return {
+    avatar: m.avatar?.stringValue || "",
+    frame: m.frame?.stringValue || "",
+    title: m.title?.stringValue || "",
+  };
+}
+
+/**
+ * What a player chose to wear, checked against what they have earned and
+ * written onto their board row. One read for the standing, one write.
+ * The check is here rather than in the browser because the browser can
+ * say anything; the rankings show only what passed this.
+ */
+export async function saveCosmetics(env, uid, name, cos) {
+  const token = await accessToken(env);
+  if (!token) return { ok: false, error: "Ranked scoring isn't switched on for this arena yet." };
+
+  const path = `${base(env)}/leaderboard/${uid}`;
+  const read = await fetch(`https://firestore.googleapis.com/v1/${path}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const doc = read.ok ? await read.json() : null;
+  const standing = {
+    mmr: Number(doc?.fields?.totalPoints?.integerValue || 0),
+    prestige: Number(doc?.fields?.prestige?.integerValue || 0),
+  };
+  const wear = allowed(cos, standing, GI_COLORS.map((g) => g.id));
+
+  const res = await fetch(`https://firestore.googleapis.com/v1/${base(env)}:commit`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      writes: [{
+        update: {
+          name: path,
+          fields: {
+            uid: S(uid), name: S(name || "Unknown"),
+            cosmetics: { mapValue: { fields: { avatar: S(wear.avatar), frame: S(wear.frame), title: S(wear.title) } } },
+          },
+        },
+        updateMask: { fieldPaths: ["uid", "name", "cosmetics"] },
+      }],
+    }),
+  });
+  if (!res.ok) return { ok: false, error: "Firestore refused the write." };
+  await tellCommons(env, "/board/upsert", { rows: [{ uid, name: name || "Unknown", cosmetics: wear }] });
+  return { ok: true, cosmetics: wear, standing };
 }
 
 function base(env) {

@@ -1,6 +1,6 @@
 import { verifyIdToken } from "./jwt.js";
 import {
-  prestigePlayer, recordMatch, readRatings,
+  prestigePlayer, recordMatch, readRatings, saveCosmetics,
   postChat, postFeed, withdrawWallet, refundWallet,
   publishScroll, listScrolls, lastFirestoreError,
 } from "./firestore.js";
@@ -358,6 +358,20 @@ export default {
     }
 
     // Prestige resets a rating, so it can only ever run server-side.
+    // What you wear on the board. Checked against what you have earned;
+    // the answer says what was actually kept.
+    if (path === "/api/cosmetics" && request.method === "POST") {
+      const token = (request.headers.get("Authorization") || "").replace(/^Bearer /, "");
+      let user;
+      try { user = await verifyIdToken(token, env.FIREBASE_PROJECT_ID); }
+      catch { return json({ error: "Sign in first." }, 401); }
+      const body = await request.json().catch(() => ({}));
+      const result = await saveCosmetics(env, user.uid, user.name, {
+        avatar: String(body.avatar || ""), frame: String(body.frame || ""), title: String(body.title || ""),
+      });
+      return json(result, result.ok ? 200 : 400);
+    }
+
     if (path === "/api/prestige" && request.method === "POST") {
       const token = (request.headers.get("Authorization") || "").replace(/^Bearer /, "");
       let user;

@@ -193,6 +193,7 @@ export class Commons {
       best: num(r.bestScore),
       rounds: num(r.roundsPlayed),
       prestige: num(r.prestige),
+      cos: r.cosmetics || null,
     }));
     const officers = rows.filter((r) => r.prestige > 0)
       .sort((a, b) => b.prestige - a.prestige).slice(0, OFFICERS_KEEP);

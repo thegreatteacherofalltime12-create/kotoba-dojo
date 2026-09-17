@@ -17,6 +17,16 @@ export const KEEP_DAYS = 7;
 
 export const UPDATES = [
   {
+    at: "2026-09-17T16:00:00Z",
+    where: "Profile",
+    title: "Dress your fighter",
+    text: "Tap your avatar on the card. Keep your gi under OG Robes, or pick from a hundred-odd emoji "
+      + "and every NFL, NHL, MLB and USL side. Thirty frames in three tiers \u2014 Rare are free, Epic "
+      + "open at Green belt and travel their colours round you, Legendary open with your first "
+      + "prestige and pulse. Twenty-four titles, earned by lifetime MMR. The Arena Rankings show all "
+      + "of it; the podium's frames move, everyone else's hold still until they climb. Banners next.",
+  },
+  {
     at: "2026-09-16T18:40:00Z",
     where: "Battleship",
     title: "Fleet Action and Open Ocean open for business",

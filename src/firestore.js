@@ -10,7 +10,7 @@
 // and the game still works — you just lose ranked history.
 
 import { tellCommons } from "./commons-notify.js";
-import { allowed } from "../public/cosmetics.js";
+import { allowed, featsFor } from "../public/cosmetics.js";
 import { GI_COLORS } from "../public/arena.js";
 
 let tokenCache = { token: null, expiresAt: 0 };
@@ -134,7 +134,17 @@ function boardRow(doc) {
     prestige: n("prestige"),
     insignia: f.insignia?.stringValue || "",
     cosmetics: cosmeticsOf(f.cosmetics),
+    feats: featsOf(f.feats),
   };
+}
+
+/** The counters a board document carries, as plain numbers. */
+function featsOf(field) {
+  const m = field?.mapValue?.fields;
+  if (!m) return null;
+  const out = {};
+  for (const [k, v] of Object.entries(m)) out[k] = Number(v?.integerValue || v?.doubleValue || 0);
+  return out;
 }
 
 /** The avatar, frame and title a board document carries, or nothing. */
@@ -145,6 +155,7 @@ function cosmeticsOf(field) {
     avatar: m.avatar?.stringValue || "",
     frame: m.frame?.stringValue || "",
     title: m.title?.stringValue || "",
+    banner: m.banner?.stringValue || "",
   };
 }
 
@@ -166,6 +177,7 @@ export async function saveCosmetics(env, uid, name, cos) {
   const standing = {
     mmr: Number(doc?.fields?.totalPoints?.integerValue || 0),
     prestige: Number(doc?.fields?.prestige?.integerValue || 0),
+    feats: featsOf(doc?.fields?.feats) || {},
   };
   const wear = allowed(cos, standing, GI_COLORS.map((g) => g.id));
 
@@ -178,7 +190,7 @@ export async function saveCosmetics(env, uid, name, cos) {
           name: path,
           fields: {
             uid: S(uid), name: S(name || "Unknown"),
-            cosmetics: { mapValue: { fields: { avatar: S(wear.avatar), frame: S(wear.frame), title: S(wear.title) } } },
+            cosmetics: { mapValue: { fields: { avatar: S(wear.avatar), frame: S(wear.frame), title: S(wear.title), banner: S(wear.banner) } } },
           },
         },
         updateMask: { fieldPaths: ["uid", "name", "cosmetics"] },
@@ -349,11 +361,14 @@ export async function bankWallet(env, uid, amount, name = "Player") {
   const res = await fetch(`https://firestore.googleapis.com/v1/${base(env)}:commit`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ writes: walletWrites(path, board, uid, name, amount) }),
+    body: JSON.stringify({ writes: walletWrites(path, board, uid, name, amount, null, `${base(env)}/leaderboard/${uid}`) }),
   });
   if (!res.ok) return !!fail(`Firestore refused the wallet write (${res.status}): ${(await res.text()).slice(0, 200)}`);
   console.log(`[firestore] banked ${amount} to ${uid}`);
-  await tellWallet(env, uid, name, await res.json().catch(() => null));
+  const body = await res.json().catch(() => null);
+  await tellWallet(env, uid, name, body);
+  const feats = bankFeats(body);
+  if (feats) await tellCommons(env, "/board/upsert", { rows: [{ uid, name: name || "Player", feats }] });
   return true;
 }
 
@@ -368,7 +383,7 @@ export async function bankWallet(env, uid, amount, name = "Player") {
  * is older than the public rows, so a balance banked before they existed was
  * never on the board, and a withdrawal against it drove the row below zero.
  */
-export function walletWrites(path, board, uid, name, delta, settle = null) {
+export function walletWrites(path, board, uid, name, delta, settle = null, record = null) {
   const who = { uid: S(uid), name: S(name || "Player") };
   return [
     {
@@ -390,7 +405,23 @@ export function walletWrites(path, board, uid, name, delta, settle = null) {
         update: { name: board, fields: { ...who, wallet: I(settle) } },
         updateMask: { fieldPaths: ["uid", "name", "wallet"] },
       },
+    // A cash-out is a feat: the casino pays no MMR, so this is the only
+    // way it reaches the record.
+    ...(record && delta > 0 ? [{
+      update: { name: record, fields: who },
+      updateMask: { fieldPaths: ["uid", "name"] },
+      updateTransforms: [
+        { fieldPath: "feats.banks", increment: I(1) },
+        { fieldPath: "feats.banked", increment: I(delta) },
+      ],
+    }] : []),
   ];
+}
+
+/** The feats a bank came back with, or null when there were none. */
+export function bankFeats(body) {
+  const got = transformNumbers(body, 2, 2);
+  return got ? { banks: got[0], banked: got[1] } : null;
 }
 
 /** What the commit says the two totals are now. */
@@ -956,6 +987,11 @@ export function matchWrites(base, matchId, match, logged) {
   }
 
   for (const r of match.results) {
+    // What the round adds to the record, after the three the ladder reads.
+    // Banners are earned from these; the arcade and the diagnostic count
+    // for nothing.
+    const feats = logged ? featsFor(match, r) : {};
+    const featKeys = Object.keys(feats);
     writes.push({
       update: {
         name: `${base}/leaderboard/${r.uid}`,
@@ -968,9 +1004,10 @@ export function matchWrites(base, matchId, match, logged) {
         { fieldPath: "totalPoints", increment: I(r.gain ?? r.score) },
         { fieldPath: "roundsPlayed", increment: I(1) },
         { fieldPath: "bestScore", maximum: I(r.score) },
+        ...featKeys.map((k) => ({ fieldPath: `feats.${k}`, increment: I(feats[k]) })),
       ],
     });
-    tags.push({ kind: "board", uid: r.uid, name: r.name, rate: r.rate || null });
+    tags.push({ kind: "board", uid: r.uid, name: r.name, rate: r.rate || null, feats: featKeys });
   }
   return { writes, tags };
 }
@@ -984,12 +1021,16 @@ export function boardRowsFromCommit(tags, body) {
   for (let i = 0; i < tags.length; i++) {
     const t = tags[i];
     if (t.kind !== "board") continue;
-    const got = transformNumbers(body, i, 3);
+    const keys = t.feats || [];
+    const got = transformNumbers(body, i, 3 + keys.length);
     if (!got) return null;
+    const feats = {};
+    keys.forEach((k, j) => { feats[k] = got[3 + j]; });
     rows.push({
       uid: t.uid, name: t.name,
       totalPoints: got[0], roundsPlayed: got[1], bestScore: got[2],
       ...(t.rate ? { lastRate: t.rate } : {}),
+      ...(keys.length ? { feats } : {}),
     });
   }
   return rows;

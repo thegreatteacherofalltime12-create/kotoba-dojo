@@ -238,6 +238,89 @@ export function needText(need) {
   return "Free";
 }
 
+
+// ── feats ──────────────────────────────────────────────────────────────
+//
+// What a finished round adds to a player's record, counted on the board
+// row as `feats.<key>`. Banners are earned from these. Every key is a
+// plain counter so the match write can increment it in the same commit
+// that records the score — no read, no extra write.
+
+const DONE = new Set(["finished", "solved", "won", "cleared"]);
+
+export function featsFor(match, r) {
+  const game = match.game || "crossword";
+  const field = match.results.length;
+  const done = DONE.has(r.status);
+  const won = field > 1 && r.placement === 1;
+  const out = { played_any: 1, [`played_${game}`]: 1 };
+  if (won) { out.won_any = 1; out[`won_${game}`] = 1; }
+  if (field === 1 && done) out[`solo_${game}`] = 1;
+  if (game === "crossword" && r.solved > 0) out.solved_crossword = r.solved;
+  if (game === "battleship" && r.sunk > 0) out.sunk_battleship = r.sunk;
+  if (game === "minesweeper" && r.status === "cleared") out.cleared_minesweeper = 1;
+  if (game === "links" && r.status === "finished") {
+    out.finished_links = 1;
+    if (r.toPar < 0) out.under_par_links = 1;
+  }
+  return out;
+}
+
+// ── banners ────────────────────────────────────────────────────────────
+//
+// A banner is a moving backdrop on a player's row in the Arena Rankings —
+// and nowhere else. Three per game, earned by that game's feats.
+
+const banner = (id, name, game, feat, count, icon, colors) => ({ id, name, game, need: { feat, count }, icon, colors });
+
+export const BANNERS = [
+  banner("first-word", "First Word", "crossword", "won_crossword", 1, "🔤", ["#1d4ed8", "#60a5fa"]),
+  banner("word-hoard", "Word Hoard", "crossword", "solved_crossword", 100, "📚", ["#312e81", "#818cf8"]),
+  banner("lexicon", "Lexicon", "crossword", "won_crossword", 10, "📜", ["#0f766e", "#5eead4"]),
+  banner("first-blood", "First Blood", "battleship", "won_battleship", 1, "⚓", ["#0c4a6e", "#38bdf8"]),
+  banner("twenty-hulls", "Twenty Hulls", "battleship", "sunk_battleship", 20, "💥", ["#7f1d1d", "#f87171"]),
+  banner("fleet-admiral", "Fleet Admiral", "battleship", "won_battleship", 10, "🎖️", ["#1e3a8a", "#fbbf24"]),
+  banner("defused", "Defused", "minesweeper", "cleared_minesweeper", 1, "🚩", ["#3f6212", "#a3e635"]),
+  banner("steady-hands", "Steady Hands", "minesweeper", "cleared_minesweeper", 10, "🧤", ["#334155", "#cbd5e1"]),
+  banner("bomb-squad", "Bomb Squad", "minesweeper", "won_minesweeper", 10, "💣", ["#78350f", "#fb923c"]),
+  banner("on-the-green", "On the Green", "links", "finished_links", 1, "⛳", ["#14532d", "#4ade80"]),
+  banner("under-par", "Under Par", "links", "under_par_links", 1, "🦅", ["#065f46", "#fde047"]),
+  banner("course-record", "Course Record", "links", "won_links", 5, "🏌️", ["#166534", "#bbf7d0"]),
+  banner("first-cash-out", "First Cash-Out", "casino", "banks", 1, "💵", ["#713f12", "#facc15"]),
+  banner("high-roller", "High Roller", "casino", "banked", 1000, "🎰", ["#581c87", "#f0abfc"]),
+  banner("the-house", "The House", "casino", "banked", 10000, "👑", ["#7c2d12", "#fcd34d"]),
+  banner("debut", "Debut", "arena", "played_any", 1, "🥋", ["#1f2937", "#9ca3af"]),
+  banner("centurion", "Centurion", "arena", "played_any", 100, "🛡️", ["#3b0764", "#c084fc"]),
+  banner("champion", "Champion", "arena", "won_any", 25, "🏆", ["#7f1d1d", "#fbbf24"]),
+];
+
+export const bannerById = (id) => BANNERS.find((b) => b.id === id) || null;
+
+export const bannerEarned = (id, standing) => {
+  const b = bannerById(id);
+  return !!b && (standing?.feats?.[b.need.feat] || 0) >= b.need.count;
+};
+
+export const FEAT_TEXT = {
+  won_crossword: "Word-Cross wins", solved_crossword: "words solved", won_battleship: "Battleship wins",
+  sunk_battleship: "ships sunk", cleared_minesweeper: "boards cleared", won_minesweeper: "Minesweeper wins",
+  finished_links: "rounds of golf finished", under_par_links: "rounds under par", won_links: "golf wins",
+  banks: "casino cash-outs", banked: "dollars banked", played_any: "games played", won_any: "wins",
+};
+
+/** How a banner's need reads, with how far along the player is. */
+export function bannerNeedText(b, standing) {
+  const have = standing?.feats?.[b.need.feat] || 0;
+  return `${Math.min(have, b.need.count).toLocaleString()} / ${b.need.count.toLocaleString()} ${FEAT_TEXT[b.need.feat] || b.need.feat}`;
+}
+
+/** The backdrop for a rankings row. `live` lets it move. */
+export function bannerHtml(id, live = true) {
+  const b = bannerById(id);
+  if (!b) return "";
+  return `<span class="bnr bnr-${b.game} ${live ? "" : "bnr-frozen"}" style="--b1:${b.colors[0]};--b2:${b.colors[1]}" data-icon="${b.icon}" title="${b.name}" aria-hidden="true"></span>`;
+}
+
 export const frameEarned = (id, standing) => meets(FRAME_TIERS[frameById(id).tier].need, standing);
 export const titleEarned = (id, standing) => { const t = titleById(id); return !!t && meets(t.need, standing); };
 
@@ -251,5 +334,6 @@ export function allowed(cos, standing, giIds) {
   out.avatar = knownAvatar(cos?.avatar, giIds) ? cos.avatar : giIds[0];
   out.frame = frameEarned(cos?.frame, standing) ? frameById(cos?.frame).id : "none";
   out.title = titleEarned(cos?.title, standing) ? cos.title : "";
+  out.banner = bannerEarned(cos?.banner, standing) ? cos.banner : "";
   return out;
 }

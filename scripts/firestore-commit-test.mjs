@@ -5,7 +5,7 @@
 // found by tag, and a tag that drifts from its write would put the wrong
 // number on every home screen — so it is pinned here.
 import {
-  matchWrites, boardRowsFromCommit, transformNumbers, walletTotals, walletWrites,
+  matchWrites, boardRowsFromCommit, transformNumbers, walletTotals, walletWrites, bankFeats,
 } from "../src/firestore.js";
 import { tellCommons } from "../src/commons-notify.js";
 
@@ -34,8 +34,12 @@ ok("the fields are masked, so prestige is never touched",
   board.every((w) => !w.updateMask.fieldPaths.includes("prestige") && !w.updateMask.fieldPaths.includes("totalPoints")));
 ok("the rate is written only when there is one",
   board[0].updateMask.fieldPaths.includes("lastRate") && !board[1].updateMask.fieldPaths.includes("lastRate"));
-ok("the three increments, in the order the room expects",
-  board.every((w) => w.updateTransforms.map((t) => t.fieldPath).join() === "totalPoints,roundsPlayed,bestScore"));
+ok("the three increments first, in the order the room expects",
+  board.every((w) => w.updateTransforms.slice(0, 3).map((t) => t.fieldPath).join() === "totalPoints,roundsPlayed,bestScore"));
+ok("then the round's feats: the winner's win, everyone's play",
+  board[0].updateTransforms.slice(3).map((t) => t.fieldPath).join() === "feats.played_any,feats.played_crossword,feats.won_any,feats.won_crossword"
+  && board[1].updateTransforms.slice(3).map((t) => t.fieldPath).join() === "feats.played_any,feats.played_crossword");
+ok("the tags carry the feat keys", tags[4].feats.length === 4 && tags[5].feats.length === 2);
 ok("the private log is written under the player",
   writes[1].update.name === `${BASE}/users/a/history/ABCDE-2-1700000000000`);
 
@@ -44,15 +48,18 @@ const iv = (n) => ({ integerValue: String(n) });
 const commit = {
   writeResults: [
     {}, {}, {}, {},
-    { transformResults: [iv(1095), iv(12), iv(300)] },
-    { transformResults: [iv(540), iv(3), iv(60)] },
-    { transformResults: [iv(0), iv(1), iv(0)] },
+    { transformResults: [iv(1095), iv(12), iv(300), iv(12), iv(9), iv(4), iv(3)] },
+    { transformResults: [iv(540), iv(3), iv(60), iv(3), iv(3)] },
+    { transformResults: [iv(0), iv(1), iv(0), iv(1), iv(1)] },
   ],
 };
 const rows = boardRowsFromCommit(tags, commit);
 ok("the totals are read back by tag", rows.length === 3 && rows[0].uid === "a" && rows[0].totalPoints === 1095);
 ok("with rounds and best", rows[1].roundsPlayed === 3 && rows[1].bestScore === 60);
 ok("and the rate when there was one", rows[0].lastRate === 120 && !("lastRate" in rows[1]));
+ok("and the feats, by name", rows[0].feats.won_crossword === 3 && rows[0].feats.played_any === 12 && rows[1].feats.played_crossword === 3 && !("won_any" in rows[1].feats));
+ok("a short result for a row with feats is null",
+  boardRowsFromCommit(tags, { writeResults: [{}, {}, {}, {}, { transformResults: [iv(1), iv(1), iv(1), iv(1)] }] }) === null);
 ok("a missing number makes the whole thing null rather than a guess",
   boardRowsFromCommit(tags, { writeResults: commit.writeResults.slice(0, 5) }) === null);
 ok("so does a number that is not one",
@@ -61,6 +68,7 @@ ok("so does a number that is not one",
 console.log("\nthe arcade");
 const arcade = matchWrites(BASE, "ARCADE-0-1", { ...match, code: "ARCADE", results: [match.results[0]] }, false);
 ok("a solve is one write, not three", arcade.writes.length === 1 && arcade.tags[0].kind === "board");
+ok("and counts for no feats", arcade.writes[0].updateTransforms.length === 3 && arcade.tags[0].feats.length === 0);
 ok("and its total is at index zero",
   boardRowsFromCommit(arcade.tags, { writeResults: [{ transformResults: [iv(7), iv(1), iv(7)] }] })[0].totalPoints === 7);
 
@@ -72,6 +80,13 @@ ok("no body is null", transformNumbers(null, 0, 1) === null);
 console.log("\nwallets");
 const ww = walletWrites("B/users/u1", "B/wallets/u1", "u1", "Ana", 250);
 ok("a bank is two writes", ww.length === 2);
+const wr = walletWrites("B/users/u1", "B/wallets/u1", "u1", "Ana", 250, null, "B/leaderboard/u1");
+ok("with the record asked for, a bank also counts on the board",
+  wr.length === 3 && wr[2].update.name === "B/leaderboard/u1"
+  && wr[2].updateTransforms.map((t) => t.fieldPath).join() === "feats.banks,feats.banked");
+ok("a withdrawal never counts as a cash-out", walletWrites("B/users/u1", "B/wallets/u1", "u1", "Ana", -40, 210, "B/leaderboard/u1").length === 2);
+ok("the bank's feats are read from the third write",
+  bankFeats({ writeResults: [{}, {}, { transformResults: [iv(4), iv(2250)] }] }).banked === 2250 && bankFeats({ writeResults: [{}, {}] }) === null);
 ok("the private document first, increments only, nothing else on it touched",
   ww[0].transform?.document === "B/users/u1" && !ww[0].update
   && ww[0].transform.fieldTransforms.map((t) => t.fieldPath).join() === "casino.wallet,casino.banked");

@@ -88,13 +88,13 @@ ok("twenty-four rows at most", standings.length === 24);
 ok("officers first, by prestige then MMR", standings.slice(0, 3).map((r) => r.uid).join() === "o1,o3,o2");
 ok("then everyone else by MMR", standings[3].uid === "p0" && standings[23].uid === "p20");
 ok("exactly the fields the client reads",
-  standings.every((r) => Object.keys(r).sort().join() === "best,cos,mmr,name,prestige,rounds,uid"));
+  standings.every((r) => Object.keys(r).sort().join() === "best,cos,feats,mmr,name,prestige,rounds,uid"));
 
 // The client's old merge, ported, on the same board: the room must agree.
 function clientMerge(board) {
   const all = board.map((v) => ({
     uid: v.uid, name: v.name || "Unknown", mmr: v.totalPoints || 0,
-    best: v.bestScore || 0, rounds: v.roundsPlayed || 0, prestige: v.prestige || 0, cos: null,
+    best: v.bestScore || 0, rounds: v.roundsPlayed || 0, prestige: v.prestige || 0, cos: null, feats: null,
   }));
   const officers = all.filter((r) => r.prestige > 0).sort((a, b) => b.prestige - a.prestige).slice(0, 60);
   const byMmr = [...all].sort((a, b) => b.mmr - a.mmr).slice(0, 24);
@@ -121,6 +121,10 @@ standings = (await get("/rankings")).standings;
 const o1 = standings.find((r) => r.uid === "o1");
 ok("a match result never demotes an officer", o1.prestige === 2 && o1.mmr === 40 && o1.best === 30);
 ok("an officer's insignia survives too", room.board.o1.insignia === "First Lieutenant");
+await post("/board/upsert", { rows: [{ uid: "o1", feats: { won_crossword: 3, played_any: 9 } }] });
+await post("/board/upsert", { rows: [{ uid: "o1", feats: { banks: 1 } }] });
+ok("feats arrive a few at a time and add up on the row",
+  room.board.o1.feats.won_crossword === 3 && room.board.o1.feats.banks === 1 && room.board.o1.feats.played_any === 9);
 
 const top = (await get("/top?limit=10")).top;
 ok("the bounty office gets the top ten by MMR", top.length === 10 && top[0].uid === "p0");

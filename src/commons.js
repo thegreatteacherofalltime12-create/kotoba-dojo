@@ -194,6 +194,7 @@ export class Commons {
       rounds: num(r.roundsPlayed),
       prestige: num(r.prestige),
       cos: r.cosmetics || null,
+      feats: r.feats || null,
     }));
     const officers = rows.filter((r) => r.prestige > 0)
       .sort((a, b) => b.prestige - a.prestige).slice(0, OFFICERS_KEEP);
@@ -276,6 +277,8 @@ export class Commons {
       if (!row?.uid) continue;
         const clean = {};
       for (const [k, v] of Object.entries(row)) if (v != null) clean[k] = v;
+      // Counters arrive a few at a time; the ones not mentioned stay.
+      if (clean.feats) clean.feats = { ...(this.board[row.uid]?.feats || {}), ...clean.feats };
       this.board[row.uid] = { ...this.board[row.uid], ...clean, uid: row.uid, touchedAt: now };
     }
     this.pruneBoard();

@@ -3239,3 +3239,53 @@ a.dtab { text-decoration: none; display: inline-block; }
   .cos-cell { font-size: 1.4rem; height: 3rem; }
   .cos-box { max-height: calc(3 * 3rem + 2 * .35rem + .7rem); }
 }
+
+
+/* ── banners ───────────────────────────────────────────────────────────
+ * A moving backdrop on a rankings row, themed by game: the colours flow
+ * one way and the game's icon sits at the right. Only the podium moves;
+ * bnr-frozen holds the rest. Only ever in the Arena Rankings. */
+.slot.has-banner { position: relative; overflow: hidden; }
+.slot.has-banner > :not(.bnr) { position: relative; z-index: 1; }
+.slot.has-banner .sn, .slot.has-banner .sp, .slot.has-banner .sr { text-shadow: 0 1px 2px rgba(0,0,0,.75); color: #fff; }
+.bnr {
+  position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--b1) 78%, transparent), color-mix(in srgb, var(--b2) 55%, transparent), color-mix(in srgb, var(--b1) 78%, transparent));
+  background-size: 200% 100%;
+  animation: bnr-flow 6s linear infinite;
+}
+.bnr::before { content: ""; position: absolute; inset: 0; background-size: 200% 100%; animation: bnr-flow 9s linear infinite reverse; opacity: .55; }
+.bnr::after {
+  content: attr(data-icon); position: absolute; right: 4.8rem; top: 50%; transform: translateY(-50%);
+  font-size: 1.15rem; opacity: .85; filter: drop-shadow(0 1px 2px rgba(0,0,0,.6));
+  animation: bnr-bob 2.4s ease-in-out infinite;
+}
+@keyframes bnr-flow { from { background-position: 0 0; } to { background-position: 200% 0; } }
+@keyframes bnr-bob { 0%, 100% { transform: translateY(-50%); } 50% { transform: translateY(-62%); } }
+/* one pattern per game */
+.bnr-crossword::before { background-image: repeating-linear-gradient(90deg, transparent 0 14px, rgba(255,255,255,.10) 14px 16px), repeating-linear-gradient(0deg, transparent 0 14px, rgba(255,255,255,.10) 14px 16px); }
+.bnr-battleship::before { background-image: repeating-radial-gradient(circle at 20% 120%, transparent 0 18px, rgba(255,255,255,.12) 18px 20px); }
+.bnr-minesweeper::before { background-image: radial-gradient(circle, rgba(255,255,255,.22) 0 2px, transparent 3px); background-size: 22px 22px; }
+.bnr-links::before { background-image: repeating-linear-gradient(115deg, transparent 0 18px, rgba(255,255,255,.08) 18px 36px); }
+.bnr-casino::before { background-image: radial-gradient(circle, rgba(255,215,0,.35) 0 3px, transparent 4px); background-size: 28px 28px; }
+.bnr-arena::before { background-image: radial-gradient(circle, rgba(255,255,255,.5) 0 1px, transparent 2px), radial-gradient(circle, rgba(255,255,255,.3) 0 1px, transparent 2px); background-size: 40px 40px, 25px 25px; background-position: 0 0, 12px 8px; }
+.bnr-frozen, .bnr-frozen::before, .bnr-frozen::after { animation: none; }
+.bnr-frozen { opacity: .8; }
+@media (prefers-reduced-motion: reduce) { .bnr, .bnr::before, .bnr::after { animation: none; } }
+
+/* in the overlay */
+.cos-banners { display: grid; gap: .4rem; }
+.cos-banner {
+  position: relative; overflow: hidden; font: inherit; text-align: left; cursor: pointer; min-height: 2.9rem;
+  display: grid; grid-template-columns: 1fr auto; gap: .6rem; align-items: center;
+  padding: .55rem .8rem; background: rgba(255,255,255,.04); border: 2px solid var(--edge); border-radius: 9px; color: #fff;
+}
+.cos-banner > :not(.bnr) { position: relative; z-index: 1; }
+.cos-banner .bnr::after { right: auto; left: 52%; }
+.cos-banner:hover { border-color: var(--accent-dim); }
+.cos-banner.is-on { border-color: var(--accent); }
+.cos-banner.locked { opacity: .5; cursor: not-allowed; color: var(--text); }
+.cos-banner .cb-name { font-family: var(--display); font-weight: 800; font-size: .86rem; text-shadow: 0 1px 2px rgba(0,0,0,.7); }
+.cos-banner .cb-need { font-size: .64rem; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.7); white-space: nowrap; }
+.cos-banner.locked .cb-need { color: var(--accent); text-shadow: none; }

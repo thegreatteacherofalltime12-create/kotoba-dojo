@@ -6,6 +6,7 @@
 import {
   AVATARS, LEAGUES, FRAMES, FRAME_TIERS, TITLES, lifetime, meets, needText,
   knownAvatar, avatarHtml, framedHtml, frameEarned, titleEarned, allowed,
+  BANNERS, featsFor, bannerEarned, bannerNeedText, bannerHtml,
 } from "../public/cosmetics.js";
 import { GI_COLORS } from "../public/arena.js";
 
@@ -65,6 +66,39 @@ ok("an epic frame turns", framedHtml("<i/>", "lightning", 40).includes("af-spin"
 ok("a legendary frame pulses", framedHtml("<i/>", "pulse-ring", 40).includes("af-pulse"));
 ok("and can be frozen", framedHtml("<i/>", "pulse-ring", 40, false).includes("af-frozen") && !framedHtml("<i/>", "pulse-ring", 40, true).includes("af-frozen"));
 ok("the shape is on the wrapper", framedHtml("<i/>", "bronze-hex", 40).includes("af-hex"));
+
+console.log("\nfeats");
+const m = (game, n) => ({ game, results: new Array(n).fill({}) });
+let f = featsFor(m("battleship", 3), { placement: 1, status: "won", sunk: 4 });
+ok("a win in a field counts as a win, and the ships sunk", f.won_battleship === 1 && f.won_any === 1 && f.sunk_battleship === 4 && f.played_any === 1);
+f = featsFor(m("battleship", 3), { placement: 2, status: "sunk", sunk: 2 });
+ok("a loss counts the play and the sinkings only", !f.won_any && f.sunk_battleship === 2 && f.played_battleship === 1);
+f = featsFor(m("minesweeper", 1), { placement: 1, status: "cleared" });
+ok("a solo clear is a clear and a solo, not a win", f.cleared_minesweeper === 1 && f.solo_minesweeper === 1 && !f.won_any);
+f = featsFor(m("links", 2), { placement: 1, status: "finished", toPar: -3 });
+ok("golf under par is noted", f.under_par_links === 1 && f.finished_links === 1 && f.won_links === 1);
+f = featsFor(m("links", 2), { placement: 2, status: "ended", toPar: 2 });
+ok("a round walked off is played, not finished", f.played_links === 1 && !f.finished_links && !f.under_par_links);
+f = featsFor(m("crossword", 4), { placement: 3, status: "finished", solved: 7 });
+ok("words solved add up", f.solved_crossword === 7 && !f.won_any);
+f = featsFor({ results: [{}] }, { placement: 1, status: "finished", solved: 0 });
+ok("no game named is a crossword, and zero words is nothing", f.played_crossword === 1 && !("solved_crossword" in f));
+
+console.log("\nbanners");
+ok("three banners per game", ["crossword", "battleship", "minesweeper", "links", "casino", "arena"].every((g) => BANNERS.filter((b) => b.game === g).length === 3));
+ok("no banner id twice", new Set(BANNERS.map((b) => b.id)).size === BANNERS.length);
+ok("every banner's feat is one the games can count",
+  BANNERS.every((b) => ["won_", "solved_", "sunk_", "cleared_", "finished_", "under_par_", "played_", "banks", "banked"].some((p) => b.need.feat.startsWith(p))));
+const st = { mmr: 0, prestige: 0, feats: { won_battleship: 1, banked: 999, played_any: 100 } };
+ok("earned by the counter", bannerEarned("first-blood", st) && bannerEarned("centurion", st));
+ok("not before it", !bannerEarned("fleet-admiral", st) && !bannerEarned("high-roller", st));
+ok("nothing earned with no record", !bannerEarned("debut", { mmr: 0 }) && !bannerEarned("made-up", st));
+ok("progress reads plainly", bannerNeedText(BANNERS.find((b) => b.id === "high-roller"), st) === "999 / 1,000 dollars banked");
+ok("the gate keeps an earned banner and drops an unearned one",
+  allowed({ banner: "first-blood" }, st, gis).banner === "first-blood" && allowed({ banner: "the-house" }, st, gis).banner === "");
+ok("a banner is a backdrop with its icon", bannerHtml("first-blood").includes("bnr-battleship") && bannerHtml("first-blood").includes('data-icon="⚓"'));
+ok("and can be frozen", bannerHtml("first-blood", false).includes("bnr-frozen") && !bannerHtml("first-blood", true).includes("bnr-frozen"));
+ok("an unknown banner draws nothing", bannerHtml("nope") === "");
 
 console.log(bad ? `\n${bad} failing` : "\nall cosmetics checks passed");
 process.exit(bad ? 1 : 0);

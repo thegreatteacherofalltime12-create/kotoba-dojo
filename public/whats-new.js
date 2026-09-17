@@ -17,6 +17,15 @@ export const KEEP_DAYS = 7;
 
 export const UPDATES = [
   {
+    at: "2026-09-17T18:30:00Z",
+    where: "Arena Rankings",
+    title: "Banners",
+    text: "Eighteen banners, three a game, each a moving backdrop on your row in the Arena Rankings. "
+      + "Earned by what you do: a first win, ten boards cleared, twenty hulls sunk, a round under "
+      + "par, a thousand dollars banked, a hundred games played. Every finished round now counts "
+      + "toward them, so the tally starts today. Pick yours under Banners in your fighter profile.",
+  },
+  {
     at: "2026-09-17T16:00:00Z",
     where: "Profile",
     title: "Dress your fighter",

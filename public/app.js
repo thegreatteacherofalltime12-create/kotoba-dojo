@@ -11,8 +11,9 @@ import { firebaseConfig } from "./firebase-config.js";
 import { buildLayout } from "./layout.js";
 import { GI_COLORS, giSvg, GAME_MODES } from "./arena.js";
 import {
-  AVATARS, LEAGUES, FRAMES, FRAME_TIERS, TITLES, GAME_NAMES,
+  AVATARS, LEAGUES, FRAMES, FRAME_TIERS, TITLES, GAME_NAMES, BANNERS,
   avatarHtml, framedHtml, titleById, meets, needText,
+  bannerById, bannerEarned, bannerNeedText, bannerHtml,
 } from "./cosmetics.js";
 import { enterBattle, closeBattle, bindBattleControls } from "./battle.js";
 import { enterMines, closeMines, bindMineControls } from "./mines.js";
@@ -138,6 +139,7 @@ const S = {
   avatar: "white",
   frame: "none",
   title: "",
+  banner: "",
   // The banked wallet, plus a short history of what has gone into it.
   purse: { wallet: 100, tokens: 0, log: [] },
   bank: [],
@@ -320,6 +322,7 @@ async function loadAvatar() {
     if (v?.avatar) S.avatar = v.avatar;
     if (v?.frame) S.frame = v.frame;
     if (typeof v?.title === "string") S.title = v.title;
+    if (typeof v?.banner === "string") S.banner = v.banner;
     let write = !snap.exists() || (v.displayName || "") !== (S.user?.displayName || "");
     // The theme follows the player between the desktop and the phone.
     // A saved theme from before the current house look is moved on once. The
@@ -349,7 +352,7 @@ async function saveProfile() {
       doc(db, "users", u.uid),
       {
         uid: u.uid, displayName: u.displayName || "Student", avatar: S.avatar,
-        frame: S.frame || "none", title: S.title || "",
+        frame: S.frame || "none", title: S.title || "", banner: S.banner || "",
         theme: document.documentElement.dataset.theme || savedTheme(),
         themeEpoch: THEME_EPOCH,
       },
@@ -636,12 +639,12 @@ let cosTab = "robes";
 
 function myStanding() {
   const me = standings.find((r) => r.uid === S.user?.uid);
-  return { mmr: me?.mmr ?? 0, prestige: me?.prestige ?? 0 };
+  return { mmr: me?.mmr ?? 0, prestige: me?.prestige ?? 0, feats: me?.feats || {} };
 }
 
 function drawAvatarPicker() {
   const host = $("avatar-modal");
-  const pick = { avatar: S.avatar, frame: S.frame || "none", title: S.title || "" };
+  const pick = { avatar: S.avatar, frame: S.frame || "none", title: S.title || "", banner: S.banner || "" };
   const standing = myStanding();
   host.hidden = false;
 
@@ -698,7 +701,25 @@ function drawAvatarPicker() {
         }).join("")}
       </div>`;
 
-    return `<p class="panel-sub">Banners arrive in the next update: moving banners themed on each game, earned by what you achieve in it.</p>`;
+    // Banners: three a game, earned by what you have done in it. Shown on
+    // your row in the Arena Rankings and nowhere else.
+    const games = [...new Set(BANNERS.map((b) => b.game))];
+    return `
+      <p class="panel-sub">A moving backdrop on your row in the Arena Rankings. Earned by what you do in each game.</p>
+      <div class="cos-banners">
+        <button class="cos-banner ${pick.banner === "" ? "is-on" : ""}" data-banner=""><span class="cb-name">No banner</span></button>
+        ${games.map((g) => `
+          <div class="cos-league">${GAME_NAMES[g]}</div>
+          ${BANNERS.filter((b) => b.game === g).map((b) => {
+            const open = bannerEarned(b.id, standing);
+            return `
+              <button class="cos-banner ${b.id === pick.banner ? "is-on" : ""} ${open ? "" : "locked"}" data-banner="${b.id}" ${open ? "" : "disabled"}>
+                ${bannerHtml(b.id, open)}
+                <span class="cb-name">${open ? "" : "\u{1F512} "}${b.name}</span>
+                <span class="cb-need">${open ? "Earned" : bannerNeedText(b, standing)}</span>
+              </button>`;
+          }).join("")}`).join("")}
+      </div>`;
   };
 
   const render = () => {
@@ -731,8 +752,9 @@ function drawAvatarPicker() {
     host.querySelectorAll("[data-av]").forEach((b) => { b.onclick = () => { pick.avatar = b.dataset.av; render(); }; });
     host.querySelectorAll("[data-frame]").forEach((b) => { b.onclick = () => { pick.frame = b.dataset.frame; render(); }; });
     host.querySelectorAll("[data-title]").forEach((b) => { b.onclick = () => { pick.title = b.dataset.title; render(); }; });
+    host.querySelectorAll("[data-banner]").forEach((b) => { b.onclick = () => { pick.banner = b.dataset.banner; render(); }; });
     host.querySelector("[data-save]").onclick = async () => {
-      const changed = pick.avatar !== S.avatar || pick.frame !== (S.frame || "none") || pick.title !== (S.title || "");
+      const changed = pick.avatar !== S.avatar || pick.frame !== (S.frame || "none") || pick.title !== (S.title || "") || pick.banner !== (S.banner || "");
       close();
       if (!changed) return;
       Object.assign(S, pick);
@@ -749,7 +771,7 @@ function drawAvatarPicker() {
         const out = await res.json();
         if (out.ok && out.cosmetics) {
           const kept = out.cosmetics;
-          if (kept.frame !== S.frame || kept.title !== S.title || kept.avatar !== S.avatar) {
+          if (kept.frame !== S.frame || kept.title !== S.title || kept.avatar !== S.avatar || kept.banner !== S.banner) {
             Object.assign(S, kept);
             drawMyRank();
             saveProfile();
@@ -875,7 +897,8 @@ function drawStrip() {
     const cos = r.cos || {};
     const worn = cos.title ? titleById(cos.title) : null;
     return `
-      <div class="slot ${i === 0 ? "lead" : ""} ${r.uid === S.user?.uid ? "you2" : ""} ${wanted ? "wanted-slot" : ""} ${r.prestige ? "officer" : ""}">
+      <div class="slot ${i === 0 ? "lead" : ""} ${r.uid === S.user?.uid ? "you2" : ""} ${wanted ? "wanted-slot" : ""} ${r.prestige ? "officer" : ""} ${cos.banner ? "has-banner" : ""}">
+        ${cos.banner ? bannerHtml(cos.banner, i < 3) : ""}
         <span class="sr">${MEDALS[i] ? `<span class="medal" title="${["Champion", "Second", "Third"][i]}">${MEDALS[i]}</span>` : ordinal(i + 1)}</span>
         ${wanted ? `<span class="sb-target">\u{1F3AF}</span>` : ""}
         <span class="sa">${framedHtml(avatarHtml(cos.avatar || "white", 30, giSvg), cos.frame || "none", 30, i < 3)}</span>

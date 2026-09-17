@@ -247,6 +247,9 @@ export function needText(need) {
 // that records the score — no read, no extra write.
 
 const DONE = new Set(["finished", "solved", "won", "cleared"]);
+export const FAST_CROSSWORD_MS = 3 * 60_000;    // a round finished this fast is a Speed Reader's
+export const FAST_MINESWEEPER_MS = 60_000;      // a board cleared this fast is a Lightning Sweep
+export const BIG_BANK = 500;                    // a single cash-out this size is a Jackpot
 
 export function featsFor(match, r) {
   const game = match.game || "crossword";
@@ -256,12 +259,26 @@ export function featsFor(match, r) {
   const out = { played_any: 1, [`played_${game}`]: 1 };
   if (won) { out.won_any = 1; out[`won_${game}`] = 1; }
   if (field === 1 && done) out[`solo_${game}`] = 1;
-  if (game === "crossword" && r.solved > 0) out.solved_crossword = r.solved;
-  if (game === "battleship" && r.sunk > 0) out.sunk_battleship = r.sunk;
-  if (game === "minesweeper" && r.status === "cleared") out.cleared_minesweeper = 1;
-  if (game === "links" && r.status === "finished") {
-    out.finished_links = 1;
-    if (r.toPar < 0) out.under_par_links = 1;
+  if (game === "crossword") {
+    if (r.solved > 0) out.solved_crossword = r.solved;
+    if (done && r.elapsedMs > 0 && r.elapsedMs < FAST_CROSSWORD_MS) out.fast_crossword = 1;
+  }
+  if (game === "battleship") {
+    if (r.sunk > 0) out.sunk_battleship = r.sunk;
+    if (r.hits > 0) out.hits_battleship = r.hits;
+    if (won && match.mapId === "hard") out.deep_battleship = 1;
+  }
+  if (game === "minesweeper" && r.status === "cleared") {
+    out.cleared_minesweeper = 1;
+    if (r.elapsedMs > 0 && r.elapsedMs < FAST_MINESWEEPER_MS) out.fast_minesweeper = 1;
+  }
+  if (game === "links") {
+    if (r.holes > 0) out.holes_links = r.holes;
+    if (r.aces > 0) out.aces_links = r.aces;
+    if (r.status === "finished") {
+      out.finished_links = 1;
+      if (r.toPar < 0) out.under_par_links = 1;
+    }
   }
   return out;
 }
@@ -271,7 +288,10 @@ export function featsFor(match, r) {
 // A banner is a moving backdrop on a player's row in the Arena Rankings —
 // and nowhere else. Three per game, earned by that game's feats.
 
+// A need is one counter reaching a count — or, with `all`, several
+// counters each reaching one, for banners that ask for a bit of everything.
 const banner = (id, name, game, feat, count, icon, colors) => ({ id, name, game, need: { feat, count }, icon, colors });
+const spread = (id, name, game, all, icon, colors) => ({ id, name, game, need: { all }, icon, colors });
 
 export const BANNERS = [
   banner("first-word", "First Word", "crossword", "won_crossword", 1, "🔤", ["#1d4ed8", "#60a5fa"]),
@@ -292,13 +312,28 @@ export const BANNERS = [
   banner("debut", "Debut", "arena", "played_any", 1, "🥋", ["#1f2937", "#9ca3af"]),
   banner("centurion", "Centurion", "arena", "played_any", 100, "🛡️", ["#3b0764", "#c084fc"]),
   banner("champion", "Champion", "arena", "won_any", 25, "🏆", ["#7f1d1d", "#fbbf24"]),
+  // the second ten
+  banner("speed-reader", "Speed Reader", "crossword", "fast_crossword", 1, "⏱️", ["#0e7490", "#67e8f9"]),
+  banner("lone-scholar", "Lone Scholar", "crossword", "solo_crossword", 10, "🕯️", ["#4a1d96", "#a78bfa"]),
+  banner("dead-eye", "Dead Eye", "battleship", "hits_battleship", 100, "🎯", ["#7c2d12", "#fdba74"]),
+  banner("open-ocean", "Open Ocean", "battleship", "deep_battleship", 1, "🌊", ["#082f49", "#0ea5e9"]),
+  banner("lightning-sweep", "Lightning Sweep", "minesweeper", "fast_minesweeper", 1, "⚡", ["#713f12", "#fde047"]),
+  banner("lone-sapper", "Lone Sapper", "minesweeper", "solo_minesweeper", 10, "🔦", ["#1e293b", "#94a3b8"]),
+  banner("hole-in-one", "Hole in One", "links", "aces_links", 1, "🏆", ["#14532d", "#fde68a"]),
+  banner("grand-tour", "Grand Tour", "links", "holes_links", 100, "🗺️", ["#134e4a", "#5eead4"]),
+  banner("jackpot", "Jackpot", "casino", "bigbank", 1, "💎", ["#831843", "#f9a8d4"]),
+  spread("tourist", "Multiverse Tourist", "arena",
+    ["played_crossword", "played_battleship", "played_minesweeper", "played_links", "banks"], "🪐", ["#1e1b4b", "#c7d2fe"]),
 ];
 
 export const bannerById = (id) => BANNERS.find((b) => b.id === id) || null;
 
 export const bannerEarned = (id, standing) => {
   const b = bannerById(id);
-  return !!b && (standing?.feats?.[b.need.feat] || 0) >= b.need.count;
+  if (!b) return false;
+  const have = (k) => standing?.feats?.[k] || 0;
+  if (b.need.all) return b.need.all.every((k) => have(k) >= 1);
+  return have(b.need.feat) >= b.need.count;
 };
 
 export const FEAT_TEXT = {
@@ -306,10 +341,20 @@ export const FEAT_TEXT = {
   sunk_battleship: "ships sunk", cleared_minesweeper: "boards cleared", won_minesweeper: "Minesweeper wins",
   finished_links: "rounds of golf finished", under_par_links: "rounds under par", won_links: "golf wins",
   banks: "casino cash-outs", banked: "dollars banked", played_any: "games played", won_any: "wins",
+  fast_crossword: "rounds finished in under 3 minutes", solo_crossword: "solo Word-Cross finishes",
+  hits_battleship: "hits landed", deep_battleship: "wins on Open Ocean",
+  fast_minesweeper: "boards cleared in under a minute", solo_minesweeper: "solo clears",
+  aces_links: "holes in one", holes_links: "holes played", bigbank: "cash-outs of $500 or more",
+  played_crossword: "Word-Cross", played_battleship: "Battleship", played_minesweeper: "Minesweeper", played_links: "Golf",
 };
 
 /** How a banner's need reads, with how far along the player is. */
 export function bannerNeedText(b, standing) {
+  if (b.need.all) {
+    const done = b.need.all.filter((k) => (standing?.feats?.[k] || 0) >= 1).length;
+    const left = b.need.all.filter((k) => !(standing?.feats?.[k] || 0)).map((k) => FEAT_TEXT[k] || k);
+    return `${done} / ${b.need.all.length} games${left.length ? ` · still to play: ${left.join(", ")}` : ""}`;
+  }
   const have = standing?.feats?.[b.need.feat] || 0;
   return `${Math.min(have, b.need.count).toLocaleString()} / ${b.need.count.toLocaleString()} ${FEAT_TEXT[b.need.feat] || b.need.feat}`;
 }

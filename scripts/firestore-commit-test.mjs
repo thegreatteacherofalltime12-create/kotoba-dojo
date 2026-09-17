@@ -86,7 +86,12 @@ ok("with the record asked for, a bank also counts on the board",
   && wr[2].updateTransforms.map((t) => t.fieldPath).join() === "feats.banks,feats.banked");
 ok("a withdrawal never counts as a cash-out", walletWrites("B/users/u1", "B/wallets/u1", "u1", "Ana", -40, 210, "B/leaderboard/u1").length === 2);
 ok("the bank's feats are read from the third write",
-  bankFeats({ writeResults: [{}, {}, { transformResults: [iv(4), iv(2250)] }] }).banked === 2250 && bankFeats({ writeResults: [{}, {}] }) === null);
+  bankFeats({ writeResults: [{}, {}, { transformResults: [iv(4), iv(2250)] }] }, 100).banked === 2250 && bankFeats({ writeResults: [{}, {}] }) === null);
+const big = walletWrites("B/users/u1", "B/wallets/u1", "u1", "Ana", 500, null, "B/leaderboard/u1");
+ok("a bank of five hundred is a jackpot", big[2].updateTransforms.map((t) => t.fieldPath).join() === "feats.banks,feats.banked,feats.bigbank");
+ok("and its count comes back with the rest",
+  bankFeats({ writeResults: [{}, {}, { transformResults: [iv(5), iv(2750), iv(1)] }] }, 500).bigbank === 1
+  && bankFeats({ writeResults: [{}, {}, { transformResults: [iv(5), iv(2750)] }] }, 500) === null);
 ok("the private document first, increments only, nothing else on it touched",
   ww[0].transform?.document === "B/users/u1" && !ww[0].update
   && ww[0].transform.fieldTransforms.map((t) => t.fieldPath).join() === "casino.wallet,casino.banked");

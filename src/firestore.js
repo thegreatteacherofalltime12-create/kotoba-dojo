@@ -10,7 +10,7 @@
 // and the game still works — you just lose ranked history.
 
 import { tellCommons } from "./commons-notify.js";
-import { allowed, featsFor } from "../public/cosmetics.js";
+import { allowed, featsFor, BIG_BANK } from "../public/cosmetics.js";
 import { GI_COLORS } from "../public/arena.js";
 
 let tokenCache = { token: null, expiresAt: 0 };
@@ -367,7 +367,7 @@ export async function bankWallet(env, uid, amount, name = "Player") {
   console.log(`[firestore] banked ${amount} to ${uid}`);
   const body = await res.json().catch(() => null);
   await tellWallet(env, uid, name, body);
-  const feats = bankFeats(body);
+  const feats = bankFeats(body, amount);
   if (feats) await tellCommons(env, "/board/upsert", { rows: [{ uid, name: name || "Player", feats }] });
   return true;
 }
@@ -413,15 +413,18 @@ export function walletWrites(path, board, uid, name, delta, settle = null, recor
       updateTransforms: [
         { fieldPath: "feats.banks", increment: I(1) },
         { fieldPath: "feats.banked", increment: I(delta) },
+        ...(delta >= BIG_BANK ? [{ fieldPath: "feats.bigbank", increment: I(1) }] : []),
       ],
     }] : []),
   ];
 }
 
 /** The feats a bank came back with, or null when there were none. */
-export function bankFeats(body) {
-  const got = transformNumbers(body, 2, 2);
-  return got ? { banks: got[0], banked: got[1] } : null;
+export function bankFeats(body, amount = 0) {
+  const big = amount >= BIG_BANK;
+  const got = transformNumbers(body, 2, big ? 3 : 2);
+  if (!got) return null;
+  return { banks: got[0], banked: got[1], ...(big ? { bigbank: got[2] } : {}) };
 }
 
 /** What the commit says the two totals are now. */

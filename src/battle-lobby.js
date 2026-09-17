@@ -727,7 +727,7 @@ export class BattleRoyale {
     if (human.length) {
       this.state.waitUntil?.(
         recordMatch(this.env, {
-          code: this.g.code, roundNo: this.g.round, puzzleId: "battleship",
+          code: this.g.code, roundNo: this.g.round, puzzleId: "battleship", mapId: this.g.mapId,
           game: "battleship", mode: human.length >= 3 ? "rumble" : "match",
           finishedAt: Date.now(), results: human,
         }).then((ok) => { if (!ok) console.error(`[battleship] results were not saved`); }).catch((e) => console.error(`[battleship] ${e.message}`))

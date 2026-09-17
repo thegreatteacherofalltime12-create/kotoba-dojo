@@ -330,6 +330,7 @@ export class LinksCourse {
         elapsedMs: Date.now() - room.startedAt,
         toPar: p.card.reduce((a, h) => a + (h.strokes - h.par), 0),
         holes: p.card.length,
+        aces: p.card.filter((h) => h.strokes === 1).length,
         mmrBefore: p.mmrAtStart || 0,
         gain: gain.total,
         breakdown: { base: gain.base, challenge: gain.challenge, completion: gain.completion, seed: gain.seed },

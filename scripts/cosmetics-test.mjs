@@ -85,10 +85,12 @@ f = featsFor({ results: [{}] }, { placement: 1, status: "finished", solved: 0 })
 ok("no game named is a crossword, and zero words is nothing", f.played_crossword === 1 && !("solved_crossword" in f));
 
 console.log("\nbanners");
-ok("three banners per game", ["crossword", "battleship", "minesweeper", "links", "casino", "arena"].every((g) => BANNERS.filter((b) => b.game === g).length === 3));
+ok("twenty-eight banners, every game with at least four", BANNERS.length === 28
+  && ["crossword", "battleship", "minesweeper", "links", "casino", "arena"].every((g) => BANNERS.filter((b) => b.game === g).length >= 4));
 ok("no banner id twice", new Set(BANNERS.map((b) => b.id)).size === BANNERS.length);
 ok("every banner's feat is one the games can count",
-  BANNERS.every((b) => ["won_", "solved_", "sunk_", "cleared_", "finished_", "under_par_", "played_", "banks", "banked"].some((p) => b.need.feat.startsWith(p))));
+  BANNERS.every((b) => (b.need.all || [b.need.feat]).every((k) =>
+    ["won_", "solved_", "sunk_", "cleared_", "finished_", "under_par_", "played_", "solo_", "fast_", "hits_", "deep_", "aces_", "holes_", "banks", "banked", "bigbank"].some((p) => k.startsWith(p)))));
 const st = { mmr: 0, prestige: 0, feats: { won_battleship: 1, banked: 999, played_any: 100 } };
 ok("earned by the counter", bannerEarned("first-blood", st) && bannerEarned("centurion", st));
 ok("not before it", !bannerEarned("fleet-admiral", st) && !bannerEarned("high-roller", st));
@@ -99,6 +101,36 @@ ok("the gate keeps an earned banner and drops an unearned one",
 ok("a banner is a backdrop with its icon", bannerHtml("first-blood").includes("bnr-battleship") && bannerHtml("first-blood").includes('data-icon="⚓"'));
 ok("and can be frozen", bannerHtml("first-blood", false).includes("bnr-frozen") && !bannerHtml("first-blood", true).includes("bnr-frozen"));
 ok("an unknown banner draws nothing", bannerHtml("nope") === "");
+
+console.log("\nthe second ten");
+f = featsFor(m("crossword", 2), { placement: 2, status: "finished", elapsedMs: 150_000, solved: 5 });
+ok("a round finished in under three minutes is fast", f.fast_crossword === 1);
+f = featsFor(m("crossword", 2), { placement: 1, status: "finished", elapsedMs: 200_000, solved: 5 });
+ok("and one that took longer is not", !f.fast_crossword);
+f = featsFor(m("crossword", 1), { placement: 1, status: "gave up", elapsedMs: 10_000 });
+ok("giving up quickly is not fast", !f.fast_crossword && !f.solo_crossword);
+f = featsFor({ game: "battleship", mapId: "hard", results: [{}, {}] }, { placement: 1, status: "won", hits: 17, sunk: 9 });
+ok("hits are counted and a win on Open Ocean is deep", f.hits_battleship === 17 && f.deep_battleship === 1);
+f = featsFor({ game: "battleship", mapId: "easy", results: [{}, {}] }, { placement: 1, status: "won", hits: 3, sunk: 5 });
+ok("a win on Skirmish is not deep", !f.deep_battleship && f.hits_battleship === 3);
+f = featsFor({ game: "battleship", mapId: "hard", results: [{}, {}] }, { placement: 2, status: "sunk", hits: 3, sunk: 1 });
+ok("losing on Open Ocean is not deep either", !f.deep_battleship);
+f = featsFor(m("minesweeper", 1), { placement: 1, status: "cleared", elapsedMs: 45_000 });
+ok("a board cleared inside a minute is a lightning sweep", f.fast_minesweeper === 1 && f.cleared_minesweeper === 1);
+f = featsFor(m("minesweeper", 1), { placement: 1, status: "sunk", elapsedMs: 5_000 });
+ok("blowing up fast is not", !f.fast_minesweeper);
+f = featsFor(m("links", 2), { placement: 2, status: "ended", holes: 9, aces: 1, toPar: 4 });
+ok("holes and aces count even on a round walked off", f.holes_links === 9 && f.aces_links === 1);
+f = featsFor(m("links", 2), { placement: 1, status: "finished", holes: 18, aces: 0, toPar: -1 });
+ok("no ace, no ace counter", f.holes_links === 18 && !("aces_links" in f));
+const tour = { feats: { played_crossword: 3, played_battleship: 1, played_minesweeper: 2, played_links: 1 } };
+ok("the tourist needs every game", !bannerEarned("tourist", tour));
+tour.feats.banks = 1;
+ok("and has it once the last one is played", bannerEarned("tourist", tour));
+ok("progress names what is still to play",
+  bannerNeedText(BANNERS.find((b) => b.id === "tourist"), { feats: { played_links: 1 } }) === "1 / 5 games · still to play: Word-Cross, Battleship, Minesweeper, casino cash-outs");
+ok("a jackpot is one big bank", bannerEarned("jackpot", { feats: { bigbank: 1 } }) && !bannerEarned("jackpot", { feats: { banked: 9000, banks: 30 } }));
+ok("the gate takes a spread banner too", allowed({ banner: "tourist" }, { mmr: 0, feats: tour.feats }, gis).banner === "tourist");
 
 console.log(bad ? `\n${bad} failing` : "\nall cosmetics checks passed");
 process.exit(bad ? 1 : 0);

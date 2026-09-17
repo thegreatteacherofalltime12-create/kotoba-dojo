@@ -17,6 +17,15 @@ export const KEEP_DAYS = 7;
 
 export const UPDATES = [
   {
+    at: "2026-09-17T19:30:00Z",
+    where: "Arena Rankings",
+    title: "Ten more banners",
+    text: "Speed Reader and Lone Scholar for Word-Cross; Dead Eye and Open Ocean for Battleship; "
+      + "Lightning Sweep and Lone Sapper for Minesweeper; Hole in One and Grand Tour for golf; Jackpot "
+      + "for a single cash-out of $500 or more; and Multiverse Tourist for playing every game at "
+      + "least once. Each shows how far along you are.",
+  },
+  {
     at: "2026-09-17T18:30:00Z",
     where: "Arena Rankings",
     title: "Banners",

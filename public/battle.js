@@ -85,6 +85,7 @@ export async function enterBattle(code, getToken, onLeave) {
   if (rev) { rev.hidden = true; rev.textContent = ""; }
   B.placeIdx = 0;
   B.shots = [];
+  B.volley = {};      // target uid -> the squares picked on their water
   B.target = null;
   $("battle-code").textContent = code;
   await connectBattle(getToken);
@@ -147,7 +148,7 @@ function handle(msg) {
       // shots go with it. Taking these only from the welcome left a 10x10
       // grid and five ships on the screen after the host picked Open Ocean.
       if (msg.game?.size) {
-        if (msg.game.size !== B.size) { B.placing = []; B.placeIdx = 0; B.shots = []; }
+        if (msg.game.size !== B.size) { B.placing = []; B.placeIdx = 0; B.shots = []; B.volley = {}; }
         B.size = msg.game.size;
       }
       if (msg.game?.fleet?.length) B.ships = msg.game.fleet;
@@ -243,13 +244,26 @@ function drawSolo(g) {
   if (host.hidden) return;
 
   host.textContent = "";
-  host.append(el("span", "ai-label", "Opponent"));
+  // How many computers to face — one by default, up to five — and one
+  // difficulty for the lot.
+  host.append(el("span", "ai-label", "Opponents"));
+  const counts = el("div", "ai-counts");
+  for (let n = 1; n <= (g.maxAi || 5); n++) {
+    const b = el("button", "ai-count" + ((g.aiCount || 1) === n ? " on" : ""));
+    b.type = "button";
+    b.textContent = String(n);
+    b.title = n === 1 ? "One on one" : `You against ${n} computers`;
+    b.onclick = () => send({ type: "BATTLE_SOLO", on: true, level: g.aiLevel || "medium", count: n });
+    counts.append(b);
+  }
+  host.append(counts);
+  host.append(el("span", "ai-label", (g.aiCount || 1) > 1 ? "Their difficulty (all of them)" : "Their difficulty"));
   for (const d of g.difficulties || []) {
     const b = el("button", "ai-pick" + (g.aiLevel === d.id ? " on" : ""));
     b.type = "button";
     b.append(el("span", "ai-name", d.name));
     b.append(el("span", "ai-blurb", d.blurb));
-    b.onclick = () => send({ type: "BATTLE_SOLO", on: true, level: d.id });
+    b.onclick = () => send({ type: "BATTLE_SOLO", on: true, level: d.id, count: g.aiCount || 1 });
     host.append(b);
   }
 }
@@ -400,7 +414,7 @@ export function bindBattleControls() {
   $("btn-anon").onclick = () => send({ type: "BATTLE_ANON", on: !B.game?.anon });
   $("btn-solo").onclick = () => {
     const on = !B.game?.solo;
-    send({ type: "BATTLE_SOLO", on, level: B.game?.aiLevel || "medium" });
+    send({ type: "BATTLE_SOLO", on, level: B.game?.aiLevel || "medium", count: B.game?.aiCount || 1 });
   };
   $("btn-rotate").onclick = () => { B.dir = B.dir === "across" ? "down" : "across"; drawPlacing(); };
   $("btn-place-clear").onclick = () => { B.placing = []; B.placeIdx = 0; drawPlacing(); };
@@ -412,10 +426,13 @@ export function bindBattleControls() {
   };
   $("btn-battle-start").onclick = () => send({ type: "BATTLE_START" });
   $("btn-fire").onclick = () => {
-    if (!B.target) return say("Choose who you're firing at.");
-    if (B.shots.length !== B.shotsPerTurn) return say(`Choose ${B.shotsPerTurn} squares.`);
-    send({ type: "BATTLE_FIRE", target: B.target, cells: B.shots });
+    const volley = Object.entries(B.volley).filter(([, c]) => c.length).map(([target, cells]) => ({ target, cells }));
+    const total = volley.reduce((n, v) => n + v.cells.length, 0);
+    if (!volley.length) return say("Choose who you're firing at.");
+    if (total !== B.shotsPerTurn) return say(`Choose ${B.shotsPerTurn} squares in all.`);
+    send({ type: "BATTLE_FIRE", volley });
     B.shots = [];
+    B.volley = {};
   };
   for (const [tab, pane] of [["bt-captains", "captains"], ["bt-feed", "feed"], ["bt-chat", "chat"]]) {
     const el0 = $(tab);
@@ -456,8 +473,12 @@ function drawBattle(me) {
     p.uid !== B.you && (watching ? true : p.alive));
 
   // Drop a target only when they're gone, never because it isn't your turn —
-  // their water should stay on screen between turns.
+  // their water should stay on screen between turns. Shots picked on a
+  // captain who has since gone down go with them.
   if (B.target && !foes.some((p) => p.uid === B.target)) { B.target = null; B.shots = []; }
+  for (const uid of Object.keys(B.volley)) if (!foes.some((p) => p.uid === uid)) delete B.volley[uid];
+  if (!myTurn) B.volley = {};
+  const spent = Object.values(B.volley).reduce((n, c) => n + c.length, 0);
   // With one opponent there's nothing to choose, so choose it for them.
   if (!B.target && foes.length === 1) B.target = foes[0].uid;
   if (!B.target && myTurn) B.target = (B.targets.find((t) => t.allowed) || {}).uid || null;
@@ -469,9 +490,13 @@ function drawBattle(me) {
   if (foes.length <= 1 && !watching) {
     sel.append(el("p", "panel-sub",
       g.phase === "OVER" ? "The guns are quiet."
-        : myTurn ? "One opponent left. Pick two squares and fire."
+        : myTurn ? `One opponent left. Pick ${B.shotsPerTurn} squares and fire.`
         : "Waiting for your opponent."));
   } else {
+    if (myTurn && foes.length > 1) {
+      sel.append(el("p", "panel-sub volley-hint",
+        `${B.shotsPerTurn} shots this turn. Spread them over several captains, or put them all on one.`));
+    }
     const picks = watching || !B.targets.length
       ? foes.map((p) => ({
         uid: p.uid, name: p.name, allowed: false,
@@ -485,7 +510,10 @@ function drawBattle(me) {
       b.disabled = false;
       b.append(el("span", "tgt-name", t.name));
       if (!t.allowed) b.append(el("span", "tgt-why", t.reason));
-      b.onclick = () => { B.target = t.uid; B.shots = []; drawBattle(me); };
+      // How many of this turn's shots are on their water.
+      const on = (B.volley[t.uid] || []).length;
+      if (on) b.append(el("span", "tgt-shots", `${on} shot${on === 1 ? "" : "s"}`));
+      b.onclick = () => { B.target = t.uid; drawBattle(me); };
       sel.append(b);
     }
   }
@@ -495,7 +523,8 @@ function drawBattle(me) {
   const board = $("enemy-grid");
   board.textContent = "";
   if (enemy) {
-    $("enemy-name").textContent = `${enemy.name} — ${enemy.remaining} ships left`;
+    const mine = B.volley[enemy.uid] || [];
+    $("enemy-name").textContent = `${enemy.name} — ${enemy.remaining} ships left${myTurn && mine.length ? ` · ${mine.length} shot${mine.length === 1 ? "" : "s"} here` : ""}`;
     const struck = new Set(enemy.struck || []);
     const seen = new Set(enemy.incoming || []);
     const wrecked = new Set(enemy.sunkCells || []);
@@ -508,13 +537,14 @@ function drawBattle(me) {
         const box = el("button", "bcell" +
           (known ? (struck.has(cell) ? " hit" : " miss") : "") +
           (wrecked.has(cell) ? " wreck" : "") +
-          (B.shots.includes(cell) ? " picked" : ""));
+          (mine.includes(cell) ? " picked" : ""));
         box.type = "button";
         box.disabled = !myTurn || known;
         box.onclick = () => {
-          const at = B.shots.indexOf(cell);
-          if (at !== -1) B.shots.splice(at, 1);
-          else if (B.shots.length < B.shotsPerTurn) B.shots.push(cell);
+          const picks = B.volley[enemy.uid] = B.volley[enemy.uid] || [];
+          const at = picks.indexOf(cell);
+          if (at !== -1) picks.splice(at, 1);
+          else if (spent < B.shotsPerTurn) picks.push(cell);
           drawBattle(me);
         };
         grid.append(box);
@@ -526,12 +556,16 @@ function drawBattle(me) {
     board.append(el("p", "panel-sub", "Pick a captain to see their water."));
   }
 
-  const left = B.shotsPerTurn - B.shots.length;
-  const ready = myTurn && B.target && !blocked && left === 0;
+  const left = B.shotsPerTurn - spent;
+  // Every captain with shots on them must be one the rotation allows.
+  const aimedAt = Object.keys(B.volley).filter((uid) => B.volley[uid].length);
+  const barred = aimedAt.map((uid) => B.targets.find((t) => t.uid === uid)).find((t) => t && !t.allowed);
+  const ready = myTurn && aimedAt.length > 0 && !barred && left === 0;
   $("btn-fire").disabled = !ready;
   $("btn-fire").textContent = !myTurn ? "Not your turn"
-    : blocked ? blocked.reason
-    : ready ? "Take your Shot"
+    : barred ? `${barred.name}: ${barred.reason}`
+    : blocked && !aimedAt.length ? blocked.reason
+    : ready ? (aimedAt.length > 1 ? `Fire on ${aimedAt.length} captains` : "Take your Shot")
     : `${left} shot${left === 1 ? "" : "s"} left`;
   // Green when the trigger is live, red when it isn't your go.
   $("btn-fire").classList.toggle("fire-ready", ready);
@@ -647,7 +681,7 @@ function showResults(msg) {
     const li = el("li", r.status === "won" ? "" : "dnf");
     li.append(el("span", "rank", String(i + 1)));
     li.append(el("span", "who", r.name));
-    li.append(el("span", "time", `${r.hits} hits · ${r.sunk} sunk`));
+    li.append(el("span", "time", `${r.hits} hits · ${r.sunk} sunk${r.shots ? ` · ${r.accuracy}% aim${r.aim > 1 ? ` (+${Math.round((r.aim - 1) * 100)}%)` : r.aim < 1 ? ` (${Math.round((r.aim - 1) * 100)}%)` : ""}` : ""}`));
     li.append(el("span", "gain", `+${r.gain}`));
     li.append(el("span", "pts", String(r.score)));
     list.append(li);

@@ -1,5 +1,6 @@
 import {
   SIZE, FLEET, SHOTS_PER_TURN, validateFleet, randomFleet, mapOf, fleetFor, MAPS,
+  normalizeVolley, aiTargets, accuracyBonus,
   canTarget, targetOptions, fireAt, fleetSunk, battleScore,
 } from "./battleship.js";
 import { chooseShots, remember, freshMemory, DIFFICULTIES } from "./ai.js";
@@ -13,6 +14,7 @@ const IDLE_SHUTDOWN_MS = 30 * 60_000;
 // and picking a target and two squares is not a thirty-second problem.
 const TURN_MS = 30_000;
 const MIN_PLAYERS = 2;
+const MAX_AI = 5;              // a solo captain may face up to five computers
 // A latecomer gets ten seconds to lay a fleet. Long enough to hit Random,
 // short enough that the table is not held up by someone who wandered off.
 const LATE_PLACE_MS = 10_000;
@@ -248,6 +250,8 @@ export class BattleRoyale {
       hostUid: this.g.hostUid,
       mapId: this.g.mapId,
       maps: Object.values(MAPS),
+      aiCount: this.aiCount(),
+      maxAi: MAX_AI,
       hideNames: !!this.g.hideNames,
       useTokens: !!this.g.useTokens,
       solo: !!this.g.solo,
@@ -275,6 +279,7 @@ export class BattleRoyale {
         sunkCells: p.board ? p.board.ships.filter((s) => s.sunk).flatMap((s) => s.cells) : [],
         remaining: p.board ? p.board.ships.filter((s) => !s.sunk).length : this.fleet.length,
         hits: p.hits,
+        shots: p.shots || 0,
       })),
     };
   }
@@ -373,6 +378,8 @@ export class BattleRoyale {
 
     this.g.solo = !!msg.on;
     if (msg.level && DIFFICULTIES.some((d) => d.id === msg.level)) this.g.aiLevel = msg.level;
+    // How many computers, one difficulty for the lot. One is the default.
+    if (msg.count != null) this.g.aiCount = Math.max(1, Math.min(MAX_AI, Math.round(Number(msg.count)) || 1));
     await this.persist();
     this.pushState();
   }
@@ -440,10 +447,12 @@ export class BattleRoyale {
     return this.g.aliases[p.uid] || "A captain";
   }
 
-  /** The computer opponent, added at start and removed with the game. */
-  aiUid() { return "ai"; }
+  /** The computer opponents, added at start and removed with the game. */
+  aiUid(i = 0) { return i ? `ai${i + 1}` : "ai"; }
 
-  isAi(uid) { return uid === this.aiUid(); }
+  isAi(uid) { return typeof uid === "string" && /^ai\d*$/.test(uid); }
+
+  aiCount() { return Math.max(1, Math.min(MAX_AI, Number(this.g.aiCount) || 1)); }
 
   async start(ws, uid) {
     if (uid !== this.g.hostUid)
@@ -453,18 +462,24 @@ export class BattleRoyale {
 
     const online = this.connected();
 
+    // Computers from a previous setting go; the ones asked for now come.
+    for (const uid of Object.keys(this.g.players)) if (this.isAi(uid)) delete this.g.players[uid];
     if (this.g.solo) {
       const level = DIFFICULTIES.find((d) => d.id === this.g.aiLevel) || DIFFICULTIES[1];
-      const check = validateFleet(randomFleet(this.g.mapId), this.g.mapId);
-      this.g.players[this.aiUid()] = {
-        uid: this.aiUid(),
-        name: `Sensei (${level.name})`,
-        joinedAt: Date.now(),
-        ready: true, alive: true, ai: true, aiLevel: level.id,
-        memory: freshMemory(),
-        board: { ships: check.ships, incoming: [] },
-        history: [], hits: 0, sunk: 0, mmrAtStart: 0, seed: 2,
-      };
+      const n = this.aiCount();
+      const ROMAN = ["", " I", " II", " III", " IV", " V"];
+      for (let i = 0; i < n; i++) {
+        const check = validateFleet(randomFleet(this.g.mapId), this.g.mapId);
+        this.g.players[this.aiUid(i)] = {
+          uid: this.aiUid(i),
+          name: `Sensei${n > 1 ? ROMAN[i + 1] : ""} (${level.name})`,
+          joinedAt: Date.now(),
+          ready: true, alive: true, ai: true, aiLevel: level.id,
+          memories: {},          // one memory per board it fires at
+          board: { ships: check.ships, incoming: [] },
+          history: [], hits: 0, sunk: 0, shots: 0, mmrAtStart: 0, seed: 2 + i,
+        };
+      }
     }
 
     const roster = Object.values(this.g.players).filter((p) => online.has(p.uid) || p.ai);
@@ -473,6 +488,7 @@ export class BattleRoyale {
 
     // Anyone who never placed gets a random fleet rather than blocking everyone.
     for (const p of roster) {
+      p.shots = 0;
       if (!p.board) {
         const check = validateFleet(randomFleet(this.g.mapId), this.g.mapId);
         p.board = { ships: check.ships, incoming: [] };
@@ -519,7 +535,9 @@ export class BattleRoyale {
     await this.persist();
     await this.state.storage.setAlarm(this.g.turnEndsAt);
     this.log(this.g.solo
-      ? `Solo match against ${this.g.players[this.aiUid()].name}.`
+      ? (this.aiCount() > 1
+        ? `Solo match against ${this.aiCount()} computers (${this.g.players[this.aiUid()].aiLevel}).`
+        : `Solo match against ${this.g.players[this.aiUid()].name}.`)
       : `Battle begins with ${roster.length} captains.`);
     this.pushState();
     await this.runAi();
@@ -533,36 +551,30 @@ export class BattleRoyale {
     let guard = 0;
     while (this.g.phase === "ACTIVE" && this.isAi(this.g.turnUid) && guard++ < 12) {
       const me = this.g.players[this.g.turnUid];
-      const foes = Object.values(this.g.players).filter((p) => p.alive && p.uid !== me.uid);
+      const foes = Object.values(this.g.players).filter((p) => p.alive && p.board && p.uid !== me.uid);
       if (!foes.length) break;
 
-      const target = foes[Math.floor(Math.random() * foes.length)];
-      me.memory = me.memory || freshMemory();
-      const cells = chooseShots(me.memory, this.map.size, me.aiLevel || "medium", this.map.shots)
-        .filter((c) => !target.board.incoming.includes(c));
-      if (!cells.length) break;
-
-      let hits = 0;
-      const sunkNames = [];
-      for (const cell of cells) {
-        const shot = fireAt(target.board, cell);
-        remember(me.memory, cell, shot.result);
-        if (shot.result === "hit") { hits++; me.hits++; }
-        if (shot.result === "sunk") { hits++; me.hits++; me.sunk++; sunkNames.push(shot.ship); }
+      // The same rotation as a human, and a memory of each board it has
+      // fired at rather than one for all of them: a hit on one captain's
+      // water says nothing about another's.
+      me.memories = me.memories || {};
+      const level = me.aiLevel || "medium";
+      const parts = aiTargets(me.history, foes, this.map.shots, level);
+      let fired = false;
+      for (const part of parts) {
+        const target = this.g.players[part.target];
+        if (!target?.alive || !target.board) continue;
+        const memory = me.memories[target.uid] = me.memories[target.uid] || freshMemory();
+        const cells = chooseShots(memory, this.map.size, level, part.count)
+          .filter((c) => !target.board.incoming.includes(c));
+        if (!cells.length) continue;
+        this.salvo(me, target, cells, memory);
+        fired = true;
       }
-      me.history.push(target.uid);
+      if (!fired) break;
+      me.history.push(...parts.map((p) => p.target));
 
-      let line = `${this.nameOf(me)} fired ${cells.length} shots at ${this.nameOf(target)}: ${hits} Hit, ${cells.length - hits} Miss`;
-      if (sunkNames.length) line += ` — sank their ${sunkNames.join(" and ")}`;
-      this.log(line + ".");
-
-      if (fleetSunk(target.board)) {
-        target.alive = false;
-        this.g.eliminated.push(target.uid);
-        this.log(`${this.nameOf(target)} has been sunk.`);
-      }
-
-      if (Object.values(this.g.players).filter((p) => p.alive).length <= 1) { await this.finish(); return; }
+      if (Object.values(this.g.players).filter((p) => p.alive && p.board).length <= 1) { await this.finish(); return; }
       await this.nextTurn();
     }
   }
@@ -587,41 +599,63 @@ export class BattleRoyale {
       return this.send(ws, "BATTLE_ERROR", { message: "Not your turn." });
 
     const me = this.g.players[uid];
-    const target = this.g.players[msg.target];
-    if (target && target.uid !== uid && target.placing && !target.board)
-      return this.send(ws, "BATTLE_ERROR", {
-        message: `${this.nameOf(target)} is still laying their fleet.`,
-      });
-    if (!target || !target.alive || !target.board || target.uid === uid)
-      return this.send(ws, "BATTLE_ERROR", { message: "Pick a live opponent." });
+    // One target with its cells is the old shape; a volley spreads the same
+    // shots over several. Both arrive here.
+    const clean = normalizeVolley(msg.volley || [{ target: msg.target, cells: msg.cells }], this.map.shots);
+    if (!clean.ok) return this.send(ws, "BATTLE_ERROR", { message: clean.error });
 
     const aliveOpponents = Object.values(this.g.players)
       .filter((p) => p.alive && p.board && p.uid !== uid).length;
-    const verdict = canTarget(me.history, target.uid, aliveOpponents);
-    if (!verdict.ok) return this.send(ws, "BATTLE_ERROR", { message: verdict.error });
-
-    const cells = [...new Set((msg.cells || []).map(String))].slice(0, this.map.shots);
-    if (cells.length !== this.map.shots)
-      return this.send(ws, "BATTLE_ERROR", { message: `Choose ${this.map.shots} different squares.` });
-    for (const cell of cells) {
-      const [r, c] = cell.split(",").map(Number);
-      if (!Number.isInteger(r) || !Number.isInteger(c) || r < 0 || c < 0 || r >= this.map.size || c >= this.map.size)
-        return this.send(ws, "BATTLE_ERROR", { message: "That square isn't on the board." });
-      if (target.board.incoming.includes(cell))
-        return this.send(ws, "BATTLE_ERROR", { message: "You've already fired there." });
+    for (const part of clean.volley) {
+      const target = this.g.players[part.target];
+      if (target && target.uid !== uid && target.placing && !target.board)
+        return this.send(ws, "BATTLE_ERROR", {
+          message: `${this.nameOf(target)} is still laying their fleet.`,
+        });
+      if (!target || !target.alive || !target.board || target.uid === uid)
+        return this.send(ws, "BATTLE_ERROR", { message: "Pick a live opponent." });
+      const verdict = canTarget(me.history, target.uid, aliveOpponents);
+      if (!verdict.ok) return this.send(ws, "BATTLE_ERROR", { message: verdict.error });
+      for (const cell of part.cells) {
+        const [r, c] = cell.split(",").map(Number);
+        if (!Number.isInteger(r) || !Number.isInteger(c) || r < 0 || c < 0 || r >= this.map.size || c >= this.map.size)
+          return this.send(ws, "BATTLE_ERROR", { message: "That square isn't on the board." });
+        if (target.board.incoming.includes(cell))
+          return this.send(ws, "BATTLE_ERROR", { message: "You've already fired there." });
+      }
     }
 
-    let hits = 0, sunkNames = [];
+    for (const part of clean.volley) {
+      const target = this.g.players[part.target];
+      this.salvo(me, target, part.cells);
+    }
+    // Everyone fired on this turn goes on the rotation together.
+    me.history.push(...clean.volley.map((v) => v.target));
+
+    const left = Object.values(this.g.players).filter((p) => p.alive && p.board);
+    if (left.length <= 1) { await this.finish(); return; }
+
+    await this.nextTurn();
+    await this.runAi();
+  }
+
+  /**
+   * One captain's shots at one board: applied, counted, announced, and the
+   * board struck from the battle if that was the last of its fleet. Shared
+   * by human volleys and the computer's.
+   */
+  salvo(me, target, cells, memory = null) {
+    let hits = 0;
+    const sunkNames = [];
     for (const cell of cells) {
       const shot = fireAt(target.board, cell);
+      if (memory) remember(memory, cell, shot.result);
       if (shot.result === "hit") { hits++; me.hits++; }
       if (shot.result === "sunk") { hits++; me.hits++; me.sunk++; sunkNames.push(shot.ship); }
     }
+    me.shots = (me.shots || 0) + cells.length;
 
-    me.history.push(target.uid);
-
-    const misses = cells.length - hits;
-    let line = `${this.nameOf(me)} fired ${cells.length} shots at ${this.nameOf(target)}: ${hits} Hit, ${misses} Miss`;
+    let line = `${this.nameOf(me)} fired ${cells.length} shot${cells.length === 1 ? "" : "s"} at ${this.nameOf(target)}: ${hits} Hit, ${cells.length - hits} Miss`;
     if (sunkNames.length) line += ` — sank their ${sunkNames.join(" and ")}`;
     this.log(line + ".");
 
@@ -630,12 +664,6 @@ export class BattleRoyale {
       this.g.eliminated.push(target.uid);
       this.log(`${this.nameOf(target)} has been sunk.`);
     }
-
-    const left = Object.values(this.g.players).filter((p) => p.alive && p.board);
-    if (left.length <= 1) { await this.finish(); return; }
-
-    await this.nextTurn();
-    await this.runAi();
   }
 
   async nextTurn() {
@@ -678,7 +706,7 @@ export class BattleRoyale {
       const p = this.g.players[uid];
       const placement = i + 1;
       const score = battleScore({
-        hits: p.hits, sunk: p.sunk, placement, field, survived: p.alive,
+        hits: p.hits, sunk: p.sunk, shots: p.shots || 0, placement, field, survived: p.alive,
         mapId: this.g.mapId,
       });
       const gain = sessionGain({
@@ -693,7 +721,10 @@ export class BattleRoyale {
       const after = (p.mmrAtStart || 0) + gain.total;
       return {
         uid, name: p.name, score, placement, seed: p.seed || null,
-        hits: p.hits, sunk: p.sunk, status: p.alive ? "won" : "sunk",
+        hits: p.hits, sunk: p.sunk, shots: p.shots || 0,
+        accuracy: p.shots ? Math.round((p.hits / p.shots) * 100) : 0,
+        aim: Math.round(accuracyBonus(p.hits, p.shots || 0) * 100) / 100,
+        status: p.alive ? "won" : "sunk",
         mmrBefore: p.mmrAtStart || 0, gain: gain.total,
         breakdown: { base: gain.base, challenge: gain.challenge, completion: gain.completion, seed: gain.seed },
         mmrAfter: after, belt: beltFor(after).name,
@@ -757,7 +788,7 @@ export class BattleRoyale {
       let laid = false;
       for (const p of Object.values(this.g.players)) {
         if (!p.placing || p.board || p.placingUntil == null || now < p.placingUntil) continue;
-        const check = validateFleet(randomFleet());
+        const check = validateFleet(randomFleet(this.g.mapId), this.g.mapId);
         if (!check.ok) continue;
         p.board = { ships: check.ships, incoming: [] };
         p.placing = false;

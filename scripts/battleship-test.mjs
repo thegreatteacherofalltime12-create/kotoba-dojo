@@ -2,6 +2,7 @@
 import {
   FLEET, SIZE, validateFleet, randomFleet, canTarget, targetOptions,
   fireAt, fleetSunk, battleScore, cellsFor, COOLDOWN_TARGETS,
+  accuracyBonus, normalizeVolley, aiTargets,
 } from "../src/battleship.js";
 
 let bad = 0;
@@ -91,6 +92,42 @@ ok("scores stay inside 0-100",
   battleScore({ hits: 99, sunk: 20, placement: 1, field: 8, survived: true }) <= 100);
 ok("doing nothing scores nothing much",
   battleScore({ hits: 0, sunk: 0, placement: 8, field: 8 }) === 0);
+
+console.log("\naim");
+ok("half your shots landing is par", accuracyBonus(5, 10) === 1 && accuracyBonus(0, 0) === 1);
+ok("a sharper eye pays, up to three quarters more", accuracyBonus(8, 10) > 1.4 && accuracyBonus(8, 10) < 1.5 && accuracyBonus(10, 10) === 1.75);
+ok("spraying the water costs, down to a quarter", accuracyBonus(2, 10) === 0.75 && accuracyBonus(4, 10) < 1);
+ok("the score follows the aim",
+  battleScore({ hits: 8, sunk: 2, shots: 10, placement: 1, field: 2, survived: true })
+  > battleScore({ hits: 8, sunk: 2, shots: 20, placement: 1, field: 2, survived: true }));
+ok("and no shots fired scores as it always did",
+  battleScore({ hits: 8, sunk: 2, placement: 1, field: 2, survived: true }) === battleScore({ hits: 8, sunk: 2, shots: 0, placement: 1, field: 2, survived: true }));
+
+console.log("\nvolleys");
+let vol = normalizeVolley([{ target: "b", cells: ["0,0", "0,1"] }, { target: "c", cells: ["1,1", "1,2"] }], 4);
+ok("two and two is a volley of four", vol.ok && vol.volley.length === 2);
+vol = normalizeVolley([{ target: "b", cells: ["0,0", "0,1"] }, { target: "b", cells: ["0,2", "0,3"] }], 4);
+ok("the same target twice is folded together", vol.ok && vol.volley.length === 1 && vol.volley[0].cells.length === 4);
+ok("all-in on one is allowed", normalizeVolley([{ target: "b", cells: ["0,0", "0,1", "0,2", "0,3"] }], 4).ok);
+ok("too few shots is refused", !normalizeVolley([{ target: "b", cells: ["0,0"] }], 4).ok);
+ok("too many is refused", !normalizeVolley([{ target: "b", cells: ["0,0", "0,1", "0,2"] }, { target: "c", cells: ["1,1", "1,2"] }], 4).ok);
+ok("a repeated square counts once", !normalizeVolley([{ target: "b", cells: ["0,0", "0,0", "0,1", "0,2"] }], 4).ok);
+ok("nothing is refused", !normalizeVolley([], 2).ok && !normalizeVolley(null, 2).ok);
+
+console.log("\nthe computer's targets");
+const foes = [{ uid: "a" }, { uid: "b" }, { uid: "c" }, { uid: "d" }, { uid: "e" }];
+let t = aiTargets([], foes, 5, "hard");
+ok("hard splits five shots three and two over two captains", t.length === 2 && t[0].count === 3 && t[1].count === 2 && t[0].target !== t[1].target);
+t = aiTargets([], foes, 4, "medium");
+ok("medium concentrates", t.length === 1 && t[0].count === 4);
+t = aiTargets([], foes, 4, "easy");
+ok("so does easy", t.length === 1 && t[0].count === 4);
+const hist = ["a", "b", "c"];
+const seen = new Set();
+for (let i = 0; i < 40; i++) for (const p of aiTargets(hist, foes, 5, "hard")) seen.add(p.target);
+ok("it obeys the rotation: those it fired at last are off the list", !seen.has("a") && !seen.has("b") && !seen.has("c") && seen.has("d") && seen.has("e"));
+ok("with one opponent it fires everything at them", aiTargets([], [{ uid: "z" }], 5, "hard").length === 1);
+ok("two shots on hard still split one and one", aiTargets([], foes, 2, "hard").map((p) => p.count).join() === "1,1");
 
 console.log(bad ? `\n${bad} failing\n` : "\nall battleship checks passed\n");
 process.exit(bad ? 1 : 0);

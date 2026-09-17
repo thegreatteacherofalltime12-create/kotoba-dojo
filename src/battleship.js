@@ -194,13 +194,78 @@ export function fireAt(board, cell) {
 
 export const fleetSunk = (board) => board.ships.every((s) => s.sunk);
 
+/**
+ * How much a captain's aim is worth.
+ *
+ * A smooth curve on accuracy — hits over shots fired. Half your shots landing
+ * is par and changes nothing; every point above it pays, up to three
+ * quarters more for a near-perfect round, and spraying the water costs up
+ * to a quarter. No shots fired is par too: nothing to judge.
+ */
+export const ACCURACY_PAR = 0.5;
+export function accuracyBonus(hits, shots) {
+  if (!(shots > 0)) return 1;
+  const accuracy = Math.max(0, Math.min(1, hits / shots));
+  return Math.max(0.75, Math.min(1.75, 1 + (accuracy - ACCURACY_PAR) * 1.5));
+}
+
 /** Points for the round, fed into the same MMR pipeline as a crossword. */
-export function battleScore({ hits = 0, sunk = 0, placement = 1, field = 2, survived = false, mapId = "easy" }) {
+export function battleScore({ hits = 0, sunk = 0, shots = 0, placement = 1, field = 2, survived = false, mapId = "easy" }) {
   // The big boards take longer and land a smaller share of shots, so a hit
   // there is worth more than a hit on the small one — otherwise the long game
   // pays less per minute than the short one.
   const weight = { easy: 1, medium: 1.25, hard: 1.5 }[mapId] || 1;
-  const base = (hits * 4 + sunk * 12) * weight;
+  const base = (hits * 4 + sunk * 12) * weight * accuracyBonus(hits, shots);
   const standing = Math.round((Math.max(0, field - placement) / Math.max(1, field - 1)) * 30);
   return Math.max(0, Math.min(100, Math.round(base + standing + (survived ? 20 : 0))));
+}
+
+/**
+ * A turn's fire, spread over one or more opponents.
+ *
+ * A volley is [{ target, cells }]. The same target named twice is folded
+ * together; every target must take at least one shot and the shots must add
+ * up to the chart's count exactly. All-in on one captain is allowed. Returns
+ * the clean volley or an error to send back.
+ */
+export function normalizeVolley(raw, shots) {
+  const list = Array.isArray(raw) ? raw : [];
+  const byTarget = new Map();
+  for (const part of list) {
+    const target = String(part?.target || "");
+    if (!target) continue;
+    const have = byTarget.get(target) || [];
+    for (const c of part?.cells || []) if (!have.includes(String(c))) have.push(String(c));
+    byTarget.set(target, have);
+  }
+  const volley = [...byTarget].map(([target, cells]) => ({ target, cells })).filter((v) => v.cells.length);
+  const total = volley.reduce((n, v) => n + v.cells.length, 0);
+  if (!volley.length) return { ok: false, error: "Pick a live opponent." };
+  if (total !== shots) return { ok: false, error: `Choose ${shots} different squares in all.` };
+  return { ok: true, volley };
+}
+
+/**
+ * Where the computer puts its shots this turn.
+ *
+ * It obeys the same rotation as everyone else. Hard captains split their
+ * fire across two allowed targets when they can — pressure on two boards at
+ * once; Easy and Medium concentrate on one. Targets are drawn at random
+ * from those the rotation allows.
+ */
+export function aiTargets(history, foes, shots, difficulty) {
+  const options = targetOptionsFrom(history, foes);
+  const allowed = options.filter((o) => o.allowed).map((o) => o.uid);
+  const pool = allowed.length ? allowed : options.map((o) => o.uid);
+  if (!pool.length) return [];
+  const pick = () => pool.splice(Math.floor(Math.random() * pool.length), 1)[0];
+  const first = pick();
+  if (difficulty !== "hard" || shots < 2 || !pool.length) return [{ target: first, count: shots }];
+  const second = pick();
+  const half = Math.ceil(shots / 2);
+  return [{ target: first, count: half }, { target: second, count: shots - half }];
+}
+
+function targetOptionsFrom(history, foes) {
+  return foes.map((p) => ({ uid: p.uid, allowed: canTarget(history, p.uid, foes.length).ok }));
 }

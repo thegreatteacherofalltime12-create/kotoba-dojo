@@ -1,5 +1,6 @@
 // node scripts/battle-smoke.mjs
 import { BattleRoyale } from "../src/battle-lobby.js";
+import { canTarget } from "../src/battleship.js";
 import { randomFleet, SIZE, targetOptions } from "../src/battleship.js";
 
 let bad = 0;
@@ -220,10 +221,82 @@ while (solo.g.phase === "ACTIVE" && turns++ < 120) {
 ok("the game reached a conclusion", solo.g.phase === "OVER");
 const soloOver = one.last("BATTLE_OVER");
 ok("both captains are placed", soloOver.results.length === 2);
-ok("the AI took its own turns", solo.g.players.ai.memory.shots.length > 0);
-ok("the AI's shots were all distinct",
-  new Set(solo.g.players.ai.memory.shots).size === solo.g.players.ai.memory.shots.length);
+const aiMem = solo.g.players.ai.memories.h1;
+ok("the AI took its own turns, remembering the board it fired at", aiMem && aiMem.shots.length > 0);
+ok("the AI's shots were all distinct", new Set(aiMem.shots).size === aiMem.shots.length);
 ok("a human result is present", soloOver.results.some((r) => r.uid === "h1"));
+const h1 = soloOver.results.find((r) => r.uid === "h1");
+ok("every result says how many shots were fired and how many landed",
+  soloOver.results.every((r) => r.shots > 0 && r.accuracy >= 0 && r.accuracy <= 100 && typeof r.aim === "number"));
+ok("the human's shots were all counted", h1.shots === solo.g.players.h1.shots && h1.accuracy === Math.round((h1.hits / h1.shots) * 100));
+
+console.log("\nfive computers, and a volley");
+const fiveState = makeState();
+const five = new BattleRoyale(fiveState, env);
+await fiveState._init;
+const f1 = new FakeSocket("f1", "Solo");
+fiveState.acceptWebSocket(f1);
+await five.onJoin("f1", "Solo", "FIVE", f1);
+const fiveSay = (obj) => five.webSocketMessage(f1, JSON.stringify(obj));
+await fiveSay({ type: "BATTLE_MAP", mapId: "medium" });
+await fiveSay({ type: "BATTLE_SOLO", on: true, level: "hard", count: 9 });
+ok("the count is capped at five", f1.last("BATTLE_STATE").game.aiCount === 5);
+await fiveSay({ type: "BATTLE_SOLO", on: true, level: "hard", count: 5 });
+await fiveSay({ type: "BATTLE_RANDOM" });
+await fiveSay({ type: "BATTLE_START" });
+const bots = Object.values(five.g.players).filter((p) => p.ai);
+ok("five computers came to the table", bots.length === 5 && bots.every((b) => b.aiLevel === "hard"));
+ok("each with its own name", new Set(bots.map((b) => b.name)).size === 5);
+ok("the field is six", f1.last("BATTLE_STATE").game.players.length === 6);
+// The human's turn: four shots on Fleet Action, split two and two.
+let volleyTurns = 0;
+while (five.g.phase === "ACTIVE" && five.g.turnUid !== "f1" && volleyTurns++ < 20) await five.runAi();
+if (five.g.phase === "ACTIVE" && five.g.turnUid === "f1") {
+  const foes = Object.values(five.g.players).filter((p) => p.ai && p.alive);
+  const free = (uid, n) => {
+    const out = [];
+    for (let k = 0; k < 15 * 15 && out.length < n; k++) {
+      const cell = `${Math.floor(k / 15)},${k % 15}`;
+      if (!five.g.players[uid].board.incoming.includes(cell)) out.push(cell);
+    }
+    return out;
+  };
+  const before = five.g.players.f1.shots;
+  await fiveSay({ type: "BATTLE_FIRE", volley: [{ target: foes[0].uid, cells: free(foes[0].uid, 2) }, { target: foes[1].uid, cells: free(foes[1].uid, 2) }] });
+  ok("a volley of two and two is four shots fired", five.g.players.f1.shots === before + 4);
+  ok("both targets went on the rotation", five.g.players.f1.history.slice(-2).sort().join() === [foes[0].uid, foes[1].uid].sort().join());
+  const err = f1.last("BATTLE_ERROR");
+  ok("and was not refused", !err || !/squares|opponent/.test(err.message));
+}
+// The computers fire at each other too, not only at the human.
+let aiOnAi = 0;
+for (let t = 0; t < 40 && five.g.phase === "ACTIVE"; t++) {
+  if (five.g.turnUid === "f1") {
+    const foe = Object.values(five.g.players).find((p) => p.ai && p.alive && canTargetOk(five, "f1", p.uid));
+    if (!foe) break;
+    const cells = [];
+    for (let k = 0; k < 15 * 15 && cells.length < 4; k++) {
+      const cell = `${Math.floor(k / 15)},${k % 15}`;
+      if (!foe.board.incoming.includes(cell)) cells.push(cell);
+    }
+    await fiveSay({ type: "BATTLE_FIRE", volley: [{ target: foe.uid, cells }] });
+  } else {
+    await five.runAi();
+  }
+  aiOnAi = bots.filter((b) => b.board.incoming.length > 0).length;
+}
+ok("the computers spread fire across the table, not only at the human", aiOnAi >= 3);
+ok("a hard computer splits its fire", bots.some((b) => Object.keys(b.memories || {}).length >= 2));
+ok("the human was never ganged up on by the whole table", (() => {
+  const h = five.g.players.f1.board.incoming.length;
+  const spread = bots.reduce((n, b) => n + b.board.incoming.length, 0);
+  return spread >= h;
+})());
+function canTargetOk(game, uid, target) {
+  const me = game.g.players[uid];
+  const alive = Object.values(game.g.players).filter((p) => p.alive && p.board && p.uid !== uid).length;
+  return canTarget(me.history, target, alive).ok;
+}
 
 
 console.log("\nanonymous play");

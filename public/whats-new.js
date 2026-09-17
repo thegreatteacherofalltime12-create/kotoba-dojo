@@ -17,6 +17,17 @@ export const KEEP_DAYS = 7;
 
 export const UPDATES = [
   {
+    at: "2026-09-17T21:00:00Z",
+    where: "Battleship",
+    title: "Aim pays, fire spreads, and up to five computers",
+    text: "Your accuracy now shapes your score: half your shots landing is par, sharper shooting "
+      + "earns up to three quarters more, spraying the water costs up to a quarter. With several "
+      + "opponents you can spread a turn's shots over more than one captain \u2014 two here, two there, "
+      + "or all on one. Solo Match now lets you face one to five computers at one difficulty; they "
+      + "follow the same rotation as everyone else, so the table can never pile onto you, and Hard "
+      + "ones split their fire.",
+  },
+  {
     at: "2026-09-17T19:30:00Z",
     where: "Arena Rankings",
     title: "Ten more banners",

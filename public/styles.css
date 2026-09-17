@@ -2645,7 +2645,8 @@ h1, h2, h3 { font-family: var(--display); text-transform: none; letter-spacing: 
 .fr-t { margin: 0; font-size: .84rem; font-weight: 600; }
 .fr-d { margin: .1rem 0 0; font-size: .72rem; color: var(--muted); }
 .fr-when { flex: none; font-size: .68rem; color: var(--muted); white-space: nowrap; }
-.feed-row.prestige .fr-t { color: #F4CE5A; }
+.feed-row.prestige { background: linear-gradient(90deg, rgba(244,206,90,.14), transparent 70%); border-radius: 6px; }
+.feed-row.prestige .fr-t { color: #F4CE5A; font-weight: 700; }
 .feed-row.award .fr-t { color: #7DD3FC; }
 
 .chat-row { padding: .3rem .2rem; font-size: .84rem; border-bottom: 1px solid var(--edge); }

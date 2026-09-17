@@ -1797,6 +1797,25 @@ function ago(iso) {
   return `${Math.floor(secs / 3600)}h ago`;
 }
 
+// A promotion is news. The feed tab pulses yellow from the moment someone
+// prestiges until the feed has been opened and seen, the way the chat tab
+// does for a line you have not read. Only promotions do this: a finished
+// game every few minutes would keep the tab lit all day.
+const FEED_SEEN_KEY = "omni.feed.seen";
+let feedSeen = 0;
+try { feedSeen = Number(localStorage.getItem(FEED_SEEN_KEY) || 0); } catch { /* fine */ }
+
+function feedInView() {
+  return !document.hidden && commonsOpen() && commonsTab === "feed";
+}
+
+function markFeedRead(rows) {
+  const newest = Math.max(feedSeen, ...rows.map((r) => new Date(r.at).getTime() || 0));
+  feedSeen = newest;
+  try { localStorage.setItem(FEED_SEEN_KEY, String(newest)); } catch { /* fine */ }
+  $("ct-feed")?.classList.remove("unread");
+}
+
 async function loadFeed() {
   const host = $("commons-feed");
   if (!host) return;
@@ -1805,6 +1824,13 @@ async function loadFeed() {
     const res = await fetch("/api/feed");
     rows = (await res.json()).feed || [];
   } catch { rows = null; }
+
+  if (rows) {
+    const promoted = rows.filter((r) => r.kind === "prestige");
+    const newest = Math.max(0, ...promoted.map((r) => new Date(r.at).getTime() || 0));
+    if (feedInView()) markFeedRead(rows);
+    else if (newest > feedSeen) $("ct-feed")?.classList.add("unread");
+  }
 
   if (rows === null) {
     host.innerHTML = `<p class="panel-sub">The feed couldn't be read just now.</p>`;
@@ -1941,10 +1967,11 @@ function startCommons() {
   clearInterval(commonsPoll);
   commonsPoll = setInterval(() => {
     if (document.hidden) return;
-    loadChat();                                       // always: it owns the unread mark
-    if (commonsOpen() && commonsTab === "feed") loadFeed();
+    loadChat();                                       // always: they own the unread marks
+    loadFeed();
   }, 15_000);
   loadChat();
+  loadFeed();
 }
 
 // Coming back to the tab after a while, the first thing you see should be
@@ -1955,7 +1982,7 @@ document.addEventListener("visibilitychange", () => {
   if (document.hidden || !rankPoll) return;
   loadRankings();
   loadChat();
-  if (commonsOpen() && commonsTab === "feed") loadFeed();
+  loadFeed();
 });
 
 // ── profile ───────────────────────────────────────────────────────

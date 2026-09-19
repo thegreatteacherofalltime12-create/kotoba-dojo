@@ -251,6 +251,9 @@ export const FAST_CROSSWORD_MS = 3 * 60_000;    // a round finished this fast is
 export const FAST_MINESWEEPER_MS = 60_000;      // a board cleared this fast is a Lightning Sweep
 export const BIG_BANK = 500;                    // a single cash-out this size is a Jackpot
 
+/** A counter that is a low-water mark rather than a running total. */
+export const isMark = (key) => key.startsWith("best_");
+
 export function featsFor(match, r) {
   const game = match.game || "crossword";
   const field = match.results.length;
@@ -266,6 +269,7 @@ export function featsFor(match, r) {
   if (game === "battleship") {
     if (r.sunk > 0) out.sunk_battleship = r.sunk;
     if (r.hits > 0) out.hits_battleship = r.hits;
+    if (r.eliminated > 0) out.eliminated_battleship = r.eliminated;
     if (won && match.mapId === "hard") out.deep_battleship = 1;
   }
   if (game === "minesweeper" && r.status === "cleared") {
@@ -278,6 +282,9 @@ export function featsFor(match, r) {
     if (r.status === "finished") {
       out.finished_links = 1;
       if (r.toPar < 0) out.under_par_links = 1;
+      // The course record: a low-water mark, not a count. Keys that begin
+      // with best_ are written as a minimum rather than an increment.
+      if (match.courseId && Number.isFinite(r.toPar)) out[`best_links_${match.courseId}`] = r.toPar;
     }
   }
   return out;

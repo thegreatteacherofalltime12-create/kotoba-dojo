@@ -6,7 +6,7 @@
 import {
   AVATARS, LEAGUES, FRAMES, FRAME_TIERS, TITLES, lifetime, meets, needText,
   knownAvatar, avatarHtml, framedHtml, frameEarned, titleEarned, allowed,
-  BANNERS, featsFor, bannerEarned, bannerNeedText, bannerHtml,
+  BANNERS, featsFor, bannerEarned, bannerNeedText, bannerHtml, isMark,
 } from "../public/cosmetics.js";
 import { GI_COLORS } from "../public/arena.js";
 
@@ -83,6 +83,13 @@ f = featsFor(m("crossword", 4), { placement: 3, status: "finished", solved: 7 })
 ok("words solved add up", f.solved_crossword === 7 && !f.won_any);
 f = featsFor({ results: [{}] }, { placement: 1, status: "finished", solved: 0 });
 ok("no game named is a crossword, and zero words is nothing", f.played_crossword === 1 && !("solved_crossword" in f));
+
+f = featsFor(m("battleship", 4), { placement: 1, status: "won", hits: 9, sunk: 3, eliminated: 2 });
+ok("captains eliminated are counted", f.eliminated_battleship === 2);
+f = featsFor({ game: "links", courseId: "augusta", results: [{}, {}] }, { placement: 2, status: "finished", toPar: -2, holes: 18 });
+ok("a finished round leaves a course record, as a mark not a count", f.best_links_augusta === -2 && isMark("best_links_augusta") && !isMark("won_links"));
+f = featsFor({ game: "links", courseId: "augusta", results: [{}, {}] }, { placement: 2, status: "ended", toPar: -2, holes: 9 });
+ok("a round walked off leaves none", !("best_links_augusta" in f));
 
 console.log("\nbanners");
 ok("twenty-eight banners, every game with at least four", BANNERS.length === 28

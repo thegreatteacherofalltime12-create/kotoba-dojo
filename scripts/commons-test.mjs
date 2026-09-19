@@ -130,6 +130,27 @@ const top = (await get("/top?limit=10")).top;
 ok("the bounty office gets the top ten by MMR", top.length === 10 && top[0].uid === "p0");
 ok("in the shape it reads", Object.keys(top[0]).sort().join() === "bestScore,lastRate,name,uid");
 
+console.log("\nthe record books");
+await post("/board/upsert", { rows: [
+  { uid: "p0", feats: { hits_battleship: 40, sunk_battleship: 9, eliminated_battleship: 3, best_links_augusta: -3 } },
+  { uid: "p1", feats: { hits_battleship: 55, sunk_battleship: 4, best_links_augusta: 1, best_links_pebble: -1 } },
+  { uid: "p2", feats: { hits_battleship: 12, eliminated_battleship: 5, best_links_augusta: -3 } },
+  { uid: "p3", feats: { hits_battleship: 70 } }, { uid: "p4", feats: { hits_battleship: 60 } },
+  { uid: "p5", feats: { hits_battleship: 50 } }, { uid: "p6", feats: { hits_battleship: 45 } },
+] });
+const books = await get("/records");
+ok("five most hits, highest first", books.battleship.hits.map((r) => r.value).join() === "70,60,55,50,45");
+ok("most eliminated", books.battleship.eliminated.map((r) => r.uid).join() === "p2,p0");
+ok("a course record runs lowest to par first, ties by name", books.golf.augusta.map((r) => `${r.uid}:${r.value}`).join() === "p0:-3,p2:-3,p1:1");
+ok("every course with a round gets a book", Object.keys(books.golf).sort().join() === "augusta,pebble");
+ok("the hall of fame is cut from the standings", books.hallOfFame.rows.length === 10 && books.hallOfFame.rows[0].uid === "o1");
+ok("and says when the next cut is", books.hallOfFame.next - books.hallOfFame.at === 91 * 24 * 3600_000);
+await post("/board/upsert", { rows: [{ uid: "zz", name: "ZZ", totalPoints: 99999, roundsPlayed: 1, bestScore: 1, prestige: 9 }] });
+ok("the hall does not move between cuts", (await get("/records")).hallOfFame.rows[0].uid === "o1");
+room.hof.at -= 92 * 24 * 3600_000;
+ok("and moves when one is due", (await get("/records")).hallOfFame.rows[0].uid === "zz");
+delete room.board.zz;
+
 console.log("\npruning");
 const many = [];
 for (let i = 0; i < 260; i++) many.push({ uid: `m${i}`, name: `M${i}`, totalPoints: i, roundsPlayed: 1, bestScore: 1, prestige: i % 50 === 0 ? 1 : 0 });

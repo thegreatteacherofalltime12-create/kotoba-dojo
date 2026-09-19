@@ -349,6 +349,7 @@ export class LinksCourse {
     this.state.waitUntil(recordMatch(this.env, {
       code: room.code,
       game: "links",
+      courseId: room.courseId,
       mode: `${courseById(room.courseId).name} \u00b7 ${DIFF[room.diff].label}`,
       roundNo: room.roundNo,
       finishedAt: Date.now(),

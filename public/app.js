@@ -1462,6 +1462,9 @@ async function loadRecords(tab = "arena") {
   const host = $("drawer-records");
   if (tab === "wallet") return drawWallet(host);
   if (tab === "bounty") return drawBountyRecords(host);
+  if (tab === "battleship") return drawBattleshipRecords(host);
+  if (tab === "golf") return drawGolfRecords(host);
+  if (tab === "hof") return drawHallOfFame(host);
   host.innerHTML = `<div class="drawer-in"><div class="drawer-head"><h2>Records</h2></div><p class="panel-sub">Reading the books&hellip;</p></div>`;
 
   if (!standings.length) await loadRankings();
@@ -1485,11 +1488,7 @@ async function loadRecords(tab = "arena") {
   host.innerHTML = `
     <div class="drawer-in">
       <div class="drawer-head"><h2>Records</h2></div>
-      <div class="subtabs">
-        <button class="stab is-on" data-rec="arena">Records</button>
-        <button class="stab" data-rec="wallet">\u{1F4B0} Wallets</button>
-        <button class="stab" data-rec="bounty">\u{1F3AF} Bounty</button>
-      </div>
+      ${recTabs("arena")}
       ${bounty?.holder ? `
         <div class="bounty-card claimed" style="margin-bottom:.9rem">
           <p class="bc-k">\u{1F3AF} The bounty</p>
@@ -1540,6 +1539,131 @@ async function loadRecords(tab = "arena") {
     </div>`;
 
   host.querySelectorAll("[data-rec]").forEach((b) => { b.onclick = () => loadRecords(b.dataset.rec); });
+}
+
+// ── the record books: battleship, golf, the hall of fame ─────────────
+//
+// All three read one public route, /api/records, which the reading room
+// answers from the counters every finished round leaves on the board.
+
+/** The subtab strip every Records page shares. */
+function recTabs(on) {
+  const tabs = [
+    ["arena", "Records"], ["wallet", "\u{1F4B0} Wallets"], ["bounty", "\u{1F3AF} Bounty"],
+    ["battleship", "⚓ Battleship"], ["golf", "⛳ Golf"], ["hof", "\u{1F3DB}️ Hall of Fame"],
+  ];
+  return `<div class="subtabs rec-tabs">${tabs.map(([id, name]) =>
+    `<button class="stab ${on === id ? "is-on" : ""}" data-rec="${id}">${name}</button>`).join("")}</div>`;
+}
+
+async function readRecordBooks() {
+  try {
+    const res = await fetch("/api/records");
+    return await res.json();
+  } catch { return null; }
+}
+
+const topFive = (rows, fmt) => rows?.length
+  ? `<div class="belt-rows">${rows.map((r, i) => `
+      <div class="belt-row ${r.uid === S.user?.uid ? "is-mine" : ""}">
+        <span class="rec-rank">${i + 1}</span>
+        <span class="bn">${escapeHtml(r.name)}</span>
+        <span class="bt">${fmt(r.value)}</span>
+      </div>`).join("")}</div>`
+  : `<p class="panel-sub">Nobody has set this yet.</p>`;
+
+async function drawBattleshipRecords(host) {
+  clearInterval(walletPoll);
+  host.innerHTML = `<div class="drawer-in"><div class="drawer-head"><h2>Records</h2></div>${recTabs("battleship")}<p class="panel-sub">Reading the log&hellip;</p></div>`;
+  const books = await readRecordBooks();
+  const b = books?.battleship || {};
+  host.innerHTML = `
+    <div class="drawer-in">
+      <div class="drawer-head"><h2>⚓ Battleship</h2></div>
+      ${recTabs("battleship")}
+      <p class="panel-sub">Lifetime tallies, kept by the games themselves.</p>
+      <div class="rules-cols">
+        <div class="rule-sec"><h3>Most hits</h3>${topFive(b.hits, (v) => `${v.toLocaleString()} hits`)}</div>
+        <div class="rule-sec"><h3>Most ships sunk</h3>${topFive(b.sunk, (v) => `${v.toLocaleString()} sunk`)}</div>
+        <div class="rule-sec"><h3>Most captains eliminated</h3>${topFive(b.eliminated, (v) => `${v.toLocaleString()} eliminated`)}</div>
+      </div>
+    </div>`;
+  host.querySelectorAll("[data-rec]").forEach((x) => { x.onclick = () => loadRecords(x.dataset.rec); });
+}
+
+const toParText = (v) => (v === 0 ? "E" : v > 0 ? `+${v}` : String(v));
+
+async function drawGolfRecords(host) {
+  clearInterval(walletPoll);
+  host.innerHTML = `<div class="drawer-in"><div class="drawer-head"><h2>Records</h2></div>${recTabs("golf")}<p class="panel-sub">Reading the cards&hellip;</p></div>`;
+  const [books, courseRes] = await Promise.all([
+    readRecordBooks(),
+    fetch("/api/links/courses").then((r) => r.json()).catch(() => ({ courses: [] })),
+  ]);
+  const courses = courseRes.courses || [];
+  const golf = books?.golf || {};
+  host.innerHTML = `
+    <div class="drawer-in">
+      <div class="drawer-head"><h2>⛳ Golf</h2></div>
+      ${recTabs("golf")}
+      <p class="panel-sub">Course records: the five best rounds to par on each course. Tap a course.</p>
+      <div class="course-tiles">
+        ${courses.map((c) => {
+          const rows = golf[c.id] || [];
+          return `
+            <button class="course-tile" data-course="${c.id}">
+              <span class="ct-ico">${c.ico}</span>
+              <span class="ct-name">${escapeHtml(c.name)}</span>
+              <span class="ct-sub">${escapeHtml(c.loc)} · par ${c.par}</span>
+              <span class="ct-rec">${rows.length ? `Record ${toParText(rows[0].value)} · ${escapeHtml(rows[0].name)}` : "No record yet"}</span>
+            </button>`;
+        }).join("")}
+      </div>
+    </div>`;
+  host.querySelectorAll("[data-rec]").forEach((x) => { x.onclick = () => loadRecords(x.dataset.rec); });
+  host.querySelectorAll("[data-course]").forEach((b) => {
+    b.onclick = () => {
+      const c = courses.find((x) => x.id === b.dataset.course);
+      const modal = $("avatar-modal");
+      modal.hidden = false;
+      modal.innerHTML = `
+        <div class="modal-back" data-close></div>
+        <div class="modal-card course-card">
+          <div class="modal-head">
+            <h2>${c.ico} ${escapeHtml(c.name)}</h2>
+            <button class="modal-close" data-close aria-label="Close">&times;</button>
+          </div>
+          <div class="modal-body">
+            <p class="panel-sub">${escapeHtml(c.sub)} · ${escapeHtml(c.loc)} · par ${c.par}</p>
+            <h3 class="rec-h">Best rounds to par</h3>
+            ${topFive(golf[c.id], toParText)}
+          </div>
+        </div>`;
+      modal.querySelectorAll("[data-close]").forEach((n) => { n.onclick = () => { modal.hidden = true; modal.textContent = ""; }; });
+    };
+  });
+}
+
+async function drawHallOfFame(host) {
+  clearInterval(walletPoll);
+  host.innerHTML = `<div class="drawer-in"><div class="drawer-head"><h2>Records</h2></div>${recTabs("hof")}<p class="panel-sub">Opening the hall&hellip;</p></div>`;
+  const books = await readRecordBooks();
+  const hof = books?.hallOfFame || { rows: [] };
+  const when = (t) => new Date(t).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+  host.innerHTML = `
+    <div class="drawer-in">
+      <div class="drawer-head"><h2>\u{1F3DB}️ Hall of Fame</h2></div>
+      ${recTabs("hof")}
+      <p class="hof-note">Updates every 3 months · cut ${when(hof.at)} · next ${when(hof.next)}</p>
+      ${hof.rows.length ? `<div class="belt-rows hof-rows">${hof.rows.map((r, i) => `
+        <div class="belt-row ${r.uid === S.user?.uid ? "is-mine" : ""}">
+          <span class="rec-rank">${i + 1}</span>
+          <span class="bn">${escapeHtml(r.name)}${r.prestige ? `<span class="rank-tag">${insigniaSvg(r.prestige)}<span>${prestigeName(r.prestige)}</span></span>` : ""}</span>
+          <span class="bt">${r.prestige ? `P${r.prestige} · ` : ""}${r.mmr.toLocaleString()} MMR</span>
+        </div>`).join("")}</div>`
+        : `<p class="panel-sub">The hall is empty until the first cut.</p>`}
+    </div>`;
+  host.querySelectorAll("[data-rec]").forEach((x) => { x.onclick = () => loadRecords(x.dataset.rec); });
 }
 
 /** The banked side of the casino, and what has gone into it. */
@@ -1627,11 +1751,7 @@ function drawBountyRecords(host) {
   host.innerHTML = `
     <div class="drawer-in">
       <div class="drawer-head"><h2>Records</h2></div>
-      <div class="subtabs">
-        <button class="stab" data-rec="arena">Records</button>
-        <button class="stab" data-rec="wallet">\u{1F4B0} Wallets</button>
-        <button class="stab is-on" data-rec="bounty">\u{1F3AF} Bounty</button>
-      </div>
+      ${recTabs("bounty")}
       ${bountyPanelHtml()}
     </div>`;
   host.querySelectorAll("[data-rec]").forEach((b) => { b.onclick = () => loadRecords(b.dataset.rec); });
@@ -1651,11 +1771,7 @@ async function drawWallet(host) {
   host.innerHTML = `
     <div class="drawer-in">
       <div class="drawer-head"><h2>Records</h2></div>
-      <div class="subtabs">
-        <button class="stab" data-rec="arena">Records</button>
-        <button class="stab is-on" data-rec="wallet">\u{1F4B0} Wallets</button>
-        <button class="stab" data-rec="bounty">\u{1F3AF} Bounty</button>
-      </div>
+      ${recTabs("wallet")}
 
       <div class="wal-figures">
         <div><span class="wal-l">Your wallet</span><b class="wal-n" id="wal-mine">$${mine.toLocaleString()}</b></div>

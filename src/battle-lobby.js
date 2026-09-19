@@ -489,6 +489,7 @@ export class BattleRoyale {
     // Anyone who never placed gets a random fleet rather than blocking everyone.
     for (const p of roster) {
       p.shots = 0;
+      p.eliminated = 0;
       if (!p.board) {
         const check = validateFleet(randomFleet(this.g.mapId), this.g.mapId);
         p.board = { ships: check.ships, incoming: [] };
@@ -661,6 +662,7 @@ export class BattleRoyale {
 
     if (fleetSunk(target.board)) {
       target.alive = false;
+      me.eliminated = (me.eliminated || 0) + 1;
       this.g.eliminated.push(target.uid);
       this.log(`${this.nameOf(target)} has been sunk.`);
     }
@@ -721,7 +723,7 @@ export class BattleRoyale {
       const after = (p.mmrAtStart || 0) + gain.total;
       return {
         uid, name: p.name, score, placement, seed: p.seed || null,
-        hits: p.hits, sunk: p.sunk, shots: p.shots || 0,
+        hits: p.hits, sunk: p.sunk, shots: p.shots || 0, eliminated: p.eliminated || 0,
         accuracy: p.shots ? Math.round((p.hits / p.shots) * 100) : 0,
         aim: Math.round(accuracyBonus(p.hits, p.shots || 0) * 100) / 100,
         status: p.alive ? "won" : "sunk",

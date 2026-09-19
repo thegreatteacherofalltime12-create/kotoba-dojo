@@ -65,6 +65,13 @@ ok("a missing number makes the whole thing null rather than a guess",
 ok("so does a number that is not one",
   boardRowsFromCommit(tags, { writeResults: [{}, {}, {}, {}, { transformResults: [{ stringValue: "x" }, iv(1), iv(1)] }] }) === null);
 
+const golf = matchWrites(BASE, "G-1-1", { code: "GOLF1", roundNo: 1, finishedAt: 1, puzzleId: "links", game: "links", courseId: "pebble",
+  results: [{ uid: "g", name: "Gee", score: 80, gain: 60, status: "finished", placement: 1, toPar: -1, holes: 18 }] }, true);
+const golfBoard = golf.writes[golf.tags.findIndex((t) => t.kind === "board")];
+ok("a course record is written as a minimum, the rest as increments",
+  golfBoard.updateTransforms.some((t) => t.fieldPath === "feats.best_links_pebble" && t.minimum?.integerValue === "-1")
+  && golfBoard.updateTransforms.filter((t) => t.increment).length >= 4);
+
 console.log("\nthe arcade");
 const arcade = matchWrites(BASE, "ARCADE-0-1", { ...match, code: "ARCADE", results: [match.results[0]] }, false);
 ok("a solve is one write, not three", arcade.writes.length === 1 && arcade.tags[0].kind === "board");

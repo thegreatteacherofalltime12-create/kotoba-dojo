@@ -3317,3 +3317,21 @@ a.dtab { text-decoration: none; display: inline-block; }
 .gamepick .gp-name { font-family: var(--display); font-weight: 800; font-size: .95rem; }
 .gamepick .gp-players { font-size: .66rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
 @media (max-width: 700px) { .gamegrid { grid-template-columns: repeat(2, 1fr); } }
+
+
+/* ── the record books ──────────────────────────────────────────────── */
+.rec-tabs { flex-wrap: wrap; }
+.course-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: .6rem; }
+.course-tile {
+  font: inherit; cursor: pointer; text-align: left; display: grid; gap: .2rem; padding: .8rem .9rem;
+  background: var(--surface); border: 1px solid var(--edge); border-radius: 12px; color: var(--text);
+}
+.course-tile:hover { border-color: var(--accent); box-shadow: var(--glow); }
+.course-tile .ct-ico { font-size: 1.6rem; line-height: 1; }
+.course-tile .ct-name { font-family: var(--display); font-weight: 800; font-size: .86rem; }
+.course-tile .ct-sub { font-size: .66rem; color: var(--muted); }
+.course-tile .ct-rec { font-size: .7rem; color: var(--accent); margin-top: .2rem; }
+.course-card { max-width: 26rem; }
+.rec-h { font-family: var(--display); font-size: .72rem; letter-spacing: .18em; text-transform: uppercase; color: var(--muted); margin: .8rem 0 .4rem; }
+.hof-note { font-family: var(--display); font-size: .7rem; letter-spacing: .16em; text-transform: uppercase; color: var(--accent); margin: 0 0 .7rem; }
+.hof-rows .bn { display: flex; align-items: center; gap: .4rem; }

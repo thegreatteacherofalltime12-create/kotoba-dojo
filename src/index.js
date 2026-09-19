@@ -252,6 +252,9 @@ export default {
 
     if (path === "/api/chat" && request.method === "GET") return fromCommons(env, "/chat");
 
+    // The record books. Public: names and figures, like the feed.
+    if (path === "/api/records") return fromCommons(env, "/records");
+
     // The strip. Signed in, as reading the leaderboard always was.
     if (path === "/api/rankings") {
       const token = (request.headers.get("Authorization") || "").replace(/^Bearer /, "");

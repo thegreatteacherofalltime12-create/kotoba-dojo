@@ -10,7 +10,7 @@
 // and the game still works — you just lose ranked history.
 
 import { tellCommons } from "./commons-notify.js";
-import { allowed, featsFor, BIG_BANK } from "../public/cosmetics.js";
+import { allowed, featsFor, isMark, BIG_BANK } from "../public/cosmetics.js";
 import { GI_COLORS } from "../public/arena.js";
 
 let tokenCache = { token: null, expiresAt: 0 };
@@ -1007,7 +1007,9 @@ export function matchWrites(base, matchId, match, logged) {
         { fieldPath: "totalPoints", increment: I(r.gain ?? r.score) },
         { fieldPath: "roundsPlayed", increment: I(1) },
         { fieldPath: "bestScore", maximum: I(r.score) },
-        ...featKeys.map((k) => ({ fieldPath: `feats.${k}`, increment: I(feats[k]) })),
+        ...featKeys.map((k) => (isMark(k)
+          ? { fieldPath: `feats.${k}`, minimum: I(feats[k]) }
+          : { fieldPath: `feats.${k}`, increment: I(feats[k]) })),
       ],
     });
     tags.push({ kind: "board", uid: r.uid, name: r.name, rate: r.rate || null, feats: featKeys });

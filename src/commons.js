@@ -33,6 +33,8 @@ const RECONCILE_MS = 30 * 60_000;  // re-read the record this often while in use
 const RETRY_MS = 60_000;           // after a hydration that failed
 const DIRTY_MS = 5_000;            // a writer could not say what it wrote
 const CHAT_LINES_PER_MIN = 12;
+const HOF_EVERY_MS = 91 * 24 * 3600_000;   // the hall of fame is cut every three months
+const RECORD_ROWS = 5;
 
 const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
 // Rows are ordered by the time they carry, parsed rather than compared as
@@ -57,6 +59,7 @@ export class Commons {
       this.wallets = wallets || {};  // uid -> { uid, name, wallet, touchedAt }
       this.mine = mine || {};        // uid -> { wallet, at }
       this.meta = meta || { hydratedAt: 0, nextHydrateAt: 0, lastReadAt: 0 };
+      this.hof = (await s.get("hof")) || null;   // { at, rows }
     });
   }
 
@@ -66,7 +69,7 @@ export class Commons {
     for (const [uid, m] of Object.entries(this.mine)) if (m.at < cutoff) delete this.mine[uid];
     return this.state.storage.put({
       chat: this.chat, feed: this.feed, board: this.board,
-      wallets: this.wallets, mine: this.mine, meta: this.meta,
+      wallets: this.wallets, mine: this.mine, meta: this.meta, hof: this.hof,
     });
   }
 
@@ -217,6 +220,46 @@ export class Commons {
       }));
   }
 
+  /**
+   * The record books, from the counters every finished round leaves on the
+   * board: lifetime tallies for Battleship, and the best round to par on
+   * each golf course. Top five, names and figures only.
+   */
+  records() {
+    const rows = Object.values(this.board).filter((r) => r.feats);
+    const top = (key, desc = true) => rows
+      .filter((r) => Number.isFinite(r.feats[key]))
+      .sort((a, b) => (desc ? num(b.feats[key]) - num(a.feats[key]) : num(a.feats[key]) - num(b.feats[key])) || a.name.localeCompare(b.name))
+      .slice(0, RECORD_ROWS)
+      .map((r) => ({ uid: r.uid, name: r.name || "Someone", value: num(r.feats[key]) }));
+    const courses = {};
+    for (const r of rows) {
+      for (const k of Object.keys(r.feats)) if (k.startsWith("best_links_")) courses[k.slice("best_links_".length)] = true;
+    }
+    return {
+      battleship: {
+        hits: top("hits_battleship"),
+        sunk: top("sunk_battleship"),
+        eliminated: top("eliminated_battleship"),
+      },
+      golf: Object.fromEntries(Object.keys(courses).map((c) => [c, top(`best_links_${c}`, false)])),
+      hallOfFame: this.hallOfFame(),
+    };
+  }
+
+  /**
+   * The top ten, cut once a quarter and held. Between cuts the list does
+   * not move, whatever happens on the board.
+   */
+  hallOfFame() {
+    const now = Date.now();
+    if (!this.hof || now - this.hof.at >= HOF_EVERY_MS) {
+      const rows = this.rankings().slice(0, 10).map((r) => ({ uid: r.uid, name: r.name, prestige: r.prestige, mmr: r.mmr }));
+      if (rows.length || !this.hof) this.hof = { at: now, rows };
+    }
+    return { at: this.hof.at, next: this.hof.at + HOF_EVERY_MS, rows: this.hof.rows };
+  }
+
   feedNow() {
     const since = Date.now() - FEED_WINDOW_MS;
     return this.feed.filter((r) => ms(r) > since).slice(0, FEED_SERVE);
@@ -343,6 +386,11 @@ export class Commons {
     if (path === "/chat") return Response.json({ chat: this.chat });
     if (path === "/feed") return Response.json({ feed: this.feedNow() });
     if (path === "/rankings") return Response.json({ standings: this.rankings() });
+    if (path === "/records") {
+      const out = this.records();
+      await this.save();   // the hall of fame may just have been cut
+      return Response.json(out);
+    }
     if (path === "/wallets/top") return Response.json({ wallets: this.walletBoard() });
     if (path === "/top") return Response.json({ top: this.top(Number(url.searchParams.get("limit")) || 10) });
     if (path === "/wallet") {

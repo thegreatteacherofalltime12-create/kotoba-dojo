@@ -17,6 +17,15 @@ export const KEEP_DAYS = 7;
 
 export const UPDATES = [
   {
+    at: "2026-09-19T19:30:00Z",
+    where: "Profile",
+    title: "The token shop",
+    text: "Billing is gone \u2014 nothing in the game costs real money. Casino money buys boost tokens "
+      + "instead: one for each game, $2,000 apiece from your wallet, under Token shop in your profile. "
+      + "A token is spent by your next ranked round of that game and pays half again on the MMR; the "
+      + "casino one boosts every win for a day. The feed marks a boosted win \u26A1.",
+  },
+  {
     at: "2026-09-19T18:30:00Z",
     where: "Conduct",
     title: "The chats are screened",

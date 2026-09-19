@@ -482,13 +482,6 @@ input::placeholder { color: var(--muted); }
 .pf-red { border-color: var(--a1); color: var(--a1); }
 .pf-red:hover { border-color: var(--a1); color: var(--on-a1); background: var(--a1-fill); }
 
-.pf-card-empty {
-  display: flex; align-items: center; gap: .8rem; padding: .8rem; margin-bottom: .8rem;
-  background: rgba(255,255,255,.03); border: 1px dashed var(--edge-solid); border-radius: var(--r);
-}
-.pf-card-icon { font-family: var(--display); letter-spacing: .2em; color: var(--muted); font-size: 1.1rem; }
-.pf-card-title { font-family: var(--display); text-transform: uppercase; letter-spacing: .08em; color: var(--text); }
-.pf-card-sub { font-size: .8rem; color: var(--muted); }
 
 .invite { display: grid; justify-items: center; gap: .2rem; }
 .invite .joinrow, .invite .notice, .invite .panel-sub { width: 100%; }
@@ -3387,3 +3380,14 @@ a.dtab { text-decoration: none; display: inline-block; }
 .rep-why { margin: 0; font-size: .7rem; color: #fb7185; }
 .rep-acts { display: flex; flex-direction: column; gap: .3rem; align-items: stretch; }
 .rule-conduct { border: 1px solid rgba(244,63,94,.35); border-radius: 10px; padding: .6rem .8rem; }
+
+
+/* ── the token shop ──────────────────────────────────────────────── */
+.shop-wallet { font-family: var(--display); font-size: .9rem; margin: .4rem 0 .6rem; }
+.shop-wallet b { color: #F4CE5A; }
+.shop-items { display: grid; gap: .45rem; }
+.shop-item { display: grid; grid-template-columns: auto 1fr auto; gap: .7rem; align-items: center; padding: .55rem .7rem; border: 1px solid var(--edge); border-radius: 10px; background: rgba(255,255,255,.04); }
+.shop-ico { font-size: 1.6rem; line-height: 1; }
+.shop-name { font-family: var(--display); font-weight: 800; font-size: .86rem; }
+.shop-blurb { font-size: .7rem; color: var(--muted); }
+.shop-have { font-size: .66rem; color: var(--accent); margin-top: .15rem; }

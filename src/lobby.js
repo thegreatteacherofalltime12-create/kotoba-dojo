@@ -1,6 +1,7 @@
 import { ROUND_MS, scoreFor } from "./scoring.js";
 import { validatePuzzle, stripAnswers, answerKey, WORD_COUNT } from "./validate.js";
 import { recordMatch, readRatings, getScroll, bumpScroll } from "./firestore.js";
+import { boosted } from "./mmr.js";
 import { sessionGain, fieldMmrFor, beltFor } from "./mmr.js";
 import { STARTER_PUZZLES } from "./starter-puzzles.js";
 import { announceRoom } from "./rooms.js";
@@ -416,6 +417,7 @@ export class DojoLobby {
     const seeded = [...uids].sort((a, b) => (ratings[b] || 0) - (ratings[a] || 0));
     seeded.forEach((uid, i) => {
       this.lobby.players[uid].mmrAtStart = ratings[uid] || 0;
+      this.lobby.players[uid].boost = (ratings.boosts?.[uid]?.crossword || 0) > 0;
       this.lobby.players[uid].seed = i + 1;
     });
     // Three or more solvers is a rumble: placement carries the reward.
@@ -546,6 +548,7 @@ export class DojoLobby {
         seed: p.seed,
         placement,
       });
+      if (p.boost) gain.total = boosted(gain.total);
       const after = (p.mmrAtStart || 0) + gain.total;
       return {
         uid: p.uid,
@@ -557,7 +560,7 @@ export class DojoLobby {
         placement,
         seed: p.seed || null,
         mmrBefore: p.mmrAtStart || 0,
-        gain: gain.total,
+        gain: gain.total, boost: !!p.boost,
         breakdown: { base: gain.base, challenge: gain.challenge, completion: gain.completion, seed: gain.seed },
         mmrAfter: after,
         belt: beltFor(after).name,

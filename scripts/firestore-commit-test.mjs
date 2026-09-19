@@ -72,6 +72,17 @@ ok("a course record is written as a minimum, the rest as increments",
   golfBoard.updateTransforms.some((t) => t.fieldPath === "feats.best_links_pebble" && t.minimum?.integerValue === "-1")
   && golfBoard.updateTransforms.filter((t) => t.increment).length >= 4);
 
+console.log("\na boosted round");
+const boostedMatch = { ...match, results: [{ ...match.results[0], boost: true }, match.results[1]] };
+const bm = matchWrites(BASE, "B-1-1", boostedMatch, true);
+const bw = bm.writes[bm.tags.findIndex((t) => t.kind === "board")];
+ok("the token is spent in the round's own write, after the three the room reads",
+  bw.updateTransforms[3].fieldPath === "tokens.crossword" && bw.updateTransforms[3].increment.integerValue === "-1"
+  && bw.updateTransforms.slice(0, 3).map((t) => t.fieldPath).join() === "totalPoints,roundsPlayed,bestScore");
+ok("an unboosted row spends nothing", !bm.writes[bm.tags.findIndex((t) => t.kind === "board") + 1].updateTransforms.some((t) => t.fieldPath.startsWith("tokens.")));
+ok("the totals still read back by position",
+  boardRowsFromCommit(bm.tags, { writeResults: [{}, {}, {}, { transformResults: [iv(1), iv(1), iv(1), iv(0), iv(1), iv(1), iv(1), iv(1)] }, { transformResults: [iv(2), iv(2), iv(2), iv(1), iv(1)] }] })[0].totalPoints === 1);
+
 console.log("\nthe arcade");
 const arcade = matchWrites(BASE, "ARCADE-0-1", { ...match, code: "ARCADE", results: [match.results[0]] }, false);
 ok("a solve is one write, not three", arcade.writes.length === 1 && arcade.tags[0].kind === "board");

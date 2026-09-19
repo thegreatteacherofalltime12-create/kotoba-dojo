@@ -3,6 +3,7 @@ import {
   pointsFor, scoreName, maxGuesses, scramble, sameLetters, placed,
 } from "./links.js";
 import { recordMatch, readRatings } from "./firestore.js";
+import { boosted } from "./mmr.js";
 import { announceRoom } from "./rooms.js";
 import { sessionGain, fieldMmrFor, beltFor } from "./mmr.js";
 
@@ -147,6 +148,7 @@ export class LinksCourse {
     const seeded = [...uids].sort((a, b) => (ratings[b] || 0) - (ratings[a] || 0));
     for (const p of Object.values(room.players)) {
       p.mmrAtStart = ratings[p.uid] || 0;
+      p.boost = (ratings.boosts?.[p.uid]?.links || 0) > 0;
       p.seed = seeded.indexOf(p.uid) + 1 || null;
     }
 
@@ -316,6 +318,7 @@ export class LinksCourse {
         fieldMmr: fieldMmrFor(p.uid, ratings),
         mode, seed: p.seed, placement,
       });
+      if (p.boost) gain.total = boosted(gain.total);
       const after = (p.mmrAtStart || 0) + gain.total;
       return {
         uid: p.uid,
@@ -332,7 +335,7 @@ export class LinksCourse {
         holes: p.card.length,
         aces: p.card.filter((h) => h.strokes === 1).length,
         mmrBefore: p.mmrAtStart || 0,
-        gain: gain.total,
+        gain: gain.total, boost: !!p.boost,
         breakdown: { base: gain.base, challenge: gain.challenge, completion: gain.completion, seed: gain.seed },
         mmrAfter: after,
         belt: beltFor(after).name,

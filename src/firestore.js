@@ -139,6 +139,7 @@ function boardRow(doc) {
     insignia: f.insignia?.stringValue || "",
     cosmetics: cosmeticsOf(f.cosmetics),
     feats: featsOf(f.feats),
+    tokens: tokensOf(f.tokens),
   };
 }
 
@@ -235,12 +236,95 @@ export async function readRatings(env, uids) {
   );
   if (!res.ok) { fail(`Firestore refused the ratings read (${res.status})`); return out; }
 
+  // The boost tokens ride along, off to the side so the callers that count
+  // the ratings as a plain map never see them.
+  const boosts = {};
   for (const row of await res.json()) {
     if (!row.found) continue;
     const uid = row.found.name.split("/").pop();
     out[uid] = Number(row.found.fields?.totalPoints?.integerValue || 0);
+    const t = tokensOf(row.found.fields?.tokens);
+    if (t) boosts[uid] = t;
   }
+  Object.defineProperty(out, "boosts", { value: boosts, enumerable: false });
   return out;
+}
+
+/** A board document's boost tokens, by game, as plain numbers. */
+function tokensOf(field) {
+  const m = field?.mapValue?.fields;
+  if (!m) return null;
+  const out = {};
+  for (const [k, v] of Object.entries(m)) out[k] = Number(v?.integerValue || 0);
+  return out;
+}
+
+export const TOKEN_PRICE = 2000;
+export const TOKEN_GAMES = ["crossword", "battleship", "minesweeper", "links", "casino"];
+
+/**
+ * Buys one boost token for a game with casino money: the wallet is read
+ * live and must hold the price, then one commit takes it off the private
+ * wallet, writes the public row to match, and adds the token to the board
+ * row. The room hears both.
+ */
+export async function buyToken(env, uid, name, game) {
+  if (!TOKEN_GAMES.includes(game)) return { ok: false, error: "No such token." };
+  const token = await accessToken(env);
+  if (!token) return { ok: false, error: "The shop isn't open in this arena." };
+  const held = (await readWallet(env, uid)) ?? 0;
+  if (held < TOKEN_PRICE) return { ok: false, error: `A token costs ${TOKEN_PRICE.toLocaleString()}. Your wallet holds ${held.toLocaleString()}.` };
+
+  const left = held - TOKEN_PRICE;
+  const res = await fetch(`https://firestore.googleapis.com/v1/${base(env)}:commit`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      writes: [
+        ...walletWrites(`${base(env)}/users/${uid}`, `${base(env)}/wallets/${uid}`, uid, name, -TOKEN_PRICE, left),
+        {
+          update: { name: `${base(env)}/leaderboard/${uid}`, fields: { uid: S(uid), name: S(name || "Player") } },
+          updateMask: { fieldPaths: ["uid", "name"] },
+          updateTransforms: [{ fieldPath: `tokens.${game}`, increment: I(1) }],
+        },
+      ],
+    }),
+  });
+  if (!res.ok) return { ok: false, error: "Firestore refused the purchase." };
+  const body = await res.json().catch(() => null);
+  await tellWallet(env, uid, name, body, left);
+  const got = transformNumbers(body, 2, 1);
+  await (got
+    ? tellCommons(env, "/board/upsert", { rows: [{ uid, name: name || "Player", tokens: { [game]: got[0] } }] })
+    : tellCommons(env, "/dirty", {}));
+  return { ok: true, game, tokens: got ? got[0] : null, wallet: left };
+}
+
+/** One token of a game, spent. */
+export async function spendToken(env, uid, name, game) {
+  const token = await accessToken(env);
+  if (!token) return false;
+  const res = await fetch(`https://firestore.googleapis.com/v1/${base(env)}:commit`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      writes: [{
+        update: { name: `${base(env)}/leaderboard/${uid}`, fields: { uid: S(uid), name: S(name || "Player") } },
+        updateMask: { fieldPaths: ["uid", "name"] },
+        updateTransforms: [{ fieldPath: `tokens.${game}`, increment: I(-1) }],
+      }],
+    }),
+  });
+  if (!res.ok) return false;
+  const got = transformNumbers(await res.json().catch(() => null), 0, 1);
+  if (got) await tellCommons(env, "/board/upsert", { rows: [{ uid, tokens: { [game]: Math.max(0, got[0]) } }] });
+  return true;
+}
+
+/** The boost tokens a few players hold — one batch read. */
+export async function readBoosts(env, uids) {
+  const ratings = await readRatings(env, uids);
+  return ratings.boosts || {};
 }
 
 /**
@@ -1066,8 +1150,8 @@ export async function recordMatch(env, match) {
         // Solo has nobody to beat, so it is finished rather than won.
         text: field > 1 ? `${winner.name} won ${game}` : `${winner.name} finished ${game}`,
         detail: field > 1
-          ? `${winner.score} points \u00b7 +${gain} MMR${against}`
-          : `${winner.score} points \u00b7 +${gain} MMR \u00b7 solo`,
+          ? `${winner.score} points \u00b7 +${gain} MMR${winner.boost ? " \u26A1boosted" : ""}${against}`
+          : `${winner.score} points \u00b7 +${gain} MMR${winner.boost ? " \u26A1boosted" : ""} \u00b7 solo`,
       }).catch(() => {});
     }
   }
@@ -1164,6 +1248,9 @@ export function matchWrites(base, matchId, match, logged) {
         { fieldPath: "totalPoints", increment: I(r.gain ?? r.score) },
         { fieldPath: "roundsPlayed", increment: I(1) },
         { fieldPath: "bestScore", maximum: I(r.score) },
+        // A boosted round spends its token here, after the numbers the room
+        // reads back, so nothing before it shifts.
+        ...(r.boost ? [{ fieldPath: `tokens.${match.game || "crossword"}`, increment: I(-1) }] : []),
         ...featKeys.map((k) => (isMark(k)
           ? { fieldPath: `feats.${k}`, minimum: I(feats[k]) }
           : { fieldPath: `feats.${k}`, increment: I(feats[k]) })),

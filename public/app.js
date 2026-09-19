@@ -2443,6 +2443,73 @@ function profileSummary() {
     </div>`;
 }
 
+// ── the token shop ───────────────────────────────────────────────────
+//
+// Casino money buys boost tokens: one per game, each worth half again on
+// the MMR of the next ranked round of that game (the casino's boosts every
+// win for a day). Bought and spent on the server; this only shows and asks.
+const TOKEN_ITEMS = [
+  { game: "crossword", name: "Word-Cross boost", icon: "\u{1F520}", blurb: "1.5\u00d7 MMR on your next ranked Word-Cross round" },
+  { game: "battleship", name: "Battleship boost", icon: "\u2693", blurb: "1.5\u00d7 MMR on your next Battleship Royale" },
+  { game: "minesweeper", name: "Minesweeper boost", icon: "\u{1F4A3}", blurb: "1.5\u00d7 MMR on your next Minesweeper board" },
+  { game: "links", name: "Golf boost", icon: "\u26F3", blurb: "1.5\u00d7 MMR on your next round of Multiverse Golf" },
+  { game: "casino", name: "Casino boost", icon: "\u{1F3B0}", blurb: "1.5\u00d7 on every casino win for a day" },
+];
+const TOKEN_PRICE = 2000;
+
+async function drawShop(body) {
+  const me = standings.find((r) => r.uid === S.user?.uid);
+  const tokens = me?.tokens || {};
+  let wallet = S.purse?.wallet ?? 0;
+  body.innerHTML = `
+    <p class="panel-sub">Casino money buys boosts. Each token is spent by the next ranked round of its game and pays half again on the MMR.</p>
+    <div class="shop-wallet">\u{1F4B0} Wallet: <b id="shop-wallet">$${wallet.toLocaleString()}</b></div>
+    <div class="shop-items">
+      ${TOKEN_ITEMS.map((t) => `
+        <div class="shop-item">
+          <span class="shop-ico">${t.icon}</span>
+          <div class="shop-txt">
+            <div class="shop-name">${t.name}</div>
+            <div class="shop-blurb">${t.blurb}</div>
+            <div class="shop-have" id="have-${t.game}">${tokens[t.game] ? `You hold ${tokens[t.game]}` : "None held"}</div>
+          </div>
+          <button class="btn btn-primary btn-small" data-buy="${t.game}">Buy \u00b7 $${TOKEN_PRICE.toLocaleString()}</button>
+        </div>`).join("")}
+    </div>
+    <p id="shop-status" class="notice" hidden></p>`;
+  try {
+    const res = await fetch("/api/wallet", { headers: { Authorization: `Bearer ${await idToken()}` } });
+    wallet = (await res.json()).wallet ?? wallet;
+    S.purse = { ...(S.purse || {}), wallet };
+    if ($("shop-wallet")) $("shop-wallet").textContent = `$${wallet.toLocaleString()}`;
+  } catch { /* the figure we had stands */ }
+  body.querySelectorAll("[data-buy]").forEach((b) => {
+    b.onclick = async () => {
+      const item = TOKEN_ITEMS.find((t) => t.game === b.dataset.buy);
+      if (!window.confirm(`Buy a ${item.name} for $${TOKEN_PRICE.toLocaleString()} from your wallet?`)) return;
+      b.disabled = true;
+      try {
+        const res = await fetch("/api/shop/buy", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${await idToken()}` },
+          body: JSON.stringify({ game: item.game }),
+        });
+        const out = await res.json();
+        if (out.ok) {
+          S.purse = { ...(S.purse || {}), wallet: out.wallet };
+          $("shop-wallet").textContent = `$${out.wallet.toLocaleString()}`;
+          $(`have-${item.game}`).textContent = `You hold ${out.tokens ?? "?"}`;
+          say("shop-status", `${item.name} bought. It will be spent by your next round.`, false);
+          loadRankings();
+        } else {
+          say("shop-status", out.error || "The shop could not sell that.");
+        }
+      } catch { say("shop-status", "Couldn't reach the shop. Try again."); }
+      b.disabled = false;
+    };
+  });
+}
+
 function drawProfile(tab) {
   const host = $("drawer-profile");
   host.innerHTML = `
@@ -2457,7 +2524,7 @@ function drawProfile(tab) {
         <div class="subtabs">
           <button class="stab ${tab === "info" ? "is-on" : ""}" data-tab="info">Info</button>
         <button class="stab ${tab === "theme" ? "is-on" : ""}" data-tab="theme">Theme</button>
-        <button class="stab ${tab === "billing" ? "is-on" : ""}" data-tab="billing">Billing</button>
+        <button class="stab ${tab === "shop" ? "is-on" : ""}" data-tab="shop">\u26A1 Token shop</button>
         </div>
         <div id="profile-body"></div>
       </div>
@@ -2507,20 +2574,7 @@ function drawProfile(tab) {
     return;
   }
 
-  if (tab === "billing") {
-    body.innerHTML = `
-      <p class="panel-sub">Nothing is stored yet. When bonus multipliers go live, a card saved here will pay for them.</p>
-      <div class="pf-card-empty">
-        <div class="pf-card-icon">&#9679;&#9679;&#9679;&#9679;</div>
-        <div>
-          <div class="pf-card-title">No card on file</div>
-          <div class="pf-card-sub">Card details will be held by the payment provider, never by this game.</div>
-        </div>
-      </div>
-      <button class="btn" disabled>Add a card</button>
-      <p class="panel-sub" style="margin-top:.6rem">Payments aren't connected yet, so this is switched off.</p>`;
-    return;
-  }
+  if (tab === "shop") { drawShop(body); return; }
 
   body.innerHTML = `
     <p class="panel-sub">Your sign-in name never changes &mdash; it's how the arena knows you. This is the name others see.</p>

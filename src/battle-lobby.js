@@ -5,6 +5,7 @@ import {
 } from "./battleship.js";
 import { chooseShots, remember, freshMemory, DIFFICULTIES } from "./ai.js";
 import { recordMatch, readRatings, strikePlayer } from "./firestore.js";
+import { boosted } from "./mmr.js";
 import { moderate } from "./moderation.js";
 import { announceRoom } from "./rooms.js";
 import { applyBounty } from "./report-bounty.js";
@@ -513,6 +514,7 @@ export class BattleRoyale {
       for (const u of uids) if (!(u in ratings)) ratings[u] = 0;
       seeded.forEach((u, i) => {
         this.g.players[u].mmrAtStart = ratings[u] || 0;
+        this.g.players[u].boost = (ratings.boosts?.[u]?.battleship || 0) > 0;
         this.g.players[u].seed = i + 1;
       });
     } catch {
@@ -721,6 +723,7 @@ export class BattleRoyale {
         seed: p.seed,
         placement,
       });
+      if (p.boost) gain.total = boosted(gain.total);
       const after = (p.mmrAtStart || 0) + gain.total;
       return {
         uid, name: p.name, score, placement, seed: p.seed || null,
@@ -728,7 +731,7 @@ export class BattleRoyale {
         accuracy: p.shots ? Math.round((p.hits / p.shots) * 100) : 0,
         aim: Math.round(accuracyBonus(p.hits, p.shots || 0) * 100) / 100,
         status: p.alive ? "won" : "sunk",
-        mmrBefore: p.mmrAtStart || 0, gain: gain.total,
+        mmrBefore: p.mmrAtStart || 0, gain: gain.total, boost: !!p.boost,
         breakdown: { base: gain.base, challenge: gain.challenge, completion: gain.completion, seed: gain.seed },
         mmrAfter: after, belt: beltFor(after).name,
         promoted: beltFor(after).name !== beltFor(p.mmrAtStart || 0).name,

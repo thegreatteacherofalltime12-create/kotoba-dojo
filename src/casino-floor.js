@@ -17,7 +17,8 @@ import {
   dealerAct, strengthOf, levelById, AI_LEVELS,
 } from "./casino-tables.js";
 import { compare as compare2 } from "./casino-games.js";
-import { bankWallet, writeHistory, postFeed, awardMmr } from "./firestore.js";
+import { bankWallet, writeHistory, postFeed, awardMmr, readBoosts, spendToken } from "./firestore.js";
+import { boosted } from "./mmr.js";
 
 // A win at any table or on the track is worth this much MMR, up to the
 // day's cap. Small on purpose: a hand takes ten seconds and a ranked round
@@ -164,7 +165,16 @@ export class CasinoFloor {
     const day = new Date().toISOString().slice(0, 10);
     this.f.mmrDaily = this.f.mmrDaily || {};
     const row = this.f.mmrDaily[uid]?.day === day ? this.f.mmrDaily[uid] : { day, given: 0 };
-    const award = Math.min(WIN_MMR, WIN_MMR_DAILY_CAP - row.given);
+    // The first win of the day asks once whether a casino token is held;
+    // if so it is spent, and every win that day pays half again.
+    if (!row.checked) {
+      row.checked = true;
+      try {
+        const held = (await readBoosts(this.env, [uid]))[uid]?.casino || 0;
+        if (held > 0 && await spendToken(this.env, uid, p.name, "casino")) row.boost = true;
+      } catch { /* no token today */ }
+    }
+    const award = Math.min(row.boost ? boosted(WIN_MMR) : WIN_MMR, WIN_MMR_DAILY_CAP - row.given);
     if (award <= 0) { this.f.mmrDaily[uid] = row; return 0; }
     row.given += award;
     this.f.mmrDaily[uid] = row;

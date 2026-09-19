@@ -100,6 +100,11 @@ export function fieldMmrFor(uid, ratings) {
  */
 export const PRESTIGE_COST = 3000;
 
+// A boost token, bought with casino money, makes the next ranked round of
+// its game pay half again. Consumed by the round that uses it.
+export const BOOST_MULT = 1.5;
+export const boosted = (total) => Math.round((total || 0) * BOOST_MULT);
+
 export function canPrestige(mmr) {
   return (mmr ?? 0) >= PRESTIGE_COST;
 }

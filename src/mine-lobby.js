@@ -3,6 +3,7 @@ import {
   mineScore, isMine, ROUND_CAP_MS,
 } from "./minesweeper.js";
 import { recordMatch, readRatings } from "./firestore.js";
+import { boosted } from "./mmr.js";
 import { announceRoom } from "./rooms.js";
 import { applyBounty } from "./report-bounty.js";
 import { sessionGain, fieldMmrFor, beltFor } from "./mmr.js";
@@ -241,6 +242,7 @@ export class MineField {
       p.flags = [];
       p.done = false; p.won = false; p.score = 0; p.finishedAt = null;
       p.mmrAtStart = ratings[p.uid] || 0;
+      p.boost = (ratings.boosts?.[p.uid]?.minesweeper || 0) > 0;
       p.seed = seeded.indexOf(p.uid) + 1 || null;
     }
 
@@ -375,11 +377,12 @@ export class MineField {
         playerMmr: p.mmrAtStart || 0, fieldMmr: fieldMmrFor(p.uid, ratings),
         mode, seed: p.seed, placement,
       });
+      if (p.boost) gain.total = boosted(gain.total);
       const after = (p.mmrAtStart || 0) + gain.total;
       return {
         uid: p.uid, name: p.name, score: p.score, placement, seed: p.seed || null,
         status: p.won ? "cleared" : "sunk", elapsedMs: p.finishedAt,
-        mmrBefore: p.mmrAtStart || 0, gain: gain.total,
+        mmrBefore: p.mmrAtStart || 0, gain: gain.total, boost: !!p.boost,
         breakdown: { base: gain.base, challenge: gain.challenge, completion: gain.completion, seed: gain.seed },
         mmrAfter: after, belt: beltFor(after).name,
         promoted: beltFor(after).name !== beltFor(p.mmrAtStart || 0).name,

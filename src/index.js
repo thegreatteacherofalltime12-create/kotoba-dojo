@@ -2,6 +2,7 @@ import { verifyIdToken } from "./jwt.js";
 import { moderate } from "./moderation.js";
 import {
   prestigePlayer, retirePlayer, recordMatch, readRatings, saveCosmetics, strikePlayer, clearStrikes,
+  buyToken, TOKEN_PRICE, TOKEN_GAMES,
   postChat, postFeed, withdrawWallet, refundWallet,
   publishScroll, listScrolls, lastFirestoreError,
 } from "./firestore.js";
@@ -434,6 +435,18 @@ export default {
         avatar: String(body.avatar || ""), frame: String(body.frame || ""), title: String(body.title || ""),
         banner: String(body.banner || ""), open: body.open === true,
       });
+      return json(result, result.ok ? 200 : 400);
+    }
+
+    // The token shop: casino money for a boost on the next ranked round.
+    if (path === "/api/shop") return json({ price: TOKEN_PRICE, games: TOKEN_GAMES });
+    if (path === "/api/shop/buy" && request.method === "POST") {
+      const token = (request.headers.get("Authorization") || "").replace(/^Bearer /, "");
+      let user;
+      try { user = await verifyIdToken(token, env.FIREBASE_PROJECT_ID); }
+      catch { return json({ error: "Sign in first." }, 401); }
+      const body = await request.json().catch(() => ({}));
+      const result = await buyToken(env, user.uid, user.name, String(body.game || ""));
       return json(result, result.ok ? 200 : 400);
     }
 

@@ -1,7 +1,7 @@
 // node scripts/mmr-test.mjs
 import {
   beltFor, challengeBonus, seedBonus, sessionGain, fieldMmrFor, canPrestige,
-  BLACK_BELT, COMPLETION_BONUS, PRESTIGE_COST,
+  BLACK_BELT, COMPLETION_BONUS, PRESTIGE_COST, boosted, BOOST_MULT,
 } from "../src/mmr.js";
 
 let bad = 0;
@@ -69,6 +69,10 @@ ok("not eligible one short of the cost", canPrestige(PRESTIGE_COST - 1) === fals
 ok("eligible at exactly the cost", canPrestige(PRESTIGE_COST) === true);
 ok("eligible above the cost", canPrestige(PRESTIGE_COST + 6000) === true);
 ok("black belt alone is not enough", canPrestige(BLACK_BELT) === false);
+
+console.log("\nboost tokens");
+ok("half again, rounded", boosted(100) === 150 && boosted(95) === 143 && boosted(0) === 0);
+ok("the multiplier is one and a half", BOOST_MULT === 1.5);
 
 console.log(bad ? `\n${bad} failing\n` : "\nall MMR checks passed\n");
 process.exit(bad ? 1 : 0);

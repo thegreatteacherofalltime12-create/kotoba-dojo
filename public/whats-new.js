@@ -17,6 +17,17 @@ export const KEEP_DAYS = 7;
 
 export const UPDATES = [
   {
+    at: "2026-09-19T03:20:00Z",
+    where: "Everywhere",
+    title: "Achievements, record books, and a tidier Create Match",
+    text: "A new Achievements tab (in Everything else on a phone) shows every banner, title and "
+      + "frame you have earned and your lifetime stats. Your record is private unless you switch it "
+      + "to Public \u2014 then anyone can tap your name in the Arena Rankings to see it. Records grew "
+      + "Battleship (most hits, ships sunk, captains eliminated), Golf course records per course, and "
+      + "a Hall of Fame cut every three months. Create Match is a plain grid of games. The maths "
+      + "arcade mixes in second-grade sums and the fast bonus needs an answer inside seven seconds.",
+  },
+  {
     at: "2026-09-17T21:00:00Z",
     where: "Battleship",
     title: "Aim pays, fire spreads, and up to five computers",

@@ -123,6 +123,7 @@ if (location.protocol === "file:") {
           <!-- On a phone these fold into one button; on a desktop the wrapper is invisible. -->
           <button id="tab-more" class="dtab dtab-more" aria-expanded="false" aria-controls="more-menu">Everything else <span class="more-caret" aria-hidden="true">&#9662;</span></button>
           <div class="more-menu" id="more-menu">
+            <button id="tab-achv" class="dtab" aria-expanded="false" aria-controls="drawer-achv"><span aria-hidden="true">🏅</span> Achievements</button>
             <button id="tab-news" class="dtab" aria-expanded="false" aria-controls="drawer-news">What's New</button>
             <button id="tab-records" class="dtab" aria-expanded="false" aria-controls="drawer-records">Records</button>
             <button id="tab-rules" class="dtab dtab-guide" aria-expanded="false" aria-controls="drawer-rules"><span aria-hidden="true">📖</span> View Rules</button>
@@ -166,6 +167,7 @@ if (location.protocol === "file:") {
     <div class="modal" id="drawer-profile" role="dialog" aria-modal="true" aria-label="Profile" hidden></div>
     <div class="modal" id="avatar-modal" role="dialog" aria-modal="true" aria-label="Your avatar" hidden></div>
     <div class="modal" id="drawer-invite" role="dialog" aria-modal="true" aria-label="Invite to the Dojo" hidden></div>
+    <div class="modal" id="drawer-achv" role="dialog" aria-modal="true" aria-label="Achievements" hidden></div>
 
     <div class="drawer as-modal" id="drawer-records" role="dialog" aria-modal="true" aria-label="Records" hidden></div>
     <div class="drawer as-modal" id="drawer-news" role="dialog" aria-modal="true" aria-label="What's New" hidden></div>

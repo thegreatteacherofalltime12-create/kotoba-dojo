@@ -387,5 +387,35 @@ export function allowed(cos, standing, giIds) {
   out.frame = frameEarned(cos?.frame, standing) ? frameById(cos?.frame).id : "none";
   out.title = titleEarned(cos?.title, standing) ? cos.title : "";
   out.banner = bannerEarned(cos?.banner, standing) ? cos.banner : "";
+  out.open = cos?.open === true || cos?.open === "1";
   return out;
+}
+
+// ── achievements ───────────────────────────────────────────────────────
+//
+// Everything a standing has earned, listed. Read by the Achievements tab
+// for the player's own record and for anyone who has set theirs public.
+
+export function achievementsFor(standing) {
+  const banners = BANNERS.filter((b) => bannerEarned(b.id, standing));
+  const titles = TITLES.filter((t) => meets(t.need, standing));
+  const frameTiers = Object.entries(FRAME_TIERS).filter(([, t]) => meets(t.need, standing)).map(([id, t]) => ({ id, name: t.name }));
+  const feats = standing?.feats || {};
+  const stats = Object.keys(feats)
+    .filter((k) => !isMark(k) && feats[k] > 0)
+    .map((k) => ({ key: k, label: statLabel(k), value: feats[k] }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+  for (const k of Object.keys(feats)) {
+    if (isMark(k)) stats.push({ key: k, label: statLabel(k), value: feats[k] });
+  }
+  return { banners, titles, frameTiers, stats };
+}
+
+const STAT_GAMES = { crossword: "Word-Cross", battleship: "Battleship", minesweeper: "Minesweeper", links: "Golf", casino: "Casino", any: "All games" };
+function statLabel(key) {
+  if (key.startsWith("best_links_")) return `Best round to par, ${key.slice("best_links_".length)}`;
+  if (FEAT_TEXT[key] && !key.startsWith("played_")) return FEAT_TEXT[key][0].toUpperCase() + FEAT_TEXT[key].slice(1);
+  const m = key.match(/^(played|won|solo)_(\w+)$/);
+  if (m) return `${{ played: "Played", won: "Won", solo: "Solo finishes" }[m[1]]}, ${STAT_GAMES[m[2]] || m[2]}`;
+  return key;
 }

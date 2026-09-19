@@ -156,6 +156,7 @@ function cosmeticsOf(field) {
     frame: m.frame?.stringValue || "",
     title: m.title?.stringValue || "",
     banner: m.banner?.stringValue || "",
+    open: m.open?.booleanValue === true,
   };
 }
 
@@ -190,7 +191,10 @@ export async function saveCosmetics(env, uid, name, cos) {
           name: path,
           fields: {
             uid: S(uid), name: S(name || "Unknown"),
-            cosmetics: { mapValue: { fields: { avatar: S(wear.avatar), frame: S(wear.frame), title: S(wear.title), banner: S(wear.banner) } } },
+            cosmetics: { mapValue: { fields: {
+              avatar: S(wear.avatar), frame: S(wear.frame), title: S(wear.title), banner: S(wear.banner),
+              open: { booleanValue: !!wear.open },
+            } } },
           },
         },
         updateMask: { fieldPaths: ["uid", "name", "cosmetics"] },

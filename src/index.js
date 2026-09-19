@@ -371,6 +371,7 @@ export default {
       const body = await request.json().catch(() => ({}));
       const result = await saveCosmetics(env, user.uid, user.name, {
         avatar: String(body.avatar || ""), frame: String(body.frame || ""), title: String(body.title || ""),
+        banner: String(body.banner || ""), open: body.open === true,
       });
       return json(result, result.ok ? 200 : 400);
     }

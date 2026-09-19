@@ -13,7 +13,7 @@ import { GI_COLORS, giSvg, GAME_MODES } from "./arena.js";
 import {
   AVATARS, LEAGUES, FRAMES, FRAME_TIERS, TITLES, GAME_NAMES, BANNERS,
   avatarHtml, framedHtml, titleById, meets, needText,
-  bannerById, bannerEarned, bannerNeedText, bannerHtml,
+  bannerById, bannerEarned, bannerNeedText, bannerHtml, achievementsFor, lifetime,
 } from "./cosmetics.js";
 import { enterBattle, closeBattle, bindBattleControls } from "./battle.js";
 import { enterMines, closeMines, bindMineControls } from "./mines.js";
@@ -140,6 +140,7 @@ const S = {
   frame: "none",
   title: "",
   banner: "",
+  open: false,      // whether the record is public
   // The banked wallet, plus a short history of what has gone into it.
   purse: { wallet: 100, tokens: 0, log: [] },
   bank: [],
@@ -323,6 +324,7 @@ async function loadAvatar() {
     if (v?.frame) S.frame = v.frame;
     if (typeof v?.title === "string") S.title = v.title;
     if (typeof v?.banner === "string") S.banner = v.banner;
+    if (typeof v?.open === "boolean") S.open = v.open;
     let write = !snap.exists() || (v.displayName || "") !== (S.user?.displayName || "");
     // The theme follows the player between the desktop and the phone.
     // A saved theme from before the current house look is moved on once. The
@@ -352,7 +354,7 @@ async function saveProfile() {
       doc(db, "users", u.uid),
       {
         uid: u.uid, displayName: u.displayName || "Student", avatar: S.avatar,
-        frame: S.frame || "none", title: S.title || "", banner: S.banner || "",
+        frame: S.frame || "none", title: S.title || "", banner: S.banner || "", open: !!S.open,
         theme: document.documentElement.dataset.theme || savedTheme(),
         themeEpoch: THEME_EPOCH,
       },
@@ -766,7 +768,7 @@ function drawAvatarPicker() {
         const res = await fetch("/api/cosmetics", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${await idToken()}` },
-          body: JSON.stringify(pick),
+          body: JSON.stringify({ ...pick, open: !!S.open }),
         });
         const out = await res.json();
         if (out.ok && out.cosmetics) {
@@ -907,9 +909,115 @@ function drawStrip() {
         <span class="sp">${r.mmr.toLocaleString()}</span>
       </div>`;
   }).join("");
+  $("strip").querySelectorAll(".slot").forEach((slot, i) => {
+    const r = standings[i];
+    if (!r) return;
+    slot.classList.add("peek");
+    slot.title = "See their achievements";
+    slot.onclick = () => viewFighter(r.uid);
+  });
   bindRankingsFold();
   foldRankings(document.querySelector(".rankings")?.classList.contains("open") || false);
 }
+
+// ── achievements ─────────────────────────────────────────────────────
+//
+// Everything a fighter has earned, read off the same board row the rankings
+// carry: banners, titles and frame tiers unlocked, and the lifetime tallies
+// behind them. Yours opens from the header; anyone else's opens from their
+// name in the Arena Rankings — if they have set their record to Public.
+let achvTab = "earned";
+
+function standingOf(row) {
+  return { mmr: row?.mmr ?? 0, prestige: row?.prestige ?? 0, feats: row?.feats || {} };
+}
+
+function achievementsHtml(row, mine) {
+  const st = standingOf(row);
+  const a = achievementsFor(st);
+  const cos = row?.cos || {};
+  const gi = (id, size) => avatarHtml(id, size, giSvg);
+  const head = `
+    <div class="achv-head">
+      ${framedHtml(gi(cos.avatar || "white", 56), cos.frame || "none", 56, true)}
+      <div>
+        <div class="achv-name">${escapeHtml(row?.name || S.user?.displayName || "Student")}</div>
+        <div class="achv-sub">${cos.title ? escapeHtml(titleById(cos.title)?.name || "") + " · " : ""}${st.prestige ? `${prestigeName(st.prestige)} · ` : ""}${lifetime(st).toLocaleString()} lifetime MMR</div>
+      </div>
+      ${mine ? `
+        <button class="achv-open ${S.open ? "is-public" : ""}" id="achv-open" title="Who can see this record">
+          ${S.open ? "\u{1F30D} Public" : "\u{1F512} Private"}
+        </button>` : ""}
+    </div>`;
+
+  const tabs = [["earned", "Earned"], ["stats", "Lifetime stats"], ["retired", "Retired All Stars"]];
+  const strip = `<div class="subtabs">${tabs.map(([id, name]) =>
+    `<button class="stab ${achvTab === id ? "is-on" : ""}" data-atab="${id}">${name}</button>`).join("")}</div>`;
+
+  let body = "";
+  if (achvTab === "earned") {
+    body = `
+      <h3 class="rec-h">Banners · ${a.banners.length} of ${BANNERS.length}</h3>
+      ${a.banners.length ? `<div class="achv-banners">${a.banners.map((b) => `
+        <div class="achv-banner">${bannerHtml(b.id, true)}<span class="cb-name">${b.name}</span><span class="cb-need">${GAME_NAMES[b.game]}</span></div>`).join("")}</div>`
+        : `<p class="panel-sub">No banners yet. Every finished round counts toward one.</p>`}
+      <h3 class="rec-h">Titles · ${a.titles.length} of ${TITLES.length}</h3>
+      <div class="achv-chips">${a.titles.map((t) => `<span class="achv-chip">${t.name}</span>`).join("")}</div>
+      <h3 class="rec-h">Frames</h3>
+      <div class="achv-chips">${a.frameTiers.map((t) => `<span class="achv-chip tier-${t.id}">${t.name} ✓</span>`).join("")}</div>`;
+  } else if (achvTab === "stats") {
+    body = a.stats.length ? `<div class="belt-rows">${a.stats.map((s) => `
+      <div class="belt-row"><span class="bn">${s.label}</span><span class="bt">${s.value.toLocaleString()}</span></div>`).join("")}</div>`
+      : `<p class="panel-sub">Nothing on the record yet. Play something.</p>`;
+  } else {
+    body = `<p class="panel-sub">Fighters who reached General and retired from the Space Force will be listed here, with their Medal of Honor. Nobody has yet.</p>`;
+  }
+  return head + strip + body;
+}
+
+function drawAchievements(row = null) {
+  const host = $("drawer-achv");
+  const mine = !row;
+  const me = mine ? standings.find((r) => r.uid === S.user?.uid) || { name: S.user?.displayName, cos: { avatar: S.avatar, frame: S.frame, title: S.title } } : row;
+  const priv = !mine && !row.cos?.open;
+  host.innerHTML = `
+    <div class="modal-back" data-close></div>
+    <div class="modal-card achv-card">
+      <div class="modal-head">
+        <h2>\u{1F3C5} Achievements</h2>
+        <button class="modal-close" data-close aria-label="Close">&times;</button>
+      </div>
+      <div class="modal-body">
+        ${priv ? `<p class="panel-sub achv-private">\u{1F512} This fighter keeps their record private.</p>` : achievementsHtml(me, mine)}
+      </div>
+    </div>`;
+  host.querySelectorAll("[data-close]").forEach((n) => { n.onclick = () => closePanel("drawer-achv", "tab-achv"); });
+  host.querySelectorAll("[data-atab]").forEach((b) => { b.onclick = () => { achvTab = b.dataset.atab; drawAchievements(row); }; });
+  const toggle = $("achv-open");
+  if (toggle) toggle.onclick = async () => {
+    S.open = !S.open;
+    drawAchievements();
+    saveProfile();
+    try {
+      await fetch("/api/cosmetics", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${await idToken()}` },
+        body: JSON.stringify({ avatar: S.avatar, frame: S.frame, title: S.title, banner: S.banner, open: S.open }),
+      });
+      loadRankings();
+    } catch { /* the toggle shows; the board catches up on the next save */ }
+  };
+}
+
+/** Somebody else's record, from their row in the rankings. */
+function viewFighter(uid) {
+  const row = standings.find((r) => r.uid === uid);
+  if (!row) return;
+  achvTab = "earned";
+  if (row.uid === S.user?.uid) { if (drawer("drawer-achv")) drawAchievements(); return; }
+  if (drawer("drawer-achv")) drawAchievements(row);
+}
+
 
 function drawRuleBelts(tab = "arena") {
   const belts = [...BELTS].filter(([m]) => m >= 1).reverse()
@@ -1246,6 +1354,7 @@ function matchRules() {
 // Header tabs open one drawer at a time; clicking an open one closes it.
 const DRAWERS = [
   ["tab-create", "drawer-create"],
+  ["tab-achv", "drawer-achv"],
   ["tab-profile", "drawer-profile"],
   ["tab-records", "drawer-records"],
   ["tab-news", "drawer-news"],
@@ -1309,6 +1418,7 @@ document.addEventListener("click", (e) => {
   if (!$("more-menu").contains(e.target) && !$("tab-more").contains(e.target)) moreMenu(false);
 });
 
+$("tab-achv").onclick = () => { achvTab = "earned"; if (drawer("drawer-achv")) drawAchievements(); };
 $("tab-rules").onclick = () => drawer("drawer-rules");
 $("tab-records").onclick = () => { if (drawer("drawer-records")) loadRecords(); };
 if ($("tab-news")) {

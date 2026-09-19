@@ -3335,3 +3335,26 @@ a.dtab { text-decoration: none; display: inline-block; }
 .rec-h { font-family: var(--display); font-size: .72rem; letter-spacing: .18em; text-transform: uppercase; color: var(--muted); margin: .8rem 0 .4rem; }
 .hof-note { font-family: var(--display); font-size: .7rem; letter-spacing: .16em; text-transform: uppercase; color: var(--accent); margin: 0 0 .7rem; }
 .hof-rows .bn { display: flex; align-items: center; gap: .4rem; }
+
+
+/* ── achievements ─────────────────────────────────────────────────── */
+.achv-card { max-width: 34rem; }
+.achv-head { display: flex; align-items: center; gap: .8rem; margin-bottom: .6rem; }
+.achv-name { font-family: var(--display); font-weight: 800; font-size: 1.05rem; }
+.achv-sub { font-size: .72rem; color: var(--muted); }
+.achv-open {
+  margin-left: auto; font: inherit; font-size: .66rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase;
+  padding: .4rem .7rem; border-radius: 999px; cursor: pointer; background: rgba(255,255,255,.06); border: 1px solid var(--edge); color: var(--muted);
+}
+.achv-open.is-public { border-color: var(--accent); color: var(--accent); }
+.achv-private { padding: 1.2rem 0; text-align: center; }
+.achv-banners { display: grid; gap: .35rem; }
+.achv-banner { position: relative; overflow: hidden; display: grid; grid-template-columns: 1fr auto; gap: .6rem; align-items: center; min-height: 2.6rem; padding: .45rem .8rem; border-radius: 9px; border: 1px solid var(--edge); color: #fff; }
+.achv-banner > :not(.bnr) { position: relative; z-index: 1; text-shadow: 0 1px 2px rgba(0,0,0,.7); }
+.achv-banner .bnr::after { right: auto; left: 55%; }
+.achv-chips { display: flex; flex-wrap: wrap; gap: .3rem; }
+.achv-chip { font-size: .68rem; font-weight: 700; padding: .25rem .55rem; border-radius: 999px; background: rgba(255,255,255,.06); border: 1px solid var(--edge); }
+.achv-chip.tier-epic { color: #C4B5FD; border-color: #6D28D9; }
+.achv-chip.tier-legendary { color: #F4CE5A; border-color: #B8860B; }
+.slot.peek { cursor: pointer; }
+.slot.peek:hover { filter: brightness(1.15); }

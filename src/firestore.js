@@ -317,6 +317,37 @@ export async function prestigePlayer(env, uid, name) {
 }
 
 /**
+ * A flat award of MMR outside a match — the casino's five a win. One write
+ * onto the board row, with the tally of such wins kept beside it, and the
+ * room told the total that came back.
+ */
+export async function awardMmr(env, uid, name, amount, featKey = "casino_wins") {
+  const token = await accessToken(env);
+  if (!token || !(amount > 0)) return false;
+  const path = `${base(env)}/leaderboard/${uid}`;
+  const res = await fetch(`https://firestore.googleapis.com/v1/${base(env)}:commit`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      writes: [{
+        update: { name: path, fields: { uid: S(uid), name: S(name || "Player") } },
+        updateMask: { fieldPaths: ["uid", "name"] },
+        updateTransforms: [
+          { fieldPath: "totalPoints", increment: I(amount) },
+          { fieldPath: `feats.${featKey}`, increment: I(1) },
+        ],
+      }],
+    }),
+  });
+  if (!res.ok) return !!fail(`Firestore refused the award (${res.status})`);
+  const got = transformNumbers(await res.json().catch(() => null), 0, 2);
+  await (got
+    ? tellCommons(env, "/board/upsert", { rows: [{ uid, name: name || "Player", totalPoints: got[0], feats: { [featKey]: got[1] } }] })
+    : tellCommons(env, "/dirty", {}));
+  return true;
+}
+
+/**
  * Retirement: only from the top rank of a branch. The Medal of Honor count
  * goes up by one, what the whole ladder cost is banked as lifetime MMR so
  * no title or frame is lost, and MMR and prestige go back to zero in the

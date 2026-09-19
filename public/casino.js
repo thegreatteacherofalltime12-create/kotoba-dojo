@@ -1838,6 +1838,8 @@ function showHand(msg) {
 /** What happened, and the way back to another go. */
 async function showTableResult(msg) {
   K.lastHand = { at: Date.now(), title: msg.title, returned: msg.returned, staked: msg.staked };
+  // A win is worth a little MMR, up to the day's cap; the floor says how much.
+  if (msg.mmr) say(`+${msg.mmr} MMR for the win.`);
   const host = $("tgame");
   if (!host) return;
   setCanLeave(true);       // nothing staked, so the way out is back
@@ -2151,7 +2153,8 @@ function showResult(msg) {
   const names = msg.order.map((id) => horse(id).name);
   const mine = msg.winners.filter((w) => w.name === (K.floor?.players || []).find((p) => p.uid === K.you)?.name);
   const won = mine.reduce((a, w) => a + w.paid, 0);
-  say(won ? `You collect ${money(won)}. Finish: ${names.join(", ")}` : `Finish: ${names.join(", ")}`);
+  const mmr = mine.reduce((a, w) => a + (w.mmr || 0), 0);
+  say(won ? `You collect ${money(won)}${mmr ? ` and +${mmr} MMR` : ""}. Finish: ${names.join(", ")}` : `Finish: ${names.join(", ")}`);
 }
 
 

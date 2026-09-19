@@ -17,6 +17,13 @@ export const KEEP_DAYS = 7;
 
 export const UPDATES = [
   {
+    at: "2026-09-19T17:30:00Z",
+    where: "Casino",
+    title: "Wins on the floor pay MMR",
+    text: "Every hand you win at any table, and every race you collect on, is worth 5 MMR \u2014 up to "
+      + "100 a day. The floor log says so beside the win, and your lifetime stats count them.",
+  },
+  {
     at: "2026-09-19T17:00:00Z",
     where: "Prestige",
     title: "Retire with honours",

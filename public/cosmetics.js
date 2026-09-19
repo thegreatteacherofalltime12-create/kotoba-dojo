@@ -355,6 +355,7 @@ export const FEAT_TEXT = {
   fast_minesweeper: "boards cleared in under a minute", solo_minesweeper: "solo clears",
   aces_links: "holes in one", holes_links: "holes played", bigbank: "cash-outs of $500 or more",
   played_crossword: "Word-Cross", played_battleship: "Battleship", played_minesweeper: "Minesweeper", played_links: "Golf",
+  casino_wins: "casino wins worth MMR",
 };
 
 /** How a banner's need reads, with how far along the player is. */

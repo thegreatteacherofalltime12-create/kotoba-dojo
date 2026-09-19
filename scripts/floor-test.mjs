@@ -217,5 +217,21 @@ console.log("\npai gow: set a hand, compare, and read the lines");
   ok("the hand is closed", me.hand === null);
 }
 
+console.log("\nMMR for a win");
+{
+  const p = floor.f.players.p1;
+  const before = p.mmrEarned || 0;
+  // Earlier hands may already have paid today; the cap is on the day.
+  const already = floor.f.mmrDaily?.p1?.given || 0;
+  let total = 0;
+  for (let i = 0; i < 25; i++) total += await floor.reward("p1", p);
+  ok("five a win, and no more than a hundred a day", total === 100 - already && (p.mmrEarned || 0) === before + total);
+  ok("the twenty-first win of the day pays nothing", (await floor.reward("p1", p)) === 0);
+  ok("another player has their own cap", (await floor.reward("p2", floor.f.players.p2)) === 5);
+  floor.f.mmrDaily.p1.day = "2000-01-01";
+  ok("a new day starts the cap over", (await floor.reward("p1", p)) === 5);
+  ok("the tally reads as text", floor.plus(5) === " (+5 MMR)" && floor.plus(0) === "");
+}
+
 console.log(bad ? `\n${bad} failing\n` : "\nall floor checks passed\n");
 process.exit(bad ? 1 : 0);

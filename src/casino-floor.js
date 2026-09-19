@@ -17,7 +17,13 @@ import {
   dealerAct, strengthOf, levelById, AI_LEVELS,
 } from "./casino-tables.js";
 import { compare as compare2 } from "./casino-games.js";
-import { bankWallet, writeHistory, postFeed } from "./firestore.js";
+import { bankWallet, writeHistory, postFeed, awardMmr } from "./firestore.js";
+
+// A win at any table or on the track is worth this much MMR, up to the
+// day's cap. Small on purpose: a hand takes ten seconds and a ranked round
+// of anything else pays a hundred-odd at most.
+const WIN_MMR = 5;
+const WIN_MMR_DAILY_CAP = 100;
 
 const IDLE_MS = 45 * 60_000;
 const SEAT_TURN_MS = 30_000;
@@ -149,6 +155,29 @@ export class CasinoFloor {
    * looked complete live and full of holes on reconnect. The write isn't
    * awaited because the runtime holds outgoing messages until it lands.
    */
+  /**
+   * The MMR for a win, if the day's cap has room. The tally lives on the
+   * floor keyed by uid rather than on the player, so leaving and coming
+   * back does not reset it. Returns what was awarded, which may be zero.
+   */
+  async reward(uid, p) {
+    const day = new Date().toISOString().slice(0, 10);
+    this.f.mmrDaily = this.f.mmrDaily || {};
+    const row = this.f.mmrDaily[uid]?.day === day ? this.f.mmrDaily[uid] : { day, given: 0 };
+    const award = Math.min(WIN_MMR, WIN_MMR_DAILY_CAP - row.given);
+    if (award <= 0) { this.f.mmrDaily[uid] = row; return 0; }
+    row.given += award;
+    this.f.mmrDaily[uid] = row;
+    p.mmrEarned = (p.mmrEarned || 0) + award;
+    // Yesterday's tallies are of no further use.
+    for (const [u, r] of Object.entries(this.f.mmrDaily)) if (r.day !== day) delete this.f.mmrDaily[u];
+    this.state.waitUntil?.(awardMmr(this.env, uid, p.name, award).catch(() => {}));
+    return award;
+  }
+
+  /** " (+5 MMR)" or nothing. */
+  plus(award) { return award ? ` (+${award} MMR)` : ""; }
+
   note(text) {
     this.f.log.unshift({ at: Date.now(), text });
     this.f.log = this.f.log.slice(0, 60);
@@ -413,14 +442,21 @@ export class CasinoFloor {
       if (betWins(b.type, b.picks, order, this.f.race)) {
         const paid = Math.round(b.stake + b.stake * oddsFor(b.type));
         p.table += paid;
-        winners.push({ name: b.name, paid, type: b.type });
+        winners.push({ name: b.name, paid, type: b.type, uid: b.uid });
       }
+    }
+    // One award a race however many bets came in: it is the race that was won.
+    const rewarded = {};
+    for (const w of winners) {
+      if (rewarded[w.uid] != null) { w.mmr = 0; continue; }
+      rewarded[w.uid] = await this.reward(w.uid, this.f.players[w.uid]);
+      w.mmr = rewarded[w.uid];
     }
 
     this.f.phase = "PAID";
     const names = order.map((id) => horseById(id).name);
     this.note(`Finish: ${names.join(", ")}.`);
-    for (const w of winners) this.note(`${w.name} collects $${w.paid} on ${betById(w.type).name}.`);
+    for (const w of winners) this.note(`${w.name} collects ${w.paid} on ${betById(w.type).name}${this.plus(w.mmr)}.`);
     if (!winners.length) this.note("The board is beaten. Nothing collects.");
 
     await this.save();
@@ -529,10 +565,11 @@ export class CasinoFloor {
       const p = this.f.players[uid];
       const out = settle(seat.cards, t.dealer);
       seat.result = out.result;
-      if (out.result === "win") { p.table += seat.bet * 2; }
+      let award = 0;
+      if (out.result === "win") { p.table += seat.bet * 2; award = await this.reward(uid, p); }
       else if (out.result === "push") { p.table += seat.bet; }
       else { p.tokens = Math.max(0, p.tokens - 1); }
-      this.note(`${p.name} ${out.result === "win" ? "wins" : out.result === "push" ? "pushes" : "loses"} \u2014 ${out.why}.`);
+      this.note(`${p.name} ${out.result === "win" ? "wins" : out.result === "push" ? "pushes" : "loses"} \u2014 ${out.why}${this.plus(award)}.`);
     }
 
     t.phase = "SETTLED";
@@ -607,10 +644,11 @@ export class CasinoFloor {
     const { returns, total: back } = baccaratSettle(coup, wanted);
     p.table += back;
     if (back < total) p.tokens = Math.max(0, (p.tokens || 0) - 1);
+    const award = back > total ? await this.reward(p.uid, p) : 0;
 
     await this.save();
     const title = `Baccarat \u2014 ${coup.outcome} ${coup.playerTotal}:${coup.bankerTotal}`;
-    this.note(back > total ? `${p.name} won $${back - total} at ${title}.`
+    this.note(back > total ? `${p.name} won ${back - total} at ${title}${this.plus(award)}.`
       : back === total ? `${p.name} pushed at ${title}.`
       : `${p.name} lost $${total - back} at ${title}.`);
     this.send(ws, "TABLE_RESULT", {
@@ -657,10 +695,11 @@ export class CasinoFloor {
 
     p.table += back;
     if (back < total) p.tokens = Math.max(0, (p.tokens || 0) - 1);
+    const award = back > total ? await this.reward(p.uid, p) : 0;
     await this.save();
 
     const title = `Big Six \u2014 ${rule.name}`;
-    this.note(back > total ? `${p.name} won $${back - total} at ${title}.`
+    this.note(back > total ? `${p.name} won ${back - total} at ${title}${this.plus(award)}.`
       : back === total ? `${p.name} pushed at ${title}.`
       : `${p.name} lost $${total - back} at ${title}.`);
     this.send(ws, "TABLE_RESULT", {
@@ -708,11 +747,12 @@ export class CasinoFloor {
     p.table += won;
     // Win or push and the token stays; only a loss spends it.
     if (won < bet) p.tokens = Math.max(0, (p.tokens || 0) - 1);
+    const award = won > bet ? await this.reward(uid, p) : 0;
     await this.save();
-    this.note(won > bet ? `${p.name} won $${won - bet} at ${title}.`
+    this.note(won > bet ? `${p.name} won ${won - bet} at ${title}${this.plus(award)}.`
       : won === bet ? `${p.name} pushed at ${title}.`
       : `${p.name} lost $${bet} at ${title}.`);
-    this.send(ws, "TABLE_RESULT", { game: msg.game, title, detail, staked: bet, returned: won });
+    this.send(ws, "TABLE_RESULT", { game: msg.game, title, detail, staked: bet, returned: won, mmr: award });
     this.push();
   }
 
@@ -891,12 +931,13 @@ export class CasinoFloor {
     p.hand = null;
     p.table += out.returned;
     if (out.outcome === "loss") p.tokens = Math.max(0, (p.tokens || 0) - 1);
+    const award = out.outcome === "win" ? await this.reward(p.uid, p) : 0;
     await this.save();
-    this.note(out.outcome === "win" ? `${p.name} won $${out.returned - out.staked} at Hold'em.`
+    this.note(out.outcome === "win" ? `${p.name} won ${out.returned - out.staked} at Hold'em${this.plus(award)}.`
       : out.outcome === "push" ? `${p.name} pushed $${out.staked} at Hold'em.`
       : `${p.name} lost $${out.staked} at Hold'em.`);
     this.send(ws, "TABLE_RESULT", {
-      game: "holdem", title, staked: out.staked, returned: out.returned,
+      game: "holdem", title, staked: out.staked, returned: out.returned, mmr: award,
       detail: {
         board: h.board, dealer: h.dealerHole, mineRank: out.mine.name,
         dealerRank: out.theirs.name, outcome: out.outcome,
@@ -1272,14 +1313,15 @@ export class CasinoFloor {
 
     p.hand = null;
     p.table += won;
-    await this.save();
     const stakedTotal = (h.ante || 0) + (h.side || 0) + (h.bonus || 0) + (h.fortune || 0)
       + (h.aceBonus || 0) + Object.values(h.bets || {}).reduce((a, b) => a + b, 0);
     if (won < stakedTotal) p.tokens = Math.max(0, (p.tokens || 0) - 1);
-    this.note(won > stakedTotal ? `${p.name} won $${won - stakedTotal} at ${title}.`
+    const award = won > stakedTotal ? await this.reward(uid, p) : 0;
+    await this.save();
+    this.note(won > stakedTotal ? `${p.name} won ${won - stakedTotal} at ${title}${this.plus(award)}.`
       : won === stakedTotal ? `${p.name} pushed at ${title}.`
       : `${p.name} lost $${stakedTotal - won} at ${title}.`);
-    this.send(ws, "TABLE_RESULT", { game: h.game, title, detail, staked: stakedTotal, returned: won });
+    this.send(ws, "TABLE_RESULT", { game: h.game, title, detail, staked: stakedTotal, returned: won, mmr: award });
     this.push();
   }
 

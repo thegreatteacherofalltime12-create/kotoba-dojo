@@ -23,7 +23,7 @@ const el = (tag, cls, text) => {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
-const S = { user: null, sock: null, state: null, code: null, courses: [], tees: [], drawnHole: 0, ballAt: 0 };
+const S = { user: null, sock: null, state: null, code: null, courses: [], tees: [], drawnHole: 0, ballAt: 0, hold: false };
 
 function say(text, kind = "") {
   const m = $("msg");
@@ -181,7 +181,11 @@ function draw(state) {
   drawWaiting(state);
   if (state.phase === "LOBBY") return;
 
-  const h = state.hole;
+  // Holed out: the ball is going in and the next hole waits behind the
+  // button. The card table below still updates, so the field is live.
+  const h = S.hold ? null : state.hole;
+  $("in-guess").disabled = S.hold;
+  $("btn-guess").disabled = S.hold;
   if (h) {
     $("h-no").textContent = h.no;
     $("h-name").textContent = h.name || "";
@@ -264,6 +268,15 @@ function marked(msg) {
   if (msg.holed) {
     const { name, strokes, points } = msg.holed;
     say(`${name} — ${strokes} shots, ${points} points.`, "good");
+    // The ball rolls to the cup. Unless that was the last hole, the next
+    // one waits until the player says they are ready — on their own clock,
+    // not the table's.
+    strike(1, "hole");
+    if (!msg.roundOver) {
+      S.hold = true;
+      $("btn-next").hidden = false;
+      $("h-strokes").textContent = `${strokes} strokes · ${name}`;
+    }
   } else if (msg.conceded) {
     say(`Picked up. The word was ${msg.conceded}.`, "bad");
   } else if (msg.nextWord) {
@@ -278,8 +291,10 @@ function marked(msg) {
 }
 
 function over(msg) {
+  S.hold = false;
   $("play").hidden = true;
   $("btn-end").hidden = true;
+  $("btn-next").hidden = true;
   // The server ranks the field and sends it in order; re-sorting here on the
   // ladder score would tangle two players who shot different cards to the
   // same rating.
@@ -311,6 +326,13 @@ const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) =>
 $("sel-play").onchange = syncPlayMode;
 $("btn-start").onclick = connect;
 $("btn-home").onclick = () => { location.href = "/"; };
+$("btn-next").onclick = () => {
+  S.hold = false;
+  $("btn-next").hidden = true;
+  say("");
+  if (S.state) draw(S.state);
+  $("in-guess").focus();
+};
 $("btn-end").onclick = () => {
   if (window.confirm("End the round here? Your card is scored as it stands.")) send({ type: "LINKS_END" });
 };

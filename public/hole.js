@@ -13,6 +13,7 @@ let cv = null, cx = null;
 let ball = { x: .5, y: .09, scale: 1 };
 let ballTarget = { x: .5, y: .09 };
 let flightStart = 0, flightDur = 0, flying = false, trail = [];
+let sinkStart = 0, sunk = false;   // the ball dropping into the cup, then gone
 let holeShape = null;
 let raf = null;
 
@@ -159,7 +160,14 @@ function draw(now){
     ball.scale = 1 + Math.sin(p*Math.PI)*1.9;      // fakes height
     trail.push({x:ball.x,y:ball.y,a:1});
     if(trail.length>26) trail.shift();
-    if(p>=1){ flying=false; ball.scale=1; }
+    if(p>=1){ flying=false; ball.scale=1; if(ballTarget.hole){ sinkStart = now; } }
+  }
+  // Holed: the ball shrinks into the cup over a third of a second and is
+  // not drawn again until the next hole puts a new one on the tee.
+  if(sinkStart){
+    const q = Math.min(1,(now-sinkStart)/350);
+    ball.scale = 1-q;
+    if(q>=1){ sunk = true; sinkStart = 0; }
   }
   trail.forEach((p,i)=>{
     p.a *= 0.94;
@@ -169,11 +177,13 @@ function draw(now){
   if(trail.length && trail[0].a<0.02) trail.shift();
 
   // shadow + ball
-  cx.beginPath(); cx.ellipse(ball.x*W+3, ball.y*H+4, 4.5*Math.max(1,ball.scale*0.6), 3, 0,0,Math.PI*2);
-  cx.fillStyle="rgba(0,0,0,.30)"; cx.fill();
-  cx.beginPath(); cx.arc(ball.x*W, ball.y*H, 5*ball.scale, 0, Math.PI*2);
-  cx.fillStyle="#ffffff"; cx.fill();
-  cx.strokeStyle="#b9c9b4"; cx.lineWidth=1; cx.stroke();
+  if(!sunk){
+    cx.beginPath(); cx.ellipse(ball.x*W+3, ball.y*H+4, 4.5*Math.max(1,ball.scale*0.6), 3, 0,0,Math.PI*2);
+    cx.fillStyle="rgba(0,0,0,.30)"; cx.fill();
+    cx.beginPath(); cx.arc(ball.x*W, ball.y*H, Math.max(0,5*ball.scale), 0, Math.PI*2);
+    cx.fillStyle="#ffffff"; cx.fill();
+    cx.strokeStyle="#b9c9b4"; cx.lineWidth=1; cx.stroke();
+  }
 
   // yardage marker to pin
   const remain = Math.max(0, Math.round(G.yards * (1 - (ball.y-0.09)/0.81)));
@@ -192,7 +202,8 @@ function hitBallTo(frac, lie){
   if(lie==="sand" && holeShape.bunkers.length){ const b=holeShape.bunkers[0]; nx=b.x; ny=b.y; }
   if(lie==="water" && holeShape.water){ nx=holeShape.water.x; ny=holeShape.water.y; }
   if(lie==="hole"){ nx = fairwayX(1); ny = 0.90; }
-  ballTarget = { x:Math.max(0.05,Math.min(0.95,nx)), y:Math.min(0.90,ny), fx, fy };
+  ballTarget = { x:Math.max(0.05,Math.min(0.95,nx)), y:Math.min(0.90,ny), fx, fy, hole: lie==="hole" };
+  sunk = false; sinkStart = 0;
   flightStart = performance.now();
   flightDur = 520 + Math.abs(ny-fy)*700;
   flying = true;
@@ -241,6 +252,7 @@ export function setHole({ courseId, hole, hazard, par, yards }) {
   ballTarget = { x: ball.x, y: ball.y };
   trail = [];
   flying = false;
+  sunk = false; sinkStart = 0;
 }
 
 /**

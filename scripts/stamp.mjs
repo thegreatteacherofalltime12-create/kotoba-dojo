@@ -42,14 +42,16 @@ console.log(`stamped ${stamp} into ${html} and ${json}`);
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 
-const css = "public/styles.css";
-let sheet = readFileSync(css, "utf8");
 const seen = new Map();
-sheet = sheet.replace(/url\("\.\/([^"?]+\.(?:jpe?g|png|webp))(?:\?v=[^"]*)?"\)/g, (m, file) => {
-  const path = `public/${file}`;
-  if (!existsSync(path)) return m;                 // not ours to version
-  if (!seen.has(file)) seen.set(file, createHash("md5").update(readFileSync(path)).digest("hex").slice(0, 8));
-  return `url("./${file}?v=${seen.get(file)}")`;
-});
-writeFileSync(css, sheet);
-console.log(`versioned ${seen.size} image link(s) in ${css}: ${[...seen.entries()].map(([f, h]) => `${f}@${h}`).join(", ")}`);
+// The stylesheet links pictures as ./file; the golf page links them as /file.
+for (const sheetPath of ["public/styles.css", "public/links.html"]) {
+  let sheet = readFileSync(sheetPath, "utf8");
+  sheet = sheet.replace(/url\("(\.?\/)([^"?]+\.(?:jpe?g|png|webp))(?:\?v=[^"]*)?"\)/g, (m, lead, file) => {
+    const path = `public/${file}`;
+    if (!existsSync(path)) return m;                 // not ours to version
+    if (!seen.has(file)) seen.set(file, createHash("md5").update(readFileSync(path)).digest("hex").slice(0, 8));
+    return `url("${lead}${file}?v=${seen.get(file)}")`;
+  });
+  writeFileSync(sheetPath, sheet);
+}
+console.log(`versioned ${seen.size} image link(s): ${[...seen.entries()].map(([f, h]) => `${f}@${h}`).join(", ")}`);

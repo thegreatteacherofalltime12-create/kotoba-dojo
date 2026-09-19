@@ -178,6 +178,8 @@ function drawWaiting(state) {
 function draw(state) {
   S.state = state;
   if (!state) return;
+  // The photo behind the page is the course being played.
+  document.body.dataset.course = state.phase === "LOBBY" && state.randomCourse ? "" : (state.course?.id || "");
   drawWaiting(state);
   if (state.phase === "LOBBY") return;
 

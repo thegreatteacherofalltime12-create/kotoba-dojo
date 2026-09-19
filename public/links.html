@@ -29,7 +29,18 @@ body{
 /* The course photo, now a real file rather than 90KB of base64 in the page. */
 .bgphoto{
   position:fixed; inset:0; z-index:0; opacity:.35; pointer-events:none;
-  background:url("/links-course.jpg") center 22%/cover no-repeat;
+  background:url("/links-course.jpg?v=c0253c07") center 22%/cover no-repeat;
+}
+/* Each course wears its own photo once the room says which it is; the
+ * generic one stands in until then and for a random draw not yet made. */
+body[data-course="augusta"] .bgphoto{ background-image:url("/links-augusta.jpg?v=216d2aee"); background-position:center 40% }
+body[data-course="pebble"] .bgphoto{ background-image:url("/links-pebble.jpg?v=147b76a3"); background-position:center 45% }
+body[data-course="standrews"] .bgphoto{ background-image:url("/links-standrews.jpg?v=39274506"); background-position:center 55% }
+body[data-course="sawgrass"] .bgphoto{ background-image:url("/links-sawgrass.jpg?v=7a67b5e3"); background-position:center 50% }
+body[data-course="royalmelb"] .bgphoto{ background-image:url("/links-royalmelb.jpg?v=19216ade"); background-position:center 40% }
+body[data-course="kiawah"] .bgphoto{ background-image:url("/links-kiawah.jpg?v=06a3c69e"); background-position:center 55% }
+@media (max-width:700px){
+  body[data-course] .bgphoto{ background-size:cover; background-position:center 30% }
 }
 .bgphoto::after{
   content:""; position:absolute; inset:0;

@@ -169,8 +169,8 @@ export class Commons {
     const rows = Object.values(this.board);
     if (rows.length <= BOARD_CAP) return;
     const keep = new Set();
-    rows.filter((r) => r.prestige > 0)
-      .sort((a, b) => b.prestige - a.prestige).slice(0, OFFICERS_KEEP)
+    rows.filter((r) => r.prestige > 0 || r.retired > 0)
+      .sort((a, b) => (num(b.retired) - num(a.retired)) || (b.prestige - a.prestige)).slice(0, OFFICERS_KEEP)
       .forEach((r) => keep.add(r.uid));
     [...rows].sort((a, b) => num(b.totalPoints) - num(a.totalPoints)).slice(0, TOP_KEEP)
       .forEach((r) => keep.add(r.uid));
@@ -196,16 +196,20 @@ export class Commons {
       best: num(r.bestScore),
       rounds: num(r.roundsPlayed),
       prestige: num(r.prestige),
+      branch: num(r.branch),
+      retired: num(r.retired),
+      spent: num(r.spent),
       cos: r.cosmetics || null,
       feats: r.feats || null,
     }));
-    const officers = rows.filter((r) => r.prestige > 0)
-      .sort((a, b) => b.prestige - a.prestige).slice(0, OFFICERS_KEEP);
+    const officers = rows.filter((r) => r.prestige > 0 || r.retired > 0)
+      .sort((a, b) => (b.retired - a.retired) || (b.prestige - a.prestige)).slice(0, OFFICERS_KEEP);
     const byMmr = [...rows].sort((a, b) => b.mmr - a.mmr).slice(0, RANKINGS_SHOWN);
     const seen = new Map();
     for (const r of [...officers, ...byMmr]) seen.set(r.uid, r);
+    // A retirement outranks any rank: it is a whole ladder climbed.
     return [...seen.values()]
-      .sort((a, b) => (b.prestige - a.prestige) || (b.mmr - a.mmr) || a.name.localeCompare(b.name))
+      .sort((a, b) => (b.retired - a.retired) || (b.prestige - a.prestige) || (b.mmr - a.mmr) || a.name.localeCompare(b.name))
       .slice(0, RANKINGS_SHOWN);
   }
 
@@ -254,7 +258,7 @@ export class Commons {
   hallOfFame() {
     const now = Date.now();
     if (!this.hof || now - this.hof.at >= HOF_EVERY_MS) {
-      const rows = this.rankings().slice(0, 10).map((r) => ({ uid: r.uid, name: r.name, prestige: r.prestige, mmr: r.mmr }));
+      const rows = this.rankings().slice(0, 10).map((r) => ({ uid: r.uid, name: r.name, prestige: r.prestige, mmr: r.mmr, branch: r.branch, retired: r.retired }));
       if (rows.length || !this.hof) this.hof = { at: now, rows };
     }
     return { at: this.hof.at, next: this.hof.at + HOF_EVERY_MS, rows: this.hof.rows };

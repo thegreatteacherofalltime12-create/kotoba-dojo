@@ -3358,3 +3358,13 @@ a.dtab { text-decoration: none; display: inline-block; }
 .achv-chip.tier-legendary { color: #F4CE5A; border-color: #B8860B; }
 .slot.peek { cursor: pointer; }
 .slot.peek:hover { filter: brightness(1.15); }
+
+
+/* ── ranks across the branches, and the Medal of Honor ───────────── */
+.medal-honor { display: inline-flex; align-items: center; gap: .15rem; margin-left: .3rem; vertical-align: middle; }
+.medal-honor svg { height: 1.15rem; width: auto; filter: drop-shadow(0 1px 1px rgba(0,0,0,.6)); }
+.medal-honor b { font-family: var(--display); font-size: .62rem; letter-spacing: .06em; color: #F4CE5A; }
+.pb-insignia .medal-honor { margin-left: .35rem; }
+.pb-retire-btn { background: #3B82F6; border-color: #1D4ED8; color: #fff; }
+.feed-row.retire { background: linear-gradient(90deg, rgba(59,130,246,.16), transparent 70%); border-radius: 6px; }
+.feed-row.retire .fr-t { color: #93C5FD; font-weight: 700; }

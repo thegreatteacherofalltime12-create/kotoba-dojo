@@ -131,6 +131,9 @@ export const PRESTIGE_RANKS = [
  *
  * @param {number} count how many prestiges the player has taken, 1-based
  */
+// The branches beyond the Space Force live in public/ranks.js; this list is
+// the Space Force officer ladder as it always was, kept for the tests and
+// the diagnostic.
 export function prestigeRank(count) {
   const n = Math.max(1, Math.round(count || 1));
   return PRESTIGE_RANKS[Math.min(n, PRESTIGE_RANKS.length) - 1];

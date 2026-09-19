@@ -1,6 +1,6 @@
 import { verifyIdToken } from "./jwt.js";
 import {
-  prestigePlayer, recordMatch, readRatings, saveCosmetics,
+  prestigePlayer, retirePlayer, recordMatch, readRatings, saveCosmetics,
   postChat, postFeed, withdrawWallet, refundWallet,
   publishScroll, listScrolls, lastFirestoreError,
 } from "./firestore.js";
@@ -373,6 +373,16 @@ export default {
         avatar: String(body.avatar || ""), frame: String(body.frame || ""), title: String(body.title || ""),
         banner: String(body.banner || ""), open: body.open === true,
       });
+      return json(result, result.ok ? 200 : 400);
+    }
+
+    // Off the top of a ladder and into the next branch, with the medal.
+    if (path === "/api/retire" && request.method === "POST") {
+      const token = (request.headers.get("Authorization") || "").replace(/^Bearer /, "");
+      let user;
+      try { user = await verifyIdToken(token, env.FIREBASE_PROJECT_ID); }
+      catch { return json({ error: "Sign in first." }, 401); }
+      const result = await retirePlayer(env, user.uid, user.name);
       return json(result, result.ok ? 200 : 400);
     }
 

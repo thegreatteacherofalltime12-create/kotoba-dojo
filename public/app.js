@@ -21,6 +21,7 @@ import { THEMES, applyTheme, savedTheme, themeById, THEME_EPOCH, DEFAULT_THEME, 
 import { enterCasino, leaveCasino, bindCasino } from "./casino.js";
 import { casinoRulesHtml } from "./game-modes.js";
 import { UPDATES, PULSE_HOURS, KEEP_DAYS } from "./whats-new.js";
+import { BRANCHES, branchOf, rankOf, atTop, rankLabel } from "./ranks.js";
 
 /**
  * True where typing summons an on-screen keyboard. Three tests rather than
@@ -565,6 +566,38 @@ function insigniaSvg(n, cls = "insig") {
     ` fill="${fill}" stroke="${stroke}" stroke-width=".9" stroke-linejoin="round"><title>${name}</title>${body}</svg>`;
 }
 
+/**
+ * Enlisted insignia: chevrons up to three, rockers beneath for the next
+ * three, and a star in the middle for the top three grades. Drawn in the
+ * same ink as the officer pips so the two ladders read as one system.
+ */
+function chevronSvg(grade, cls = "insig") {
+  const k = Math.min(Math.max(1, Number(grade) || 1), 9);
+  const chev = Math.min(k, 3), rock = Math.min(Math.max(0, k - 3), 3), star = k >= 7;
+  const [fill, stroke] = INSIG_INK.gold;
+  let body = "";
+  for (let i = 0; i < chev; i++) body += `<path d="M4 ${6 + i * 4.5} L20 ${1 + i * 4.5} L36 ${6 + i * 4.5}" fill="none" stroke-width="2.6"/>`;
+  for (let i = 0; i < rock; i++) body += `<path d="M5 ${17 + i * 3.6} Q20 ${21.5 + i * 3.6} 35 ${17 + i * 3.6}" fill="none" stroke-width="2.4"/>`;
+  if (star) body += `<polygon points="${starPoints(20, 13.5, 3.6, 1.5)}" stroke-width=".8"/>`;
+  return `<svg class="${cls}" viewBox="0 0 40 28" role="img" aria-label="enlisted grade ${k}" fill="${fill}" stroke="${stroke}" stroke-linejoin="round" stroke-linecap="round">${body}</svg>`;
+}
+
+/** The insignia for a rank in any branch. */
+function rankSvg(branch, prestige, cls = "insig") {
+  const r = rankOf(branch, prestige);
+  if (!r) return "";
+  return r.kind === "officer" ? insigniaSvg(r.grade, cls) : chevronSvg(r.grade, cls);
+}
+
+/** The Medal of Honor, with how many times it was earned. */
+function medalSvg(n, cls = "medal-honor") {
+  if (!n) return "";
+  return `<span class="${cls}" title="Medal of Honor \u00d7${n} \u2014 retired ${n} time${n === 1 ? "" : "s"}">` +
+    `<svg viewBox="0 0 24 34" aria-hidden="true"><path d="M6 0h12l-3 12H9z" fill="#3B82F6"/><path d="M9 0h6l-1.5 12h-3z" fill="#E5E7EB"/>` +
+    `<circle cx="12" cy="22" r="9" fill="#E8C15A" stroke="#7A5A12" stroke-width="1"/><polygon points="${starPoints(12, 22, 6, 2.6)}" fill="#7A5A12"/></svg>` +
+    `<b>\u00d7${n}</b></span>`;
+}
+
 /** Insignia beside a name. Empty for the unprestiged. */
 const prestigePip = (n) => {
   if (!n) return "";
@@ -592,14 +625,18 @@ function drawMyRank() {
   $("pb-beltname").textContent = name;
   $("pb-mmr").textContent = mmr.toLocaleString();
 
-  // The insignia beside the rank. The abbreviation is the Space Force one,
-  // GEN for a General and so on down to 2LT.
-  $("pb-insignia").innerHTML = p ? insigniaSvg(p, "insig pb-insig") : "";
-  $("pb-star").textContent = p ? RANK_ABBR[Math.min(p, RANK_ABBR.length) - 1] : "—";
-  $("pb-star").title = p ? prestigeName(p) : "Not yet earned";
+  // The insignia beside the rank, in whichever branch they are climbing,
+  // and the medal for every ladder already climbed.
+  const branch = me?.branch || 0;
+  const rank = rankOf(branch, p);
+  $("pb-insignia").innerHTML = p ? rankSvg(branch, p, "insig pb-insig") + medalSvg(me?.retired || 0) : medalSvg(me?.retired || 0);
+  $("pb-star").textContent = rank ? rank.abbr : "—";
+  $("pb-star").title = rank ? `${rank.name}, ${rank.branch.name}` : "Not yet earned";
 
   $("pb-avatar").innerHTML = framedHtml(avatarHtml(S.avatar, 56, giSvg), S.frame, 56, true);
-  $("btn-prestige").hidden = mmr < PRESTIGE_COST;
+  const top = atTop(branch, p);
+  $("btn-prestige").hidden = mmr < PRESTIGE_COST || top;
+  $("btn-retire").hidden = !top;
   reserveCardSpace();
 }
 
@@ -641,7 +678,7 @@ let cosTab = "robes";
 
 function myStanding() {
   const me = standings.find((r) => r.uid === S.user?.uid);
-  return { mmr: me?.mmr ?? 0, prestige: me?.prestige ?? 0, feats: me?.feats || {} };
+  return { mmr: me?.mmr ?? 0, prestige: me?.prestige ?? 0, retired: me?.retired ?? 0, spent: me?.spent ?? 0, feats: me?.feats || {} };
 }
 
 function drawAvatarPicker() {
@@ -786,10 +823,35 @@ function drawAvatarPicker() {
   render();
 }
 
+$("btn-retire").onclick = async () => {
+  const meRow = standings.find((r) => r.uid === S.user?.uid);
+  const from = branchOf(meRow?.branch || 0);
+  const to = BRANCHES[(BRANCHES.indexOf(from) + 1) % BRANCHES.length];
+  const times = (meRow?.retired || 0) + 1;
+  if (!window.confirm(
+    `Retire from the ${from.name} with the Medal of Honor \u00d7${times}? Your MMR and prestige go back to zero `
+    + `and you enlist in the ${to.name} — everything you have earned (titles, frames, banners) stays yours. `
+    + `This cannot be undone. Continue?`
+  )) return;
+  $("btn-retire").disabled = true;
+  try {
+    const token = await auth.currentUser.getIdToken();
+    const res = await fetch("/api/retire", { method: "POST", headers: { Authorization: `Bearer ${token}` } });
+    const body = await res.json();
+    say("home-error", body.ok ? `Retired with honours. Welcome to the ${body.to}.` : body.error, !body.ok);
+    await loadRankings();
+  } catch (e) {
+    say("home-error", "Couldn't reach the arena. Try again.");
+  } finally {
+    $("btn-retire").disabled = false;
+  }
+};
+
 $("btn-prestige").onclick = async () => {
   // Read from the standings, which is where the prestige count actually lives.
-  const held = standings.find((r) => r.uid === S.user?.uid)?.prestige || 0;
-  const next = prestigeName(held + 1);   // plain text: this goes into a confirm()
+  const meRow = standings.find((r) => r.uid === S.user?.uid);
+  const held = meRow?.prestige || 0;
+  const next = rankLabel(meRow?.branch || 0, held + 1);   // plain text: this goes into a confirm()
   if (!window.confirm(
     `Prestige costs ${PRESTIGE_COST.toLocaleString()} MMR and promotes you to ${next}. `
     + `Anything above the cost stays on your rating. This cannot be undone. Continue?`
@@ -799,7 +861,7 @@ $("btn-prestige").onclick = async () => {
     const token = await auth.currentUser.getIdToken();
     const res = await fetch("/api/prestige", { method: "POST", headers: { Authorization: `Bearer ${token}` } });
     const body = await res.json();
-    say("home-error", body.ok ? `Prestiged. ${prestigeName(held + 1)} unlocked.` : body.error, !body.ok);
+    say("home-error", body.ok ? `Prestiged. ${next} unlocked.` : body.error, !body.ok);
     await loadRankings();
   } catch (e) {
     say("home-error", "Couldn't reach the arena. Try again.");
@@ -891,15 +953,15 @@ function drawStrip() {
   $("strip").innerHTML = standings.map((r, i) => {
     const [, , hex] = belt(r.mmr);
     const wanted = bounty?.holder?.uid === r.uid;
-    const tag = r.prestige
-      ? `<span class="rank-tag">${insigniaSvg(r.prestige)}<span>${prestigeName(r.prestige)}</span></span>`
-      : "";
+    const rk = rankOf(r.branch || 0, r.prestige);
+    const tag = (rk ? `<span class="rank-tag">${rankSvg(r.branch || 0, r.prestige)}<span>${rk.name}${r.branch ? `, ${rk.branch.name}` : ""}</span></span>` : "")
+      + medalSvg(r.retired || 0);
     // What they wear. Frames and banners move only on the podium; everyone
     // else's hold still until they climb into the top three.
     const cos = r.cos || {};
     const worn = cos.title ? titleById(cos.title) : null;
     return `
-      <div class="slot ${i === 0 ? "lead" : ""} ${r.uid === S.user?.uid ? "you2" : ""} ${wanted ? "wanted-slot" : ""} ${r.prestige ? "officer" : ""} ${cos.banner ? "has-banner" : ""}">
+      <div class="slot ${i === 0 ? "lead" : ""} ${r.uid === S.user?.uid ? "you2" : ""} ${wanted ? "wanted-slot" : ""} ${r.prestige || r.retired ? "officer" : ""} ${cos.banner ? "has-banner" : ""}">
         ${cos.banner ? bannerHtml(cos.banner, i < 3) : ""}
         <span class="sr">${MEDALS[i] ? `<span class="medal" title="${["Champion", "Second", "Third"][i]}">${MEDALS[i]}</span>` : ordinal(i + 1)}</span>
         ${wanted ? `<span class="sb-target">\u{1F3AF}</span>` : ""}
@@ -929,7 +991,7 @@ function drawStrip() {
 let achvTab = "earned";
 
 function standingOf(row) {
-  return { mmr: row?.mmr ?? 0, prestige: row?.prestige ?? 0, feats: row?.feats || {} };
+  return { mmr: row?.mmr ?? 0, prestige: row?.prestige ?? 0, retired: row?.retired ?? 0, spent: row?.spent ?? 0, feats: row?.feats || {} };
 }
 
 function achievementsHtml(row, mine) {
@@ -942,7 +1004,7 @@ function achievementsHtml(row, mine) {
       ${framedHtml(gi(cos.avatar || "white", 56), cos.frame || "none", 56, true)}
       <div>
         <div class="achv-name">${escapeHtml(row?.name || S.user?.displayName || "Student")}</div>
-        <div class="achv-sub">${cos.title ? escapeHtml(titleById(cos.title)?.name || "") + " · " : ""}${st.prestige ? `${prestigeName(st.prestige)} · ` : ""}${lifetime(st).toLocaleString()} lifetime MMR</div>
+        <div class="achv-sub">${cos.title ? escapeHtml(titleById(cos.title)?.name || "") + " · " : ""}${st.prestige ? `${rankLabel(row?.branch || 0, st.prestige)} · ` : ""}${row?.retired ? `Medal of Honor ×${row.retired} · ` : ""}${lifetime(st).toLocaleString()} lifetime MMR</div>
       </div>
       ${mine ? `
         <button class="achv-open ${S.open ? "is-public" : ""}" id="achv-open" title="Who can see this record">
@@ -970,7 +1032,15 @@ function achievementsHtml(row, mine) {
       <div class="belt-row"><span class="bn">${s.label}</span><span class="bt">${s.value.toLocaleString()}</span></div>`).join("")}</div>`
       : `<p class="panel-sub">Nothing on the record yet. Play something.</p>`;
   } else {
-    body = `<p class="panel-sub">Fighters who reached General and retired from the Space Force will be listed here, with their Medal of Honor. Nobody has yet.</p>`;
+    const stars = standings.filter((r) => r.retired > 0).sort((a, b) => b.retired - a.retired);
+    body = stars.length ? `
+      <p class="panel-sub">Fighters who climbed a whole ladder and retired with the Medal of Honor.</p>
+      <div class="belt-rows">${stars.map((r) => `
+        <div class="belt-row ${r.uid === S.user?.uid ? "is-mine" : ""}">
+          <span class="bn">${escapeHtml(r.name)} ${medalSvg(r.retired)}</span>
+          <span class="bt">now ${rankLabel(r.branch || 0, r.prestige) || `enlisting, ${branchOf(r.branch || 0).name}`}</span>
+        </div>`).join("")}</div>`
+      : `<p class="panel-sub">Fighters who reach the top of a ladder and retire will be listed here with their Medal of Honor. Nobody has yet.</p>`;
   }
   return head + strip + body;
 }
@@ -1768,7 +1838,7 @@ async function drawHallOfFame(host) {
       ${hof.rows.length ? `<div class="belt-rows hof-rows">${hof.rows.map((r, i) => `
         <div class="belt-row ${r.uid === S.user?.uid ? "is-mine" : ""}">
           <span class="rec-rank">${i + 1}</span>
-          <span class="bn">${escapeHtml(r.name)}${r.prestige ? `<span class="rank-tag">${insigniaSvg(r.prestige)}<span>${prestigeName(r.prestige)}</span></span>` : ""}</span>
+          <span class="bn">${escapeHtml(r.name)}${r.prestige ? `<span class="rank-tag">${rankSvg(r.branch || 0, r.prestige)}<span>${rankLabel(r.branch || 0, r.prestige)}</span></span>` : ""}${medalSvg(r.retired || 0)}</span>
           <span class="bt">${r.prestige ? `P${r.prestige} · ` : ""}${r.mmr.toLocaleString()} MMR</span>
         </div>`).join("")}</div>`
         : `<p class="panel-sub">The hall is empty until the first cut.</p>`}
@@ -2015,7 +2085,7 @@ function drawNewsInner(host) {
 let commonsTab = "chat";
 let commonsPoll = null;
 
-const KIND_PIP = { game: "\u{1F3C6}", prestige: "\u2B50", award: "\u{1F396}\uFE0F", note: "\u{1F4E3}" };
+const KIND_PIP = { game: "\u{1F3C6}", prestige: "\u2B50", retire: "\u{1F396}\uFE0F", award: "\u{1F396}\uFE0F", note: "\u{1F4E3}" };
 
 function ago(iso) {
   if (!iso) return "";
@@ -2054,7 +2124,7 @@ async function loadFeed() {
   } catch { rows = null; }
 
   if (rows) {
-    const promoted = rows.filter((r) => r.kind === "prestige");
+    const promoted = rows.filter((r) => r.kind === "prestige" || r.kind === "retire");
     const newest = Math.max(0, ...promoted.map((r) => new Date(r.at).getTime() || 0));
     if (feedInView()) markFeedRead(rows);
     else if (newest > feedSeen) $("ct-feed")?.classList.add("unread");

@@ -12,6 +12,7 @@
 import { tellCommons } from "./commons-notify.js";
 import { allowed, featsFor, isMark, BIG_BANK } from "../public/cosmetics.js";
 import { GI_COLORS } from "../public/arena.js";
+import { rankOf, atTop, nextBranch, branchOf } from "../public/ranks.js";
 
 let tokenCache = { token: null, expiresAt: 0 };
 
@@ -132,6 +133,9 @@ function boardRow(doc) {
     bestScore: n("bestScore"),
     lastRate: n("lastRate"),
     prestige: n("prestige"),
+    branch: n("branch"),
+    retired: n("retired"),
+    spent: n("spent"),
     insignia: f.insignia?.stringValue || "",
     cosmetics: cosmeticsOf(f.cosmetics),
     feats: featsOf(f.feats),
@@ -178,6 +182,8 @@ export async function saveCosmetics(env, uid, name, cos) {
   const standing = {
     mmr: Number(doc?.fields?.totalPoints?.integerValue || 0),
     prestige: Number(doc?.fields?.prestige?.integerValue || 0),
+    retired: Number(doc?.fields?.retired?.integerValue || 0),
+    spent: Number(doc?.fields?.spent?.integerValue || 0),
     feats: featsOf(doc?.fields?.feats) || {},
   };
   const wear = allowed(cos, standing, GI_COLORS.map((g) => g.id));
@@ -255,16 +261,23 @@ export async function prestigePlayer(env, uid, name) {
   const doc = read.ok ? await read.json() : null;
   const mmr = Number(doc?.fields?.totalPoints?.integerValue || 0);
   const already = Number(doc?.fields?.prestige?.integerValue || 0);
+  const branch = Number(doc?.fields?.branch?.integerValue || 0);
 
-  const { canPrestige, prestigeInsignia, PRESTIGE_COST } = await import("./mmr.js");
+  const { canPrestige, PRESTIGE_COST } = await import("./mmr.js");
   if (!canPrestige(mmr)) {
     return {
       ok: false,
       error: `Prestige costs ${PRESTIGE_COST.toLocaleString()} MMR. You're at ${mmr.toLocaleString()}.`,
     };
   }
+  // The top of a ladder is the top. The way on is to retire.
+  if (atTop(branch, already)) {
+    const top = rankOf(branch, already);
+    return { ok: false, error: `You hold the top rank of the ${top.branch.name} — ${top.name}. Retire to keep climbing.`, atTop: true };
+  }
 
-  const rank = prestigeInsignia(already + 1);
+  const next = rankOf(branch, already + 1);
+  const rank = `${next.name}`;
   // One write: the fields and the increments land on the document together,
   // which is one write billed rather than two.
   const res = await fetch(`https://firestore.googleapis.com/v1/${base(env)}:commit`, {
@@ -274,9 +287,9 @@ export async function prestigePlayer(env, uid, name) {
       writes: [{
         update: {
           name: path,
-          fields: { uid: S(uid), name: S(name || "Unknown"), insignia: S(rank) },
+          fields: { uid: S(uid), name: S(name || "Unknown"), insignia: S(rank), branch: I(branch) },
         },
-        updateMask: { fieldPaths: ["uid", "name", "insignia"] },
+        updateMask: { fieldPaths: ["uid", "name", "insignia", "branch"] },
         updateTransforms: [
           // Negative increments are how Firestore spends a balance.
           { fieldPath: "totalPoints", increment: I(-PRESTIGE_COST) },
@@ -290,17 +303,82 @@ export async function prestigePlayer(env, uid, name) {
   const got = transformNumbers(await res.json().catch(() => null), 0, 2);
   await (got
     ? tellCommons(env, "/board/upsert", {
-      rows: [{ uid, name: name || "Unknown", insignia: rank, totalPoints: got[0], prestige: got[1] }],
+      rows: [{ uid, name: name || "Unknown", insignia: rank, branch, totalPoints: got[0], prestige: got[1] }],
     })
     : tellCommons(env, "/dirty", {}));
 
   postFeed(env, {
     kind: "prestige", name: name || "Someone",
-    text: `${name || "Someone"} was promoted to ${rank}`,
+    text: `${name || "Someone"} was promoted to ${rank}${branch ? `, ${next.branch.name}` : ""}`,
     detail: `Prestige ${already + 1} \u00b7 ${PRESTIGE_COST.toLocaleString()} MMR spent`,
   }).catch(() => {});
 
   return { ok: true, insignia: rank, spent: PRESTIGE_COST, remaining: mmr - PRESTIGE_COST };
+}
+
+/**
+ * Retirement: only from the top rank of a branch. The Medal of Honor count
+ * goes up by one, what the whole ladder cost is banked as lifetime MMR so
+ * no title or frame is lost, and MMR and prestige go back to zero in the
+ * next branch. One read, one write.
+ */
+export async function retirePlayer(env, uid, name) {
+  const token = await accessToken(env);
+  if (!token) return { ok: false, error: "Ranked scoring isn't switched on for this arena yet." };
+
+  const path = `${base(env)}/leaderboard/${uid}`;
+  const read = await fetch(`https://firestore.googleapis.com/v1/${path}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const doc = read.ok ? await read.json() : null;
+  const mmr = Number(doc?.fields?.totalPoints?.integerValue || 0);
+  const prestige = Number(doc?.fields?.prestige?.integerValue || 0);
+  const branch = Number(doc?.fields?.branch?.integerValue || 0);
+  if (!atTop(branch, prestige)) {
+    return { ok: false, error: `Retirement is for the top rank of the ${branchOf(branch).name} only.` };
+  }
+
+  const { PRESTIGE_COST } = await import("./mmr.js");
+  const from = branchOf(branch);
+  const to = branchOf(nextBranch(branch));
+  const earned = prestige * PRESTIGE_COST + Math.max(0, mmr);
+  const res = await fetch(`https://firestore.googleapis.com/v1/${base(env)}:commit`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      writes: [{
+        update: {
+          name: path,
+          fields: {
+            uid: S(uid), name: S(name || "Unknown"),
+            totalPoints: I(0), prestige: I(0), branch: I(nextBranch(branch)), insignia: S(""),
+          },
+        },
+        updateMask: { fieldPaths: ["uid", "name", "totalPoints", "prestige", "branch", "insignia"] },
+        updateTransforms: [
+          { fieldPath: "retired", increment: I(1) },
+          { fieldPath: "spent", increment: I(earned) },
+        ],
+      }],
+    }),
+  });
+  if (!res.ok) return { ok: false, error: "Firestore refused the write." };
+
+  const got = transformNumbers(await res.json().catch(() => null), 0, 2);
+  const retired = got ? got[0] : null;
+  await (got
+    ? tellCommons(env, "/board/upsert", {
+      rows: [{ uid, name: name || "Unknown", insignia: "", totalPoints: 0, prestige: 0, branch: nextBranch(branch), retired: got[0], spent: got[1] }],
+    })
+    : tellCommons(env, "/dirty", {}));
+
+  postFeed(env, {
+    kind: "retire", name: name || "Someone",
+    text: `${name || "Someone"} retired from the ${from.name} with the Medal of Honor${retired > 1 ? ` \u00d7${retired}` : ""}`,
+    detail: `${from.emoji} ${rankOf(branch, prestige).name} \u2192 ${to.emoji} enlists in the ${to.name}`,
+  }).catch(() => {});
+
+  return { ok: true, retired, branch: nextBranch(branch), to: to.name };
 }
 
 /**

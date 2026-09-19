@@ -88,13 +88,13 @@ ok("twenty-four rows at most", standings.length === 24);
 ok("officers first, by prestige then MMR", standings.slice(0, 3).map((r) => r.uid).join() === "o1,o3,o2");
 ok("then everyone else by MMR", standings[3].uid === "p0" && standings[23].uid === "p20");
 ok("exactly the fields the client reads",
-  standings.every((r) => Object.keys(r).sort().join() === "best,cos,feats,mmr,name,prestige,rounds,uid"));
+  standings.every((r) => Object.keys(r).sort().join() === "best,branch,cos,feats,mmr,name,prestige,retired,rounds,spent,uid"));
 
 // The client's old merge, ported, on the same board: the room must agree.
 function clientMerge(board) {
   const all = board.map((v) => ({
     uid: v.uid, name: v.name || "Unknown", mmr: v.totalPoints || 0,
-    best: v.bestScore || 0, rounds: v.roundsPlayed || 0, prestige: v.prestige || 0, cos: null, feats: null,
+    best: v.bestScore || 0, rounds: v.roundsPlayed || 0, prestige: v.prestige || 0, branch: 0, retired: 0, spent: 0, cos: null, feats: null,
   }));
   const officers = all.filter((r) => r.prestige > 0).sort((a, b) => b.prestige - a.prestige).slice(0, 60);
   const byMmr = [...all].sort((a, b) => b.mmr - a.mmr).slice(0, 24);

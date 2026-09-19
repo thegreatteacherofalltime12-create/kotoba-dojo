@@ -44,6 +44,12 @@ ok("a promotion never costs a title", titleEarned("grandmaster", { mmr: 0, prest
 ok("prestige titles need prestige, not points", !titleEarned("officer", { mmr: 9000, prestige: 0 }) && titleEarned("officer", { mmr: 0, prestige: 1 }));
 ok("the need reads plainly", needText({ mmr: 1200 }) === "1,200 lifetime MMR" && needText({ prestige: 3 }) === "Prestige 3" && needText({}) === "Free");
 
+console.log("\nretirement");
+ok("a retiree keeps every lifetime-MMR title", titleEarned("grandmaster", { mmr: 0, prestige: 0, retired: 1, spent: 30000 }));
+ok("and every prestige-gated one", titleEarned("general", { mmr: 0, prestige: 0, retired: 1 }) && titleEarned("officer", { mmr: 0, prestige: 0, retired: 1 }));
+ok("legendary frames stay open after retiring", frameEarned("pulse-ring", { mmr: 0, prestige: 0, retired: 1 }));
+ok("lifetime counts what earlier ladders cost", lifetime({ mmr: 100, prestige: 2, spent: 30000 }) === 36100);
+
 console.log("\nthe gate");
 const low = { mmr: 50, prestige: 0 };
 let kept = allowed({ avatar: "e:🐉", frame: "lightning", title: "admiral" }, low, gis);

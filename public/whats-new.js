@@ -17,6 +17,18 @@ export const KEEP_DAYS = 7;
 
 export const UPDATES = [
   {
+    at: "2026-09-19T17:00:00Z",
+    where: "Prestige",
+    title: "Retire with honours",
+    text: "Reach General and a blue button appears on your card: retire from the Space Force with the "
+      + "Medal of Honor beside your name, your MMR and prestige go back to zero, and you enlist in the "
+      + "Army \u2014 nine enlisted ranks, then ten officer ranks \u2014 then the Navy, the Marine Corps, "
+      + "the Air Force and the Coast Guard. Every title, frame and banner you earned stays yours; "
+      + "lifetime MMR counts every ladder climbed. Each retirement adds one to the medal (\u00d71, "
+      + "\u00d72\u2026), the rankings put retirees first, and Retired All Stars in Achievements "
+      + "lists them. Golf courses now wear their own photos.",
+  },
+  {
     at: "2026-09-19T03:20:00Z",
     where: "Everywhere",
     title: "Achievements, record books, and a tidier Create Match",

@@ -11,7 +11,9 @@
 // cost a title along with it.
 
 export const PRESTIGE_COST = 3000;
-export const lifetime = ({ mmr = 0, prestige = 0 } = {}) => (mmr || 0) + (prestige || 0) * PRESTIGE_COST;
+export const lifetime = ({ mmr = 0, prestige = 0, spent = 0 } = {}) => (mmr || 0) + (prestige || 0) * PRESTIGE_COST + (spent || 0);
+/** Prestiges counted across retirements: a retiree has climbed past General. */
+export const prestigeEver = (standing) => (standing?.prestige || 0) + (standing?.retired || 0) * 10;
 
 // ── avatars ────────────────────────────────────────────────────────────
 //
@@ -228,7 +230,7 @@ export const titleById = (id) => TITLES.find((t) => t.id === id) || null;
 /** Whether a `need` is met by a standing. */
 export function meets(need, standing) {
   const life = lifetime(standing);
-  return life >= (need?.mmr || 0) && (standing?.prestige || 0) >= (need?.prestige || 0);
+  return life >= (need?.mmr || 0) && prestigeEver(standing) >= (need?.prestige || 0);
 }
 
 /** How a `need` reads to a player who has not met it. */

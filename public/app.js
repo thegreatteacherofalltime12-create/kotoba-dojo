@@ -971,7 +971,7 @@ function drawRuleBelts(tab = "arena") {
           <h3>The maths arcade</h3>
           <p class="lede2">In the Casino, under Earn Money Here. The quickest MMR in the arena.</p>
           <div class="belt-rows">
-            <div class="belt-row"><span class="bn">Under 10 seconds</span><span class="bt">50 MMR</span></div>
+            <div class="belt-row"><span class="bn">Under 7 seconds</span><span class="bt">50 MMR</span></div>
             <div class="belt-row"><span class="bn">15 seconds</span><span class="bt">25 MMR</span></div>
             <div class="belt-row"><span class="bn">20 seconds</span><span class="bt">17 MMR</span></div>
             <div class="belt-row"><span class="bn">25 seconds</span><span class="bt">8 MMR</span></div>
@@ -980,7 +980,7 @@ function drawRuleBelts(tab = "arena") {
           <ul style="margin-top:.6rem">
             <li><b>50 MMR</b> is the most a single puzzle can pay.</li>
             <li>The award falls evenly across <b>thirty seconds</b> from the moment the puzzle appears.</li>
-            <li>Solving inside <b>ten seconds</b> multiplies it by <b>1.5</b>, which reaches the cap.</li>
+            <li>Solving inside <b>seven seconds</b> multiplies it by <b>1.5</b>, which reaches the cap.</li>
             <li>A wrong answer ends that puzzle. Take another.</li>
             <li>Ten seconds pass before the next is offered.</li>
             <li>The arena sets the puzzle, keeps the answer and times the solve on its own clock, so the award is the same wherever you play.</li>
@@ -1084,7 +1084,7 @@ export function openPoints() {
           <section class="rulebox">
             <h3 class="rulebox-h">Maths arcade</h3>
             ${table([
-              ["Solve inside 10 seconds", "50"],
+              ["Solve inside 7 seconds", "50"],
               ["15 seconds", "25"],
               ["20 seconds", "17"],
               ["30 seconds or more", "0"],
@@ -1338,6 +1338,9 @@ function closePanel(panel, tab) {
 }
 const closeCreate = () => closePanel("drawer-create", "tab-create");
 
+// One tile per game: tap it and the room opens. Nothing to read first.
+const GAME_ICONS = { crossword: "\u{1F520}", battleship: "\u2693", minesweeper: "\u{1F4A3}", casino: "\u{1F3B0}", links: "\u26F3" };
+
 function drawCreate() {
   $("drawer-create").innerHTML = `
     <div class="modal-back" data-close></div>
@@ -1347,19 +1350,18 @@ function drawCreate() {
         <button class="modal-close" data-close aria-label="Close">&times;</button>
       </div>
       <div class="modal-body">
-      <p class="panel-sub">Pick what you want to run. Solo training opens a private dojo just for you.</p>
-      <div class="modecards">
-        ${GAME_MODES.map((m) => `
-          <div class="modecard ${m.available ? "" : "soon"}">
-            <div class="mc-top">
-              <span class="mc-name">${m.name}</span>
-              <span class="mc-players">${m.players}</span>
-            </div>
-            <p class="mc-blurb">${m.blurb}</p>
-            ${m.available
-              ? `<button class="btn btn-primary btn-small" data-mode="${m.id}" data-kind="${m.kind}" data-game="${m.game || "crossword"}">Start</button>`
-              : `<span class="mc-soon">Coming soon</span>`}
-          </div>`).join("")}
+      <div class="gamegrid">
+        ${GAME_MODES.map((m) => m.available
+          ? `<button class="gamepick" data-mode="${m.id}" data-kind="${m.kind}" data-game="${m.game || "crossword"}">
+              <span class="gp-ico" aria-hidden="true">${GAME_ICONS[m.game || "crossword"] || "\u{1F3AE}"}</span>
+              <span class="gp-name">${m.name}</span>
+              <span class="gp-players">${m.players}</span>
+            </button>`
+          : `<div class="gamepick soon">
+              <span class="gp-ico" aria-hidden="true">${GAME_ICONS[m.game || "crossword"] || "\u{1F3AE}"}</span>
+              <span class="gp-name">${m.name}</span>
+              <span class="gp-players">Coming soon</span>
+            </div>`).join("")}
       </div>
       </div>
     </div>`;
@@ -1531,7 +1533,7 @@ async function loadRecords(tab = "arena") {
             <li>Fastest ten-word grid, per archive and difficulty.</li>
             <li>Longest run of clears without a loss.</li>
             <li>Most ships sunk in a single Battleship Royale.</li>
-            <li>Best maths arcade streak inside ten seconds.</li>
+            <li>Best maths arcade streak inside seven seconds.</li>
           </ul>
         </div>
       </div>

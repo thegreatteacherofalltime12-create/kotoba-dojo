@@ -295,7 +295,9 @@ function over(msg) {
     card.append(line);
   }
   card.append(el("p", "", winner ? `${winner.name} takes it.` : ""));
-  const again = el("button", "btn go", "Back to the arena");
+  // The same red button as the one at the top: the round is over, and this
+  // is how you leave it.
+  const again = el("button", "btn end", "Officially end round");
   again.onclick = () => { location.href = "/"; };
   card.append(again);
   $("play").after(card);

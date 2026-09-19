@@ -7,20 +7,35 @@
 
 export const MAX_AWARD = 50;
 export const LIMIT_MS = 30_000;   // after this a solve is worth nothing
-export const FAST_MS = 10_000;    // under this earns the bonus
+export const FAST_MS = 7_000;     // under this earns the bonus
 export const FAST_MULTIPLIER = 1.5;
 
-/** A first-grade sum. Subtraction never goes below zero. */
+/**
+ * A first- or second-grade sum, half and half. First grade stays within
+ * ten; second grade adds and takes away within a hundred and multiplies
+ * the small tables. Subtraction never goes below zero.
+ */
 export function makePuzzle() {
-  const add = Math.random() < 0.6;
-  if (add) {
-    const a = 1 + Math.floor(Math.random() * 9);
-    const b = 1 + Math.floor(Math.random() * 9);
-    return { text: `${a} + ${b}`, answer: a + b };
+  const r = (lo, hi) => lo + Math.floor(Math.random() * (hi - lo + 1));
+  if (Math.random() < 0.5) {
+    if (Math.random() < 0.6) {
+      const a = r(1, 9), b = r(1, 9);
+      return { text: `${a} + ${b}`, answer: a + b, grade: 1 };
+    }
+    const a = r(2, 9), b = r(1, a);
+    return { text: `${a} \u2212 ${b}`, answer: a - b, grade: 1 };
   }
-  const a = 2 + Math.floor(Math.random() * 8);
-  const b = 1 + Math.floor(Math.random() * a);
-  return { text: `${a} \u2212 ${b}`, answer: a - b };
+  const kind = Math.random();
+  if (kind < 0.4) {
+    const a = r(10, 89), b = r(2, 99 - a);
+    return { text: `${a} + ${b}`, answer: a + b, grade: 2 };
+  }
+  if (kind < 0.75) {
+    const a = r(11, 99), b = r(2, a - 1);
+    return { text: `${a} \u2212 ${b}`, answer: a - b, grade: 2 };
+  }
+  const a = r(2, 5), b = r(2, 9);
+  return { text: `${a} \u00d7 ${b}`, answer: a * b, grade: 2 };
 }
 
 /**

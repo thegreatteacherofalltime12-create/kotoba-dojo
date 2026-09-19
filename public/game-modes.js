@@ -20,7 +20,7 @@ export function casinoRulesHtml() {
       <h3><span aria-hidden="true">&#128176;</span> Money, and where it comes from</h3>
       <p><b>Earn Money</b> on the floor bar opens the arcade. Each correct sum pays
       <b>$5 to $15</b> in cash, <b>1 token</b>, and up to <b>50 MMR</b> &mdash; the MMR
-      falls away evenly across thirty seconds, and solving inside ten seconds
+      falls away evenly across thirty seconds, and solving inside seven seconds
       multiplies it by one and a half.</p>
       <p><b>Tokens</b> are what buy you a seat. Every table costs <b>1 token</b> to play
       &mdash; blackjack, roulette, baccarat, hi-lo, five-card, three-card, Hold'em, Pai Gow,

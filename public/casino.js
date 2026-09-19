@@ -227,13 +227,11 @@ function drawTrack(f) {
   host.textContent = "";
   const fav = f.race.favourite;
 
-  // Said in words as well as marked on the card. A ribbon is easy to miss, and
-  // which horse is fancied today is the most useful thing on the track.
+  // Which horse is fancied is not said aloud any more — the ribbon on the
+  // card is the only tell. The clock to the next favourite stays.
   if (fav) {
-    const h = horse(fav);
     const bar = el("p", "ftoday");
-    bar.append(el("span", "ftoday-r", "\u{1F397}\uFE0F"));
-    bar.append(el("span", "", `Favourite: ${h.rank}${h.pip} ${h.name}`));
+    bar.append(el("span", "ftoday-r", "\u23F3"));
     if (f.race.favouriteEndsAt) {
       const left = Math.max(0, f.race.favouriteEndsAt - Date.now());
       const hrs = Math.floor(left / 3600_000);

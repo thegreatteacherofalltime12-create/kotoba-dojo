@@ -17,6 +17,15 @@ export const KEEP_DAYS = 7;
 
 export const UPDATES = [
   {
+    at: "2026-09-19T18:30:00Z",
+    where: "Conduct",
+    title: "The chats are screened",
+    text: "Every line in the arena chat and the game chats is checked before it is posted \u2014 no "
+      + "links or pictures, nothing sexual, hateful or abusive. A refused line is a strike and you are "
+      + "told why; three strikes and the account is removed from the arena, with one request for "
+      + "review to the admin. The rule book has the full Conduct section.",
+  },
+  {
     at: "2026-09-19T17:30:00Z",
     where: "Casino",
     title: "Wins on the floor pay MMR",

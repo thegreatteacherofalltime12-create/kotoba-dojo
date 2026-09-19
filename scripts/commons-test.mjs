@@ -151,6 +151,32 @@ room.hof.at -= 92 * 24 * 3600_000;
 ok("and moves when one is due", (await get("/records")).hallOfFame.rows[0].uid === "zz");
 delete room.board.zz;
 
+console.log("\nconduct");
+const rep = (uid, strikes, reason = "sexual content") => post("/report", { uid, name: uid.toUpperCase(), text: "…", reason, where: "arena chat", at: Date.now(), strikes });
+await rep("bad", 1); await rep("bad", 2);
+ok("two strikes and still in", !(await get("/banned?uid=bad")).banned);
+await rep("bad", 3);
+const b = await get("/banned?uid=bad");
+ok("the third strike bars", b.banned && /3 strikes/.test(b.reason));
+ok("the barred can appeal, others cannot",
+  (await post("/appeal", { uid: "bad", name: "BAD", text: "sorry" })).ok && (await post("/appeal", { uid: "calm", name: "C", text: "?" })).status === 400);
+let desk = await get("/reports");
+ok("the desk lists the lines, the bar and the appeal",
+  desk.reports.filter((r) => r.uid === "bad").length === 3 && desk.bans.bad && desk.appeals.bad?.text === "sorry");
+ok("and counts what the admin has not seen", desk.unseen >= 4);
+await post("/seen", {});
+ok("seen is seen", (await get("/reports")).unseen === 0);
+await post("/act", { uid: "bad", action: "deny", by: "admin" });
+ok("a denied appeal is gone and the bar stays", !(await get("/reports")).appeals.bad && (await get("/banned?uid=bad")).banned);
+await post("/act", { uid: "bad", action: "unbar", by: "admin" });
+ok("unbarred is back in", !(await get("/banned?uid=bad")).banned);
+await post("/act", { uid: "p9", action: "bar", by: "admin" });
+ok("the admin can bar by hand", (await get("/banned?uid=p9")).banned && /admin/.test((await get("/banned?uid=p9")).reason));
+await post("/act", { uid: "p9", action: "clear", by: "admin" });
+ok("clear lifts the bar and wipes the lines", !(await get("/banned?uid=p9")).banned);
+ok("a nonsense action is refused", (await post("/act", { uid: "p9", action: "smite" })).status === 400);
+ok("the record survives a reload", (state._store.get("mod").reports.length >= 3));
+
 console.log("\npruning");
 const many = [];
 for (let i = 0; i < 260; i++) many.push({ uid: `m${i}`, name: `M${i}`, totalPoints: i, roundsPlayed: 1, bestScore: 1, prestige: i % 50 === 0 ? 1 : 0 });

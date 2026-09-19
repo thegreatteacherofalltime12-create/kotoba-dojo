@@ -317,6 +317,50 @@ export async function prestigePlayer(env, uid, name) {
 }
 
 /**
+ * A strike against a player for a line the arena refused. Counted on the
+ * board row, and the room hears the line, the reason and the count so the
+ * admin can read it and the bar can fall at three.
+ */
+export async function strikePlayer(env, uid, name, { text, reason, where }) {
+  const token = await accessToken(env);
+  let strikes = null;
+  if (token) {
+    const res = await fetch(`https://firestore.googleapis.com/v1/${base(env)}:commit`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        writes: [{
+          update: { name: `${base(env)}/leaderboard/${uid}`, fields: { uid: S(uid), name: S(name || "Player") } },
+          updateMask: { fieldPaths: ["uid", "name"] },
+          updateTransforms: [{ fieldPath: "strikes", increment: I(1) }],
+        }],
+      }),
+    });
+    if (res.ok) { const got = transformNumbers(await res.json().catch(() => null), 0, 1); strikes = got ? got[0] : null; }
+    else fail(`Firestore refused a strike (${res.status})`);
+  }
+  await tellCommons(env, "/report", { uid, name: name || "Player", text: String(text || "").slice(0, 300), reason, where, at: Date.now(), strikes });
+  return strikes;
+}
+
+/** Strikes back to zero — the admin let them back in. */
+export async function clearStrikes(env, uid) {
+  const token = await accessToken(env);
+  if (!token) return false;
+  const res = await fetch(`https://firestore.googleapis.com/v1/${base(env)}:commit`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      writes: [{
+        update: { name: `${base(env)}/leaderboard/${uid}`, fields: { strikes: I(0) } },
+        updateMask: { fieldPaths: ["strikes"] },
+      }],
+    }),
+  });
+  return res.ok;
+}
+
+/**
  * A flat award of MMR outside a match — the casino's five a win. One write
  * onto the board row, with the tally of such wins kept beside it, and the
  * room told the total that came back.

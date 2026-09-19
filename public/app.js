@@ -300,6 +300,7 @@ onAuthStateChanged(auth, async (user) => {
     loadAvatar();
     loadBank();
     loadScrolls();
+    askStanding();
   } catch (err) {
     window.__fault("Signed in, but the app couldn't start", "The browser console has the details.", err.message);
   }
@@ -823,6 +824,120 @@ function drawAvatarPicker() {
   render();
 }
 
+// ── conduct: the barred, and the admin's desk ───────────────────────
+//
+// After sign-in the arena is asked where you stand. A barred player sees a
+// notice over the home screen with one way back: a request for review,
+// which the admin approves or denies. The admin sees a Reports button on
+// their card that pulses while there is something unread.
+let adminPoll = null;
+
+async function askStanding() {
+  try {
+    const res = await fetch("/api/me", { headers: { Authorization: `Bearer ${await idToken()}` } });
+    const me = await res.json();
+    if (me.banned) drawBarred(me);
+    else $("barred")?.remove();
+    S.admin = !!me.admin;
+    $("btn-reports").hidden = !S.admin;
+    clearInterval(adminPoll);
+    if (S.admin) { checkReports(); adminPoll = setInterval(() => { if (!document.hidden) checkReports(); }, 60_000); }
+  } catch { /* the arena is unreachable; nothing to gate on */ }
+}
+
+function drawBarred(me) {
+  let host = $("barred");
+  if (!host) { host = el("div", "barred"); host.id = "barred"; document.body.append(host); }
+  const asked = me.appeal;
+  host.innerHTML = `
+    <div class="barred-card">
+      <h2>⛔ You have been removed from the arena</h2>
+      <p class="panel-sub">${escapeHtml(me.reason || "Conduct")} · ${new Date(me.at || Date.now()).toLocaleDateString()}</p>
+      <p>The rule book is short on this: rude, pornographic, abusive or soliciting behaviour means removal. Three refused lines is automatic.</p>
+      ${asked
+        ? `<p class="barred-asked">Your request for review was sent ${ago(new Date(asked.at).toISOString())}. The admin will look at it.</p>`
+        : `<label class="barred-l">Ask for a review</label>
+           <textarea id="appeal-text" maxlength="600" rows="4" placeholder="Say what happened and why you should be let back in."></textarea>
+           <button id="appeal-send" class="btn btn-primary">Send the request</button>`}
+      <button id="appeal-out" class="btn btn-quiet">Log out</button>
+    </div>`;
+  $("appeal-out").onclick = () => { closeSocket(); signOut(auth); };
+  if ($("appeal-send")) $("appeal-send").onclick = async () => {
+    const text = $("appeal-text").value.trim();
+    if (text.length < 10) return;
+    $("appeal-send").disabled = true;
+    try {
+      await fetch("/api/appeal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${await idToken()}` },
+        body: JSON.stringify({ text }),
+      });
+    } catch { /* fall through to the re-ask */ }
+    askStanding();
+  };
+}
+
+async function checkReports() {
+  try {
+    const res = await fetch("/api/admin/reports", { headers: { Authorization: `Bearer ${await idToken()}` } });
+    const desk = await res.json();
+    $("btn-reports").classList.toggle("pulse", (desk.unseen || 0) > 0);
+    $("btn-reports").textContent = desk.unseen ? `⚠️ Reports (${desk.unseen})` : "⚠️ Reports";
+  } catch { /* next minute */ }
+}
+
+async function drawReports() {
+  const host = $("avatar-modal");
+  host.hidden = false;
+  host.innerHTML = `<div class="modal-back" data-close></div><div class="modal-card reports-card"><div class="modal-head"><h2>⚠️ Reports</h2><button class="modal-close" data-close aria-label="Close">&times;</button></div><div class="modal-body"><p class="panel-sub">Reading the desk&hellip;</p></div></div>`;
+  const close = () => { host.hidden = true; host.textContent = ""; };
+  host.querySelectorAll("[data-close]").forEach((n) => { n.onclick = close; });
+  let desk;
+  try {
+    const res = await fetch("/api/admin/reports", { method: "POST", headers: { Authorization: `Bearer ${await idToken()}` } });
+    desk = await res.json();
+  } catch { desk = { reports: [], bans: {}, appeals: {} }; }
+  $("btn-reports").classList.remove("pulse");
+  $("btn-reports").textContent = "⚠️ Reports";
+
+  const act = async (uid, action) => {
+    await fetch("/api/admin/act", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${await idToken()}` },
+      body: JSON.stringify({ uid, action }),
+    }).catch(() => {});
+    drawReports();
+  };
+  const appeals = Object.entries(desk.appeals || {});
+  const bans = Object.entries(desk.bans || {});
+  host.querySelector(".modal-body").innerHTML = `
+    <h3 class="rec-h">Requests for review · ${appeals.length}</h3>
+    ${appeals.length ? appeals.map(([uid, a]) => `
+      <div class="rep-row">
+        <div class="rep-main"><b>${escapeHtml(a.name)}</b> <span class="rep-when">${ago(new Date(a.at).toISOString())}</span>
+          <p class="rep-text">${escapeHtml(a.text)}</p>
+          <p class="rep-why">Barred: ${escapeHtml(desk.bans?.[uid]?.reason || "")}</p></div>
+        <div class="rep-acts"><button class="btn btn-small btn-primary" data-act="unbar" data-uid="${uid}">Approve · let back in</button><button class="btn btn-small" data-act="deny" data-uid="${uid}">Deny</button></div>
+      </div>`).join("") : `<p class="panel-sub">Nobody is asking.</p>`}
+    <h3 class="rec-h">Barred · ${bans.length}</h3>
+    ${bans.length ? bans.map(([uid, b]) => `
+      <div class="rep-row">
+        <div class="rep-main"><b>${escapeHtml(b.name || uid)}</b> <span class="rep-when">${ago(new Date(b.at).toISOString())}</span><p class="rep-why">${escapeHtml(b.reason || "")}</p></div>
+        <div class="rep-acts"><button class="btn btn-small" data-act="unbar" data-uid="${uid}">Lift the bar</button></div>
+      </div>`).join("") : `<p class="panel-sub">Nobody is barred.</p>`}
+    <h3 class="rec-h">Refused lines · ${(desk.reports || []).length}</h3>
+    ${(desk.reports || []).length ? (desk.reports || []).slice(0, 60).map((r) => `
+      <div class="rep-row">
+        <div class="rep-main"><b>${escapeHtml(r.name)}</b> <span class="rep-when">${ago(new Date(r.at).toISOString())} · ${escapeHtml(r.where || "")} · strike ${r.strikes ?? "?"}</span>
+          <p class="rep-text">${escapeHtml(r.text)}</p>
+          <p class="rep-why">${escapeHtml(r.reason)}</p></div>
+        <div class="rep-acts">${desk.bans?.[r.uid] ? "" : `<button class="btn btn-small" data-act="bar" data-uid="${r.uid}">Bar</button>`}<button class="btn btn-small" data-act="clear" data-uid="${r.uid}">Clear strikes</button></div>
+      </div>`).join("") : `<p class="panel-sub">Nothing refused. Quiet arena.</p>`}`;
+  host.querySelectorAll("[data-act]").forEach((b) => { b.onclick = () => act(b.dataset.uid, b.dataset.act); });
+}
+
+$("btn-reports").onclick = drawReports;
+
 $("btn-retire").onclick = async () => {
   const meRow = standings.find((r) => r.uid === S.user?.uid);
   const from = branchOf(meRow?.branch || 0);
@@ -1126,6 +1241,18 @@ function drawRuleBelts(tab = "arena") {
 
   $("drawer-rules").innerHTML = shell(`
       <div class="rules-cols">
+
+        <div class="rule-sec rule-conduct">
+          <h3>Conduct</h3>
+          <p class="lede2">The arena is for playing. Anyone who is rude, pornographic, abusive, or solicits anything of that nature \u2014 in any chat, in any game \u2014 will not be allowed to play any more.</p>
+          <ul>
+            <li>Every chat line is screened before it is posted. A refused line is a <b>strike</b>; the sender is told why.</li>
+            <li>Links and pictures are not allowed in the chats.</li>
+            <li><b>Three strikes</b> and the account is removed from the arena automatically.</li>
+            <li>A removed player may send one request for review. The admin approves or denies it; there is no other way back.</li>
+            <li>The admin may remove anyone at any time for conduct the screen did not catch.</li>
+          </ul>
+        </div>
 
         <div class="rule-sec">
           <h3>Belts</h3>
@@ -2238,11 +2365,16 @@ async function sendChat() {
   if (!text) return;
   field.value = "";
   try {
-    await fetch("/api/chat", {
+    const res = await fetch("/api/chat", {
       method: "POST",
       headers: { Authorization: `Bearer ${await idToken()}`, "Content-Type": "application/json" },
       body: JSON.stringify({ text }),
     });
+    if (!res.ok) {
+      const out = await res.json().catch(() => ({}));
+      say("home-error", out.error || "That line was refused.");
+      if (out.barred) askStanding();
+    }
   } catch { /* it will be missing from the next poll, which is answer enough */ }
   loadChat();
 }

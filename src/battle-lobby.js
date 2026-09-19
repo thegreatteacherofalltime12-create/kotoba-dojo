@@ -4,7 +4,8 @@ import {
   canTarget, targetOptions, fireAt, fleetSunk, battleScore,
 } from "./battleship.js";
 import { chooseShots, remember, freshMemory, DIFFICULTIES } from "./ai.js";
-import { recordMatch, readRatings } from "./firestore.js";
+import { recordMatch, readRatings, strikePlayer } from "./firestore.js";
+import { moderate } from "./moderation.js";
 import { announceRoom } from "./rooms.js";
 import { applyBounty } from "./report-bounty.js";
 import { sessionGain, fieldMmrFor, beltFor } from "./mmr.js";
@@ -772,6 +773,14 @@ export class BattleRoyale {
     const p = this.g.players[uid];
     const text = String(msg.text || "").trim().slice(0, 200);
     if (!text) return;
+    // The same screen as the arena chat; a refused line is a strike.
+    const verdict = await moderate(this.env, text);
+    if (!verdict.ok) {
+      const strikes = await strikePlayer(this.env, uid, p?.name || "Captain", { text, reason: verdict.reason, where: "battleship chat" });
+      const ws = this.socketFor(uid);
+      if (ws) this.send(ws, "BATTLE_ERROR", { message: `That doesn't belong here (${verdict.reason}). Strike ${strikes ?? "?"} of 3.` });
+      return;
+    }
     const entry = { uid, name: this.nameOf(p) || "Captain", text, at: Date.now() };
     this.g.chat.push(entry);
     this.g.chat = this.g.chat.slice(-60);

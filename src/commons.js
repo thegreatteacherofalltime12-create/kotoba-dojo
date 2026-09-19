@@ -35,6 +35,8 @@ const DIRTY_MS = 5_000;            // a writer could not say what it wrote
 const CHAT_LINES_PER_MIN = 12;
 const HOF_EVERY_MS = 91 * 24 * 3600_000;   // the hall of fame is cut every three months
 const RECORD_ROWS = 5;
+const REPORTS_KEEP = 200;
+const STRIKES_TO_BAR = 3;
 
 const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
 // Rows are ordered by the time they carry, parsed rather than compared as
@@ -60,6 +62,7 @@ export class Commons {
       this.mine = mine || {};        // uid -> { wallet, at }
       this.meta = meta || { hydratedAt: 0, nextHydrateAt: 0, lastReadAt: 0 };
       this.hof = (await s.get("hof")) || null;   // { at, rows }
+      this.mod = (await s.get("mod")) || { reports: [], bans: {}, appeals: {}, seenAt: 0 };
     });
   }
 
@@ -69,7 +72,7 @@ export class Commons {
     for (const [uid, m] of Object.entries(this.mine)) if (m.at < cutoff) delete this.mine[uid];
     return this.state.storage.put({
       chat: this.chat, feed: this.feed, board: this.board,
-      wallets: this.wallets, mine: this.mine, meta: this.meta, hof: this.hof,
+      wallets: this.wallets, mine: this.mine, meta: this.meta, hof: this.hof, mod: this.mod,
     });
   }
 
@@ -364,6 +367,43 @@ export class Commons {
     return true;
   }
 
+  // ── conduct: reports, bars and appeals ────────────────────────────
+
+  /** A refused line goes on the list; the third strike bars the sender. */
+  report(r) {
+    if (!r?.uid) return;
+    this.mod.reports.unshift({ uid: r.uid, name: r.name, text: r.text, reason: r.reason, where: r.where, at: r.at || Date.now(), strikes: r.strikes });
+    this.mod.reports = this.mod.reports.slice(0, REPORTS_KEEP);
+    const count = r.strikes ?? this.mod.reports.filter((x) => x.uid === r.uid).length;
+    if (count >= STRIKES_TO_BAR && !this.mod.bans[r.uid]) {
+      this.mod.bans[r.uid] = { name: r.name, at: Date.now(), reason: `${STRIKES_TO_BAR} strikes \u2014 last: ${r.reason}`, by: "three strikes" };
+    }
+  }
+
+  banned(uid) {
+    const b = this.mod.bans[uid];
+    return b ? { banned: true, reason: b.reason, at: b.at, appeal: this.mod.appeals[uid] || null } : { banned: false };
+  }
+
+  appeal(uid, name, text) {
+    if (!this.mod.bans[uid]) return false;
+    this.mod.appeals[uid] = { name, text: String(text || "").slice(0, 600), at: Date.now() };
+    return true;
+  }
+
+  /** The admin's verbs. Returns what changed. */
+  act(uid, action, by) {
+    if (!uid) return { ok: false };
+    if (action === "bar") { this.mod.bans[uid] = { name: this.nameOf(uid), at: Date.now(), reason: "barred by the admin", by }; delete this.mod.appeals[uid]; }
+    else if (action === "unbar") { delete this.mod.bans[uid]; delete this.mod.appeals[uid]; }
+    else if (action === "deny") { delete this.mod.appeals[uid]; }
+    else if (action === "clear") { this.mod.reports = this.mod.reports.filter((r) => r.uid !== uid); delete this.mod.bans[uid]; delete this.mod.appeals[uid]; }
+    else return { ok: false };
+    return { ok: true };
+  }
+
+  nameOf(uid) { return this.board[uid]?.name || this.mod.reports.find((r) => r.uid === uid)?.name || "Someone"; }
+
   // ── the door ───────────────────────────────────────────────────────
 
   async fetch(request) {
@@ -377,6 +417,10 @@ export class Commons {
       else if (path === "/feed/append") this.appendFeed(body);
       else if (path === "/board/upsert") this.upsertBoard(body.rows);
       else if (path === "/wallets/upsert") this.upsertWallet(body);
+      else if (path === "/report") this.report(body);
+      else if (path === "/appeal") { if (!this.appeal(body.uid, body.name, body.text)) return Response.json({ error: "no bar to appeal" }, { status: 400 }); }
+      else if (path === "/act") { const out = this.act(body.uid, body.action, body.by); if (!out.ok) return Response.json({ error: "no such action" }, { status: 400 }); }
+      else if (path === "/seen") this.mod.seenAt = Date.now();
       else if (path === "/dirty") await this.markDirty();
       else if (path === "/rehydrate") this.meta.nextHydrateAt = 0;
       else return Response.json({ error: "no such door" }, { status: 404 });
@@ -396,6 +440,14 @@ export class Commons {
       return Response.json(out);
     }
     if (path === "/wallets/top") return Response.json({ wallets: this.walletBoard() });
+    if (path === "/banned") return Response.json(this.banned(url.searchParams.get("uid") || ""));
+    if (path === "/reports") {
+      return Response.json({
+        reports: this.mod.reports, bans: this.mod.bans, appeals: this.mod.appeals,
+        unseen: this.mod.reports.filter((r) => r.at > this.mod.seenAt).length
+          + Object.values(this.mod.appeals).filter((a) => a.at > this.mod.seenAt).length,
+      });
+    }
     if (path === "/top") return Response.json({ top: this.top(Number(url.searchParams.get("limit")) || 10) });
     if (path === "/wallet") {
       const uid = url.searchParams.get("uid") || "";

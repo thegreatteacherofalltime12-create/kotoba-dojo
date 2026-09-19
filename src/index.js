@@ -1,6 +1,7 @@
 import { verifyIdToken } from "./jwt.js";
+import { moderate } from "./moderation.js";
 import {
-  prestigePlayer, retirePlayer, recordMatch, readRatings, saveCosmetics,
+  prestigePlayer, retirePlayer, recordMatch, readRatings, saveCosmetics, strikePlayer, clearStrikes,
   postChat, postFeed, withdrawWallet, refundWallet,
   publishScroll, listScrolls, lastFirestoreError,
 } from "./firestore.js";
@@ -29,6 +30,14 @@ function newCode() {
 // so a poll costs Firestore nothing.
 const commons = (env) => env.COMMONS.get(env.COMMONS.idFromName("global"));
 const fromCommons = (env, path) => commons(env).fetch(`https://commons${path}`);
+const toCommons = (env, path, body) => commons(env).fetch(`https://commons${path}`, { method: "POST", body: JSON.stringify(body || {}) });
+
+// Barred players are turned away at the door: no chat, no room.
+async function barred(env, uid) {
+  try { return await (await fromCommons(env, `/banned?uid=${encodeURIComponent(uid)}`)).json(); }
+  catch { return { banned: false }; }
+}
+const isAdmin = (env, uid) => String(env.ADMIN_UIDS || "").split(",").map((x) => x.trim()).includes(uid);
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -255,6 +264,50 @@ export default {
     // The record books. Public: names and figures, like the feed.
     if (path === "/api/records") return fromCommons(env, "/records");
 
+    // Where you stand with the arena: barred or not, admin or not.
+    if (path === "/api/me") {
+      const token = (request.headers.get("Authorization") || "").replace(/^Bearer /, "");
+      let user;
+      try { user = await verifyIdToken(token, env.FIREBASE_PROJECT_ID); }
+      catch { return json({ error: "Sign in first." }, 401); }
+      const bar = await barred(env, user.uid);
+      return json({ ...bar, admin: isAdmin(env, user.uid) });
+    }
+
+    // A barred player asks to be let back in. One request at a time.
+    if (path === "/api/appeal" && request.method === "POST") {
+      const token = (request.headers.get("Authorization") || "").replace(/^Bearer /, "");
+      let user;
+      try { user = await verifyIdToken(token, env.FIREBASE_PROJECT_ID); }
+      catch { return json({ error: "Sign in first." }, 401); }
+      const body = await request.json().catch(() => ({}));
+      const res = await toCommons(env, "/appeal", { uid: user.uid, name: user.name, text: body.text });
+      return json(res.ok ? { ok: true } : { error: "There is no bar to appeal." }, res.ok ? 200 : 400);
+    }
+
+    // The admin's desk: every refused line, who is barred, who is asking.
+    if (path === "/api/admin/reports" || path === "/api/admin/act") {
+      const token = (request.headers.get("Authorization") || "").replace(/^Bearer /, "");
+      let user;
+      try { user = await verifyIdToken(token, env.FIREBASE_PROJECT_ID); }
+      catch { return json({ error: "Sign in first." }, 401); }
+      if (!isAdmin(env, user.uid)) return json({ error: "Not yours to see." }, 403);
+      // Is the screen awake? The admin can ask it to judge a line.
+      if (path === "/api/admin/reports" && url.searchParams.has("probe")) {
+        const verdict = await moderate(env, url.searchParams.get("probe"));
+        return json({ probe: url.searchParams.get("probe"), verdict, model: !!env.AI });
+      }
+      if (path === "/api/admin/reports") {
+        if (request.method === "POST") await toCommons(env, "/seen", {});
+        return fromCommons(env, "/reports");
+      }
+      const body = await request.json().catch(() => ({}));
+      const res = await toCommons(env, "/act", { uid: body.uid, action: body.action, by: user.name });
+      // Letting someone back in wipes their strikes, or the next line bars them again.
+      if (res.ok && (body.action === "unbar" || body.action === "clear")) await clearStrikes(env, body.uid).catch(() => {});
+      return json({ ok: res.ok }, res.ok ? 200 : 400);
+    }
+
     // The strip. Signed in, as reading the leaderboard always was.
     if (path === "/api/rankings") {
       const token = (request.headers.get("Authorization") || "").replace(/^Bearer /, "");
@@ -271,6 +324,14 @@ export default {
       try { user = await verifyIdToken(token, env.FIREBASE_PROJECT_ID); }
       catch { return json({ error: "Sign in first." }, 401); }
       const body = await request.json().catch(() => ({}));
+      const bar = await barred(env, user.uid);
+      if (bar.banned) return json({ error: "You have been removed from the arena.", barred: true }, 403);
+      // What may be said. A refused line is a strike, and never posted.
+      const verdict = await moderate(env, body.text);
+      if (!verdict.ok) {
+        const strikes = await strikePlayer(env, user.uid, user.name, { text: body.text, reason: verdict.reason, where: "arena chat" });
+        return json({ error: `That doesn't belong here (${verdict.reason}). Strike ${strikes ?? "?"} of 3.`, strike: strikes }, 400);
+      }
       // So many lines a minute and no more: each one is a write.
       const gate = await commons(env).fetch("https://commons/chat/allow", {
         method: "POST", body: JSON.stringify({ uid: user.uid }),
@@ -408,6 +469,7 @@ export default {
       } catch (err) {
         return new Response(`Sign-in rejected: ${err.message}`, { status: 401 });
       }
+      if ((await barred(env, user.uid)).banned) return new Response("Removed from the arena.", { status: 403 });
       const stub = env.FLOOR.get(env.FLOOR.idFromName("global"));
       const fwd = new Request(request);
       fwd.headers.set("X-Dojo-Uid", user.uid);
@@ -426,6 +488,7 @@ export default {
       } catch (err) {
         return new Response(`Sign-in rejected: ${err.message}`, { status: 401 });
       }
+      if ((await barred(env, user.uid)).banned) return new Response("Removed from the arena.", { status: 403 });
       const code = room[2].toUpperCase();
       const ns = room[1] === "mines" ? env.MINES
         : room[1] === "links" ? env.LINKS
@@ -463,6 +526,7 @@ export default {
         return new Response(`Sign-in rejected: ${err.message}`, { status: 401 });
       }
 
+      if ((await barred(env, user.uid)).banned) return new Response("Removed from the arena.", { status: 403 });
       const code = ws[1].toUpperCase();
       const id = env.DOJO.idFromName(code);
       const stub = env.DOJO.get(id);

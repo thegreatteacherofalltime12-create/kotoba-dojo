@@ -17,8 +17,9 @@ import {
   dealerAct, strengthOf, levelById, AI_LEVELS,
 } from "./casino-tables.js";
 import { compare as compare2 } from "./casino-games.js";
-import { bankWallet, writeHistory, postFeed, awardMmr, readBoosts, spendToken } from "./firestore.js";
+import { bankWallet, writeHistory, postFeed, awardMmr, spendToken } from "./firestore.js";
 import { boosted } from "./mmr.js";
+import { heldTokens } from "./boost.js";
 
 // A win at any table or on the track is worth this much MMR, up to the
 // day's cap. Small on purpose: a hand takes ten seconds and a ranked round
@@ -165,15 +166,7 @@ export class CasinoFloor {
     const day = new Date().toISOString().slice(0, 10);
     this.f.mmrDaily = this.f.mmrDaily || {};
     const row = this.f.mmrDaily[uid]?.day === day ? this.f.mmrDaily[uid] : { day, given: 0 };
-    // The first win of the day asks once whether a casino token is held;
-    // if so it is spent, and every win that day pays half again.
-    if (!row.checked) {
-      row.checked = true;
-      try {
-        const held = (await readBoosts(this.env, [uid]))[uid]?.casino || 0;
-        if (held > 0 && await spendToken(this.env, uid, p.name, "casino")) row.boost = true;
-      } catch { /* no token today */ }
-    }
+    // A casino token applied today (see applyToken) makes every win pay half again.
     const award = Math.min(row.boost ? boosted(WIN_MMR) : WIN_MMR, WIN_MMR_DAILY_CAP - row.given);
     if (award <= 0) { this.f.mmrDaily[uid] = row; return 0; }
     row.given += award;
@@ -183,6 +176,28 @@ export class CasinoFloor {
     for (const [u, r] of Object.entries(this.f.mmrDaily)) if (r.day !== day) delete this.f.mmrDaily[u];
     this.state.waitUntil?.(awardMmr(this.env, uid, p.name, award).catch(() => {}));
     return award;
+  }
+
+  /**
+   * The Apply Token tab on the floor. A casino token is spent the moment it
+   * is applied, and every win for the rest of the day (UTC) pays half again.
+   */
+  async tokens(ws, uid, p, apply) {
+    const day = new Date().toISOString().slice(0, 10);
+    this.f.mmrDaily = this.f.mmrDaily || {};
+    const row = this.f.mmrDaily[uid]?.day === day ? this.f.mmrDaily[uid] : { day, given: 0 };
+    let tokens = await heldTokens(this.env, uid);
+    let error = null;
+    if (apply && !row.boost) {
+      if (!((tokens.casino || 0) > 0)) error = "You hold no casino token. The Token shop in your profile sells them.";
+      else if (await spendToken(this.env, uid, p?.name, "casino")) {
+        row.boost = true;
+        this.f.mmrDaily[uid] = row;
+        tokens = { ...tokens, casino: tokens.casino - 1 };
+        await this.save();
+      } else error = "The token could not be spent. Try again.";
+    }
+    this.send(ws, "FLOOR_TOKENS", { game: "casino", tokens, applied: !!row.boost, error, day: true });
   }
 
   /** " (+5 MMR)" or nothing. */
@@ -348,6 +363,8 @@ export class CasinoFloor {
         case "TABLE_PEEK":   return this.tablePeek(ws, who.uid, msg);
         case "TABLE_END":    return await this.tableEnd(ws, who.uid);
         case "FLOOR_BANK":   return await this.bankOut(ws, who.uid);
+        case "TOKENS":       return await this.tokens(ws, who.uid, this.f.players[who.uid], false);
+        case "APPLY_TOKEN":  return await this.tokens(ws, who.uid, this.f.players[who.uid], true);
         default: return this.send(ws, "FLOOR_ERROR", { message: "Unrecognised message." });
       }
     } catch (err) {

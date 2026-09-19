@@ -4,6 +4,7 @@ import {
 } from "./minesweeper.js";
 import { recordMatch, readRatings } from "./firestore.js";
 import { boosted } from "./mmr.js";
+import { tokensReply } from "./boost.js";
 import { announceRoom } from "./rooms.js";
 import { applyBounty } from "./report-bounty.js";
 import { sessionGain, fieldMmrFor, beltFor } from "./mmr.js";
@@ -177,6 +178,15 @@ export class MineField {
         case "MINE_START": return await this.start(ws, who.uid);
         case "MINE_DIG":   return await this.dig(ws, who.uid, msg);
         case "MINE_FLAG":  return await this.flag(ws, who.uid, msg);
+        case "TOKENS":
+        case "APPLY_TOKEN": {
+          this.g.applied = this.g.applied || {};
+          const reply = await tokensReply(this.env, who.uid, "minesweeper", {
+            applied: this.g.applied, over: false, apply: msg.type === "APPLY_TOKEN",
+          });
+          if (reply.changed) await this.persist();
+          return this.send(ws, "MINE_TOKENS", reply);
+        }
         case "MINE_END_MATCH": {
           // finish() already pays everyone still sweeping on the ground they
           // uncovered, so ending early needs no scoring of its own.
@@ -242,7 +252,7 @@ export class MineField {
       p.flags = [];
       p.done = false; p.won = false; p.score = 0; p.finishedAt = null;
       p.mmrAtStart = ratings[p.uid] || 0;
-      p.boost = (ratings.boosts?.[p.uid]?.minesweeper || 0) > 0;
+      if (this.g.applied?.[p.uid] && !((ratings.boosts?.[p.uid]?.minesweeper || 0) > 0)) delete this.g.applied[p.uid];
       p.seed = seeded.indexOf(p.uid) + 1 || null;
     }
 
@@ -377,6 +387,7 @@ export class MineField {
         playerMmr: p.mmrAtStart || 0, fieldMmr: fieldMmrFor(p.uid, ratings),
         mode, seed: p.seed, placement,
       });
+      p.boost = !!this.g.applied?.[p.uid];
       if (p.boost) gain.total = boosted(gain.total);
       const after = (p.mmrAtStart || 0) + gain.total;
       return {
@@ -389,6 +400,7 @@ export class MineField {
       };
     });
 
+    this.g.applied = {};
     const bounty = await applyBounty(this.env, this.state, {
       mode, durationMs: Date.now() - (this.g.startedAt || Date.now() - 60_000), results,
     });

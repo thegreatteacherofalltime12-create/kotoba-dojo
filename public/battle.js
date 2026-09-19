@@ -131,6 +131,9 @@ const send = (obj) => {
   if (B.socket?.readyState === WebSocket.OPEN) B.socket.send(JSON.stringify(obj));
 };
 
+let tokens = null;
+const tokenTab = () => (tokens ||= applyTokenTab({ game: "battleship", send, button: $("btn-battle-boost") }));
+
 function handle(msg) {
   switch (msg.type) {
     case "BATTLE_WELCOME":
@@ -165,6 +168,10 @@ function handle(msg) {
       break;
     case "BATTLE_OVER":
       showResults(msg);
+      tokenTab().reset();
+      break;
+    case "TOKENS":
+      tokenTab().receive(msg);
       break;
     case "BATTLE_ERROR":
       say(msg.message);
@@ -451,6 +458,7 @@ export function bindBattleControls() {
   };
   $("battle-say").addEventListener("keydown", (e) => { if (e.key === "Enter") sendChat(); });
   $("btn-battle-send").onclick = sendChat;
+  tokenTab();
 }
 
 function sendChat() {
@@ -690,4 +698,5 @@ function showResults(msg) {
 
   drawReveal(msg.reveal);
   partingClock();
-}
+}import { applyTokenTab } from "./boost.js";
+

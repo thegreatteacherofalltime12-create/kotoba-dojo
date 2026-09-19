@@ -2,6 +2,7 @@ import { ROUND_MS, scoreFor } from "./scoring.js";
 import { validatePuzzle, stripAnswers, answerKey, WORD_COUNT } from "./validate.js";
 import { recordMatch, readRatings, getScroll, bumpScroll } from "./firestore.js";
 import { boosted } from "./mmr.js";
+import { tokensReply } from "./boost.js";
 import { sessionGain, fieldMmrFor, beltFor } from "./mmr.js";
 import { STARTER_PUZZLES } from "./starter-puzzles.js";
 import { announceRoom } from "./rooms.js";
@@ -255,6 +256,17 @@ export class DojoLobby {
           this.announce();
           return;
         case "PING": return this.beat();
+        case "TOKENS":
+        case "APPLY_TOKEN": {
+          // The Apply Token tab: what is held, and applying one to this round
+          // (or, between rounds, to the next). Scoring clears the map.
+          this.lobby.applied = this.lobby.applied || {};
+          const reply = await tokensReply(this.env, who.uid, "crossword", {
+            applied: this.lobby.applied, over: false, apply: msg.type === "APPLY_TOKEN",
+          });
+          if (reply.changed) await this.persist();
+          return this.send(ws, "TOKENS", reply);
+        }
         case "START_ROUND":
           if (!isSensei) return this.send(ws, "ERROR", { message: "Only the sensei can begin." });
           return await this.startRound(ws);
@@ -417,7 +429,9 @@ export class DojoLobby {
     const seeded = [...uids].sort((a, b) => (ratings[b] || 0) - (ratings[a] || 0));
     seeded.forEach((uid, i) => {
       this.lobby.players[uid].mmrAtStart = ratings[uid] || 0;
-      this.lobby.players[uid].boost = (ratings.boosts?.[uid]?.crossword || 0) > 0;
+      // An applied token that has since been spent elsewhere is dropped here,
+      // off the read the round makes anyway.
+      if (this.lobby.applied?.[uid] && !((ratings.boosts?.[uid]?.crossword || 0) > 0)) delete this.lobby.applied[uid];
       this.lobby.players[uid].seed = i + 1;
     });
     // Three or more solvers is a rumble: placement carries the reward.
@@ -548,6 +562,7 @@ export class DojoLobby {
         seed: p.seed,
         placement,
       });
+      p.boost = !!this.lobby.applied?.[p.uid];
       if (p.boost) gain.total = boosted(gain.total);
       const after = (p.mmrAtStart || 0) + gain.total;
       return {
@@ -570,6 +585,8 @@ export class DojoLobby {
 
     this.lobby.phase = "RESULTS";
     this.lobby.lastResults = results;
+    // The tokens applied to this round go out with it.
+    this.lobby.applied = {};
     // The bounty is settled before the results go out, so the bonus is part
     // of the MMR players are shown rather than an adjustment afterwards.
     const bounty = await applyBounty(this.env, this.state, {

@@ -2,6 +2,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { firebaseConfig } from "./firebase-config.js";
 import { attachHole, setHole, strike } from "./hole.js";
+import { applyTokenTab } from "./boost.js";
 
 /**
  * Multiverse Golf, wired to the arena.
@@ -136,11 +137,16 @@ async function connect({ joining = false } = {}) {
     if (msg.type === "LINKS_STATE") return draw(msg.state);
     if (msg.type === "LINKS_MARK") return marked(msg);
     if (msg.type === "LINKS_REJECT") return say(msg.why, "bad");
-    if (msg.type === "LINKS_OVER") return over(msg);
+    if (msg.type === "LINKS_OVER") { tokenTab.reset(); return over(msg); }
+    if (msg.type === "LINKS_TOKENS") return tokenTab.receive(msg);
   };
 }
 
 const send = (o) => { try { S.sock?.send(JSON.stringify(o)); } catch { /* closed */ } };
+
+const tokenTab = applyTokenTab({ game: "links", send, button: $("btn-boost"), label: "round" });
+// A token is applied inside a room, so the tee box has nothing to show yet.
+$("btn-boost").onclick = () => (S.sock ? tokenTab.open() : say("Go to the tee first — tokens are applied inside a room."));
 
 /**
  * The room before anyone has swung.

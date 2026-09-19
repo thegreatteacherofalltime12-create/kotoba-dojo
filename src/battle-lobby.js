@@ -6,6 +6,7 @@ import {
 import { chooseShots, remember, freshMemory, DIFFICULTIES } from "./ai.js";
 import { recordMatch, readRatings, strikePlayer } from "./firestore.js";
 import { boosted } from "./mmr.js";
+import { tokensReply } from "./boost.js";
 import { moderate } from "./moderation.js";
 import { announceRoom } from "./rooms.js";
 import { applyBounty } from "./report-bounty.js";
@@ -336,6 +337,15 @@ export class BattleRoyale {
         case "BATTLE_END":    return await this.endEarly(ws, uid);
         case "BATTLE_FIRE":   return await this.fire(ws, uid, msg);
         case "BATTLE_SAY":    return await this.say(uid, msg);
+        case "TOKENS":
+        case "APPLY_TOKEN": {
+          this.g.applied = this.g.applied || {};
+          const reply = await tokensReply(this.env, uid, "battleship", {
+            applied: this.g.applied, over: this.g.phase === "OVER", apply: msg.type === "APPLY_TOKEN",
+          });
+          if (reply.changed) await this.persist();
+          return this.send(ws, "TOKENS", reply);
+        }
         default: return this.send(ws, "BATTLE_ERROR", { message: "Unrecognised message." });
       }
     } catch (err) {
@@ -514,7 +524,7 @@ export class BattleRoyale {
       for (const u of uids) if (!(u in ratings)) ratings[u] = 0;
       seeded.forEach((u, i) => {
         this.g.players[u].mmrAtStart = ratings[u] || 0;
-        this.g.players[u].boost = (ratings.boosts?.[u]?.battleship || 0) > 0;
+        if (this.g.applied?.[u] && !((ratings.boosts?.[u]?.battleship || 0) > 0)) delete this.g.applied[u];
         this.g.players[u].seed = i + 1;
       });
     } catch {
@@ -723,6 +733,7 @@ export class BattleRoyale {
         seed: p.seed,
         placement,
       });
+      p.boost = !!this.g.applied?.[uid];
       if (p.boost) gain.total = boosted(gain.total);
       const after = (p.mmrAtStart || 0) + gain.total;
       return {
@@ -738,6 +749,7 @@ export class BattleRoyale {
       };
     });
 
+    this.g.applied = {};
     const bounty = await applyBounty(this.env, this.state, {
       mode, durationMs: Date.now() - (this.g.startedAt || Date.now() - 60_000), results,
     });

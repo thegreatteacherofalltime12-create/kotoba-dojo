@@ -14,6 +14,7 @@ const el = (tag, cls, text) => {
 };
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+import { applyTokenTab } from "./boost.js";
 import { casinoRulesHtml, TABLE_GAMES, ROULETTE_UI, BIGSIX_UI, BACCARAT_BOARD,
   BIGSIX_WHEEL, BIGSIX_TONE } from "./game-modes.js";
 
@@ -75,6 +76,11 @@ export function leaveCasino() { K.open = false; closeSocket(); }
 
 const send = (o) => { if (K.socket?.readyState === WebSocket.OPEN) K.socket.send(JSON.stringify(o)); };
 
+// The floor's Apply Token tab. A casino token boosts the day, so nothing
+// here ever resets it.
+let boostTab = null;
+const tokenTab = () => (boostTab ||= applyTokenTab({ game: "casino", send, button: $("btn-casino-boost"), label: "day" }));
+
 function handle(msg) {
   switch (msg.type) {
     case "FLOOR_WELCOME":
@@ -102,6 +108,7 @@ function handle(msg) {
     case "TABLE_PEEK": pgPeek(msg); break;
     case "TABLE_RESULT": showTableResult(msg); break;
     case "FLOOR_ERROR": say(msg.message); break;
+    case "FLOOR_TOKENS": tokenTab().receive(msg); break;
   }
 }
 
@@ -157,6 +164,7 @@ export function bindCasino() {
 
   on("btn-floor-bet", openBetPicker);
   on("btn-casino-rules", openCasinoRules);
+  tokenTab();
   on("btn-table-results", showTableResults);
   on("btn-wallet", openWallet);
   on("btn-chat", openChat);

@@ -4,6 +4,7 @@ import {
 } from "./links.js";
 import { recordMatch, readRatings } from "./firestore.js";
 import { boosted } from "./mmr.js";
+import { tokensReply } from "./boost.js";
 import { announceRoom } from "./rooms.js";
 import { sessionGain, fieldMmrFor, beltFor } from "./mmr.js";
 
@@ -148,7 +149,7 @@ export class LinksCourse {
     const seeded = [...uids].sort((a, b) => (ratings[b] || 0) - (ratings[a] || 0));
     for (const p of Object.values(room.players)) {
       p.mmrAtStart = ratings[p.uid] || 0;
-      p.boost = (ratings.boosts?.[p.uid]?.links || 0) > 0;
+      if (room.applied?.[p.uid] && !((ratings.boosts?.[p.uid]?.links || 0) > 0)) delete room.applied[p.uid];
       p.seed = seeded.indexOf(p.uid) + 1 || null;
     }
 
@@ -318,6 +319,7 @@ export class LinksCourse {
         fieldMmr: fieldMmrFor(p.uid, ratings),
         mode, seed: p.seed, placement,
       });
+      p.boost = !!room.applied?.[p.uid];
       if (p.boost) gain.total = boosted(gain.total);
       const after = (p.mmrAtStart || 0) + gain.total;
       return {
@@ -343,6 +345,7 @@ export class LinksCourse {
       };
     });
 
+    room.applied = {};
     await this.save();
     this.pushAll();
     this.broadcast("LINKS_OVER", { results, status, mode });
@@ -476,6 +479,15 @@ export class LinksCourse {
       if (msg.type === "LINKS_GUESS") return void await this.guess(server, uid, msg);
       if (msg.type === "LINKS_END") return void await this.finish(this.room, "ended");
       if (msg.type === "PING") { this.announce(); return; }
+      if (msg.type === "TOKENS" || msg.type === "APPLY_TOKEN") {
+        const room = this.room;
+        room.applied = room.applied || {};
+        const reply = await tokensReply(this.env, uid, "links", {
+          applied: room.applied, over: room.phase === "OVER", apply: msg.type === "APPLY_TOKEN",
+        });
+        if (reply.changed) await this.save();
+        return void this.send(server, "LINKS_TOKENS", reply);
+      }
     });
 
     const drop = async () => {

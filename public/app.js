@@ -22,6 +22,7 @@ import { enterCasino, leaveCasino, bindCasino } from "./casino.js";
 import { casinoRulesHtml } from "./game-modes.js";
 import { UPDATES, PULSE_HOURS, KEEP_DAYS } from "./whats-new.js";
 import { BRANCHES, branchOf, rankOf, atTop, rankLabel } from "./ranks.js";
+import { applyTokenTab, TOKEN_ITEMS, TOKEN_PRICE } from "./boost.js";
 
 /**
  * True where typing summons an on-screen keyboard. Three tests rather than
@@ -1535,14 +1536,12 @@ function matchRules() {
         "When a match ends, MMR updates immediately &mdash; no confirmation step needed.",
         "All matches are recorded with full stats, date, and time. Disputes? Check the match history.",
       ])}
-      ${box("\u{1F3C5} Sensei Points &amp; Tokens", [
-        "Earn Sensei Points by unlocking achievements. Each tier grants: Bronze = 2 &middot; Silver = 3 &middot; Gold = 4 &middot; Diamond = 5 &middot; Platinum = 6.",
-        "Achievements can be earned multiple times &mdash; every earn awards points.",
-        "Spend 5 Sensei Points in the Sensei Tokens to spin the wheel and win a Sensei Token.",
-        "Apply a Sensei Token before any match &mdash; it grants bonus MMR at the end without affecting the in-game score.",
-        "Zeroes achievements grant 2 random tokens (good consolation for tough games).",
-        "Win achievements award points: 1v1 = +1, Rumble = +2.",
-        "If you finish a game with zero achievements, you get one free random token as a consolation.",
+      ${box("\u26A1 Boost Tokens", [
+        "Casino money buys boost tokens in your profile's Token shop: one kind for each game, $2,000 apiece. Nothing in the game costs real money.",
+        "A token does nothing until you apply it. Inside a game, press <b>\u26A1 Apply Token</b> to see what you hold and apply the token for that game to the match you're in.",
+        "An applied token pays 1.5\u00d7 the MMR when that round is scored, without touching the in-game score. The token is spent by the round that uses it.",
+        "The casino token is spent the moment it's applied and boosts every casino win for the rest of the day (UTC). The daily MMR cap still stands.",
+        "The feed marks a boosted win with \u26A1.",
       ])}
     </div>`;
 }
@@ -2446,23 +2445,16 @@ function profileSummary() {
 // ── the token shop ───────────────────────────────────────────────────
 //
 // Casino money buys boost tokens: one per game, each worth half again on
-// the MMR of the next ranked round of that game (the casino's boosts every
-// win for a day). Bought and spent on the server; this only shows and asks.
-const TOKEN_ITEMS = [
-  { game: "crossword", name: "Word-Cross boost", icon: "\u{1F520}", blurb: "1.5\u00d7 MMR on your next ranked Word-Cross round" },
-  { game: "battleship", name: "Battleship boost", icon: "\u2693", blurb: "1.5\u00d7 MMR on your next Battleship Royale" },
-  { game: "minesweeper", name: "Minesweeper boost", icon: "\u{1F4A3}", blurb: "1.5\u00d7 MMR on your next Minesweeper board" },
-  { game: "links", name: "Golf boost", icon: "\u26F3", blurb: "1.5\u00d7 MMR on your next round of Multiverse Golf" },
-  { game: "casino", name: "Casino boost", icon: "\u{1F3B0}", blurb: "1.5\u00d7 on every casino win for a day" },
-];
-const TOKEN_PRICE = 2000;
+// the MMR of a round of that game (the casino's boosts every win for a
+// day). Applied from the Apply Token tab inside the game; the list of them
+// lives in boost.js so the shop and the tab agree.
 
 async function drawShop(body) {
   const me = standings.find((r) => r.uid === S.user?.uid);
   const tokens = me?.tokens || {};
   let wallet = S.purse?.wallet ?? 0;
   body.innerHTML = `
-    <p class="panel-sub">Casino money buys boosts. Each token is spent by the next ranked round of its game and pays half again on the MMR.</p>
+    <p class="panel-sub">Casino money buys boosts. Open a game, press <b>\u26A1 Apply Token</b>, and the token pays half again on that match's MMR.</p>
     <div class="shop-wallet">\u{1F4B0} Wallet: <b id="shop-wallet">$${wallet.toLocaleString()}</b></div>
     <div class="shop-items">
       ${TOKEN_ITEMS.map((t) => `
@@ -2499,7 +2491,7 @@ async function drawShop(body) {
           S.purse = { ...(S.purse || {}), wallet: out.wallet };
           $("shop-wallet").textContent = `$${out.wallet.toLocaleString()}`;
           $(`have-${item.game}`).textContent = `You hold ${out.tokens ?? "?"}`;
-          say("shop-status", `${item.name} bought. It will be spent by your next round.`, false);
+          say("shop-status", `${item.name} bought. In the game, press \u26A1 Apply Token to use it.`, false);
           loadRankings();
         } else {
           say("shop-status", out.error || "The shop could not sell that.");
@@ -3187,6 +3179,10 @@ function sendMsg(obj) {
   if (S.socket?.readyState === WebSocket.OPEN) S.socket.send(JSON.stringify(obj));
 }
 
+// The Apply Token tab of the dojo. The room answers TOKENS; a scored round
+// clears what was applied, so the light goes out with it.
+const dojoTokens = applyTokenTab({ game: "crossword", send: sendMsg, button: $("btn-dojo-boost"), label: "round" });
+
 $("btn-leave").onclick = () => {
   if (S.puzzle && !confirm("End the match and take the MMR you've earned so far?")) return;
   sendMsg({ type: "END_MATCH" });
@@ -3239,6 +3235,11 @@ function handle(msg) {
 
     case "ROUND_END":
       endRound(msg);
+      dojoTokens.reset();
+      break;
+
+    case "TOKENS":
+      dojoTokens.receive(msg);
       break;
 
     case "PUZZLE_ACCEPTED":

@@ -57,6 +57,9 @@ export function closeMines(forget = true) {
 
 const send = (o) => { if (M.socket?.readyState === WebSocket.OPEN) M.socket.send(JSON.stringify(o)); };
 
+let tokens = null;
+const tokenTab = () => (tokens ||= applyTokenTab({ game: "minesweeper", send, button: $("btn-mine-boost"), label: "round" }));
+
 function say(text) {
   const n = $("mine-error");
   n.hidden = !text;
@@ -101,7 +104,8 @@ function handle(msg) {
     case "MINE_CLEARED":
       if (msg.uid === M.you) $("mine-face").textContent = "😎";
       break;
-    case "MINE_OVER": showResults(msg); break;
+    case "MINE_OVER": showResults(msg); tokenTab().reset(); break;
+    case "MINE_TOKENS": tokenTab().receive(msg); break;
     case "MINE_SCORES_STALE": loadScores(); break;
     case "MINE_ERROR": say(msg.message); break;
   }
@@ -295,6 +299,7 @@ function drawScores() {
 export function bindMineControls() {
   $("btn-mine-solo").onclick = () => send({ type: "MINE_SOLO", on: !M.game?.solo });
   $("btn-mine-start").onclick = () => send({ type: "MINE_START" });
+  tokenTab();
   $("btn-mine-leave").onclick = () => {
     if (M.shape && !confirm("End the match and take the MMR you've earned so far?")) return;
     send({ type: "MINE_END_MATCH" });
@@ -325,4 +330,5 @@ function showResults(msg) {
     list.append(li);
   });
   host.append(list);
-}
+}import { applyTokenTab } from "./boost.js";
+

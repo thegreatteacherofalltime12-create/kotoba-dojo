@@ -17,12 +17,20 @@ export const KEEP_DAYS = 7;
 
 export const UPDATES = [
   {
+    at: "2026-09-19T21:00:00Z",
+    where: "Every game",
+    title: "Apply Token",
+    text: "Every game now carries an \u26A1 Apply Token tab that lists the boost tokens you've bought. "
+      + "A token no longer fires on its own: open the tab inside the game and apply it to the match "
+      + "you're in, and that round pays 1.5\u00D7 MMR. The casino's applies to the rest of the day.",
+  },
+  {
     at: "2026-09-19T19:30:00Z",
     where: "Profile",
     title: "The token shop",
     text: "Billing is gone \u2014 nothing in the game costs real money. Casino money buys boost tokens "
       + "instead: one for each game, $2,000 apiece from your wallet, under Token shop in your profile. "
-      + "A token is spent by your next ranked round of that game and pays half again on the MMR; the "
+      + "A token pays half again on the MMR of the round it's applied to; the "
       + "casino one boosts every win for a day. The feed marks a boosted win \u26A1.",
   },
   {

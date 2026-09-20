@@ -3391,3 +3391,15 @@ a.dtab { text-decoration: none; display: inline-block; }
 .shop-name { font-family: var(--display); font-weight: 800; font-size: .86rem; }
 .shop-blurb { font-size: .7rem; color: var(--muted); }
 .shop-have { font-size: .66rem; color: var(--accent); margin-top: .15rem; }
+
+
+/* ── the key screen ──────────────────────────────────────────────── */
+#gate-etsy { color: var(--accent, #F4CE5A); font-weight: 700; }
+.locked-card .keyrow { display: flex; gap: .5rem; margin: .6rem 0; }
+.locked-card .keyrow input { flex: 1; font-size: 1rem; letter-spacing: .08em; }
+.locked-card .etsy { display: inline-block; margin-top: .5rem; font-weight: 700; color: #F4CE5A; }
+.key-row { display: grid; grid-template-columns: 1fr auto auto; gap: .6rem; align-items: center; padding: .45rem 0; border-bottom: 1px solid var(--edge); font-size: .82rem; }
+.key-row.off { opacity: .55; }
+.key-row b { font-family: var(--display); }
+.key-forms { display: grid; gap: .5rem; margin: .6rem 0 1rem; }
+.key-forms .joinrow input { flex: 1; }

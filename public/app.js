@@ -196,13 +196,39 @@ function setMode(mode) {
   authMode = mode;
   $("tab-signin").classList.toggle("is-on", mode === "signin");
   $("tab-signup").classList.toggle("is-on", mode === "signup");
-  $("btn-auth").textContent = mode === "signin" ? "Enter the dojo" : "Create and enter";
+  $("btn-auth").textContent = { signin: "Enter the dojo", signup: "Create and enter", recover: "Reset the pin and enter" }[mode];
   $("auth-pin").autocomplete = mode === "signin" ? "current-password" : "new-password";
-  $("gate-hint").textContent = mode === "signin"
-    ? "Forgotten your pin? There's no way to recover it — make a new name."
-    : "Names are yours alone. Pins are not — pick one you'll remember, and don't reuse a pin that guards anything important.";
+  $("auth-pin-label").textContent = mode === "recover" ? "New six-digit pin" : "Six-digit pin";
+  $("auth-order-field").hidden = mode === "signin";
+  $("btn-forgot").hidden = mode !== "signin";
+  $("btn-forgot").textContent = "Forgot your pin?";
+  $("gate-key").hidden = mode === "signin";
+  $("gate-hint").textContent = {
+    signin: "Forgotten your pin? Your Etsy order number resets it.",
+    signup: "Names are yours alone. Pins are not — pick one you'll remember, and don't reuse a pin that guards anything important.",
+    recover: "Enter the name, the order number that opened it, and the pin you want from now on.",
+  }[mode];
   say("gate-error", "");
 }
+
+// Where a key comes from. Asked once at the gate; the invite uses it too.
+async function loadShopfront() {
+  try {
+    const cfg = await (await fetch("/api/config")).json();
+    S.etsy = cfg.etsy || "";
+  } catch { S.etsy = S.etsy || ""; }
+  const a = $("gate-etsy");
+  a.hidden = !S.etsy;
+  if (S.etsy) a.href = S.etsy;
+}
+loadShopfront();
+
+$("btn-forgot").onclick = () => setMode(authMode === "recover" ? "signin" : "recover");
+
+// The order number a fresh registration will lock to itself once signed in.
+let pendingOrder = null;
+const ORDER_RE = /^\d{8,12}$/;
+const cleanOrder = (v) => String(v || "").replace(/[^\d]/g, "");
 
 $("tab-signin").onclick = () => setMode("signin");
 $("tab-signup").onclick = () => setMode("signup");
@@ -244,12 +270,25 @@ $("btn-auth").onclick = async () => {
   if (!PIN_RE.test(pin))
     return say("gate-error", "The pin is exactly six digits.");
 
+  const order = cleanOrder($("auth-order").value);
+  if (authMode !== "signin" && !ORDER_RE.test(order))
+    return say("gate-error", "The Etsy order number is 8 to 12 digits — it's on your receipt.");
+
   $("btn-auth").disabled = true;
   say("gate-error", "");
   try {
     if (authMode === "signup") {
+      pendingOrder = order;
       const cred = await createUserWithEmailAndPassword(auth, addressFor(name), secretFor(pin));
       await updateProfile(cred.user, { displayName: name });
+    } else if (authMode === "recover") {
+      const res = await fetch("/api/recover", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, order, pin }),
+      });
+      const out = await res.json();
+      if (!out.ok) { say("gate-error", out.error || "That didn't work."); return; }
+      await signInWithEmailAndPassword(auth, addressFor(name), secretFor(pin));
     } else {
       await signInWithEmailAndPassword(auth, addressFor(name), secretFor(pin));
     }
@@ -282,20 +321,85 @@ onAuthStateChanged(auth, async (user) => {
     // stands in if that ever failed to save.
     if (!user.displayName) await updateProfile(user, { displayName: (user.email || "").split("@")[0] || "Player" });
     render();
-    show("home");
-    window.__ready = true;
-    drawRuleBelts();
-    // Firestore is optional — the game runs on the built-in puzzles without
-    // it. None of these may block the screen from drawing: if no database has
-    // been provisioned, the SDK retries forever rather than failing.
-    loadAvatar();
-    loadBank();
-    loadScrolls();
-    askStanding();
+    // The gate: an account without a key is held here. A registration that
+    // came with one hands it over now; anyone else is asked for theirs.
+    let me = await askStanding();
+    if (me && !me.unlocked && !me.unknown && pendingOrder) {
+      const out = await redeemKey(pendingOrder);
+      pendingOrder = null;
+      if (out.ok) me = await askStanding();
+      else { drawLocked(me, out.error); return; }
+    }
+    if (me && !me.unlocked) { drawLocked(me); return; }
+    enterHome();
   } catch (err) {
     window.__fault("Signed in, but the app couldn't start", "The browser console has the details.", err.message);
   }
 });
+
+function enterHome() {
+  $("locked")?.remove();
+  show("home");
+  window.__ready = true;
+  drawRuleBelts();
+  // Firestore is optional — the game runs on the built-in puzzles without
+  // it. None of these may block the screen from drawing: if no database has
+  // been provisioned, the SDK retries forever rather than failing.
+  loadAvatar();
+  loadBank();
+  loadScrolls();
+}
+
+async function redeemKey(order) {
+  try {
+    const res = await fetch("/api/redeem", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${await idToken()}` },
+      body: JSON.stringify({ order }),
+    });
+    return await res.json();
+  } catch { return { ok: false, error: "Couldn't reach the arena. Try again." }; }
+}
+
+// Held at the door: signed in, no key yet (or a revoked one).
+function drawLocked(me, error) {
+  show("gate");
+  let host = $("locked");
+  if (!host) { host = el("div", "barred"); host.id = "locked"; document.body.append(host); }
+  const revoked = me.reason === "revoked";
+  const unknown = !!me.unknown;
+  host.innerHTML = `
+    <div class="barred-card locked-card">
+      <h2>${revoked ? "\u26D4 This key was revoked" : unknown ? "\u23F3 One moment" : "\u{1F511} Enter your key"}</h2>
+      ${revoked
+        ? `<p>The order number on this account was revoked by the admin. If that's a mistake, send a message through Etsy with your name here (<b>${escapeHtml(S.user?.displayName || "")}</b>).</p>`
+        : unknown
+          ? `<p>${escapeHtml(me.reason || "The arena couldn't check your key.")}</p>`
+          : `<p>You're signed in as <b>${escapeHtml(S.user?.displayName || "")}</b>. The game is sold on Etsy; the order number on your receipt is your key. Enter it once and it's yours \u2014 it opens this account and resets a forgotten pin.</p>
+             <div class="keyrow"><input id="locked-order" inputmode="numeric" maxlength="14" placeholder="Etsy order number" autocomplete="off"><button id="locked-go" class="btn btn-primary">Unlock</button></div>`}
+      <p id="locked-error" class="notice notice-bad" ${error ? "" : "hidden"}>${escapeHtml(error || "")}</p>
+      ${S.etsy && !revoked ? `<a class="etsy" href="${escapeHtml(S.etsy)}" target="_blank" rel="noopener">Get a key on Etsy \u2192</a>` : ""}
+      <div class="keyrow">
+        ${unknown ? `<button id="locked-retry" class="btn">Try again</button>` : ""}
+        <button id="locked-out" class="btn btn-quiet">Log out</button>
+      </div>
+    </div>`;
+  $("locked-out").onclick = () => { host.remove(); closeSocket(); signOut(auth); };
+  if ($("locked-retry")) $("locked-retry").onclick = async () => {
+    const again = await askStanding();
+    if (again && again.unlocked) enterHome(); else drawLocked(again || me);
+  };
+  if ($("locked-go")) $("locked-go").onclick = async () => {
+    const order = cleanOrder($("locked-order").value);
+    if (!ORDER_RE.test(order)) return say("locked-error", "An Etsy order number is 8 to 12 digits.");
+    $("locked-go").disabled = true;
+    const out = await redeemKey(order);
+    if (out.ok) { const again = await askStanding(); if (again?.unlocked) return enterHome(); }
+    say("locked-error", out.error || "That key didn't open the door.");
+    $("locked-go").disabled = false;
+  };
+  $("locked-order")?.focus();
+}
 
 function render() {
   $("home-name").textContent = S.user?.displayName || "Student";
@@ -830,11 +934,71 @@ async function askStanding() {
     if (me.banned) drawBarred(me);
     else $("barred")?.remove();
     S.admin = !!me.admin;
+    S.me = me;
+    if (typeof me.etsy === "string") S.etsy = me.etsy;
     $("btn-reports").hidden = !S.admin;
+    $("btn-keys").hidden = !S.admin;
     clearInterval(adminPoll);
     if (S.admin) { checkReports(); adminPoll = setInterval(() => { if (!document.hidden) checkReports(); }, 60_000); }
-  } catch { /* the arena is unreachable; nothing to gate on */ }
+    return me;
+  } catch { return null; /* the arena is unreachable; nothing to gate on */ }
 }
+
+// ── the keys desk ─────────────────────────────────────────────────
+// Every order number that has opened an account. Revoke one and the account
+// it opened is held at the door; let a name in by hand after checking the
+// order on Etsy; reset a pin for someone who has lost theirs.
+async function drawKeys() {
+  const host = $("avatar-modal");
+  host.hidden = false;
+  host.innerHTML = `<div class="modal-back" data-close></div><div class="modal-card reports-card"><div class="modal-head"><h2>\u{1F511} Keys</h2><button class="modal-close" data-close aria-label="Close">&times;</button></div><div class="modal-body"><p class="panel-sub">Reading the desk&hellip;</p></div></div>`;
+  const close = () => { host.hidden = true; host.textContent = ""; };
+  host.querySelectorAll("[data-close]").forEach((n) => { n.onclick = close; });
+  let desk;
+  try {
+    const res = await fetch("/api/admin/keys", { headers: { Authorization: `Bearer ${await idToken()}` } });
+    desk = await res.json();
+  } catch { desk = { keys: [] }; }
+  const post = async (body) => {
+    try {
+      const res = await fetch("/api/admin/keys", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${await idToken()}` },
+        body: JSON.stringify(body),
+      });
+      const out = await res.json();
+      if (!out.ok) { say("keys-status", out.error || "Refused."); return false; }
+      return true;
+    } catch { say("keys-status", "Couldn't reach the desk."); return false; }
+  };
+  const keys = desk.keys || [];
+  host.querySelector(".modal-body").innerHTML = `
+    <p class="panel-sub">Accounts from before ${desk.epoch ? new Date(desk.epoch).toLocaleDateString() : "the keys"} are in without one. ${desk.etsy ? "" : "No Etsy link is set yet \u2014 put it in ETSY_URL and the invite and gate will carry it."}</p>
+    <div class="key-forms">
+      <div class="joinrow"><input id="keys-unlock-name" maxlength="16" placeholder="Name to let in by hand"><button class="btn btn-small" id="keys-unlock">Let in</button></div>
+      <div class="joinrow"><input id="keys-pin-name" maxlength="16" placeholder="Name"><input id="keys-pin" inputmode="numeric" maxlength="6" placeholder="New pin" style="flex:0 0 7rem"><button class="btn btn-small" id="keys-setpin">Reset pin</button></div>
+      <p id="keys-status" class="notice" hidden></p>
+    </div>
+    <h3 class="rec-h">Keys used \u00b7 ${keys.length}</h3>
+    ${keys.length ? keys.map((k) => `
+      <div class="key-row ${k.revoked ? "off" : ""}">
+        <span><b>${escapeHtml(k.name)}</b> \u00b7 order #${escapeHtml(k.order)}${k.revoked ? " \u00b7 revoked" : ""}</span>
+        <span class="rep-when">${ago(new Date(k.at).toISOString())}</span>
+        <button class="btn btn-small" data-key="${escapeHtml(k.order)}" data-do="${k.revoked ? "restore" : "revoke"}">${k.revoked ? "Restore" : "Revoke"}</button>
+      </div>`).join("") : `<p class="panel-sub">No key has been used yet.</p>`}`;
+  host.querySelectorAll("[data-key]").forEach((b) => {
+    b.onclick = async () => { if (await post({ action: b.dataset.do, order: b.dataset.key })) drawKeys(); };
+  });
+  $("keys-unlock").onclick = async () => {
+    const name = $("keys-unlock-name").value.trim();
+    if (await post({ action: "unlock", name })) say("keys-status", `${name} is in.`, false);
+  };
+  $("keys-setpin").onclick = async () => {
+    const name = $("keys-pin-name").value.trim(), pin = $("keys-pin").value.trim();
+    if (await post({ action: "pin", name, pin })) say("keys-status", `${name}'s pin is now ${pin}. Tell them, then have them change it.`, false);
+  };
+}
+$("btn-keys").onclick = drawKeys;
 
 function drawBarred(me) {
   let host = $("barred");
@@ -1526,6 +1690,13 @@ function matchRules() {
         "When a match ends, MMR updates immediately &mdash; no confirmation step needed.",
         "All matches are recorded with full stats, date, and time. Disputes? Check the match history.",
       ])}
+      ${box("\u{1F511} Membership", [
+        "The game is sold on Etsy. Your Etsy order number is your key: enter it once when you register and it's locked to that account for good.",
+        "A key opens one account and no other. A used number is refused at the door.",
+        "Forgotten your pin? The order number that opened your account resets it from the sign-in page.",
+        "Everyone who was already playing before the keys went in is in for good \u2014 nothing to enter.",
+        "A number found to be reused or not yours can be revoked by the admin, and the account it opened is held at the door until it's sorted out through Etsy.",
+      ])}
       ${box("\u26A1 Boost Tokens", [
         "Casino money buys boost tokens in your profile's Token shop: one kind for each game, $2,000 apiece. Nothing in the game costs real money.",
         "A token does nothing until you apply it. Inside a game, press <b>\u26A1 Apply Token</b> to see what you hold and apply the token for that game to the match you're in.",
@@ -1694,7 +1865,9 @@ function beltsRuleHtml() {
 
 // ── invite ────────────────────────────────────────────────────────
 function drawInvite() {
-  const link = location.origin;
+  // New players need a key, so the invite sends them to the listing; until
+  // there is one, it sends them to the door.
+  const link = S.etsy || location.origin;
   const host = $("drawer-invite");
   host.innerHTML = `
     <div class="modal-back" data-close></div>
@@ -1705,7 +1878,7 @@ function drawInvite() {
       </div>
       <div class="modal-body invite">
         <div class="qr" id="qr"></div>
-        <p class="panel-sub">Point a phone camera at the code, or send the link.</p>
+        <p class="panel-sub">${S.etsy ? "Point a phone camera at the code, or send the link. It goes to the Etsy listing \u2014 the order number is their key at the door." : "Point a phone camera at the code, or send the link."}</p>
         <div class="joinrow">
           <input id="invite-link" readonly value="${link}">
           <button id="invite-copy" class="btn">Copy</button>
@@ -1746,7 +1919,7 @@ function drawInvite() {
   if (navigator.share) {
     $("invite-share").hidden = false;
     $("invite-share").onclick = () =>
-      navigator.share({ title: "Omni Multiverse of Madness", text: "Come and play.", url: link }).catch(() => {});
+      navigator.share({ title: "Omni Multiverse of Madness", text: S.etsy ? "Get a key and come and play." : "Come and play.", url: link }).catch(() => {});
   }
 }
 

@@ -95,8 +95,14 @@ if (location.protocol === "file:") {
                placeholder="3-16 letters, numbers or _">
       </label>
 
+      <label class="field" id="auth-order-field" hidden>
+        <span>Etsy order number</span>
+        <input id="auth-order" inputmode="numeric" maxlength="14" autocomplete="off" spellcheck="false"
+               placeholder="the number on your Etsy receipt">
+      </label>
+
       <label class="field">
-        <span>Six-digit pin</span>
+        <span id="auth-pin-label">Six-digit pin</span>
         <input id="auth-pin" class="pin-input" inputmode="numeric" maxlength="6"
                autocomplete="current-password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;">
       </label>
@@ -104,6 +110,8 @@ if (location.protocol === "file:") {
       <button id="btn-auth" class="btn btn-primary">Enter the dojo</button>
       <p id="gate-error" class="notice notice-bad" hidden></p>
       <p id="gate-hint" class="fineprint">Names are yours alone. Pins are not &mdash; pick one you'll remember, and don't reuse a pin that guards anything important.</p>
+      <p id="gate-key" class="fineprint" hidden>Your order number is your key: it opens this account and resets a forgotten pin. <a id="gate-etsy" href="#" target="_blank" rel="noopener" hidden>Get a key on Etsy &rarr;</a></p>
+      <button id="btn-forgot" class="btn btn-quiet">Forgot your pin?</button>
     </div>
   </div>
 </section>
@@ -152,6 +160,7 @@ if (location.protocol === "file:") {
         <button id="btn-prestige" class="pb-prestige-btn" hidden>Prestige</button>
         <button id="btn-retire" class="pb-prestige-btn pb-retire-btn" hidden>Retire with honours</button>
         <button id="btn-reports" class="pb-prestige-btn pb-reports-btn" hidden>⚠️ Reports</button>
+        <button id="btn-keys" class="pb-prestige-btn pb-reports-btn" hidden>🔑 Keys</button>
         <!-- Invite lives in the Profile drawer; this stays for the drawer wiring. -->
         <button id="tab-invite" class="pb-invite" aria-expanded="false" aria-controls="drawer-invite" hidden>Invite to the Dojo</button>
       </aside>

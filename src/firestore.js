@@ -54,7 +54,7 @@ function account(env) {
   }
 }
 
-async function accessToken(env) {
+export async function accessToken(env) {
   const now = Date.now();
   if (tokenCache.token && now < tokenCache.expiresAt) return tokenCache.token;
 
@@ -64,7 +64,9 @@ async function accessToken(env) {
   const iat = Math.floor(now / 1000);
   const claims = {
     iss: sa.client_email,
-    scope: "https://www.googleapis.com/auth/datastore",
+    // Firestore, and Firebase Auth for the membership gate (account age,
+    // a pin reset against a key).
+    scope: "https://www.googleapis.com/auth/datastore https://www.googleapis.com/auth/identitytoolkit",
     aud: "https://oauth2.googleapis.com/token",
     iat,
     exp: iat + 3600,
@@ -105,8 +107,8 @@ async function accessToken(env) {
   return tokenCache.token;
 }
 
-const S = (v) => ({ stringValue: String(v) });
-const I = (v) => ({ integerValue: String(Math.round(v)) });
+export const S = (v) => ({ stringValue: String(v) });
+export const I = (v) => ({ integerValue: String(Math.round(v)) });
 
 /**
  * The numbers a commit hands back for one write's transforms, in the order
@@ -213,7 +215,7 @@ export async function saveCosmetics(env, uid, name, cos) {
   return { ok: true, cosmetics: wear, standing };
 }
 
-function base(env) {
+export function base(env) {
   return `projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents`;
 }
 

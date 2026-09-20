@@ -17,6 +17,15 @@ export const KEEP_DAYS = 7;
 
 export const UPDATES = [
   {
+    at: "2026-09-20T16:00:00Z",
+    where: "Sign-in",
+    title: "Keys at the door",
+    text: "The game is sold on Etsy. Registering now asks for the order number on your receipt — "
+      + "that number is your key, locked to your account for good, and it resets a forgotten pin from "
+      + "the sign-in page. Everyone already playing is in without one. The invite now points new "
+      + "players at the listing.",
+  },
+  {
     at: "2026-09-20T01:00:00Z",
     where: "Sign-in",
     title: "Guest play has ended",

@@ -1,4 +1,5 @@
 import { verifyIdToken } from "./jwt.js";
+import { membership, redeem, recover, listKeys, revokeKey, adminUnlock } from "./access.js";
 import { moderate } from "./moderation.js";
 import {
   prestigePlayer, retirePlayer, recordMatch, readRatings, saveCosmetics, strikePlayer, clearStrikes,
@@ -38,6 +39,24 @@ async function barred(env, uid) {
   try { return await (await fromCommons(env, `/banned?uid=${encodeURIComponent(uid)}`)).json(); }
   catch { return { banned: false }; }
 }
+/**
+ * A verified token whose account is through the gate. A locked account —
+ * no key yet, or a revoked one — is refused like a bad token; the client
+ * already holds it at the key screen, this is the backstop.
+ */
+async function verifyMember(token, env) {
+  const user = await verifyIdToken(token, env.FIREBASE_PROJECT_ID);
+  const m = await membership(env, user);
+  if (!m.unlocked) throw Object.assign(new Error("no key"), { locked: true });
+  return user;
+}
+
+// Names map to synthetic addresses on the client; a pin reset by key needs
+// the same mapping here.
+const NAME_DOMAIN = "kotoba-dojo.local";
+const addressFor = (name) => `${String(name).toLowerCase()}@${NAME_DOMAIN}`;
+const NAME_RE = /^[A-Za-z0-9_]{3,16}$/;
+
 const isAdmin = (env, uid) => String(env.ADMIN_UIDS || "").split(",").map((x) => x.trim()).includes(uid);
 
 function json(data, status = 200) {
@@ -77,7 +96,7 @@ export default {
     if (path === "/api/dojos") {
       const token = (request.headers.get("Authorization") || "").replace(/^Bearer /, "");
       try {
-        await verifyIdToken(token, env.FIREBASE_PROJECT_ID);
+        await verifyMember(token, env);
       } catch {
         return json({ error: "Sign in first." }, 401);
       }
@@ -95,7 +114,7 @@ export default {
       const token = (request.headers.get("Authorization") || "").replace(/^Bearer /, "");
       let user;
       try {
-        user = await verifyIdToken(token, env.FIREBASE_PROJECT_ID);
+        user = await verifyMember(token, env);
       } catch {
         return json({ error: "Sign in first." }, 401);
       }
@@ -135,7 +154,7 @@ export default {
     if (path === "/api/puzzle/new" && request.method === "POST") {
       const token = (request.headers.get("Authorization") || "").replace(/^Bearer /, "");
       let user;
-      try { user = await verifyIdToken(token, env.FIREBASE_PROJECT_ID); }
+      try { user = await verifyMember(token, env); }
       catch { return json({ error: "Sign in first." }, 401); }
 
       const puzzle = makePuzzle();
@@ -151,7 +170,7 @@ export default {
     if (path === "/api/puzzle/solve" && request.method === "POST") {
       const token = (request.headers.get("Authorization") || "").replace(/^Bearer /, "");
       let user;
-      try { user = await verifyIdToken(token, env.FIREBASE_PROJECT_ID); }
+      try { user = await verifyMember(token, env); }
       catch { return json({ error: "Sign in first." }, 401); }
 
       const body = await request.json().catch(() => ({}));
@@ -245,7 +264,7 @@ export default {
     if (path === "/api/scrolls" && request.method === "POST") {
       const token = (request.headers.get("Authorization") || "").replace(/^Bearer /, "");
       let user;
-      try { user = await verifyIdToken(token, env.FIREBASE_PROJECT_ID); }
+      try { user = await verifyMember(token, env); }
       catch { return json({ error: "Sign in first." }, 401); }
 
       const body = await request.json().catch(() => ({}));
@@ -272,14 +291,57 @@ export default {
       try { user = await verifyIdToken(token, env.FIREBASE_PROJECT_ID); }
       catch { return json({ error: "Sign in first." }, 401); }
       const bar = await barred(env, user.uid);
-      return json({ ...bar, admin: isAdmin(env, user.uid) });
+      const m = await membership(env, user);
+      return json({ ...bar, admin: isAdmin(env, user.uid), unlocked: !!m.unlocked, via: m.via || null, order: m.order || null, reason: m.reason || null, unknown: !!m.unknown, etsy: env.ETSY_URL || "" });
+    }
+
+    // The gate's public face: where a key comes from.
+    if (path === "/api/config") return json({ etsy: env.ETSY_URL || "" });
+
+    // An Etsy order number, locked to this account.
+    if (path === "/api/redeem" && request.method === "POST") {
+      const token = (request.headers.get("Authorization") || "").replace(/^Bearer /, "");
+      let user;
+      try { user = await verifyIdToken(token, env.FIREBASE_PROJECT_ID); }
+      catch { return json({ error: "Sign in first." }, 401); }
+      const body = await request.json().catch(() => ({}));
+      const result = await redeem(env, user, body.order);
+      return json(result, result.ok ? 200 : 400);
+    }
+
+    // A forgotten pin, reset against the key. No sign-in — that is the point.
+    if (path === "/api/recover" && request.method === "POST") {
+      const body = await request.json().catch(() => ({}));
+      const name = String(body.name || "").trim();
+      if (!NAME_RE.test(name)) return json({ error: "Names are 3 to 16 characters: letters, numbers or underscores." }, 400);
+      const result = await recover(env, { name, address: addressFor(name), order: body.order, pin: String(body.pin || "") });
+      return json(result, result.ok ? 200 : 400);
+    }
+
+    // The admin's keys desk: every redemption, revoke, let a name in, reset a pin.
+    if (path === "/api/admin/keys") {
+      const token = (request.headers.get("Authorization") || "").replace(/^Bearer /, "");
+      let user;
+      try { user = await verifyIdToken(token, env.FIREBASE_PROJECT_ID); }
+      catch { return json({ error: "Sign in first." }, 401); }
+      if (!isAdmin(env, user.uid)) return json({ error: "Not your desk." }, 403);
+      if (request.method !== "POST") return json({ keys: await listKeys(env), epoch: env.KEY_EPOCH || null, etsy: env.ETSY_URL || "" });
+      const body = await request.json().catch(() => ({}));
+      const name = String(body.name || "").trim();
+      let result;
+      if (body.action === "revoke" || body.action === "restore") result = await revokeKey(env, String(body.order || "").replace(/[^\d]/g, ""), body.action === "revoke");
+      else if (body.action === "unlock" || body.action === "pin") {
+        if (!NAME_RE.test(name)) result = { ok: false, error: "That isn't a name." };
+        else result = await adminUnlock(env, { name, address: addressFor(name), pin: body.action === "pin" ? String(body.pin || "") : null });
+      } else result = { ok: false, error: "Unrecognised action." };
+      return json(result, result.ok ? 200 : 400);
     }
 
     // A barred player asks to be let back in. One request at a time.
     if (path === "/api/appeal" && request.method === "POST") {
       const token = (request.headers.get("Authorization") || "").replace(/^Bearer /, "");
       let user;
-      try { user = await verifyIdToken(token, env.FIREBASE_PROJECT_ID); }
+      try { user = await verifyMember(token, env); }
       catch { return json({ error: "Sign in first." }, 401); }
       const body = await request.json().catch(() => ({}));
       const res = await toCommons(env, "/appeal", { uid: user.uid, name: user.name, text: body.text });
@@ -312,7 +374,7 @@ export default {
     // The strip. Signed in, as reading the leaderboard always was.
     if (path === "/api/rankings") {
       const token = (request.headers.get("Authorization") || "").replace(/^Bearer /, "");
-      try { await verifyIdToken(token, env.FIREBASE_PROJECT_ID); }
+      try { await verifyMember(token, env); }
       catch { return json({ error: "Sign in first." }, 401); }
       return fromCommons(env, "/rankings");
     }
@@ -322,7 +384,7 @@ export default {
     if (path === "/api/chat" && request.method === "POST") {
       const token = (request.headers.get("Authorization") || "").replace(/^Bearer /, "");
       let user;
-      try { user = await verifyIdToken(token, env.FIREBASE_PROJECT_ID); }
+      try { user = await verifyMember(token, env); }
       catch { return json({ error: "Sign in first." }, 401); }
       const body = await request.json().catch(() => ({}));
       const bar = await barred(env, user.uid);
@@ -346,7 +408,7 @@ export default {
     // new award needs no new endpoint.
     if (path === "/api/feed/award" && request.method === "POST") {
       const token = (request.headers.get("Authorization") || "").replace(/^Bearer /, "");
-      try { await verifyIdToken(token, env.FIREBASE_PROJECT_ID); }
+      try { await verifyMember(token, env); }
       catch { return json({ error: "Sign in first." }, 401); }
       const body = await request.json().catch(() => ({}));
       const ok = await postFeed(env, {
@@ -359,7 +421,7 @@ export default {
     if (path === "/api/wallet") {
       const token = (request.headers.get("Authorization") || "").replace(/^Bearer /, "");
       let user;
-      try { user = await verifyIdToken(token, env.FIREBASE_PROJECT_ID); }
+      try { user = await verifyMember(token, env); }
       catch { return json({ error: "Sign in first." }, 401); }
       return fromCommons(env, `/wallet?uid=${encodeURIComponent(user.uid)}`);
     }
@@ -369,7 +431,7 @@ export default {
     if (path === "/api/wallet/withdraw" && request.method === "POST") {
       const token = (request.headers.get("Authorization") || "").replace(/^Bearer /, "");
       let user;
-      try { user = await verifyIdToken(token, env.FIREBASE_PROJECT_ID); }
+      try { user = await verifyMember(token, env); }
       catch { return json({ error: "Sign in first." }, 401); }
 
       const body = await request.json().catch(() => ({}));
@@ -428,7 +490,7 @@ export default {
     if (path === "/api/cosmetics" && request.method === "POST") {
       const token = (request.headers.get("Authorization") || "").replace(/^Bearer /, "");
       let user;
-      try { user = await verifyIdToken(token, env.FIREBASE_PROJECT_ID); }
+      try { user = await verifyMember(token, env); }
       catch { return json({ error: "Sign in first." }, 401); }
       const body = await request.json().catch(() => ({}));
       const result = await saveCosmetics(env, user.uid, user.name, {
@@ -443,7 +505,7 @@ export default {
     if (path === "/api/shop/buy" && request.method === "POST") {
       const token = (request.headers.get("Authorization") || "").replace(/^Bearer /, "");
       let user;
-      try { user = await verifyIdToken(token, env.FIREBASE_PROJECT_ID); }
+      try { user = await verifyMember(token, env); }
       catch { return json({ error: "Sign in first." }, 401); }
       const body = await request.json().catch(() => ({}));
       const result = await buyToken(env, user.uid, user.name, String(body.game || ""));
@@ -454,7 +516,7 @@ export default {
     if (path === "/api/retire" && request.method === "POST") {
       const token = (request.headers.get("Authorization") || "").replace(/^Bearer /, "");
       let user;
-      try { user = await verifyIdToken(token, env.FIREBASE_PROJECT_ID); }
+      try { user = await verifyMember(token, env); }
       catch { return json({ error: "Sign in first." }, 401); }
       const result = await retirePlayer(env, user.uid, user.name);
       return json(result, result.ok ? 200 : 400);
@@ -464,7 +526,7 @@ export default {
       const token = (request.headers.get("Authorization") || "").replace(/^Bearer /, "");
       let user;
       try {
-        user = await verifyIdToken(token, env.FIREBASE_PROJECT_ID);
+        user = await verifyMember(token, env);
       } catch {
         return json({ error: "Sign in first." }, 401);
       }
@@ -478,7 +540,7 @@ export default {
         return new Response("Expected a WebSocket upgrade.", { status: 426 });
       let user;
       try {
-        user = await verifyIdToken(url.searchParams.get("token"), env.FIREBASE_PROJECT_ID);
+        user = await verifyMember(url.searchParams.get("token"), env);
       } catch (err) {
         return new Response(`Sign-in rejected: ${err.message}`, { status: 401 });
       }
@@ -497,7 +559,7 @@ export default {
         return new Response("Expected a WebSocket upgrade.", { status: 426 });
       let user;
       try {
-        user = await verifyIdToken(url.searchParams.get("token"), env.FIREBASE_PROJECT_ID);
+        user = await verifyMember(url.searchParams.get("token"), env);
       } catch (err) {
         return new Response(`Sign-in rejected: ${err.message}`, { status: 401 });
       }
@@ -533,7 +595,7 @@ export default {
       const token = url.searchParams.get("token");
       let user;
       try {
-        user = await verifyIdToken(token, env.FIREBASE_PROJECT_ID);
+        user = await verifyMember(token, env);
       } catch (err) {
         // 1008 would be tidier, but the upgrade hasn't happened yet.
         return new Response(`Sign-in rejected: ${err.message}`, { status: 401 });

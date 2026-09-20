@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
-  getAuth, onAuthStateChanged, signInAnonymously, signOut, updateProfile,
+  getAuth, onAuthStateChanged, signOut, updateProfile,
   createUserWithEmailAndPassword, signInWithEmailAndPassword,
   EmailAuthProvider, reauthenticateWithCredential, updatePassword,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
@@ -170,11 +170,6 @@ function say(node, message, bad = true) {
 
 // ───────────────────────────────────────────────────────────── auth
 
-const GUEST_A = ["Quiet", "Steady", "Early", "Patient", "Restless", "Barefoot", "Northern"];
-const GUEST_B = ["Pine", "Crane", "Stone", "River", "Lantern", "Bamboo", "Ember"];
-const guestName = () =>
-  `${GUEST_A[(Math.random() * GUEST_A.length) | 0]} ${GUEST_B[(Math.random() * GUEST_B.length) | 0]}`;
-
 // Firebase Auth has no username/password mode — only email/password. A name
 // maps to a fixed synthetic address, which makes Firebase itself enforce that
 // names are unique: a taken name comes back as email-already-in-use, with no
@@ -265,22 +260,6 @@ $("btn-auth").onclick = async () => {
   }
 };
 
-$("btn-guest").onclick = async () => {
-  $("btn-guest").disabled = true;
-  say("gate-error", "");
-  try {
-    const cred = await signInAnonymously(auth);
-    await updateProfile(cred.user, { displayName: guestName() });
-    render();
-  } catch (e) {
-    say("gate-error", e.code === "auth/operation-not-allowed"
-      ? "Anonymous sign-in isn't enabled in the Firebase console yet."
-      : authError(e.code, e.message));
-  } finally {
-    $("btn-guest").disabled = false;
-  }
-};
-
 $("btn-signout").onclick = () => { closeSocket(); signOut(auth); };
 $("pb-avatar").onclick = drawAvatarPicker;
 
@@ -289,8 +268,19 @@ onAuthStateChanged(auth, async (user) => {
   $("boot").hidden = true;
   S.user = user;
   if (!user) { show("gate"); return; }
+  // Guest play is over. A browser still holding an anonymous session is
+  // signed out and told why, and the server refuses the token regardless.
+  if (user.isAnonymous) {
+    S.user = null;
+    await signOut(auth).catch(() => {});
+    show("gate");
+    say("gate-error", "Guest play has ended. Register a name to keep playing \u2014 it takes ten seconds.");
+    return;
+  }
   try {
-    if (!user.displayName) await updateProfile(user, { displayName: guestName() });
+    // Every account is made with a name; the address it signed up under
+    // stands in if that ever failed to save.
+    if (!user.displayName) await updateProfile(user, { displayName: (user.email || "").split("@")[0] || "Player" });
     render();
     show("home");
     window.__ready = true;
@@ -2599,8 +2589,6 @@ function drawProfile(tab) {
     const oldPin = $("pf-old").value, newPin = $("pf-new").value;
     if (!/^\d{6}$/.test(oldPin) || !/^\d{6}$/.test(newPin))
       return say("pf-status", "Both pins are six digits.");
-    if (auth.currentUser.isAnonymous)
-      return say("pf-status", "Guests have no pin to change.");
     try {
       // Firebase requires a fresh sign-in before a credential change.
       const cred = EmailAuthProvider.credential(auth.currentUser.email, secretFor(oldPin));

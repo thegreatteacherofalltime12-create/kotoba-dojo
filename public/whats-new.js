@@ -17,6 +17,13 @@ export const KEEP_DAYS = 7;
 
 export const UPDATES = [
   {
+    at: "2026-09-20T01:00:00Z",
+    where: "Sign-in",
+    title: "Guest play has ended",
+    text: "Everyone plays under a registered name now. If you were training as a guest, register a "
+      + "name and a pin — it takes ten seconds, and everything from here on is yours to keep.",
+  },
+  {
     at: "2026-09-19T21:00:00Z",
     where: "Every game",
     title: "Apply Token",

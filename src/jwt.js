@@ -92,6 +92,9 @@ export async function verifyIdToken(token, projectId) {
     throw new Error("token auth_time is in the future");
   if (!claims.sub || typeof claims.sub !== "string")
     throw new Error("token has no subject");
+  // Guest play is over: only a registered name gets through any door.
+  if (claims.firebase?.sign_in_provider === "anonymous")
+    throw new Error("guest play has ended");
 
   const fallback = claims.email ? String(claims.email).split("@")[0] : "";
   return {

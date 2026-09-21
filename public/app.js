@@ -1731,6 +1731,14 @@ function tokensRules() {
         "<b>Submarine Torpedo:</b> one extra single-square shot on your turn, on top of your volley, while your submarine is afloat.",
         "Blast hits count for score and sinkings, but not toward your accuracy bonus. Computer captains never carry tokens. The host can switch the arsenal off for a battle.",
       ])}
+      ${box("💣 The Minesweeper Arsenal", [
+        "Four tokens, priced in casino money: Mine Reveal ($20,000), Mine Buster ($5,000), Clear Map ($200,000) and Invincibility ($30,550). Arm them under <b>⚡ Apply Token</b>; fire them from the Arsenal strip above the field. Only what you use is spent; the rest stays armed for the next round.",
+        "<b>Mine Reveal:</b> shows two of the field's mines on your board, marked so you can't dig them. Any field. Two a round.",
+        "<b>Mine Buster:</b> pick a square. A mine there is destroyed — for you only; the numbers around it drop and the square opens. Clean ground just opens. Intermediate and Expert fields only. Five a round.",
+        "<b>Clear Map:</b> only before you have dug anything yourself (the opening doesn't count). Opens a 5×5 around the square you pick. A mine inside it ends your sweep — unless you are invincible, in which case the mines are defused. One a round.",
+        "<b>Invincibility:</b> for ten seconds a mine you dig is defused under your feet instead of ending you. Two a round.",
+        "A defused or busted mine leaves a crater on your board and counts as ground to clear; the shared field everyone else races on never changes.",
+      ])}
     </div>`;
 }
 
@@ -1774,6 +1782,7 @@ const GAME_RULES = [
       "Three fields: <b>Beginner</b> (9\u00d79, 10 mines), <b>Intermediate</b> (16\u00d716, 40 mines) and <b>Expert</b> (16\u00d730, 99 mines). Everyone in the room sweeps the same field; the opening square is safe and already cleared.",
       "Tap to dig, long-press or right-click to flag. A number is how many mines touch that square. Dig a mine and your sweep ends where it stands.",
       "<b>Solo Sweep</b> is you against the clock. In a race the first to clear wins; the round caps at <b>10 minutes</b>.",
+      "The <b>arsenal</b> — Mine Reveal, Mine Buster, Clear Map, Invincibility — is armed under ⚡ Apply Token and fired from the strip above the field. Rules in the ⚡ Tokens tab.",
     ],
     score: [
       "A cleared field scores 55 plus up to 45 for speed, weighted by the level (Intermediate \u00d71.15, Expert \u00d71.3).",

@@ -9,7 +9,7 @@
 // If FIREBASE_SERVICE_ACCOUNT isn't set, every function here quietly no-ops
 // and the game still works — you just lose ranked history.
 
-import { ARSENAL } from "./battleship.js";
+import { ALL_TOKENS } from "./arsenals.js";
 import { tellCommons } from "./commons-notify.js";
 import { allowed, featsFor, isMark, BIG_BANK } from "../public/cosmetics.js";
 import { GI_COLORS } from "../public/arena.js";
@@ -267,7 +267,7 @@ export const TOKEN_GAMES = ["crossword", "battleship", "minesweeper", "links", "
 // The Battleship arsenal sells alongside the boosts, each at its own price.
 export const TOKEN_PRICES = Object.fromEntries([
   ...TOKEN_GAMES.map((g) => [g, TOKEN_PRICE]),
-  ...Object.entries(ARSENAL).map(([k, v]) => [k, v.price]),
+  ...Object.entries(ALL_TOKENS).map(([k, v]) => [k, v.price]),
 ]);
 export const priceOf = (key) => TOKEN_PRICES[key] ?? null;
 
@@ -1248,7 +1248,7 @@ export function matchWrites(base, matchId, match, logged) {
     const featKeys = Object.keys(feats);
     const spends = [
       ...(r.boost ? [[match.game || "crossword", 1]] : []),
-      ...Object.entries(r.spent || {}).filter(([k, n]) => ARSENAL[k] && n > 0).map(([k, n]) => [k, Math.round(n)]),
+      ...Object.entries(r.spent || {}).filter(([k, n]) => ALL_TOKENS[k] && n > 0).map(([k, n]) => [k, Math.round(n)]),
     ];
     writes.push({
       update: {

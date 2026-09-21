@@ -46,6 +46,19 @@ export const HULL_OPTIONS = [
 ];
 export const arsenalItem = (key) => ARSENAL_ITEMS.find((t) => t.key === key);
 
+// The Minesweeper arsenal. Mirrors src/arsenals.js.
+export const MINE_ARSENAL_ITEMS = [
+  { key: "ms_reveal", name: "Mine Reveal", icon: "\u{1F50E}", price: 20000, max: 2,
+    blurb: "Shows two of the field's mines on your board. Any field. Two a round." },
+  { key: "ms_buster", name: "Mine Buster", icon: "\u{1F9E8}", price: 5000, max: 5,
+    blurb: "Pick a square: a mine there is destroyed and the ground opens; clean ground just opens. Intermediate and Expert only. Five a round." },
+  { key: "ms_clear", name: "Clear Map", icon: "\u{1F9F9}", price: 200000, max: 1,
+    blurb: "Before you have dug anything, opens a 5\u00d75 where you point \u2014 a mine inside it ends your sweep. One a round." },
+  { key: "ms_shield", name: "Invincibility", icon: "\u{1F6E1}\uFE0F", price: 30550, max: 2,
+    blurb: "Ten seconds in which a mine you dig is defused instead of ending you. Two a round." },
+];
+export const GAME_ARSENAL_ITEMS = { battleship: ARSENAL_ITEMS, minesweeper: MINE_ARSENAL_ITEMS };
+
 /**
  * The shop, one arsenal per game: the game's 1.5\u00d7 boost first, then
  * whatever else that game sells. Other games' arsenals grow here too.
@@ -56,7 +69,7 @@ export const GAME_ARSENALS = TOKEN_ITEMS.map((t) => ({
   icon: t.icon,
   items: [
     { key: t.game, name: t.name, icon: "\u26A1", price: TOKEN_PRICE, blurb: t.blurb },
-    ...(t.game === "battleship" ? ARSENAL_ITEMS : []),
+    ...(GAME_ARSENAL_ITEMS[t.game] || []),
   ],
 }));
 export const shopItem = (key) => GAME_ARSENALS.flatMap((a) => a.items).find((t) => t.key === key);
@@ -147,6 +160,12 @@ export function applyTokenTab({ game, send, button, host, label, arsenal = false
     if (el && !el.hidden) draw();
   }
 
+  /** A fresh arsenal view from the room, without a full reply. */
+  function arsenalState(view) {
+    state = { ...state, arsenal: view };
+    if (el && !el.hidden) draw();
+  }
+
   /** Forget the applied light — for a room that scored and moved on. */
   function reset() {
     state = { ...state, applied: false };
@@ -218,13 +237,15 @@ export function applyTokenTab({ game, send, button, host, label, arsenal = false
     if (state.loading && !ars) return "";
     if (!ars) return "";
     const armedTotal = Object.values(ars.armed || {}).reduce((n, v) => n + v, 0);
-    const head = `<h3 class="tok-h"><span>Battleship arsenal</span><span>Armed ${armedTotal} / ${ars.cap}</span></h3>`;
+    const head = `<h3 class="tok-h"><span>${here.name.replace(/ boost$/, "")} arsenal</span><span>Armed ${armedTotal}${ars.cap != null ? ` / ${ars.cap}` : ""}</span></h3>`;
     if (!ars.on) return head + `<p class="tok-off">The host has the arsenal switched off for this battle.</p>`;
-    const rows = ARSENAL_ITEMS.map((t) => {
+    const list = Array.isArray(arsenal) ? arsenal : ARSENAL_ITEMS;
+    const rows = list.map((t) => {
       const held = tokens[t.key] || 0;
       const armed = ars.armed?.[t.key] || 0;
       const used = ars.used?.[t.key] || 0;
-      const canArm = !state.busy && held > armed && armedTotal < ars.cap && !(t.max && armed >= t.max) && !(t.key === "bs_ships" && armed);
+      const limit = ars.max?.[t.key] ?? t.max;
+      const canArm = !state.busy && held > armed && (ars.cap == null || armedTotal < ars.cap) && !(limit && armed >= limit) && !(t.key === "bs_ships" && armed);
       const canDisarm = !state.busy && armed > used;
       const hulls = t.key === "bs_ships" && !armed
         ? `<div class="tok-hulls">${[0, 1, 2].map((i) => `<select data-hull aria-label="Extra hull ${i + 1}">${HULL_OPTIONS.map(([v, l], j) => `<option value="${v}" ${j === [2, 3, 4][i] ? "selected" : ""}>${l}</option>`).join("")}</select>`).join("")}</div>`
@@ -243,9 +264,9 @@ export function applyTokenTab({ game, send, button, host, label, arsenal = false
         </div>
       </div>`;
     }).join("");
-    return head + rows + `<p class="tok-sub">Armed tokens are fired from the Arsenal strip on the battle screen. Only what you use is spent.</p>`;
+    return head + rows + `<p class="tok-sub">Armed tokens are fired from the Arsenal strip on the game screen. Only what you use is spent; the rest stays armed.</p>`;
   }
 
   if (button) button.onclick = open;
-  return { open, close, receive, reset };
+  return { open, close, receive, reset, arsenalState };
 }

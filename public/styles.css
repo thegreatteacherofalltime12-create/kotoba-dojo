@@ -3432,3 +3432,8 @@ a.dtab { text-decoration: none; display: inline-block; }
 .game-rules-card { width: min(40rem, 100%); }
 /* Windows that open over the rule book and the other full-screen drawers. */
 #points-modal, #avatar-modal { z-index: 70; }
+
+.mcell.known { background: #f2d9a0; border: 1px solid #b08a3a; }
+.mcell.crater { background: #8f8f8f; border: 1px solid #5a5a5a; box-shadow: inset 0 0 0 2px #d7a94a; }
+.mcell.blast { background: color-mix(in srgb, #F4CE5A 60%, #fff) !important; border-color: #b08a3a !important; }
+.mgrid.aiming .mcell:not(.open) { cursor: crosshair; }

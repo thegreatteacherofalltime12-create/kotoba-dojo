@@ -1,3 +1,4 @@
+import { ARSENALS } from "./arsenals.js";
 // Minesweeper rules, with no I/O so they can be tested directly. The board
 // lives on the server: a client is told only what it has uncovered, because a
 // layout sitting in the page is a layout anyone can read.
@@ -24,6 +25,54 @@ function neighbours(r, c, rows, cols) {
   return out;
 }
 
+/** Neighbour counts for every safe square, given where the mines are. */
+function countsFor(mineSet, rows, cols) {
+  const counts = {};
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (mineSet.has(key(r, c))) continue;
+      counts[key(r, c)] = neighbours(r, c, rows, cols)
+        .filter(([rr, cc]) => mineSet.has(key(rr, cc))).length;
+    }
+  }
+  return counts;
+}
+
+// ── the arsenal ───────────────────────────────────────────────────────
+export const MINE_ARSENAL = ARSENALS.minesweeper;
+export const CLEAR_SPAN = 5;                       // the Clear Map area
+export const SHIELD_MS = 10_000;                   // invincibility, per token
+export const BUSTER_LEVELS = ["intermediate", "expert"];
+
+/**
+ * The board as one player sees it once some mines have been busted: those
+ * squares are safe ground, the numbers around them drop, and there is that
+ * much more to clear. The shared board is never changed.
+ */
+export function bustBoard(board, busted) {
+  if (!busted?.length) return board;
+  const mineSet = new Set(board.mineList.filter((m) => !busted.includes(m)));
+  return {
+    ...board,
+    mineList: [...mineSet],
+    counts: countsFor(mineSet, board.rows, board.cols),
+    safeTotal: board.rows * board.cols - mineSet.size,
+  };
+}
+
+/** A square block centred on a cell, clipped to the board. */
+export function areaCells(cell, span, rows, cols) {
+  const [r, c] = String(cell).split(",").map(Number);
+  if (!Number.isInteger(r) || !Number.isInteger(c)) return [];
+  const off = Math.floor(span / 2);
+  const out = [];
+  for (let i = -off; i <= off; i++) for (let j = -off; j <= off; j++) {
+    const rr = r + i, cc = c + j;
+    if (rr >= 0 && cc >= 0 && rr < rows && cc < cols) out.push(key(rr, cc));
+  }
+  return out;
+}
+
 /**
  * A board everyone in the round shares.
  *
@@ -42,14 +91,7 @@ export function makeBoard(levelId) {
       mineSet.add(key(Math.floor(Math.random() * rows), Math.floor(Math.random() * cols)));
     }
 
-    const counts = {};
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        if (mineSet.has(key(r, c))) continue;
-        counts[key(r, c)] = neighbours(r, c, rows, cols)
-          .filter(([rr, cc]) => mineSet.has(key(rr, cc))).length;
-      }
-    }
+    const counts = countsFor(mineSet, rows, cols);
 
     // An opening worth having: a cell with no mines touching it, so the
     // flood-fill gives everyone a real start rather than a single square.
@@ -96,7 +138,7 @@ export function reveal(board, revealed, cell) {
     }
   }
 
-  const total = Object.keys(revealed).length + Object.keys(out).length;
+  const total = Object.values(revealed).filter((v) => v >= 0).length + Object.keys(out).length;
   return { cells: out, hitMine: false, won: total >= board.safeTotal };
 }
 

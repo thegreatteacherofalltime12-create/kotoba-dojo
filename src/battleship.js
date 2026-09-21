@@ -1,3 +1,4 @@
+import { ARSENALS } from "./arsenals.js";
 // Every rule of Battleship Royale, with no I/O, so the awkward parts — the
 // target cooldown especially — can be tested directly.
 
@@ -56,15 +57,7 @@ export const fleetFor = (id) => FLEETS[id] || FLEETS.easy;
 // Tokens bought with casino money and armed for one battle. A captain may
 // arm ARM_CAP of them in a match, and no more than NUKE_MAX nukes. Only what
 // is used is spent. Every rule here is pure; the room applies them.
-export const ARSENAL = {
-  bs_nuke:    { name: "Nuke Missile",        price: 500_000, max: 2, icon: "\u2622\uFE0F" },
-  bs_shots:   { name: "Extra Shots",          price: 25_000,  icon: "\u{1F3AF}" },
-  bs_ships:   { name: "Extra Ships",          price: 5_000,   icon: "\u{1F6A2}" },
-  bs_strike:  { name: "Tactical Air Strike",  price: 35_000,  icon: "\u2708\uFE0F" },
-  bs_shield:  { name: "Air Strike Defence",   price: 40_000,  icon: "\u{1F6E1}\uFE0F" },
-  bs_reveal:  { name: "Air Strike Reveal",    price: 13_000,  icon: "\u{1F52D}" },
-  bs_torpedo: { name: "Submarine Torpedo",    price: 1_437,   icon: "\u{1F41F}" },
-};
+export const ARSENAL = ARSENALS.battleship;
 export const ARSENAL_KEYS = Object.keys(ARSENAL);
 export const ARM_CAP = 4;
 export const NUKE_MAX = 2;

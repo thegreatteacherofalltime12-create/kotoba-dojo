@@ -1,10 +1,11 @@
 import {
   LEVELS, levelById, makeBoard, reveal, openingFor, progressOf,
   mineScore, isMine, ROUND_CAP_MS,
+  MINE_ARSENAL, CLEAR_SPAN, SHIELD_MS, BUSTER_LEVELS, bustBoard, areaCells,
 } from "./minesweeper.js";
 import { recordMatch, readRatings } from "./firestore.js";
 import { boosted } from "./mmr.js";
-import { tokensReply } from "./boost.js";
+import { tokensReply, heldTokens } from "./boost.js";
 import { announceRoom } from "./rooms.js";
 import { applyBounty } from "./report-bounty.js";
 import { sessionGain, fieldMmrFor, beltFor } from "./mmr.js";
@@ -115,6 +116,7 @@ export class MineField {
         // Someone arriving mid-race watches this one out, as in the dojo.
         watching: this.g.phase === "ACTIVE",
         revealed: {}, flags: [], done: false, won: false, score: 0, finishedAt: null,
+        ars: this.freshArs(),
       };
     }
 
@@ -128,8 +130,9 @@ export class MineField {
     if (this.g.phase === "ACTIVE" && !me.watching && !me.done) {
       this.send(ws, "MINE_RESUME", {
         shape: this.shape(), revealed: me.revealed, flags: me.flags,
-        endsAt: this.g.endsAt, serverNow: Date.now(),
+        craters: this.arsOf(me).busted, endsAt: this.g.endsAt, serverNow: Date.now(),
       });
+      this.send(ws, "MINE_ARSENAL_STATE", { arsenal: this.arsenalView(me) });
     }
 
     await this.state.storage.deleteAlarm().catch(() => {});
@@ -155,7 +158,7 @@ export class MineField {
         score: p.score,
         // Progress is public; which squares they opened is not, or the board
         // could be reconstructed by watching someone else play it.
-        progress: Math.round((Object.keys(p.revealed).length / total) * 100),
+        progress: Math.round((Object.values(p.revealed).filter((v) => v >= 0).length / total) * 100),
       })),
     };
   }
@@ -179,14 +182,10 @@ export class MineField {
         case "MINE_DIG":   return await this.dig(ws, who.uid, msg);
         case "MINE_FLAG":  return await this.flag(ws, who.uid, msg);
         case "TOKENS":
-        case "APPLY_TOKEN": {
-          this.g.applied = this.g.applied || {};
-          const reply = await tokensReply(this.env, who.uid, "minesweeper", {
-            applied: this.g.applied, over: false, apply: msg.type === "APPLY_TOKEN",
-          });
-          if (reply.changed) await this.persist();
-          return this.send(ws, "MINE_TOKENS", reply);
-        }
+        case "APPLY_TOKEN":  return await this.sendTokens(ws, who.uid, msg.type === "APPLY_TOKEN");
+        case "ARM_TOKEN":    return await this.arm(ws, who.uid, msg);
+        case "DISARM_TOKEN": return await this.disarm(ws, who.uid, msg);
+        case "MINE_ARSENAL": return await this.arsenal(ws, who.uid, msg);
         case "MINE_END_MATCH": {
           // finish() already pays everyone still sweeping on the ground they
           // uncovered, so ending early needs no scoring of its own.
@@ -251,6 +250,8 @@ export class MineField {
       p.revealed = playing ? { ...opening } : {};
       p.flags = [];
       p.done = false; p.won = false; p.score = 0; p.finishedAt = null;
+      const a = this.arsOf(p);
+      a.used = {}; a.busted = []; a.invincibleUntil = 0; a.digs = 0;
       p.mmrAtStart = ratings[p.uid] || 0;
       if (this.g.applied?.[p.uid] && !((ratings.boosts?.[p.uid]?.minesweeper || 0) > 0)) delete this.g.applied[p.uid];
       p.seed = seeded.indexOf(p.uid) + 1 || null;
@@ -269,6 +270,184 @@ export class MineField {
     this.broadcast("MINE_START", {
       shape: this.shape(), opening, endsAt: this.g.endsAt, serverNow: now, round: this.g.round,
     });
+    for (const ws2 of this.sockets()) {
+      let u = null;
+      try { u = ws2.deserializeAttachment()?.uid; } catch { /* gone */ }
+      const p = u && this.g.players[u];
+      if (p) this.send(ws2, "MINE_ARSENAL_STATE", { arsenal: this.arsenalView(p) });
+    }
+    this.pushState();
+  }
+
+  // ── the arsenal ──────────────────────────────────────────────────
+  //
+  // Mine Reveal shows two mines; Mine Buster makes a square safe, mine or
+  // not; Clear Map opens a 5x5 before you have dug anything, and is a gamble;
+  // Invincibility makes the next ten seconds free of explosions. Each is
+  // limited per round, only what is used is spent, and a busted mine is
+  // gone for that player only — the shared board never changes.
+  freshArs() { return { armed: {}, used: {}, busted: [], invincibleUntil: 0, digs: 0 }; }
+  arsOf(p) { return p.ars || (p.ars = this.freshArs()); }
+  armedLeft(p, key) { const a = this.arsOf(p); return (a.armed[key] || 0) - (a.used[key] || 0); }
+  useToken(p, key) { const a = this.arsOf(p); a.used[key] = (a.used[key] || 0) + 1; }
+  invincible(p) { return Date.now() < (this.arsOf(p).invincibleUntil || 0); }
+  boardOf(p) {
+    const a = this.arsOf(p);
+    if (!a.busted.length) return this.board;
+    this.boards = this.boards || new Map();
+    const hit = this.boards.get(p.uid);
+    if (hit && hit.n === a.busted.length && hit.base === this.board) return hit.board;
+    const board = bustBoard(this.board, a.busted);
+    this.boards.set(p.uid, { n: a.busted.length, base: this.board, board });
+    return board;
+  }
+  arsenalView(p) {
+    const a = this.arsOf(p);
+    return {
+      on: true, armed: a.armed, used: a.used,
+      max: Object.fromEntries(Object.entries(MINE_ARSENAL).map(([k, v]) => [k, v.max || 99])),
+      level: this.g.level, canBust: BUSTER_LEVELS.includes(this.g.level),
+      digs: a.digs, invincibleUntil: a.invincibleUntil || 0, serverNow: Date.now(),
+      clearSpan: CLEAR_SPAN, shieldMs: SHIELD_MS,
+    };
+  }
+
+  async sendTokens(ws, uid, apply, error = null) {
+    this.g.applied = this.g.applied || {};
+    const reply = await tokensReply(this.env, uid, "minesweeper", {
+      applied: this.g.applied, over: false, apply,
+    });
+    if (reply.changed) await this.persist();
+    const p = this.g.players[uid];
+    this.send(ws, "MINE_TOKENS", { ...reply, error: error || reply.error, arsenal: p ? this.arsenalView(p) : null });
+  }
+
+  async arm(ws, uid, msg) {
+    const p = this.g.players[uid];
+    if (!p) return;
+    const key = String(msg.key || "");
+    const spec = MINE_ARSENAL[key];
+    if (!spec) return this.sendTokens(ws, uid, false, "No such token.");
+    const a = this.arsOf(p);
+    if (spec.max && (a.armed[key] || 0) >= spec.max) return this.sendTokens(ws, uid, false, `${spec.max} ${spec.name} is the limit for one round.`);
+    if (key === "ms_buster" && !BUSTER_LEVELS.includes(this.g.level)) return this.sendTokens(ws, uid, false, "Mine Buster works on Intermediate and Expert fields only.");
+    const held = (await heldTokens(this.env, uid))[key] || 0;
+    if (held <= (a.armed[key] || 0)) return this.sendTokens(ws, uid, false, `You hold no more ${spec.name} tokens. The Token shop sells them.`);
+    a.armed[key] = (a.armed[key] || 0) + 1;
+    await this.persist();
+    await this.sendTokens(ws, uid, false);
+  }
+
+  async disarm(ws, uid, msg) {
+    const p = this.g.players[uid];
+    if (!p) return;
+    const key = String(msg.key || "");
+    const a = this.arsOf(p);
+    if (this.armedLeft(p, key) <= 0) return this.sendTokens(ws, uid, false, "Nothing to put back.");
+    a.armed[key] -= 1;
+    if (!a.armed[key]) delete a.armed[key];
+    await this.persist();
+    await this.sendTokens(ws, uid, false);
+  }
+
+  /** The player's sweep ends on a mine. Shared by a dig and a Clear Map that finds one. */
+  boom(ws, p, cell) {
+    p.revealed[cell] = -1;
+    p.done = true;
+    p.won = false;
+    p.finishedAt = Date.now() - this.g.startedAt;
+    p.score = mineScore({ won: false, progress: progressOf(this.boardOf(p), p.revealed), level: this.g.level });
+    this.send(ws, "MINE_BOOM", { cell, mines: this.boardOf(p).mineList, score: p.score });
+    this.broadcast("MINE_OUT", { uid: p.uid, name: p.name, score: p.score });
+  }
+
+  /** A clean reveal that may finish the round for the player. */
+  opened(p, res) {
+    Object.assign(p.revealed, res.cells);
+    if (res.won) {
+      p.done = true; p.won = true;
+      p.finishedAt = Date.now() - this.g.startedAt;
+      p.score = mineScore({ won: true, progress: 1, elapsedMs: p.finishedAt, level: this.g.level });
+      this.broadcast("MINE_CLEARED", { uid: p.uid, name: p.name, elapsedMs: p.finishedAt, score: p.score });
+    }
+  }
+
+  async arsenal(ws, uid, msg) {
+    if (this.g.phase !== "ACTIVE" || !this.board) return this.send(ws, "MINE_ERROR", { message: "No round is running." });
+    const p = this.g.players[uid];
+    if (!p || p.watching || p.done) return;
+    const action = String(msg.action || "");
+    const key = { reveal: "ms_reveal", buster: "ms_buster", clear: "ms_clear", shield: "ms_shield" }[action];
+    if (!key) return this.send(ws, "MINE_ERROR", { message: "Unrecognised action." });
+    if (this.armedLeft(p, key) <= 0) return this.send(ws, "MINE_ERROR", { message: `No ${MINE_ARSENAL[key].name} armed. Arm one under Apply Token.` });
+    const a = this.arsOf(p);
+    const board = this.boardOf(p);
+    const cell = String(msg.cell || "");
+    const onBoard = (x) => board.counts[x] !== undefined || isMine(board, x);
+
+    if (action === "shield") {
+      a.invincibleUntil = Date.now() + SHIELD_MS;
+      this.useToken(p, key);
+      this.send(ws, "MINE_SHIELD", { until: a.invincibleUntil, serverNow: Date.now() });
+      this.send(ws, "MINE_NOTE", { text: "Invincible for ten seconds. Dig anything." });
+    } else if (action === "reveal") {
+      const unknown = board.mineList.filter((m) => p.revealed[m] === undefined);
+      const pool = unknown.filter((m) => !p.flags.includes(m));
+      const from = pool.length >= 2 ? pool : unknown;
+      const picks = [...from].sort(() => Math.random() - 0.5).slice(0, 2);
+      if (!picks.length) return this.send(ws, "MINE_ERROR", { message: "Every mine is already known." });
+      const cells = {};
+      for (const m of picks) { p.revealed[m] = -3; cells[m] = -3; }
+      this.useToken(p, key);
+      this.send(ws, "MINE_DUG", { cells });
+      this.send(ws, "MINE_NOTE", { text: `Mine Reveal: ${picks.length} mine${picks.length === 1 ? "" : "s"} shown.` });
+    } else if (action === "buster") {
+      if (!BUSTER_LEVELS.includes(this.g.level)) return this.send(ws, "MINE_ERROR", { message: "Mine Buster works on Intermediate and Expert fields only." });
+      if (!onBoard(cell)) return this.send(ws, "MINE_ERROR", { message: "That square isn't on the board." });
+      if (p.revealed[cell] !== undefined) return this.send(ws, "MINE_ERROR", { message: "That square is already open." });
+      p.flags = p.flags.filter((f) => f !== cell);
+      this.useToken(p, key);
+      a.digs += 1;
+      let craters = [];
+      if (isMine(board, cell)) { a.busted.push(cell); craters = [cell]; }
+      const b2 = this.boardOf(p);
+      const res = reveal(b2, p.revealed, cell);
+      this.opened(p, res);
+      this.send(ws, "MINE_DUG", { cells: res.cells, craters });
+      this.send(ws, "MINE_NOTE", { text: craters.length ? "Mine Buster: a mine was there. It's gone." : "Mine Buster: no mine there. The square is open." });
+    } else if (action === "clear") {
+      if (a.digs > 0) return this.send(ws, "MINE_ERROR", { message: "Clear Map only works before you have dug anything." });
+      if (!onBoard(cell)) return this.send(ws, "MINE_ERROR", { message: "That square isn't on the board." });
+      const area = areaCells(cell, CLEAR_SPAN, board.rows, board.cols);
+      const mines = area.filter((x) => isMine(board, x));
+      this.useToken(p, key);
+      a.digs += 1;
+      if (mines.length && !this.invincible(p)) {
+        this.boom(ws, p, mines[0]);
+        this.send(ws, "MINE_NOTE", { text: `Clear Map found a mine at ${mines[0]}.` });
+      } else {
+        let craters = [];
+        if (mines.length) { a.busted.push(...mines); craters = mines; }
+        const b2 = this.boardOf(p);
+        const cells = {};
+        let won = false;
+        for (const x of area) {
+          if (p.revealed[x] !== undefined) continue;
+          const res = reveal(b2, p.revealed, x);
+          Object.assign(cells, res.cells);
+          Object.assign(p.revealed, res.cells);
+          won = won || res.won;
+        }
+        this.opened(p, { cells: {}, won });
+        this.send(ws, "MINE_DUG", { cells, craters });
+        this.send(ws, "MINE_NOTE", { text: craters.length ? `Clear Map: ${Object.keys(cells).length} squares open, ${craters.length} mine${craters.length === 1 ? "" : "s"} defused.` : `Clear Map: ${Object.keys(cells).length} squares open.` });
+      }
+    }
+
+    await this.persist();
+    this.send(ws, "MINE_ARSENAL_STATE", { arsenal: this.arsenalView(p) });
+    const live = Object.values(this.g.players).filter((x) => !x.watching && !x.done);
+    if (!live.length) { await this.finish(); return; }
     this.pushState();
   }
 
@@ -290,28 +469,28 @@ export class MineField {
     if (!this.allow(uid)) return this.send(ws, "MINE_ERROR", { message: "Slow down." });
 
     const cell = String(msg.cell || "");
-    if (this.board.counts[cell] === undefined && !isMine(this.board, cell))
+    let board = this.boardOf(p);
+    if (board.counts[cell] === undefined && !isMine(board, cell))
       return this.send(ws, "MINE_ERROR", { message: "That square isn't on the board." });
     if (p.flags.includes(cell)) return;
+    if (p.revealed[cell] !== undefined) return;
+    const a = this.arsOf(p);
+    a.digs += 1;
 
-    const res = reveal(this.board, p.revealed, cell);
+    let craters = [];
+    if (isMine(board, cell) && this.invincible(p)) {
+      // Invincible: the mine is defused under your feet and the ground opens.
+      a.busted.push(cell);
+      craters = [cell];
+      board = this.boardOf(p);
+    }
+    const res = reveal(board, p.revealed, cell);
     if (res.hitMine) {
-      p.revealed[cell] = -1;
-      p.done = true;
-      p.won = false;
-      p.finishedAt = Date.now() - this.g.startedAt;
-      p.score = mineScore({ won: false, progress: progressOf(this.board, p.revealed), level: this.g.level });
-      this.send(ws, "MINE_BOOM", { cell, mines: this.board.mineList, score: p.score });
-      this.broadcast("MINE_OUT", { uid, name: p.name, score: p.score });
+      this.boom(ws, p, cell);
     } else {
-      Object.assign(p.revealed, res.cells);
-      this.send(ws, "MINE_DUG", { cells: res.cells });
-      if (res.won) {
-        p.done = true; p.won = true;
-        p.finishedAt = Date.now() - this.g.startedAt;
-        p.score = mineScore({ won: true, progress: 1, elapsedMs: p.finishedAt, level: this.g.level });
-        this.broadcast("MINE_CLEARED", { uid, name: p.name, elapsedMs: p.finishedAt, score: p.score });
-      }
+      this.opened(p, res);
+      this.send(ws, "MINE_DUG", { cells: res.cells, craters });
+      if (craters.length) this.send(ws, "MINE_NOTE", { text: "Defused. Invincibility held." });
     }
 
     await this.persist();
@@ -393,6 +572,7 @@ export class MineField {
       return {
         uid: p.uid, name: p.name, score: p.score, placement, seed: p.seed || null,
         status: p.won ? "cleared" : "sunk", elapsedMs: p.finishedAt,
+        spent: p.ars?.used && Object.keys(p.ars.used).length ? { ...p.ars.used } : undefined,
         mmrBefore: p.mmrAtStart || 0, gain: gain.total, boost: !!p.boost,
         breakdown: { base: gain.base, challenge: gain.challenge, completion: gain.completion, seed: gain.seed },
         mmrAfter: after, belt: beltFor(after).name,
@@ -405,6 +585,12 @@ export class MineField {
       mode, durationMs: Date.now() - (this.g.startedAt || Date.now() - 60_000), results,
     });
 
+    // Used tokens are spent by the record; what was armed and unused stays armed.
+    for (const p of field) {
+      const a = this.arsOf(p);
+      for (const [k, n] of Object.entries(a.used)) { a.armed[k] = Math.max(0, (a.armed[k] || 0) - n); if (!a.armed[k]) delete a.armed[k]; }
+      a.used = {};
+    }
     await this.persist();
     this.broadcast("MINE_OVER", { results, mode, bounty, mines: this.board.mineList });
     this.pushState();

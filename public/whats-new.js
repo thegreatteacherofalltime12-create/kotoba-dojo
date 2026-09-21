@@ -17,6 +17,15 @@ export const KEEP_DAYS = 7;
 
 export const UPDATES = [
   {
+    at: "2026-09-21T18:00:00Z",
+    where: "Minesweeper",
+    title: "The Minesweeper arsenal",
+    text: "Four tokens in the Minesweeper Arsenal: Mine Reveal shows two mines, Mine Buster destroys one "
+      + "(Intermediate and Expert), Clear Map opens a 5×5 before your first dig — a mine inside ends "
+      + "you — and Invincibility makes ten seconds explosion-proof. Arm them under ⚡ Apply Token, "
+      + "fire them from the strip above the field. Only what you use is spent.",
+  },
+  {
     at: "2026-09-21T04:00:00Z",
     where: "Battleship",
     title: "The arsenal",

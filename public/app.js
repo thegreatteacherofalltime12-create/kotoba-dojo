@@ -1377,19 +1377,30 @@ function drawRuleBelts(tab = "arena") {
         <button class="stab ${tab === "match" ? "is-on" : ""}" data-rule="match">Match Rules</button>
         <button class="stab ${tab === "bounty" ? "is-on" : ""}" data-rule="bounty">Bounty \u{1F3AF}</button>
         <button class="stab ${tab === "belts" ? "is-on" : ""}" data-rule="belts">Belts</button>
+        <button class="stab ${tab === "tokens" ? "is-on" : ""}" data-rule="tokens">\u26A1 Tokens</button>
         <button class="stab" data-points>Points</button>
       </div>
       ${inner}
     </div>`;
 
   if (tab === "modes") {
-    $("drawer-rules").innerHTML = shell(`<div class="rules-cols">${casinoRulesHtml()}</div>`);
+    $("drawer-rules").innerHTML = shell(`
+      <p class="panel-sub">Every game in the arena. Tap one for how it is played and how it scores.</p>
+      <div class="gamegrid rules-games">
+        ${GAME_RULES.map((g) => `
+          <button class="gamepick" data-game-rules="${g.id}">
+            <span class="gp-ico">${g.icon}</span>
+            <span class="gp-name">${g.name}</span>
+            <span class="gp-players">${g.players}</span>
+          </button>`).join("")}
+      </div>`);
     bindRuleTabs();
+    $("drawer-rules").querySelectorAll("[data-game-rules]").forEach((b) => { b.onclick = () => openGameRules(b.dataset.gameRules); });
     return;
   }
 
-  if (tab === "match" || tab === "bounty" || tab === "belts") {
-    $("drawer-rules").innerHTML = shell(tab === "match" ? matchRules() : tab === "bounty" ? bountyRules() : beltsRuleHtml());
+  if (tab === "match" || tab === "bounty" || tab === "belts" || tab === "tokens") {
+    $("drawer-rules").innerHTML = shell(tab === "match" ? matchRules() : tab === "bounty" ? bountyRules() : tab === "tokens" ? tokensRules() : beltsRuleHtml());
     bindRuleTabs();
     return;
   }
@@ -1449,30 +1460,15 @@ function drawRuleBelts(tab = "arena") {
 
         <div class="rule-sec">
           <h3>The casino</h3>
-          <p class="lede2">Cash and tokens are their own economy. No casino game pays MMR &mdash; only the arcade does.</p>
+          <p class="lede2">Cash and table tokens are their own economy. Every hand or race you win pays <b>5 MMR</b>, up to <b>100 a day</b>; the arcade pays the rest.</p>
           <ul>
-            <li>You start with <b>$100</b> and no tokens.</li>
-            <li>Every solved puzzle pays <b>$5&ndash;15</b> to the table and a token.</li>
+            <li>You start with <b>$100</b> and no table tokens.</li>
+            <li>Every solved arcade puzzle pays <b>$5&ndash;15</b> to the table and a table token.</li>
             <li>Cash is won at the table and banks to your wallet only when a match is ended properly. Quitting loses it.</li>
-            <li><b>Table Card Games</b> opens at <b>$50 and 2 tokens</b>.</li>
-            <li><b>Blackjack:</b> lose and it costs your bet and one token. Win or push and your tokens are safe.</li>
+            <li><b>Table Card Games</b> opens at <b>$50 and 2 table tokens</b>.</li>
+            <li><b>Blackjack:</b> lose and it costs your bet and one table token. Win or push and your tokens are safe.</li>
             <li><b>Horse Race:</b> free to enter, cash wagers, 1:1 up to 24:1.</li>
-          </ul>
-        </div>
-
-        <div class="rule-sec">
-          <h3>Sensei points</h3>
-          <div class="tiers">
-            <div class="tier"><span class="dot2" style="background:#a8703c"></span><span class="tn">Bronze</span><span class="tp">2</span></div>
-            <div class="tier"><span class="dot2" style="background:#b9bcc2"></span><span class="tn">Silver</span><span class="tp">3</span></div>
-            <div class="tier"><span class="dot2" style="background:#e0b32a"></span><span class="tn">Gold</span><span class="tp">4</span></div>
-            <div class="tier"><span class="dot2" style="background:#7fd4e8"></span><span class="tn">Diamond</span><span class="tp">5</span></div>
-            <div class="tier"><span class="dot2" style="background:#dfe6ea"></span><span class="tn">Platinum</span><span class="tp">6</span></div>
-          </div>
-          <ul style="margin-top:.5rem">
-            <li>Achievements stack and pay in full each time.</li>
-            <li>Wins pay 1 point, a Rumble win pays 2.</li>
-            <li>Spend 5 points to spin for a Sensei Token.</li>
+            <li>Banked casino money buys the <b>arena tokens</b> in your profile's Token shop \u2014 see the \u26A1 Tokens tab.</li>
           </ul>
         </div>
 
@@ -1697,16 +1693,35 @@ function matchRules() {
         "Everyone who was already playing before the keys went in is in for good \u2014 nothing to enter.",
         "A number found to be reused or not yours can be revoked by the admin, and the account it opened is held at the door until it's sorted out through Etsy.",
       ])}
-      ${box("\u26A1 Boost Tokens", [
-        "Casino money buys boost tokens in your profile's Token shop: one kind for each game, $2,000 apiece. Nothing in the game costs real money.",
-        "A token does nothing until you apply it. Inside a game, press <b>\u26A1 Apply Token</b> to see what you hold and apply the token for that game to the match you're in.",
-        "An applied token pays 1.5\u00d7 the MMR when that round is scored, without touching the in-game score. The token is spent by the round that uses it.",
-        "The casino token is spent the moment it's applied and boosts every casino win for the rest of the day (UTC). The daily MMR cap still stands.",
+    </div>`;
+}
+
+/** The Tokens tab: where they are, how they are earned, how they are used. */
+function tokensRules() {
+  const box = (title, bullets) => ruleBox(title, { bullets });
+  return `
+    <div class="ruleboxes">
+      ${box("\u{1F4CD} Where to find them", [
+        "Open your <b>Profile</b> and pick <b>\u26A1 Token shop</b>. It shows one arsenal per game \u2014 Word-Cross, Battleship, Minesweeper, Golf and Casino \u2014 with how many tokens each sells and how many you hold.",
+        "Tap a game and its arsenal opens in a window: that game's <b>1.5\u00d7 boost</b> first, then anything else it sells. Buy from there.",
+        "Inside a game, the <b>\u26A1 Apply Token</b> button (top bar in every game, header on the golf page) lists that game's tokens you hold.",
+      ])}
+      ${box("\u{1F4B0} How they are earned", [
+        "Tokens cost <b>casino money</b>, never real money. Nothing in the game is bought with real money.",
+        "Casino money comes from the floor: solve arcade puzzles under <b>Earn Money</b> ($5\u201315 each), win hands at the tables, collect on horse races.",
+        "Winnings sit on the table until you <b>Officially end match</b>; only then do they bank to your wallet. Quitting the floor forfeits what's on the table.",
+        "The wallet you see in the Token shop is that banked money. A boost costs $2,000; the Battleship arsenal runs from $1,437 to $500,000.",
+      ])}
+      ${box("\u26A1 How a boost is used", [
+        "A token does nothing until you apply it. In the game, press <b>\u26A1 Apply Token</b> and apply the boost to the match you're in.",
+        "An applied boost pays <b>1.5\u00d7 the MMR</b> when that round is scored, without touching the in-game score. The round that uses it spends it.",
+        "The Casino boost is spent the moment it's applied and boosts <b>every casino win for the rest of the day</b> (UTC). The daily cap still stands.",
         "The feed marks a boosted win with \u26A1.",
       ])}
       ${box("\u2622\uFE0F The Battleship Arsenal", [
-        "The Token shop also sells an arsenal for Battleship Royale, priced in casino money: Nuke Missile ($500,000), Extra Shots ($25,000), Extra Ships ($5,000), Tactical Air Strike ($35,000), Air Strike Defence ($40,000), Air Strike Reveal ($13,000) and Submarine Torpedo ($1,437).",
-        "Inside a battle, open <b>\u26A1 Apply Token</b> to arm them: at most <b>four</b> tokens a battle, and at most <b>two</b> nukes. Only what you fire is spent; anything armed and unused goes back to your pile.",
+        "Seven tokens, priced in casino money: Nuke Missile ($500,000), Extra Shots ($25,000), Extra Ships ($5,000), Tactical Air Strike ($35,000), Air Strike Defence ($40,000), Air Strike Reveal ($13,000) and Submarine Torpedo ($1,437).",
+        "Inside a battle, open <b>\u26A1 Apply Token</b> to <b>arm</b> them: at most <b>four</b> tokens a battle, and at most <b>two</b> nukes. Armed tokens appear on the <b>Arsenal strip</b> above the target list; that is where they are fired.",
+        "Only what you fire is spent. Anything armed and unused goes back to your pile when the battle is recorded.",
         "<b>Nuke:</b> takes your turn. On Skirmish a hit sinks the whole ship it lands on. On Fleet Action it blasts 3\u00d73; on Open Ocean, 7\u00d77.",
         "<b>Extra Shots:</b> +2 on Skirmish, +4 on Fleet Action, +6 on Open Ocean, for the one turn you call it \u2014 spread over captains like any volley.",
         "<b>Extra Ships:</b> three more hulls of your choosing, any chart. Arm before you place your fleet.",
@@ -1717,6 +1732,103 @@ function matchRules() {
         "Blast hits count for score and sinkings, but not toward your accuracy bonus. Computer captains never carry tokens. The host can switch the arsenal off for a battle.",
       ])}
     </div>`;
+}
+
+// ── the game modes ────────────────────────────────────────────────
+//
+// One entry per game: how it is played and how it scores. The Game Modes
+// tab shows them as a grid; each opens over the rule book on its own.
+const GAME_RULES = [
+  {
+    id: "crossword", icon: "\u{1F520}", name: "Word-Cross", players: "1 or more \u00b7 ranked",
+    play: [
+      "The host (the <b>sensei</b>) picks a scroll \u2014 a ten-word crossword from the bank or one a player published \u2014 and begins the round. Everyone solves the same grid at once.",
+      "Tap a clue or a square, type the word, and the arena checks it: a right answer locks in, a wrong one flashes. Every entry is checked on the server, never guessed on your phone.",
+      "<b>Solo Training</b> is you against the clock on the same terms. <b>Rumble</b> is three or more solvers; placement counts.",
+      "The round lasts <b>15 minutes</b>. Finish early and your time is your score; run out and what you solved still counts.",
+    ],
+    score: [
+      "A full solve inside <b>45 seconds</b> scores 100; from there the score falls evenly to 1 at the fifteen-minute mark.",
+      "That score is your base MMR gain, plus the challenge and completion bonuses from Match Rules. Only bank scrolls are ranked \u2014 a player's own scroll is played for fun.",
+      "Fast solves and solo solves feed the Word-Cross banners and titles.",
+    ],
+  },
+  {
+    id: "battleship", icon: "\u2693", name: "Battleship Royale", players: "2 to 8, or solo vs 1\u20135 AI",
+    play: [
+      "Three charts: <b>Skirmish</b> (10\u00d710, 5 ships, 2 shots a turn), <b>Fleet Action</b> (15\u00d715, 7 ships, 4 shots) and <b>Open Ocean</b> (20\u00d720, 9 ships, 5 shots). The host picks before fleets are laid.",
+      "Lay your fleet by hand or press Random. Turns go round the table; on yours, pick your squares on one or more captains' water and fire. Split the shots however you like \u2014 or all on one.",
+      "<b>Rotation:</b> with more than three opponents you must fire at three others before coming back to the same captain, so nobody can be ganged up on. The AI obeys it too.",
+      "A captain whose last ship goes down is out. Last afloat wins. <b>Solo Match</b> puts you against one to five computers at one difficulty; Hard ones split their fire.",
+      "The host may hide names (everyone is Captain A, B, C) and may switch the <b>arsenal</b> off. Tokens are in the \u26A1 Tokens tab.",
+    ],
+    score: [
+      "Hits and ships sunk, weighted by the chart, times an <b>accuracy bonus</b>: half your shots landing is par, sharper shooting pays up to 1.75\u00d7, spraying the water costs up to a quarter.",
+      "Placement adds up to 30, surviving adds 20. Capped at 100, then into MMR like every game.",
+      "Blast hits from the arsenal count for score and sinkings, not for accuracy.",
+    ],
+  },
+  {
+    id: "minesweeper", icon: "\u{1F4A3}", name: "Minesweeper", players: "1 or more \u00b7 race",
+    play: [
+      "Three fields: <b>Beginner</b> (9\u00d79, 10 mines), <b>Intermediate</b> (16\u00d716, 40 mines) and <b>Expert</b> (16\u00d730, 99 mines). Everyone in the room sweeps the same field; the opening square is safe and already cleared.",
+      "Tap to dig, long-press or right-click to flag. A number is how many mines touch that square. Dig a mine and your sweep ends where it stands.",
+      "<b>Solo Sweep</b> is you against the clock. In a race the first to clear wins; the round caps at <b>10 minutes</b>.",
+    ],
+    score: [
+      "A cleared field scores 55 plus up to 45 for speed, weighted by the level (Intermediate \u00d71.15, Expert \u00d71.3).",
+      "A field you didn't clear scores up to 55 for how much of it you uncovered, so a good run into a mine still pays.",
+      "Fastest clears per level sit in Records.",
+    ],
+  },
+  {
+    id: "links", icon: "\u26F3", name: "Multiverse Golf", players: "1 or more \u00b7 18 holes",
+    play: [
+      "Eighteen holes on one of six real courses \u2014 Augusta, Pebble Beach, St Andrews, Sawgrass, Royal Melbourne, Kiawah \u2014 or a random draw. Pick your tees and a dictionary (Webster 1828 or Modern).",
+      "Each hole is a word: the letters are dealt scrambled with a clue. <b>Unscramble the letters to score a hole in one.</b> Every guess is a stroke; the ball moves down the fairway with each one.",
+      "<b>Easy:</b> one word to hole out, the first letter shown, familiar words, no hazards. <b>Medium:</b> five words a hole, par 5, hazards live. <b>Hard:</b> eight words, par 8, one guess fewer, no clue until you've played two.",
+      "Hole out and the ball flies to the pin; press <b>Ready for the next hole</b> when you are. Everyone moves at their own pace; the field table keeps score underneath.",
+    ],
+    score: [
+      "Points per hole against par: a hole in one is 100, an eagle 48, a birdie 30, par 18, a bogey 9, and a triple bogey 1.",
+      "Your round's points, against the course's par total, become the round score that goes into MMR. Rounds under par and aces feed the golf banners; each course keeps its own record in Records.",
+    ],
+  },
+  {
+    id: "casino", icon: "\u{1F3B0}", name: "The Casino", players: "the whole arena \u00b7 one floor",
+    play: [
+      "One shared floor. You walk in with <b>$100</b> and no table tokens; <b>Earn Money</b> opens the maths arcade, where every solved puzzle pays $5\u201315 to the table and a table token \u2014 and the quickest MMR in the arena.",
+      "<b>Horse Race:</b> free to enter, cash wagers from 1:1 to 24:1, place a bet and start the race.",
+      "<b>Table Card Games</b> open at $50 and 2 table tokens: blackjack, baccarat, roulette, Big Six, hold'em and more. Every table plays the same dealer.",
+      "Winnings sit on the table. <b>Officially end match</b> banks them to your wallet; leaving any other way forfeits them.",
+    ],
+    score: [
+      "Every hand or race you win pays <b>5 MMR</b>, up to <b>100 a day</b>. The arcade pays up to 50 MMR a puzzle by speed (see the Arena tab).",
+      "Banked money buys the arena's tokens in your profile's Token shop.",
+      "The full table rules \u2014 baccarat's third card, roulette's layout, the Big Six wheel \u2014 are under <b>Casino Game Rules</b> on the floor bar.",
+    ],
+  },
+];
+
+function openGameRules(id) {
+  const g = GAME_RULES.find((x) => x.id === id);
+  if (!g) return;
+  const host = $("points-modal");
+  host.hidden = false;
+  host.innerHTML = `
+    <div class="modal-back" data-close></div>
+    <div class="modal-card game-rules-card">
+      <div class="modal-head">
+        <h2>${g.icon} ${g.name}</h2>
+        <button class="modal-close" data-close aria-label="Close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="panel-sub">${g.players}</p>
+        ${ruleBox("How it is played", { bullets: g.play })}
+        ${ruleBox("How it scores", { bullets: g.score })}
+      </div>
+    </div>`;
+  host.querySelectorAll("[data-close]").forEach((n) => { n.onclick = () => { host.hidden = true; host.textContent = ""; }; });
 }
 
 

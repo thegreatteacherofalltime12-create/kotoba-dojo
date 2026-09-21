@@ -506,11 +506,18 @@ input::placeholder { color: var(--muted); }
 .pr-gain { font-family: var(--display); color: var(--ok); text-align: right; font-variant-numeric: tabular-nums; }
 
 /* ── profile ─────────────────────────────────────────────────────── */
-.subtabs { display: flex; gap: .3rem; margin: .3rem 0 .8rem; border-bottom: 1px solid var(--edge); }
+/* The strip slides sideways when it is wider than the drawer, so every tab
+   can be reached on a phone. */
+.subtabs {
+  display: flex; gap: .3rem; margin: .3rem 0 .8rem; border-bottom: 1px solid var(--edge);
+  overflow-x: auto; overflow-y: hidden; flex-wrap: nowrap; -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin; scroll-snap-type: x proximity;
+}
 .stab {
   font-family: var(--display); text-transform: uppercase; font-size: .8rem; letter-spacing: .12em;
   background: none; border: none; color: var(--muted); padding: .4rem .8rem; cursor: pointer;
   border-bottom: 2px solid transparent; margin-bottom: -1px;
+  flex: 0 0 auto; white-space: nowrap; scroll-snap-align: start;
 }
 .stab.is-on { color: var(--accent); border-bottom-color: var(--accent); }
 .gis { display: grid; grid-template-columns: repeat(auto-fit, minmax(72px, 1fr)); gap: .5rem; }
@@ -3420,3 +3427,8 @@ a.dtab { text-decoration: none; display: inline-block; }
 
 .shop-games { margin-top: .6rem; }
 .shop-card { width: min(38rem, 100%); }
+
+.rules-games { margin-top: .6rem; }
+.game-rules-card { width: min(40rem, 100%); }
+/* Windows that open over the rule book and the other full-screen drawers. */
+#points-modal, #avatar-modal { z-index: 70; }

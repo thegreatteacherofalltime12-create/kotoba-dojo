@@ -214,7 +214,9 @@ function draw() {
   const hosting = B.isHost && g.phase === "LOBBY";
   $("host-panel").hidden = !hosting;
   $("btn-battle-start").hidden = !hosting;
-  $("btn-battle-end").hidden = !(B.isHost && g.phase === "ACTIVE");
+  // One button: while the host has a battle running it ends the battle for
+  // everyone and stays for the results; otherwise it walks out.
+  $("btn-battle-leave").textContent = B.isHost && g.phase === "ACTIVE" ? "End the battle" : "End Match";
 
   const here = g.players.filter((p) => p.online && !p.ai).length;
   const ready = g.players.filter((p) => p.ready && !p.ai).length;
@@ -448,13 +450,14 @@ export function bindBattleControls() {
   showDeck(B.deck || "captains");
 
   $("btn-battle-leave").onclick = () => {
-    if (B.game?.phase === "ACTIVE" && !confirm("End the match and take the MMR you've earned so far?")) return;
+    if (B.isHost && B.game?.phase === "ACTIVE") {
+      if (!window.confirm("End the battle now? Everyone still afloat is ranked by damage dealt, and MMR is awarded as normal.")) return;
+      send({ type: "BATTLE_END" });
+      return;
+    }
+    if (B.game?.phase === "ACTIVE" && !confirm("Leave the battle and take the MMR you've earned so far?")) return;
     send({ type: "BATTLE_END" });
     closeBattle(); B.onLeave?.();
-  };
-  $("btn-battle-end").onclick = () => {
-    if (!window.confirm("End the match now? Everyone still afloat is ranked by damage dealt, and MMR is awarded as normal.")) return;
-    send({ type: "BATTLE_END" });
   };
   $("battle-say").addEventListener("keydown", (e) => { if (e.key === "Enter") sendChat(); });
   $("btn-battle-send").onclick = sendChat;

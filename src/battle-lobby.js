@@ -2,11 +2,12 @@ import {
   SIZE, FLEET, SHOTS_PER_TURN, validateFleet, randomFleet, mapOf, fleetFor, MAPS,
   normalizeVolley, aiTargets, accuracyBonus,
   canTarget, targetOptions, fireAt, fleetSunk, battleScore,
+  ARSENAL, ARM_CAP, NUKE_MAX, EXTRA_HULLS, STRIKE_SPAN, NUKE_RADIUS, extraShotsFor, blastArea, extraHulls,
 } from "./battleship.js";
 import { chooseShots, remember, freshMemory, DIFFICULTIES } from "./ai.js";
 import { recordMatch, readRatings, strikePlayer } from "./firestore.js";
 import { boosted } from "./mmr.js";
-import { tokensReply } from "./boost.js";
+import { tokensReply, heldTokens } from "./boost.js";
 import { moderate } from "./moderation.js";
 import { announceRoom } from "./rooms.js";
 import { applyBounty } from "./report-bounty.js";
@@ -150,7 +151,7 @@ export class BattleRoyale {
         aiLevel: "medium",
         mapId: "easy",        // which of the three theatres
         hideNames: false,     // captains shown as A, B, C
-        useTokens: false,     // reserved: the token economy isn't built yet
+        useTokens: true,      // captains may arm tokens from the shop
         anon: false,
         aliases: {},
         feed: [],
@@ -192,6 +193,7 @@ export class BattleRoyale {
         placing: midBattle,
         placingUntil: midBattle ? now + LATE_PLACE_MS : null,
         board: null, history: [], hits: 0, sunk: 0,
+        ars: this.freshArs(),
       };
       if (midBattle) {
         this.g.players[uid].mmrAtStart = 0;
@@ -283,6 +285,8 @@ export class BattleRoyale {
         remaining: p.board ? p.board.ships.filter((s) => !s.sunk).length : this.fleet.length,
         hits: p.hits,
         shots: p.shots || 0,
+        // A defence that has taken a strike is out in the open.
+        shieldShown: p.ars?.shield?.spent ? p.ars.shield.cells : [],
       })),
     };
   }
@@ -311,6 +315,9 @@ export class BattleRoyale {
             ...t, name: this.captainName(this.g.players[t.uid], uid),
           }))
           : [],
+        yourShots: me ? this.shotsFor(me) : this.map.shots,
+        yourFleetSpec: me ? this.fleetOf(me) : this.fleet,
+        arsenal: me && !me.ai ? this.arsenalView(me) : null,
       });
     }
   }
@@ -328,7 +335,10 @@ export class BattleRoyale {
       switch (msg.type) {
         case "PING": return this.beat();
         case "BATTLE_PLACE":  return await this.place(ws, uid, msg);
-        case "BATTLE_RANDOM": return await this.place(ws, uid, { placements: randomFleet(this.g.mapId) });
+        case "BATTLE_RANDOM": return await this.place(ws, uid, { placements: randomFleet(this.g.mapId, this.extraOf(this.g.players[uid])) });
+        case "ARM_TOKEN":     return await this.arm(ws, uid, msg);
+        case "DISARM_TOKEN":  return await this.disarm(ws, uid, msg);
+        case "BATTLE_ARSENAL": return await this.arsenal(ws, uid, msg);
         case "BATTLE_SOLO":   return await this.setSolo(ws, uid, msg);
         case "BATTLE_ANON":   return await this.setAnon(ws, uid, msg);
         case "BATTLE_MAP":    return await this.setMap(ws, uid, msg);
@@ -338,14 +348,7 @@ export class BattleRoyale {
         case "BATTLE_FIRE":   return await this.fire(ws, uid, msg);
         case "BATTLE_SAY":    return await this.say(uid, msg);
         case "TOKENS":
-        case "APPLY_TOKEN": {
-          this.g.applied = this.g.applied || {};
-          const reply = await tokensReply(this.env, uid, "battleship", {
-            applied: this.g.applied, over: this.g.phase === "OVER", apply: msg.type === "APPLY_TOKEN",
-          });
-          if (reply.changed) await this.persist();
-          return this.send(ws, "TOKENS", reply);
-        }
+        case "APPLY_TOKEN":   return await this.sendTokens(ws, uid, msg.type === "APPLY_TOKEN");
         default: return this.send(ws, "BATTLE_ERROR", { message: "Unrecognised message." });
       }
     } catch (err) {
@@ -359,7 +362,7 @@ export class BattleRoyale {
     const p = this.g.players[uid];
     if (!p) return;
 
-    const check = validateFleet(msg.placements, this.g.mapId);
+    const check = validateFleet(msg.placements, this.g.mapId, this.extraOf(p));
     if (!check.ok) return this.send(ws, "BATTLE_ERROR", { message: check.error });
 
     const joiningLate = this.g.phase === "ACTIVE" && !p.board;
@@ -459,6 +462,254 @@ export class BattleRoyale {
     return this.g.aliases[p.uid] || "A captain";
   }
 
+  // ── the arsenal ──────────────────────────────────────────────────
+  //
+  // What a captain armed for this battle and what they have used of it.
+  // Arming checks the shop's count; using is what spends, in the round's
+  // own record write. Everything here is per player and dies with the room.
+  freshArs() { return { armed: {}, used: {}, hulls: [], shield: null, extraTurn: null, intel: {}, blast: 0 }; }
+  arsOf(p) { return p.ars || (p.ars = this.freshArs()); }
+  armedLeft(p, key) { const a = this.arsOf(p); return (a.armed[key] || 0) - (a.used[key] || 0); }
+  useToken(p, key) { const a = this.arsOf(p); a.used[key] = (a.used[key] || 0) + 1; }
+  extraOf(p) { return p?.ai ? [] : extraHulls(this.arsOf(p).hulls); }
+  fleetOf(p) { return this.fleet.concat(this.extraOf(p)); }
+  shotsFor(p) {
+    if (!p || p.ai) return this.map.shots;
+    return this.map.shots + (this.arsOf(p).extraTurn === this.g.turnNo ? extraShotsFor(this.g.mapId) : 0);
+  }
+  afloat(p, re) { return !!p?.board?.ships.some((sh) => re.test(sh.id) && !sh.sunk); }
+  arsenalView(p) {
+    const a = this.arsOf(p);
+    return {
+      on: !!this.g.useTokens, cap: ARM_CAP, nukeMax: NUKE_MAX, hullsNeeded: EXTRA_HULLS,
+      armed: a.armed, used: a.used, hulls: a.hulls,
+      shield: a.shield ? { cells: a.shield.cells, spent: !!a.shield.spent } : null,
+      extraActive: this.g.phase === "ACTIVE" && a.extraTurn === this.g.turnNo,
+      extraShots: extraShotsFor(this.g.mapId),
+      intel: a.intel,
+      subAfloat: this.afloat(p, /submarine/), carrierAfloat: this.afloat(p, /carrier/),
+      nukeSpan: NUKE_RADIUS[this.g.mapId] ? NUKE_RADIUS[this.g.mapId] * 2 + 1 : 1, strikeSpan: STRIKE_SPAN,
+    };
+  }
+
+  /** Arms one token for this battle, after checking the shop's count. */
+  async arm(ws, uid, msg) {
+    const p = this.g.players[uid];
+    if (!p || p.ai) return;
+    const key = String(msg.key || "");
+    const spec = ARSENAL[key];
+    if (!spec) return this.sendTokens(ws, uid, false, "No such token.");
+    if (!this.g.useTokens) return this.sendTokens(ws, uid, false, "Tokens are off for this battle.");
+    if (this.g.phase === "OVER") return this.sendTokens(ws, uid, false, "That battle is finished.");
+    const a = this.arsOf(p);
+    const total = Object.values(a.armed).reduce((n, v) => n + v, 0);
+    if (total >= ARM_CAP) return this.sendTokens(ws, uid, false, `${ARM_CAP} tokens is the limit for one battle.`);
+    if (key === "bs_nuke" && (a.armed.bs_nuke || 0) >= NUKE_MAX) return this.sendTokens(ws, uid, false, `${NUKE_MAX} nukes is the limit for one battle.`);
+    let hulls = null;
+    if (key === "bs_ships") {
+      if (this.g.phase !== "LOBBY") return this.sendTokens(ws, uid, false, "Extra ships are armed before the fleets sail.");
+      if (a.armed.bs_ships) return this.sendTokens(ws, uid, false, "Your extra ships are already armed.");
+      hulls = extraHulls(msg.hulls);
+      if (hulls.length !== EXTRA_HULLS) return this.sendTokens(ws, uid, false, `Pick ${EXTRA_HULLS} hulls.`);
+    }
+    const held = (await heldTokens(this.env, uid))[key] || 0;
+    if (held <= (a.armed[key] || 0)) return this.sendTokens(ws, uid, false, `You hold no more ${spec.name} tokens. The Token shop sells them.`);
+    a.armed[key] = (a.armed[key] || 0) + 1;
+    if (hulls) {
+      a.hulls = hulls.map((h) => h.id.replace(/^x_/, "").replace(/\d+$/, ""));
+      // The fleet just grew, so anything already laid out is laid out again.
+      p.board = null; p.ready = false;
+      this.log(`${this.nameOf(p)} is bringing ${EXTRA_HULLS} extra ships.`);
+    }
+    await this.persist();
+    await this.sendTokens(ws, uid, false);
+    this.pushState();
+  }
+
+  /** Puts an armed, unused token back. Extra ships only before the fleets sail. */
+  async disarm(ws, uid, msg) {
+    const p = this.g.players[uid];
+    if (!p || p.ai) return;
+    const key = String(msg.key || "");
+    const a = this.arsOf(p);
+    if (this.armedLeft(p, key) <= 0) return this.sendTokens(ws, uid, false, "Nothing to put back.");
+    if (key === "bs_ships") {
+      if (this.g.phase !== "LOBBY") return this.sendTokens(ws, uid, false, "The extra ships have sailed.");
+      a.hulls = []; p.board = null; p.ready = false;
+    }
+    a.armed[key] -= 1;
+    if (!a.armed[key]) delete a.armed[key];
+    await this.persist();
+    await this.sendTokens(ws, uid, false);
+    this.pushState();
+  }
+
+  /** The Apply Token reply, with the arsenal alongside the boost. */
+  async sendTokens(ws, uid, apply, error = null) {
+    this.g.applied = this.g.applied || {};
+    const reply = await tokensReply(this.env, uid, "battleship", {
+      applied: this.g.applied, over: this.g.phase === "OVER", apply,
+    });
+    if (reply.changed) await this.persist();
+    const p = this.g.players[uid];
+    this.send(ws, "TOKENS", { ...reply, error: error || reply.error, arsenal: p && !p.ai ? this.arsenalView(p) : null });
+  }
+
+  /**
+   * Firing something from the arsenal. Blasts take the turn like a volley;
+   * the rest are extras on top of it.
+   */
+  async arsenal(ws, uid, msg) {
+    const me = this.g.players[uid];
+    if (!me || me.ai) return;
+    if (this.g.phase !== "ACTIVE") return this.send(ws, "BATTLE_ERROR", { message: "The battle isn't on." });
+    const action = String(msg.action || "");
+    const key = { nuke: "bs_nuke", strike: "bs_strike", extra: "bs_shots", shield: "bs_shield", reveal: "bs_reveal", torpedo: "bs_torpedo" }[action];
+    if (!key) return this.send(ws, "BATTLE_ERROR", { message: "Unrecognised action." });
+    if (this.armedLeft(me, key) <= 0) return this.send(ws, "BATTLE_ERROR", { message: `No ${ARSENAL[key].name} armed. Arm one under Apply Token.` });
+    const a = this.arsOf(me);
+    const myTurn = this.g.turnUid === uid;
+    const size = this.map.size;
+
+    if (action === "extra") {
+      if (!myTurn) return this.send(ws, "BATTLE_ERROR", { message: "Wait for your turn." });
+      if (a.extraTurn === this.g.turnNo) return this.send(ws, "BATTLE_ERROR", { message: "Extra shots are already called this turn." });
+      a.extraTurn = this.g.turnNo;
+      this.useToken(me, key);
+      this.log(`${this.nameOf(me)} calls for extra shots: ${this.shotsFor(me)} this turn.`);
+      await this.persist();
+      this.pushState();
+      return;
+    }
+
+    if (action === "shield") {
+      if (!me.board || !me.alive) return this.send(ws, "BATTLE_ERROR", { message: "You have no water to defend." });
+      if (a.shield && !a.shield.spent) return this.send(ws, "BATTLE_ERROR", { message: "A defence is already in place." });
+      const cells = blastArea(msg.cell, STRIKE_SPAN, size);
+      if (!cells.length) return this.send(ws, "BATTLE_ERROR", { message: "That square isn't on the board." });
+      a.shield = { cells, spent: false };
+      this.useToken(me, key);
+      this.send(ws, "BATTLE_NOTE", { text: "Air Strike Defence in place. Nobody sees it until a strike hits it." });
+      await this.persist();
+      this.pushState();
+      return;
+    }
+
+    // Everything else is aimed at someone.
+    const target = this.g.players[msg.target];
+    if (!target || target.uid === uid || !target.alive || !target.board)
+      return this.send(ws, "BATTLE_ERROR", { message: "Pick a live opponent." });
+
+    if (action === "reveal") {
+      this.useToken(me, key);
+      const ts = this.arsOf(target).shield;
+      const found = ts && !ts.spent ? ts.cells : [];
+      a.intel[target.uid] = found;
+      this.send(ws, "BATTLE_NOTE", { text: found.length
+        ? `Reveal: ${this.nameOf(target)} has an Air Strike Defence. It shows on their water.`
+        : `Reveal: ${this.nameOf(target)} has no Air Strike Defence in place.` });
+      await this.persist();
+      this.pushState();
+      return;
+    }
+
+    if (!myTurn) return this.send(ws, "BATTLE_ERROR", { message: "Wait for your turn." });
+    const aliveOpponents = Object.values(this.g.players).filter((p) => p.alive && p.board && p.uid !== uid).length;
+    const verdict = canTarget(me.history, target.uid, aliveOpponents);
+    if (!verdict.ok) return this.send(ws, "BATTLE_ERROR", { message: verdict.error });
+    const cell = String(msg.cell || "");
+    const [r, c] = cell.split(",").map(Number);
+    if (!Number.isInteger(r) || !Number.isInteger(c) || r < 0 || c < 0 || r >= size || c >= size)
+      return this.send(ws, "BATTLE_ERROR", { message: "That square isn't on the board." });
+
+    if (action === "torpedo") {
+      if (!this.afloat(me, /submarine/)) return this.send(ws, "BATTLE_ERROR", { message: "Your submarine is on the bottom; the torpedoes went with it." });
+      if (target.board.incoming.includes(cell)) return this.send(ws, "BATTLE_ERROR", { message: "You've already fired there." });
+      this.useToken(me, key);
+      me.shots = (me.shots || 0) + 1;
+      const shot = fireAt(target.board, cell);
+      let line = `${this.nameOf(me)} fires a torpedo at ${this.nameOf(target)}: `;
+      if (shot.result === "miss") line += "Miss";
+      else { me.hits++; line += "Hit"; if (shot.result === "sunk") { me.sunk++; line += ` — sank their ${shot.ship}`; } }
+      this.log(line + ".");
+      this.settle(me, target);
+      await this.persist();
+      if (Object.values(this.g.players).filter((p) => p.alive && p.board).length <= 1) { await this.finish(); return; }
+      this.pushState();
+      return;
+    }
+
+    // A nuke or an air strike: the turn's fire, all at once.
+    if (action === "strike" && !this.afloat(me, /carrier/))
+      return this.send(ws, "BATTLE_ERROR", { message: "An air strike needs a carrier afloat, and yours is gone." });
+    const radius = NUKE_RADIUS[this.g.mapId] || 0;
+    let cells = action === "nuke"
+      ? (radius ? blastArea(cell, radius * 2 + 1, size) : [cell])
+      : blastArea(cell, STRIKE_SPAN, size);
+    this.useToken(me, key);
+    const label = action === "nuke" ? "a nuke" : "an air strike";
+
+    let absorbed = 0;
+    if (action === "strike") {
+      const ts = this.arsOf(target).shield;
+      if (ts && !ts.spent) {
+        const blocked = cells.filter((x) => ts.cells.includes(x));
+        if (blocked.length) {
+          absorbed = blocked.length;
+          cells = cells.filter((x) => !ts.cells.includes(x));
+          ts.spent = true;
+        }
+      }
+    }
+
+    let hits = 0, sunk = 0;
+    const sunkNames = [];
+    if (action === "nuke" && !radius) {
+      // Skirmish: a hit sinks the whole ship. A miss is just a miss.
+      const shot = fireAt(target.board, cell);
+      if (shot.result === "hit" || shot.result === "sunk") {
+        const ship = target.board.ships.find((sh) => sh.cells.includes(cell));
+        for (const x of ship.cells) {
+          if (ship.hits.includes(x)) continue;
+          ship.hits.push(x);
+          if (!target.board.incoming.includes(x)) target.board.incoming.push(x);
+        }
+        ship.sunk = true;
+        hits = ship.len; sunk = 1; sunkNames.push(ship.name);
+      }
+    } else {
+      for (const x of cells) {
+        const shot = fireAt(target.board, x);
+        if (shot.result === "hit") hits++;
+        if (shot.result === "sunk") { hits++; sunk++; sunkNames.push(shot.ship); }
+      }
+    }
+    me.hits += hits; me.sunk += sunk; a.blast = (a.blast || 0) + hits;
+
+    let line = `${this.nameOf(me)} launches ${label} at ${this.nameOf(target)}`;
+    line += action === "nuke" && !radius ? (hits ? `: direct hit` : `: it falls in the sea`) : `: ${hits} Hit over ${cells.length} squares`;
+    if (sunkNames.length) line += ` — sank their ${sunkNames.join(" and ")}`;
+    if (absorbed) line += `. ${this.nameOf(target)}'s Air Strike Defence absorbed ${absorbed} squares of it`;
+    this.log(line + ".");
+
+    this.settle(me, target);
+    me.history.push(target.uid);
+    await this.persist();
+    if (Object.values(this.g.players).filter((p) => p.alive && p.board).length <= 1) { await this.finish(); return; }
+    await this.nextTurn();
+    await this.runAi();
+  }
+
+  /** After fire of any kind: strike the target from the battle if that was the last of their fleet. */
+  settle(me, target) {
+    if (target.alive && fleetSunk(target.board)) {
+      target.alive = false;
+      me.eliminated = (me.eliminated || 0) + 1;
+      this.g.eliminated.push(target.uid);
+      this.log(`${this.nameOf(target)} has been sunk.`);
+    }
+  }
+
   /** The computer opponents, added at start and removed with the game. */
   aiUid(i = 0) { return i ? `ai${i + 1}` : "ai"; }
 
@@ -503,7 +754,8 @@ export class BattleRoyale {
       p.shots = 0;
       p.eliminated = 0;
       if (!p.board) {
-        const check = validateFleet(randomFleet(this.g.mapId), this.g.mapId);
+        const extra = this.extraOf(p);
+        const check = validateFleet(randomFleet(this.g.mapId, extra), this.g.mapId, extra);
         p.board = { ships: check.ships, incoming: [] };
         this.log(`${this.nameOf(p)} was given a random fleet.`);
       }
@@ -543,6 +795,7 @@ export class BattleRoyale {
     this.g.phase = "ACTIVE";
     this.g.startedAt = Date.now();
     this.g.round = 1;
+    this.g.turnNo = 1;
     this.g.turnUid = this.g.order[0];
     this.g.turnEndsAt = Date.now() + TURN_MS;
 
@@ -615,7 +868,7 @@ export class BattleRoyale {
     const me = this.g.players[uid];
     // One target with its cells is the old shape; a volley spreads the same
     // shots over several. Both arrive here.
-    const clean = normalizeVolley(msg.volley || [{ target: msg.target, cells: msg.cells }], this.map.shots);
+    const clean = normalizeVolley(msg.volley || [{ target: msg.target, cells: msg.cells }], this.shotsFor(me));
     if (!clean.ok) return this.send(ws, "BATTLE_ERROR", { message: clean.error });
 
     const aliveOpponents = Object.values(this.g.players)
@@ -688,6 +941,7 @@ export class BattleRoyale {
     });
     const at = order.indexOf(this.g.turnUid);
     this.g.turnUid = order[(at + 1) % order.length];
+    this.g.turnNo = (this.g.turnNo || 0) + 1;
     if (order.indexOf(this.g.turnUid) === 0) this.g.round += 1;
     this.g.turnEndsAt = Date.now() + TURN_MS;
 
@@ -720,8 +974,9 @@ export class BattleRoyale {
     const results = finishOrder.map((uid, i) => {
       const p = this.g.players[uid];
       const placement = i + 1;
+      const blast = p.ars?.blast || 0;
       const score = battleScore({
-        hits: p.hits, sunk: p.sunk, shots: p.shots || 0, placement, field, survived: p.alive,
+        hits: p.hits, sunk: p.sunk, shots: p.shots || 0, blast, placement, field, survived: p.alive,
         mapId: this.g.mapId,
       });
       const gain = sessionGain({
@@ -739,8 +994,10 @@ export class BattleRoyale {
       return {
         uid, name: p.name, score, placement, seed: p.seed || null,
         hits: p.hits, sunk: p.sunk, shots: p.shots || 0, eliminated: p.eliminated || 0,
-        accuracy: p.shots ? Math.round((p.hits / p.shots) * 100) : 0,
-        aim: Math.round(accuracyBonus(p.hits, p.shots || 0) * 100) / 100,
+        accuracy: p.shots ? Math.round((Math.max(0, p.hits - blast) / p.shots) * 100) : 0,
+        aim: Math.round(accuracyBonus(Math.max(0, p.hits - blast), p.shots || 0) * 100) / 100,
+        // What the arsenal used, spent by the record write.
+        spent: p.ars?.used && Object.keys(p.ars.used).length ? { ...p.ars.used } : undefined,
         status: p.alive ? "won" : "sunk",
         mmrBefore: p.mmrAtStart || 0, gain: gain.total, boost: !!p.boost,
         breakdown: { base: gain.base, challenge: gain.challenge, completion: gain.completion, seed: gain.seed },
@@ -814,7 +1071,8 @@ export class BattleRoyale {
       let laid = false;
       for (const p of Object.values(this.g.players)) {
         if (!p.placing || p.board || p.placingUntil == null || now < p.placingUntil) continue;
-        const check = validateFleet(randomFleet(this.g.mapId), this.g.mapId);
+        const extra = this.extraOf(p);
+        const check = validateFleet(randomFleet(this.g.mapId, extra), this.g.mapId, extra);
         if (!check.ok) continue;
         p.board = { ships: check.ships, incoming: [] };
         p.placing = false;

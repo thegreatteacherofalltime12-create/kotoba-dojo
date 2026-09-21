@@ -51,6 +51,55 @@ export const FLEETS = {
 export const mapOf = (id) => MAPS[id] || MAPS.easy;
 export const fleetFor = (id) => FLEETS[id] || FLEETS.easy;
 
+// ── the arsenal ───────────────────────────────────────────────────────
+//
+// Tokens bought with casino money and armed for one battle. A captain may
+// arm ARM_CAP of them in a match, and no more than NUKE_MAX nukes. Only what
+// is used is spent. Every rule here is pure; the room applies them.
+export const ARSENAL = {
+  bs_nuke:    { name: "Nuke Missile",        price: 500_000, max: 2, icon: "\u2622\uFE0F" },
+  bs_shots:   { name: "Extra Shots",          price: 25_000,  icon: "\u{1F3AF}" },
+  bs_ships:   { name: "Extra Ships",          price: 5_000,   icon: "\u{1F6A2}" },
+  bs_strike:  { name: "Tactical Air Strike",  price: 35_000,  icon: "\u2708\uFE0F" },
+  bs_shield:  { name: "Air Strike Defence",   price: 40_000,  icon: "\u{1F6E1}\uFE0F" },
+  bs_reveal:  { name: "Air Strike Reveal",    price: 13_000,  icon: "\u{1F52D}" },
+  bs_torpedo: { name: "Submarine Torpedo",    price: 1_437,   icon: "\u{1F41F}" },
+};
+export const ARSENAL_KEYS = Object.keys(ARSENAL);
+export const ARM_CAP = 4;
+export const NUKE_MAX = 2;
+export const EXTRA_HULLS = 3;
+export const STRIKE_SPAN = 6;     // an air strike, and the shield that stops one
+export const NUKE_RADIUS = { easy: 0, medium: 1, hard: 3 };   // 0 = sinks the ship it hits
+export const extraShotsFor = (mapId) => ({ easy: 2, medium: 4, hard: 6 })[mapId] || 2;
+
+/**
+ * The squares a blast covers. An odd span (a nuke) centres on the square and
+ * is clipped by the edge; an even span (an air strike, a shield) anchors at
+ * the square and slides inward so the whole area is always on the board.
+ */
+export function blastArea(cell, span, size) {
+  const [r, c] = String(cell).split(",").map(Number);
+  if (!Number.isInteger(r) || !Number.isInteger(c)) return [];
+  const odd = span % 2 === 1;
+  const clamp = (v) => Math.max(0, Math.min(size - span, v));
+  const r0 = odd ? r - Math.floor(span / 2) : clamp(r);
+  const c0 = odd ? c - Math.floor(span / 2) : clamp(c);
+  const out = [];
+  for (let i = 0; i < span; i++) for (let j = 0; j < span; j++) {
+    const rr = r0 + i, cc = c0 + j;
+    if (rr >= 0 && cc >= 0 && rr < size && cc < size) out.push(key(rr, cc));
+  }
+  return out;
+}
+
+/** The extra hulls a captain chose, as fleet entries. Any hull, repeats allowed, up to EXTRA_HULLS. */
+export function extraHulls(picks) {
+  const list = (Array.isArray(picks) ? picks : []).map(String).filter((t) => HULLS[t]).slice(0, EXTRA_HULLS);
+  return list.map((type, i) => ({ id: `x_${type}${i + 1}`, name: `Extra ${HULLS[type].name}`, len: HULLS[type].len, extra: true }));
+}
+export const HULL_TYPES = Object.keys(HULLS);
+
 // The old names still work, so nothing that hasn't been told about maps breaks.
 export const SIZE = MAPS.easy.size;
 export const FLEET = FLEETS.easy;
@@ -73,8 +122,8 @@ export function cellsFor(row, col, dir, len) {
  * Checks a whole fleet placement. Returns the normalised ships or an error —
  * the client draws the board, but the server decides whether it's legal.
  */
-export function validateFleet(placements, mapId = "easy") {
-  const fleet = fleetFor(mapId);
+export function validateFleet(placements, mapId = "easy", extra = []) {
+  const fleet = fleetFor(mapId).concat(extra);
   const size = mapOf(mapId).size;
   if (!Array.isArray(placements) || placements.length !== fleet.length)
     return { ok: false, error: `Place all ${fleet.length} ships.` };
@@ -110,8 +159,8 @@ export function validateFleet(placements, mapId = "easy") {
 }
 
 /** A fleet placed at random, for the auto-place button and for absent players. */
-export function randomFleet(mapId = "easy") {
-  const fleet = fleetFor(mapId);
+export function randomFleet(mapId = "easy", extra = []) {
+  const fleet = fleetFor(mapId).concat(extra);
   const size = mapOf(mapId).size;
   for (let attempt = 0; attempt < 500; attempt++) {
     const taken = new Set();
@@ -210,12 +259,13 @@ export function accuracyBonus(hits, shots) {
 }
 
 /** Points for the round, fed into the same MMR pipeline as a crossword. */
-export function battleScore({ hits = 0, sunk = 0, shots = 0, placement = 1, field = 2, survived = false, mapId = "easy" }) {
+export function battleScore({ hits = 0, sunk = 0, shots = 0, blast = 0, placement = 1, field = 2, survived = false, mapId = "easy" }) {
   // The big boards take longer and land a smaller share of shots, so a hit
   // there is worth more than a hit on the small one — otherwise the long game
-  // pays less per minute than the short one.
+  // pays less per minute than the short one. Hits from a blast count, but
+  // they say nothing about aim, so they stay out of the accuracy.
   const weight = { easy: 1, medium: 1.25, hard: 1.5 }[mapId] || 1;
-  const base = (hits * 4 + sunk * 12) * weight * accuracyBonus(hits, shots);
+  const base = (hits * 4 + sunk * 12) * weight * accuracyBonus(Math.max(0, hits - blast), shots);
   const standing = Math.round((Math.max(0, field - placement) / Math.max(1, field - 1)) * 30);
   return Math.max(0, Math.min(100, Math.round(base + standing + (survived ? 20 : 0))));
 }

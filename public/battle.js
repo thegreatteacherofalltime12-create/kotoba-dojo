@@ -15,6 +15,21 @@ const cellsFor = (row, col, dir, len) => {
 };
 
 /** A fleet laid out at random, for the auto-place button. */
+// The squares a blast covers — the same rule as the server's, for the preview.
+function blastArea(cell, span, size) {
+  const [r, c] = String(cell).split(",").map(Number);
+  const odd = span % 2 === 1;
+  const clamp = (v) => Math.max(0, Math.min(size - span, v));
+  const r0 = odd ? r - Math.floor(span / 2) : clamp(r);
+  const c0 = odd ? c - Math.floor(span / 2) : clamp(c);
+  const out = [];
+  for (let i = 0; i < span; i++) for (let j = 0; j < span; j++) {
+    const rr = r0 + i, cc = c0 + j;
+    if (rr >= 0 && cc >= 0 && rr < size && cc < size) out.push(`${rr},${cc}`);
+  }
+  return out;
+}
+
 function randomFleet(fleet, size) {
   for (let attempt = 0; attempt < 400; attempt++) {
     const taken = new Set();
@@ -69,6 +84,8 @@ export const B = {
   placeIdx: 0,
   dir: "across",
   target: null,
+  mode: null,        // nuke / strike / torpedo / shield while a token is being aimed
+  arsenal: null,     // what this captain armed, from the room
   shots: [],         // the two cells chosen this turn
   tick: null,
   onLeave: null,
@@ -132,7 +149,7 @@ const send = (obj) => {
 };
 
 let tokens = null;
-const tokenTab = () => (tokens ||= applyTokenTab({ game: "battleship", send, button: $("btn-battle-boost") }));
+const tokenTab = () => (tokens ||= applyTokenTab({ game: "battleship", send, button: $("btn-battle-boost"), arsenal: true }));
 
 function handle(msg) {
   switch (msg.type) {
@@ -155,7 +172,14 @@ function handle(msg) {
         B.size = msg.game.size;
       }
       if (msg.game?.fleet?.length) B.ships = msg.game.fleet;
-      if (msg.game?.shots) B.shotsPerTurn = msg.game.shots;
+      // Your own fleet may carry extra hulls, and your turn may carry extra shots.
+      if (msg.yourFleetSpec?.length) {
+        if (B.ships.length !== msg.yourFleetSpec.length) { B.placing = []; B.placeIdx = 0; }
+        B.ships = msg.yourFleetSpec;
+      }
+      B.shotsPerTurn = msg.yourShots || msg.game?.shots || B.shotsPerTurn;
+      B.arsenal = msg.arsenal || null;
+      if (msg.game?.turnUid !== B.you && B.mode !== "shield") B.mode = null;
       B.fleet = msg.yourFleet;
       B.targets = msg.targets || [];
       draw();
@@ -175,6 +199,10 @@ function handle(msg) {
       break;
     case "BATTLE_ERROR":
       say(msg.message);
+      break;
+    case "BATTLE_NOTE":
+      feedLine(msg.text);
+      say(msg.text);
       break;
   }
 }
@@ -312,7 +340,7 @@ function drawHostPanel() {
   const row = el("div", "host-switches");
   for (const [what, label, on, note] of [
     ["hideNames", "Hide captains' names", !!g.hideNames, "Everyone shows as Captain A, B, C."],
-    ["useTokens", "Use tokens for this battle", !!g.useTokens, "Reserved \u2014 the token economy isn't built yet."],
+    ["useTokens", "Allow the arsenal", !!g.useTokens, "Captains may arm nukes, air strikes and the rest from the Token shop."],
   ]) {
     const b = el("button", "hswitch" + (on ? " on" : ""));
     b.type = "button";
@@ -494,6 +522,8 @@ function drawBattle(me) {
   if (!B.target && foes.length === 1) B.target = foes[0].uid;
   if (!B.target && myTurn) B.target = (B.targets.find((t) => t.allowed) || {}).uid || null;
 
+  drawArsenal(me, myTurn);
+
   const sel = $("target-list");
   sel.textContent = "";
   const blocked = B.targets.find((t) => t.uid === B.target && !t.allowed);
@@ -539,6 +569,11 @@ function drawBattle(me) {
     const struck = new Set(enemy.struck || []);
     const seen = new Set(enemy.incoming || []);
     const wrecked = new Set(enemy.sunkCells || []);
+    // A defence you were shown, or one that has already taken a strike.
+    const intel = new Set(B.arsenal?.intel?.[enemy.uid] || []);
+    const shown = new Set(enemy.shieldShown || []);
+    const blastMode = B.mode === "nuke" || B.mode === "strike";
+    const span = B.mode === "nuke" ? (B.arsenal?.nukeSpan || 1) : B.mode === "strike" ? (B.arsenal?.strikeSpan || 6) : 1;
     const grid = el("div", "bgrid");
     grid.style.setProperty("--n", String(B.size));
     for (let r = 0; r < B.size; r++) {
@@ -548,10 +583,31 @@ function drawBattle(me) {
         const box = el("button", "bcell" +
           (known ? (struck.has(cell) ? " hit" : " miss") : "") +
           (wrecked.has(cell) ? " wreck" : "") +
+          (intel.has(cell) ? " shield" : shown.has(cell) ? " shield spent" : "") +
           (mine.includes(cell) ? " picked" : ""));
         box.type = "button";
-        box.disabled = !myTurn || known;
+        box.disabled = !myTurn || (known && !blastMode);
+        if (blastMode) {
+          box.onmouseenter = () => {
+            grid.querySelectorAll(".blast").forEach((n) => n.classList.remove("blast"));
+            for (const x of blastArea(cell, span, B.size)) {
+              const [rr, cc] = x.split(",").map(Number);
+              grid.children[rr * B.size + cc]?.classList.add("blast");
+            }
+          };
+          box.onmouseleave = () => grid.querySelectorAll(".blast").forEach((n) => n.classList.remove("blast"));
+        }
         box.onclick = () => {
+          if (B.mode === "nuke" || B.mode === "strike" || B.mode === "torpedo") {
+            const what = { nuke: "the nuke", strike: "the air strike", torpedo: "a torpedo" }[B.mode];
+            if (!window.confirm(`Fire ${what} at ${enemy.name} here?`)) return;
+            send({ type: "BATTLE_ARSENAL", action: B.mode, target: enemy.uid, cell });
+            // A blast is the turn; a torpedo leaves the volley as picked.
+            if (B.mode !== "torpedo") B.volley = {};
+            B.mode = null;
+            drawBattle(me);
+            return;
+          }
           const picks = B.volley[enemy.uid] = B.volley[enemy.uid] || [];
           const at = picks.indexOf(cell);
           if (at !== -1) picks.splice(at, 1);
@@ -589,7 +645,10 @@ function drawBattle(me) {
   const shipCells = new Map();
   for (const s of B.fleet || []) for (const cell of s.cells) shipCells.set(cell, s.sunk);
   const taken = new Set(me?.incoming || []);
-  const grid = el("div", "bgrid own");
+  const shielding = B.mode === "shield";
+  const myShield = new Set(B.arsenal?.shield?.cells || []);
+  const shieldSpent = !!B.arsenal?.shield?.spent;
+  const grid = el("div", "bgrid own" + (shielding ? " aiming" : ""));
   grid.style.setProperty("--n", String(B.size));
   for (let r = 0; r < B.size; r++) {
     for (let c = 0; c < B.size; c++) {
@@ -600,10 +659,88 @@ function drawBattle(me) {
       if (shipCells.has(cell)) cls += " ship";
       if (hitCells.has(cell)) cls += " hit wreck";
       else if (taken.has(cell)) cls += " miss";
-      grid.append(el("div", cls));
+      if (myShield.has(cell)) cls += shieldSpent ? " shield spent" : " shield";
+      if (!shielding) { grid.append(el("div", cls)); continue; }
+      const box = el("button", cls);
+      box.type = "button";
+      box.onmouseenter = () => {
+        grid.querySelectorAll(".blast").forEach((n) => n.classList.remove("blast"));
+        for (const x of blastArea(cell, B.arsenal?.strikeSpan || 6, B.size)) {
+          const [rr, cc] = x.split(",").map(Number);
+          grid.children[rr * B.size + cc]?.classList.add("blast");
+        }
+      };
+      box.onmouseleave = () => grid.querySelectorAll(".blast").forEach((n) => n.classList.remove("blast"));
+      box.onclick = () => {
+        if (!window.confirm("Put the Air Strike Defence here? It stays until a strike hits it.")) return;
+        send({ type: "BATTLE_ARSENAL", action: "shield", cell });
+        B.mode = null;
+        drawBattle(me);
+      };
+      grid.append(box);
     }
   }
   mine.append(grid);
+}
+
+// ── the arsenal strip ───────────────────────────────────────────────
+//
+// One button per armed token with uses left. Blasts and the torpedo put the
+// enemy board into an aiming mode; the shield does the same on your own.
+function drawArsenal(me, myTurn) {
+  const host = $("battle-arsenal");
+  if (!host) return;
+  const ars = B.arsenal;
+  const g = B.game;
+  const left = (k) => (ars?.armed?.[k] || 0) - (ars?.used?.[k] || 0);
+  const any = ars && ars.on && ["bs_nuke", "bs_shots", "bs_strike", "bs_shield", "bs_reveal", "bs_torpedo"].some((k) => left(k) > 0);
+  host.hidden = !any || g.phase !== "ACTIVE" || !me?.alive;
+  host.textContent = "";
+  if (host.hidden) { if (B.mode) B.mode = null; return; }
+
+  host.append(el("span", "ars-label", "Arsenal"));
+  const mk = (label, on, disabled, click, title) => {
+    const b = el("button", "ars-btn" + (on ? " on" : ""), label);
+    b.type = "button"; b.disabled = !!disabled; if (title) b.title = title;
+    b.onclick = click;
+    host.append(b);
+  };
+  const aim = (mode) => () => { B.mode = B.mode === mode ? null : mode; drawBattle(me); };
+
+  if (left("bs_nuke") > 0)
+    mk(`\u2622\uFE0F Nuke \u00d7${left("bs_nuke")}`, B.mode === "nuke", !myTurn, aim("nuke"), "Takes your turn");
+  if (left("bs_strike") > 0)
+    mk(`\u2708\uFE0F Air Strike \u00d7${left("bs_strike")}`, B.mode === "strike", !myTurn || !ars.carrierAfloat, aim("strike"),
+      ars.carrierAfloat ? "Takes your turn. 6\u00d76." : "Your carrier is gone");
+  if (left("bs_torpedo") > 0)
+    mk(`\u{1F41F} Torpedo \u00d7${left("bs_torpedo")}`, B.mode === "torpedo", !myTurn || !ars.subAfloat, aim("torpedo"),
+      ars.subAfloat ? "One extra square, on top of your volley" : "Your submarine is gone");
+  if (left("bs_shots") > 0)
+    mk(ars.extraActive ? `\u{1F3AF} +${ars.extraShots} this turn` : `\u{1F3AF} Extra shots \u00d7${left("bs_shots")}`, ars.extraActive, !myTurn || ars.extraActive,
+      () => { if (window.confirm(`Call for ${ars.extraShots} extra shots this turn?`)) send({ type: "BATTLE_ARSENAL", action: "extra" }); }, `+${ars.extraShots} shots for one turn`);
+  if (left("bs_shield") > 0)
+    mk(`\u{1F6E1}\uFE0F Defence \u00d7${left("bs_shield")}`, B.mode === "shield", !!(ars.shield && !ars.shield.spent), aim("shield"),
+      ars.shield && !ars.shield.spent ? "A defence is already in place" : "Pick a 6\u00d76 area of your water");
+  if (left("bs_reveal") > 0)
+    mk(`\u{1F52D} Reveal \u00d7${left("bs_reveal")}`, false, !B.target,
+      () => {
+        const t = g.players.find((p) => p.uid === B.target);
+        if (t && window.confirm(`Use a Reveal on ${t.name}'s water?`)) send({ type: "BATTLE_ARSENAL", action: "reveal", target: B.target });
+      }, "Shows the selected captain's Air Strike Defence, if any");
+
+  if (B.mode) {
+    const hint = {
+      nuke: "Nuke armed \u2014 pick a square on the enemy's water. It takes your turn.",
+      strike: "Air strike armed \u2014 point at the enemy's water; the 6\u00d76 area is shown as you hover. It takes your turn.",
+      torpedo: "Torpedo armed \u2014 pick one square on the enemy's water.",
+      shield: "Pick a square on your own water; the 6\u00d76 defence is shown as you hover.",
+    }[B.mode];
+    const p = el("p", "ars-hint", hint + " ");
+    const x = el("button", "btn btn-tiny", "Cancel");
+    x.type = "button"; x.onclick = () => { B.mode = null; drawBattle(me); };
+    p.append(x);
+    host.append(p);
+  }
 }
 
 // ── feed and chat ───────────────────────────────────────────────────

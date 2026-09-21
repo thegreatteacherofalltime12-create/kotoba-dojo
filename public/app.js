@@ -22,7 +22,7 @@ import { enterCasino, leaveCasino, bindCasino } from "./casino.js";
 import { casinoRulesHtml } from "./game-modes.js";
 import { UPDATES, PULSE_HOURS, KEEP_DAYS } from "./whats-new.js";
 import { BRANCHES, branchOf, rankOf, atTop, rankLabel } from "./ranks.js";
-import { applyTokenTab, TOKEN_ITEMS, TOKEN_PRICE } from "./boost.js";
+import { applyTokenTab, TOKEN_ITEMS, TOKEN_PRICE, ARSENAL_ITEMS } from "./boost.js";
 
 /**
  * True where typing summons an on-screen keyboard. Three tests rather than
@@ -1704,6 +1704,18 @@ function matchRules() {
         "The casino token is spent the moment it's applied and boosts every casino win for the rest of the day (UTC). The daily MMR cap still stands.",
         "The feed marks a boosted win with \u26A1.",
       ])}
+      ${box("\u2622\uFE0F The Battleship Arsenal", [
+        "The Token shop also sells an arsenal for Battleship Royale, priced in casino money: Nuke Missile ($500,000), Extra Shots ($25,000), Extra Ships ($5,000), Tactical Air Strike ($35,000), Air Strike Defence ($40,000), Air Strike Reveal ($13,000) and Submarine Torpedo ($1,437).",
+        "Inside a battle, open <b>\u26A1 Apply Token</b> to arm them: at most <b>four</b> tokens a battle, and at most <b>two</b> nukes. Only what you fire is spent; anything armed and unused goes back to your pile.",
+        "<b>Nuke:</b> takes your turn. On Skirmish a hit sinks the whole ship it lands on. On Fleet Action it blasts 3\u00d73; on Open Ocean, 7\u00d77.",
+        "<b>Extra Shots:</b> +2 on Skirmish, +4 on Fleet Action, +6 on Open Ocean, for the one turn you call it \u2014 spread over captains like any volley.",
+        "<b>Extra Ships:</b> three more hulls of your choosing, any chart. Arm before you place your fleet.",
+        "<b>Tactical Air Strike:</b> takes your turn. A 6\u00d76 blast anchored where you point, on any chart, so long as one of your carriers is afloat.",
+        "<b>Air Strike Defence:</b> a hidden 6\u00d76 area of your own water. Strike squares inside it do nothing; the defence then shows and is spent. It does not stop a nuke.",
+        "<b>Air Strike Reveal:</b> shows you one captain's defence, if they have one, so a strike isn't wasted on it.",
+        "<b>Submarine Torpedo:</b> one extra single-square shot on your turn, on top of your volley, while your submarine is afloat.",
+        "Blast hits count for score and sinkings, but not toward your accuracy bonus. Computer captains never carry tokens. The host can switch the arsenal off for a battle.",
+      ])}
     </div>`;
 }
 
@@ -2612,24 +2624,35 @@ function profileSummary() {
 // day). Applied from the Apply Token tab inside the game; the list of them
 // lives in boost.js so the shop and the tab agree.
 
+/** One line of the shop. */
+function shopRow(t, held) {
+  return `
+    <div class="shop-item">
+      <span class="shop-ico">${t.icon}</span>
+      <div class="shop-txt">
+        <div class="shop-name">${t.name}</div>
+        <div class="shop-blurb">${t.blurb}</div>
+        <div class="shop-have" id="have-${t.key}">${held ? `You hold ${held}` : "None held"}</div>
+      </div>
+      <button class="btn btn-primary btn-small" data-buy="${t.key}">Buy \u00b7 $${t.price.toLocaleString()}</button>
+    </div>`;
+}
+
 async function drawShop(body) {
   const me = standings.find((r) => r.uid === S.user?.uid);
   const tokens = me?.tokens || {};
   let wallet = S.purse?.wallet ?? 0;
   body.innerHTML = `
-    <p class="panel-sub">Casino money buys boosts. Open a game, press <b>\u26A1 Apply Token</b>, and the token pays half again on that match's MMR.</p>
+    <p class="panel-sub">Casino money buys tokens. Open a game and press <b>\u26A1 Apply Token</b> to use them.</p>
     <div class="shop-wallet">\u{1F4B0} Wallet: <b id="shop-wallet">$${wallet.toLocaleString()}</b></div>
+    <h3 class="rec-h">Boosts \u00b7 1.5\u00d7 MMR</h3>
     <div class="shop-items">
-      ${TOKEN_ITEMS.map((t) => `
-        <div class="shop-item">
-          <span class="shop-ico">${t.icon}</span>
-          <div class="shop-txt">
-            <div class="shop-name">${t.name}</div>
-            <div class="shop-blurb">${t.blurb}</div>
-            <div class="shop-have" id="have-${t.game}">${tokens[t.game] ? `You hold ${tokens[t.game]}` : "None held"}</div>
-          </div>
-          <button class="btn btn-primary btn-small" data-buy="${t.game}">Buy \u00b7 $${TOKEN_PRICE.toLocaleString()}</button>
-        </div>`).join("")}
+      ${TOKEN_ITEMS.map((t) => shopRow({ key: t.game, ...t, price: TOKEN_PRICE }, tokens[t.game])).join("")}
+    </div>
+    <h3 class="rec-h">\u2693 Battleship arsenal</h3>
+    <p class="panel-sub">Armed in a battle under Apply Token \u2014 four a battle, two nukes at most \u2014 and fired from the Arsenal strip. Only what you use is spent.</p>
+    <div class="shop-items">
+      ${ARSENAL_ITEMS.map((t) => shopRow(t, tokens[t.key])).join("")}
     </div>
     <p id="shop-status" class="notice" hidden></p>`;
   try {
@@ -2640,20 +2663,22 @@ async function drawShop(body) {
   } catch { /* the figure we had stands */ }
   body.querySelectorAll("[data-buy]").forEach((b) => {
     b.onclick = async () => {
-      const item = TOKEN_ITEMS.find((t) => t.game === b.dataset.buy);
-      if (!window.confirm(`Buy a ${item.name} for $${TOKEN_PRICE.toLocaleString()} from your wallet?`)) return;
+      const key = b.dataset.buy;
+      const item = TOKEN_ITEMS.find((t) => t.game === key) || ARSENAL_ITEMS.find((t) => t.key === key);
+      const price = item.price || TOKEN_PRICE;
+      if (!window.confirm(`Buy a ${item.name} for $${price.toLocaleString()} from your wallet?`)) return;
       b.disabled = true;
       try {
         const res = await fetch("/api/shop/buy", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${await idToken()}` },
-          body: JSON.stringify({ game: item.game }),
+          body: JSON.stringify({ game: key }),
         });
         const out = await res.json();
         if (out.ok) {
           S.purse = { ...(S.purse || {}), wallet: out.wallet };
           $("shop-wallet").textContent = `$${out.wallet.toLocaleString()}`;
-          $(`have-${item.game}`).textContent = `You hold ${out.tokens ?? "?"}`;
+          $(`have-${key}`).textContent = `You hold ${out.tokens ?? "?"}`;
           say("shop-status", `${item.name} bought. In the game, press \u26A1 Apply Token to use it.`, false);
           loadRankings();
         } else {

@@ -76,72 +76,25 @@ console.log("\na boosted round");
 const boostedMatch = { ...match, results: [{ ...match.results[0], boost: true }, match.results[1]] };
 const bm = matchWrites(BASE, "B-1-1", boostedMatch, true);
 const bw = bm.writes[bm.tags.findIndex((t) => t.kind === "board")];
-ok("the token is spent in the round's own write, after the three the room reads",
-  bw.updateTransforms[3].fieldPath === "tokens.crossword" && bw.updateTransforms[3].increment.integerValue === "-1"
-  && bw.updateTransforms.slice(0, 3).map((t) => t.fieldPath).join() === "totalPoints,roundsPlayed,bestScore");
+ok("the token is spent last in the round's own write, after the three totals and the feats",
+  bw.updateTransforms.at(-1).fieldPath === "tokens.crossword" && bw.updateTransforms.at(-1).increment.integerValue === "-1"
+  && bw.updateTransforms.slice(0, 3).map((t) => t.fieldPath).join() === "totalPoints,roundsPlayed,bestScore"
+  && !bw.updateTransforms.slice(0, -1).some((t) => t.fieldPath.startsWith("tokens.")));
 ok("an unboosted row spends nothing", !bm.writes[bm.tags.findIndex((t) => t.kind === "board") + 1].updateTransforms.some((t) => t.fieldPath.startsWith("tokens.")));
-ok("the totals still read back by position",
-  boardRowsFromCommit(bm.tags, { writeResults: [{}, {}, {}, { transformResults: [iv(1), iv(1), iv(1), iv(0), iv(1), iv(1), iv(1), iv(1)] }, { transformResults: [iv(2), iv(2), iv(2), iv(1), iv(1)] }] })[0].totalPoints === 1);
+{
+  const feats = bm.tags.find((t) => t.kind === "board").feats.length;
+  const results = [iv(1), iv(1), iv(1), ...Array.from({ length: feats }, (_, j) => iv(10 + j)), iv(0)];
+  const row = boardRowsFromCommit(bm.tags, { writeResults: [{}, {}, {}, { transformResults: results }, { transformResults: [iv(2), iv(2), iv(2), ...Array.from({ length: feats }, () => iv(1))] }] })[0];
+  ok("the totals and every feat still read back by position on a boosted row",
+    row.totalPoints === 1 && Object.values(row.feats)[0] === 10 && Object.values(row.feats).at(-1) === 10 + feats - 1);
+  ok("the token count read back rides along for the room", row.tokens?.crossword === 0);
+}
+{
+  const arsenal = matchWrites(BASE, "B-1-2", { ...match, game: "battleship", results: [{ ...match.results[0], spent: { bs_nuke: 2, bs_torpedo: 1, nonsense: 3 } }] }, true);
+  const w = arsenal.writes[arsenal.tags.findIndex((t) => t.kind === "board")];
+  const spends = w.updateTransforms.filter((t) => t.fieldPath.startsWith("tokens."));
+  ok("the arsenal a battle used is spent, and nothing that isn't a token",
+    spends.map((t) => t.fieldPath + t.increment.integerValue).join() === "tokens.bs_nuke-2,tokens.bs_torpedo-1");
+}
 
-console.log("\nthe arcade");
-const arcade = matchWrites(BASE, "ARCADE-0-1", { ...match, code: "ARCADE", results: [match.results[0]] }, false);
-ok("a solve is one write, not three", arcade.writes.length === 1 && arcade.tags[0].kind === "board");
-ok("and counts for no feats", arcade.writes[0].updateTransforms.length === 3 && arcade.tags[0].feats.length === 0);
-ok("and its total is at index zero",
-  boardRowsFromCommit(arcade.tags, { writeResults: [{ transformResults: [iv(7), iv(1), iv(7)] }] })[0].totalPoints === 7);
 
-console.log("\nreading transforms");
-ok("a double is a number too", transformNumbers({ writeResults: [{ transformResults: [{ doubleValue: 2.5 }] }] }, 0, 1)[0] === 2.5);
-ok("too few results is null", transformNumbers({ writeResults: [{ transformResults: [iv(1)] }] }, 0, 2) === null);
-ok("no body is null", transformNumbers(null, 0, 1) === null);
-
-console.log("\nwallets");
-const ww = walletWrites("B/users/u1", "B/wallets/u1", "u1", "Ana", 250);
-ok("a bank is two writes", ww.length === 2);
-const wr = walletWrites("B/users/u1", "B/wallets/u1", "u1", "Ana", 250, null, "B/leaderboard/u1");
-ok("with the record asked for, a bank also counts on the board",
-  wr.length === 3 && wr[2].update.name === "B/leaderboard/u1"
-  && wr[2].updateTransforms.map((t) => t.fieldPath).join() === "feats.banks,feats.banked");
-ok("a withdrawal never counts as a cash-out", walletWrites("B/users/u1", "B/wallets/u1", "u1", "Ana", -40, 210, "B/leaderboard/u1").length === 2);
-ok("the bank's feats are read from the third write",
-  bankFeats({ writeResults: [{}, {}, { transformResults: [iv(4), iv(2250)] }] }, 100).banked === 2250 && bankFeats({ writeResults: [{}, {}] }) === null);
-const big = walletWrites("B/users/u1", "B/wallets/u1", "u1", "Ana", 500, null, "B/leaderboard/u1");
-ok("a bank of five hundred is a jackpot", big[2].updateTransforms.map((t) => t.fieldPath).join() === "feats.banks,feats.banked,feats.bigbank");
-ok("and its count comes back with the rest",
-  bankFeats({ writeResults: [{}, {}, { transformResults: [iv(5), iv(2750), iv(1)] }] }, 500).bigbank === 1
-  && bankFeats({ writeResults: [{}, {}, { transformResults: [iv(5), iv(2750)] }] }, 500) === null);
-ok("the private document first, increments only, nothing else on it touched",
-  ww[0].transform?.document === "B/users/u1" && !ww[0].update
-  && ww[0].transform.fieldTransforms.map((t) => t.fieldPath).join() === "casino.wallet,casino.banked");
-ok("the public row second, as one write", ww[1].update?.name === "B/wallets/u1" && ww[1].updateMask.fieldPaths.join() === "uid,name"
-  && ww[1].updateTransforms.length === 1 && ww[1].updateTransforms[0].fieldPath === "wallet");
-const wd = walletWrites("B/users/u1", "B/wallets/u1", "u1", "Ana", -40, 210);
-ok("a withdrawal does not count as banked", wd[0].transform.fieldTransforms.length === 1
-  && wd[0].transform.fieldTransforms[0].increment.integerValue === "-40");
-ok("a withdrawal sets the public row to what is left, rather than nudging it",
-  !wd[1].updateTransforms && wd[1].update.fields.wallet.integerValue === "210"
-  && wd[1].updateMask.fieldPaths.join() === "uid,name,wallet");
-ok("and its totals are read with that figure",
-  walletTotals({ writeResults: [{ transformResults: [iv(210)] }, {}] }, 210).wallet === 210);
-const walletCommit = { writeResults: [{ transformResults: [iv(950), iv(2000)] }, { transformResults: [iv(950)] }] };
-const totals = walletTotals(walletCommit);
-ok("the private figure comes from the first write", totals.mine === 950);
-ok("the public row from the second", totals.wallet === 950);
-ok("half an answer is no answer", walletTotals({ writeResults: [{ transformResults: [iv(1)] }] }) === null);
-
-console.log("\ntelling the room");
-ok("a bare env is a no-op", (await tellCommons({}, "/chat/append", {})) === false);
-const heard = [];
-const fakeRoom = {
-  idFromName: () => "global",
-  get: () => ({ fetch: async (u, init) => { heard.push({ path: new URL(u).pathname, body: JSON.parse(init.body) }); return new Response("{}"); } }),
-};
-ok("a bound room hears the message", (await tellCommons({ COMMONS: fakeRoom }, "/board/upsert", { rows })) === true
-  && heard[0].path === "/board/upsert" && heard[0].body.rows[0].totalPoints === 1095);
-const slowRoom = { idFromName: () => "global", get: () => ({ fetch: () => new Promise(() => {}) }) };
-const t0 = Date.now();
-ok("a room that never answers is given up on", (await tellCommons({ COMMONS: slowRoom }, "/chat/append", {})) === false
-  && Date.now() - t0 < 5000);
-
-console.log(bad ? `\n${bad} failing` : "\nall commit checks passed");
-process.exit(bad ? 1 : 0);

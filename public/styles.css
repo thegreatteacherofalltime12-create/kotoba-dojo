@@ -3403,3 +3403,17 @@ a.dtab { text-decoration: none; display: inline-block; }
 .key-row b { font-family: var(--display); }
 .key-forms { display: grid; gap: .5rem; margin: .6rem 0 1rem; }
 .key-forms .joinrow input { flex: 1; }
+
+
+/* ── the battleship arsenal ──────────────────────────────────────── */
+.arsenal { padding: .55rem .7rem; display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; }
+.arsenal .ars-label { font-family: var(--display); font-size: .66rem; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin-right: .2rem; }
+.ars-btn { font-family: var(--display); font-weight: 800; font-size: .74rem; cursor: pointer; padding: .38rem .6rem; border-radius: 8px; border: 1px solid #F4CE5A; background: rgba(244, 206, 90, .14); color: #F4CE5A; }
+.ars-btn:disabled { opacity: .45; cursor: default; }
+.ars-btn.on { background: #F4CE5A; color: #1a1400; }
+.ars-hint { flex-basis: 100%; font-size: .78rem; color: #F4CE5A; margin: .1rem 0 0; }
+.bcell.blast { background: color-mix(in srgb, #F4CE5A 55%, transparent) !important; border-color: #F4CE5A !important; }
+.bcell.shield { box-shadow: inset 0 0 0 2px #38BDF8; }
+.bcell.shield.spent { box-shadow: inset 0 0 0 2px rgba(56, 189, 248, .45); }
+.bgrid.own .bcell.shield { box-shadow: inset 0 0 0 2px #38BDF8; }
+.bgrid.own.aiming .bcell { cursor: crosshair; }

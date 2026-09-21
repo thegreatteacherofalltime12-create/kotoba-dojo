@@ -9,6 +9,7 @@
 // If FIREBASE_SERVICE_ACCOUNT isn't set, every function here quietly no-ops
 // and the game still works — you just lose ranked history.
 
+import { ARSENAL } from "./battleship.js";
 import { tellCommons } from "./commons-notify.js";
 import { allowed, featsFor, isMark, BIG_BANK } from "../public/cosmetics.js";
 import { GI_COLORS } from "../public/arena.js";
@@ -263,6 +264,12 @@ function tokensOf(field) {
 
 export const TOKEN_PRICE = 2000;
 export const TOKEN_GAMES = ["crossword", "battleship", "minesweeper", "links", "casino"];
+// The Battleship arsenal sells alongside the boosts, each at its own price.
+export const TOKEN_PRICES = Object.fromEntries([
+  ...TOKEN_GAMES.map((g) => [g, TOKEN_PRICE]),
+  ...Object.entries(ARSENAL).map(([k, v]) => [k, v.price]),
+]);
+export const priceOf = (key) => TOKEN_PRICES[key] ?? null;
 
 /**
  * Buys one boost token for a game with casino money: the wallet is read
@@ -271,19 +278,20 @@ export const TOKEN_GAMES = ["crossword", "battleship", "minesweeper", "links", "
  * row. The room hears both.
  */
 export async function buyToken(env, uid, name, game) {
-  if (!TOKEN_GAMES.includes(game)) return { ok: false, error: "No such token." };
+  const price = priceOf(game);
+  if (price == null) return { ok: false, error: "No such token." };
   const token = await accessToken(env);
   if (!token) return { ok: false, error: "The shop isn't open in this arena." };
   const held = (await readWallet(env, uid)) ?? 0;
-  if (held < TOKEN_PRICE) return { ok: false, error: `A token costs ${TOKEN_PRICE.toLocaleString()}. Your wallet holds ${held.toLocaleString()}.` };
+  if (held < price) return { ok: false, error: `That token costs $${price.toLocaleString()}. Your wallet holds $${held.toLocaleString()}.` };
 
-  const left = held - TOKEN_PRICE;
+  const left = held - price;
   const res = await fetch(`https://firestore.googleapis.com/v1/${base(env)}:commit`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       writes: [
-        ...walletWrites(`${base(env)}/users/${uid}`, `${base(env)}/wallets/${uid}`, uid, name, -TOKEN_PRICE, left),
+        ...walletWrites(`${base(env)}/users/${uid}`, `${base(env)}/wallets/${uid}`, uid, name, -price, left),
         {
           update: { name: `${base(env)}/leaderboard/${uid}`, fields: { uid: S(uid), name: S(name || "Player") } },
           updateMask: { fieldPaths: ["uid", "name"] },
@@ -1238,6 +1246,10 @@ export function matchWrites(base, matchId, match, logged) {
     // for nothing.
     const feats = logged ? featsFor(match, r) : {};
     const featKeys = Object.keys(feats);
+    const spends = [
+      ...(r.boost ? [[match.game || "crossword", 1]] : []),
+      ...Object.entries(r.spent || {}).filter(([k, n]) => ARSENAL[k] && n > 0).map(([k, n]) => [k, Math.round(n)]),
+    ];
     writes.push({
       update: {
         name: `${base}/leaderboard/${r.uid}`,
@@ -1250,15 +1262,15 @@ export function matchWrites(base, matchId, match, logged) {
         { fieldPath: "totalPoints", increment: I(r.gain ?? r.score) },
         { fieldPath: "roundsPlayed", increment: I(1) },
         { fieldPath: "bestScore", maximum: I(r.score) },
-        // A boosted round spends its token here, after the numbers the room
-        // reads back, so nothing before it shifts.
-        ...(r.boost ? [{ fieldPath: `tokens.${match.game || "crossword"}`, increment: I(-1) }] : []),
         ...featKeys.map((k) => (isMark(k)
           ? { fieldPath: `feats.${k}`, minimum: I(feats[k]) }
           : { fieldPath: `feats.${k}`, increment: I(feats[k]) })),
+        // Tokens the round used up — the boost, and whatever the arsenal
+        // fired — are spent last, after everything read back by position.
+        ...spends.map(([k, n]) => ({ fieldPath: `tokens.${k}`, increment: I(-n) })),
       ],
     });
-    tags.push({ kind: "board", uid: r.uid, name: r.name, rate: r.rate || null, feats: featKeys });
+    tags.push({ kind: "board", uid: r.uid, name: r.name, rate: r.rate || null, feats: featKeys, spends: spends.map(([k]) => k) });
   }
   return { writes, tags };
 }
@@ -1273,15 +1285,19 @@ export function boardRowsFromCommit(tags, body) {
     const t = tags[i];
     if (t.kind !== "board") continue;
     const keys = t.feats || [];
-    const got = transformNumbers(body, i, 3 + keys.length);
+    const spends = t.spends || [];
+    const got = transformNumbers(body, i, 3 + keys.length + spends.length);
     if (!got) return null;
     const feats = {};
     keys.forEach((k, j) => { feats[k] = got[3 + j]; });
+    const tokens = {};
+    spends.forEach((k, j) => { tokens[k] = Math.max(0, got[3 + keys.length + j]); });
     rows.push({
       uid: t.uid, name: t.name,
       totalPoints: got[0], roundsPlayed: got[1], bestScore: got[2],
       ...(t.rate ? { lastRate: t.rate } : {}),
       ...(keys.length ? { feats } : {}),
+      ...(spends.length ? { tokens } : {}),
     });
   }
   return rows;

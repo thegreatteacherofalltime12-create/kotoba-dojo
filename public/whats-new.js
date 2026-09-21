@@ -17,6 +17,15 @@ export const KEEP_DAYS = 7;
 
 export const UPDATES = [
   {
+    at: "2026-09-21T04:00:00Z",
+    where: "Battleship",
+    title: "The arsenal",
+    text: "Seven new tokens for Battleship Royale in the Token shop: Nuke Missile, Extra Shots, Extra Ships, "
+      + "Tactical Air Strike, Air Strike Defence, Air Strike Reveal and Submarine Torpedo. Arm up to four a "
+      + "battle (two nukes at most) under \u26A1 Apply Token, then fire them from the Arsenal strip. Only what "
+      + "you use is spent. The rule book has every rule.",
+  },
+  {
     at: "2026-09-20T16:00:00Z",
     where: "Sign-in",
     title: "Keys at the door",

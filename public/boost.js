@@ -20,6 +20,32 @@ export const TOKEN_ITEMS = [
 
 export const tokenItem = (game) => TOKEN_ITEMS.find((t) => t.game === game) || TOKEN_ITEMS[0];
 
+// The Battleship arsenal: bought in the shop, armed in the Apply Token tab
+// of a battle (four per battle, two nukes at most), fired from the Arsenal
+// strip on the battle screen. Only what is used is spent. Prices and rules
+// mirror src/battleship.js.
+export const ARSENAL_ITEMS = [
+  { key: "bs_nuke", name: "Nuke Missile", icon: "\u2622\uFE0F", price: 500000, max: 2,
+    blurb: "Takes your turn. Skirmish: a hit sinks the whole ship. Fleet Action: a 3\u00d73 blast. Open Ocean: 7\u00d77. Two a battle." },
+  { key: "bs_shots", name: "Extra Shots", icon: "\u{1F3AF}", price: 25000,
+    blurb: "+2 / +4 / +6 shots by chart for one turn, spread over captains as usual." },
+  { key: "bs_ships", name: "Extra Ships", icon: "\u{1F6A2}", price: 5000,
+    blurb: "Three more hulls of your choosing, on any chart. Arm before you place." },
+  { key: "bs_strike", name: "Tactical Air Strike", icon: "\u2708\uFE0F", price: 35000,
+    blurb: "Takes your turn. A 6\u00d76 blast anchored where you point, on any chart. Needs a carrier afloat." },
+  { key: "bs_shield", name: "Air Strike Defence", icon: "\u{1F6E1}\uFE0F", price: 40000,
+    blurb: "A hidden 6\u00d76 area of your water. Squares of an air strike inside it do nothing; it then shows, spent." },
+  { key: "bs_reveal", name: "Air Strike Reveal", icon: "\u{1F52D}", price: 13000,
+    blurb: "Shows you one captain's Air Strike Defence, if they have one, before you waste a strike on it." },
+  { key: "bs_torpedo", name: "Submarine Torpedo", icon: "\u{1F41F}", price: 1437,
+    blurb: "One extra single-square shot on your turn, on top of your volley, while your submarine is afloat." },
+];
+export const HULL_OPTIONS = [
+  ["carrier", "Carrier (5)"], ["battleship", "Battleship (4)"], ["cruiser", "Cruiser (3)"],
+  ["submarine", "Submarine (3)"], ["destroyer", "Destroyer (2)"],
+];
+export const arsenalItem = (key) => ARSENAL_ITEMS.find((t) => t.key === key);
+
 // The tab's own styles, carried with it so the golf page (which has none of
 // the arena's stylesheet) draws the same window.
 let styled = false;
@@ -51,7 +77,15 @@ function ensureStyles() {
 .tok-note.bad { color: #ff8a8a; border-left-color: #ff5c5c; }
 .tok-empty { margin: 0; font-size: .8rem; opacity: .8; }
 @keyframes tokpulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(244, 206, 90, 0); } 50% { box-shadow: 0 0 0 4px rgba(244, 206, 90, .35); } }
-.tok-live { animation: tokpulse 1.6s ease-in-out infinite; border-color: #F4CE5A !important; color: #F4CE5A !important; }`;
+.tok-live { animation: tokpulse 1.6s ease-in-out infinite; border-color: #F4CE5A !important; color: #F4CE5A !important; }
+.tok-h { margin: .5rem 0 0; font-family: var(--display, inherit); font-size: .78rem; letter-spacing: .1em; text-transform: uppercase; opacity: .8; display: flex; justify-content: space-between; }
+.tok-row.ars .tok-have { opacity: .9; }
+.tok-blurb { font-size: .66rem; opacity: .7; margin-top: .1rem; }
+.tok-acts { display: flex; gap: .3rem; align-items: center; }
+.tok-btn.tok-minus { padding: .4rem .55rem; }
+.tok-hulls { display: flex; gap: .3rem; flex-wrap: wrap; margin-top: .3rem; }
+.tok-hulls select { font: inherit; font-size: .7rem; background: rgba(255,255,255,.08); color: inherit; border: 1px solid rgba(255,255,255,.18); border-radius: 6px; padding: .2rem .3rem; }
+.tok-off { font-size: .74rem; opacity: .7; }`;
   document.head.appendChild(css);
 }
 
@@ -65,7 +99,7 @@ function ensureStyles() {
  * lights up once a token is applied. `host` is where the window is drawn;
  * one is made at the end of <body> when none is given.
  */
-export function applyTokenTab({ game, send, button, host, label }) {
+export function applyTokenTab({ game, send, button, host, label, arsenal = false }) {
   ensureStyles();
   const here = tokenItem(game);
   let el = host || null;
@@ -93,7 +127,7 @@ export function applyTokenTab({ game, send, button, host, label }) {
   }
 
   function receive(msg) {
-    state = { loading: false, busy: false, tokens: msg.tokens || {}, applied: !!msg.applied, error: msg.error || null, day: !!msg.day };
+    state = { loading: false, busy: false, tokens: msg.tokens || {}, applied: !!msg.applied, error: msg.error || null, day: !!msg.day, arsenal: msg.arsenal || state.arsenal || null };
     if (button) button.classList.toggle("tok-live", state.applied);
     if (el && !el.hidden) draw();
   }
@@ -139,12 +173,61 @@ export function applyTokenTab({ game, send, button, host, label }) {
             <p class="tok-sub">Tokens you've bought. Apply the ${here.name} here and this ${label || "match"} pays half again on the MMR${here.game === "casino" ? " — on every win for the rest of the day" : ""}.</p>
             ${rows}
             ${note}
+            ${arsenal ? arsenalHtml() : ""}
           </div>
         </div>
       </div>`;
     h.querySelectorAll("[data-close]").forEach((n) => { n.onclick = close; });
     const b = h.querySelector("[data-apply]");
     if (b) b.onclick = apply;
+    h.querySelectorAll("[data-arm]").forEach((n) => {
+      n.onclick = () => {
+        const key = n.dataset.arm;
+        const hulls = key === "bs_ships" ? [...h.querySelectorAll("[data-hull]")].map((x) => x.value) : undefined;
+        state = { ...state, busy: true, error: null };
+        draw();
+        send({ type: "ARM_TOKEN", key, hulls });
+      };
+    });
+    h.querySelectorAll("[data-disarm]").forEach((n) => {
+      n.onclick = () => { state = { ...state, busy: true, error: null }; draw(); send({ type: "DISARM_TOKEN", key: n.dataset.disarm }); };
+    });
+  }
+
+  // The arsenal, under the boost: what is held, what is armed, and the
+  // buttons to arm and put back. The room says what is allowed.
+  function arsenalHtml() {
+    const ars = state.arsenal;
+    const tokens = state.tokens || {};
+    if (state.loading && !ars) return "";
+    if (!ars) return "";
+    const armedTotal = Object.values(ars.armed || {}).reduce((n, v) => n + v, 0);
+    const head = `<h3 class="tok-h"><span>Battleship arsenal</span><span>Armed ${armedTotal} / ${ars.cap}</span></h3>`;
+    if (!ars.on) return head + `<p class="tok-off">The host has the arsenal switched off for this battle.</p>`;
+    const rows = ARSENAL_ITEMS.map((t) => {
+      const held = tokens[t.key] || 0;
+      const armed = ars.armed?.[t.key] || 0;
+      const used = ars.used?.[t.key] || 0;
+      const canArm = !state.busy && held > armed && armedTotal < ars.cap && !(t.max && armed >= t.max) && !(t.key === "bs_ships" && armed);
+      const canDisarm = !state.busy && armed > used;
+      const hulls = t.key === "bs_ships" && !armed
+        ? `<div class="tok-hulls">${[0, 1, 2].map((i) => `<select data-hull aria-label="Extra hull ${i + 1}">${HULL_OPTIONS.map(([v, l], j) => `<option value="${v}" ${j === [2, 3, 4][i] ? "selected" : ""}>${l}</option>`).join("")}</select>`).join("")}</div>`
+        : t.key === "bs_ships" && armed && ars.hulls?.length ? `<div class="tok-blurb">Bringing: ${ars.hulls.map((x) => HULL_OPTIONS.find(([v]) => v === x)?.[1].replace(/ \(\d\)/, "") || x).join(", ")}</div>` : "";
+      return `<div class="tok-row ars">
+        <span class="tok-ico">${t.icon}</span>
+        <div>
+          <div class="tok-name">${t.name}</div>
+          <div class="tok-blurb">${t.blurb}</div>
+          <div class="tok-have">${held ? `You hold <b>${held}</b>` : "None held"}${armed ? ` \u00b7 armed <b>${armed}</b>${used ? ` (${used} used)` : ""}` : ""}</div>
+          ${hulls}
+        </div>
+        <div class="tok-acts">
+          ${canDisarm ? `<button class="tok-btn tok-minus" data-disarm="${t.key}" title="Put one back">\u2212</button>` : ""}
+          <button class="tok-btn" data-arm="${t.key}" ${canArm ? "" : "disabled"}>${armed ? "Arm another" : "Arm"}</button>
+        </div>
+      </div>`;
+    }).join("");
+    return head + rows + `<p class="tok-sub">Armed tokens are fired from the Arsenal strip on the battle screen. Only what you use is spent.</p>`;
   }
 
   if (button) button.onclick = open;

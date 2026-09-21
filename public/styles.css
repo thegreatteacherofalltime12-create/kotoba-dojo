@@ -3417,3 +3417,6 @@ a.dtab { text-decoration: none; display: inline-block; }
 .bcell.shield.spent { box-shadow: inset 0 0 0 2px rgba(56, 189, 248, .45); }
 .bgrid.own .bcell.shield { box-shadow: inset 0 0 0 2px #38BDF8; }
 .bgrid.own.aiming .bcell { cursor: crosshair; }
+
+.shop-games { margin-top: .6rem; }
+.shop-card { width: min(38rem, 100%); }

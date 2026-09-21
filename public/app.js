@@ -22,7 +22,7 @@ import { enterCasino, leaveCasino, bindCasino } from "./casino.js";
 import { casinoRulesHtml } from "./game-modes.js";
 import { UPDATES, PULSE_HOURS, KEEP_DAYS } from "./whats-new.js";
 import { BRANCHES, branchOf, rankOf, atTop, rankLabel } from "./ranks.js";
-import { applyTokenTab, TOKEN_ITEMS, TOKEN_PRICE, ARSENAL_ITEMS } from "./boost.js";
+import { applyTokenTab, GAME_ARSENALS, shopItem } from "./boost.js";
 
 /**
  * True where typing summons an on-screen keyboard. Three tests rather than
@@ -2624,7 +2624,7 @@ function profileSummary() {
 // day). Applied from the Apply Token tab inside the game; the list of them
 // lives in boost.js so the shop and the tab agree.
 
-/** One line of the shop. */
+/** One line of an arsenal window. */
 function shopRow(t, held) {
   return `
     <div class="shop-item">
@@ -2638,35 +2638,67 @@ function shopRow(t, held) {
     </div>`;
 }
 
+/** The wallet, read live; the figure already shown stands if the arena is out of reach. */
+async function refreshWallet() {
+  try {
+    const res = await fetch("/api/wallet", { headers: { Authorization: `Bearer ${await idToken()}` } });
+    const wallet = (await res.json()).wallet;
+    if (typeof wallet === "number") S.purse = { ...(S.purse || {}), wallet };
+  } catch { /* the figure we had stands */ }
+  document.querySelectorAll(".shop-wallet b").forEach((n) => { n.textContent = `$${(S.purse?.wallet ?? 0).toLocaleString()}`; });
+}
+
+// The shop: one card per game. Each opens that game's arsenal in its own
+// window — its 1.5\u00d7 boost and whatever else it sells — so nobody
+// scrolls a list of everything to find one thing.
 async function drawShop(body) {
   const me = standings.find((r) => r.uid === S.user?.uid);
   const tokens = me?.tokens || {};
-  let wallet = S.purse?.wallet ?? 0;
+  const heldIn = (a) => a.items.reduce((n, t) => n + (tokens[t.key] || 0), 0);
   body.innerHTML = `
-    <p class="panel-sub">Casino money buys tokens. Open a game and press <b>\u26A1 Apply Token</b> to use them.</p>
-    <div class="shop-wallet">\u{1F4B0} Wallet: <b id="shop-wallet">$${wallet.toLocaleString()}</b></div>
-    <h3 class="rec-h">Boosts \u00b7 1.5\u00d7 MMR</h3>
-    <div class="shop-items">
-      ${TOKEN_ITEMS.map((t) => shopRow({ key: t.game, ...t, price: TOKEN_PRICE }, tokens[t.game])).join("")}
-    </div>
-    <h3 class="rec-h">\u2693 Battleship arsenal</h3>
-    <p class="panel-sub">Armed in a battle under Apply Token \u2014 four a battle, two nukes at most \u2014 and fired from the Arsenal strip. Only what you use is spent.</p>
-    <div class="shop-items">
-      ${ARSENAL_ITEMS.map((t) => shopRow(t, tokens[t.key])).join("")}
-    </div>
-    <p id="shop-status" class="notice" hidden></p>`;
-  try {
-    const res = await fetch("/api/wallet", { headers: { Authorization: `Bearer ${await idToken()}` } });
-    wallet = (await res.json()).wallet ?? wallet;
-    S.purse = { ...(S.purse || {}), wallet };
-    if ($("shop-wallet")) $("shop-wallet").textContent = `$${wallet.toLocaleString()}`;
-  } catch { /* the figure we had stands */ }
-  body.querySelectorAll("[data-buy]").forEach((b) => {
+    <p class="panel-sub">Casino money buys tokens, one arsenal per game. Inside a game, press <b>\u26A1 Apply Token</b> to use what you hold.</p>
+    <div class="shop-wallet">\u{1F4B0} Wallet: <b>$${(S.purse?.wallet ?? 0).toLocaleString()}</b></div>
+    <div class="gamegrid shop-games">
+      ${GAME_ARSENALS.map((a) => `
+        <button class="gamepick" data-arsenal="${a.game}">
+          <span class="gp-ico">${a.icon}</span>
+          <span class="gp-name">${a.name}</span>
+          <span class="gp-players">${a.items.length} token${a.items.length === 1 ? "" : "s"}${heldIn(a) ? ` \u00b7 you hold ${heldIn(a)}` : ""}</span>
+        </button>`).join("")}
+    </div>`;
+  body.querySelectorAll("[data-arsenal]").forEach((b) => { b.onclick = () => drawArsenalShop(b.dataset.arsenal); });
+  refreshWallet();
+}
+
+function drawArsenalShop(game) {
+  const a = GAME_ARSENALS.find((x) => x.game === game);
+  if (!a) return;
+  const me = standings.find((r) => r.uid === S.user?.uid);
+  const tokens = me?.tokens || {};
+  const host = $("avatar-modal");
+  host.hidden = false;
+  host.innerHTML = `
+    <div class="modal-back" data-close></div>
+    <div class="modal-card shop-card">
+      <div class="modal-head">
+        <h2>${a.icon} ${a.name}</h2>
+        <button class="modal-close" data-close aria-label="Close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="shop-wallet">\u{1F4B0} Wallet: <b>$${(S.purse?.wallet ?? 0).toLocaleString()}</b></div>
+        ${game === "battleship" ? `<p class="panel-sub">Armed in a battle under Apply Token \u2014 four a battle, two nukes at most \u2014 and fired from the Arsenal strip. Only what you use is spent.</p>` : ""}
+        <div class="shop-items">${a.items.map((t) => shopRow(t, tokens[t.key])).join("")}</div>
+        <p id="shop-status" class="notice" hidden></p>
+      </div>
+    </div>`;
+  const close = () => { host.hidden = true; host.textContent = ""; drawProfile("shop"); };
+  host.querySelectorAll("[data-close]").forEach((n) => { n.onclick = close; });
+  refreshWallet();
+  host.querySelectorAll("[data-buy]").forEach((b) => {
     b.onclick = async () => {
       const key = b.dataset.buy;
-      const item = TOKEN_ITEMS.find((t) => t.game === key) || ARSENAL_ITEMS.find((t) => t.key === key);
-      const price = item.price || TOKEN_PRICE;
-      if (!window.confirm(`Buy a ${item.name} for $${price.toLocaleString()} from your wallet?`)) return;
+      const item = shopItem(key);
+      if (!window.confirm(`Buy a ${item.name} for $${item.price.toLocaleString()} from your wallet?`)) return;
       b.disabled = true;
       try {
         const res = await fetch("/api/shop/buy", {
@@ -2677,7 +2709,7 @@ async function drawShop(body) {
         const out = await res.json();
         if (out.ok) {
           S.purse = { ...(S.purse || {}), wallet: out.wallet };
-          $("shop-wallet").textContent = `$${out.wallet.toLocaleString()}`;
+          document.querySelectorAll(".shop-wallet b").forEach((n) => { n.textContent = `$${out.wallet.toLocaleString()}`; });
           $(`have-${key}`).textContent = `You hold ${out.tokens ?? "?"}`;
           say("shop-status", `${item.name} bought. In the game, press \u26A1 Apply Token to use it.`, false);
           loadRankings();

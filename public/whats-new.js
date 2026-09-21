@@ -20,7 +20,8 @@ export const UPDATES = [
     at: "2026-09-21T04:00:00Z",
     where: "Battleship",
     title: "The arsenal",
-    text: "Seven new tokens for Battleship Royale in the Token shop: Nuke Missile, Extra Shots, Extra Ships, "
+    text: "The Token shop is now one arsenal per game — tap a game to open its window, with its 1.5× boost "
+      + "first. Seven new tokens in the Battleship Arsenal: Nuke Missile, Extra Shots, Extra Ships, "
       + "Tactical Air Strike, Air Strike Defence, Air Strike Reveal and Submarine Torpedo. Arm up to four a "
       + "battle (two nukes at most) under \u26A1 Apply Token, then fire them from the Arsenal strip. Only what "
       + "you use is spent. The rule book has every rule.",

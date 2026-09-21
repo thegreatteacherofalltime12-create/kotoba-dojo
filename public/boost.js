@@ -46,6 +46,21 @@ export const HULL_OPTIONS = [
 ];
 export const arsenalItem = (key) => ARSENAL_ITEMS.find((t) => t.key === key);
 
+/**
+ * The shop, one arsenal per game: the game's 1.5\u00d7 boost first, then
+ * whatever else that game sells. Other games' arsenals grow here too.
+ */
+export const GAME_ARSENALS = TOKEN_ITEMS.map((t) => ({
+  game: t.game,
+  name: `${t.name.replace(/ boost$/, "")} Arsenal`,
+  icon: t.icon,
+  items: [
+    { key: t.game, name: t.name, icon: "\u26A1", price: TOKEN_PRICE, blurb: t.blurb },
+    ...(t.game === "battleship" ? ARSENAL_ITEMS : []),
+  ],
+}));
+export const shopItem = (key) => GAME_ARSENALS.flatMap((a) => a.items).find((t) => t.key === key);
+
 // The tab's own styles, carried with it so the golf page (which has none of
 // the arena's stylesheet) draws the same window.
 let styled = false;
@@ -142,7 +157,8 @@ export function applyTokenTab({ game, send, button, host, label, arsenal = false
     const h = mount();
     const tokens = state.tokens || {};
     const total = Object.values(tokens).reduce((a, n) => a + (n || 0), 0);
-    const rows = TOKEN_ITEMS.map((t) => {
+    // This game's boost only; the arsenal follows for games that have one.
+    const rows = TOKEN_ITEMS.filter((t) => t.game === game).map((t) => {
       const n = tokens[t.game] || 0;
       const isHere = t.game === game;
       const right = isHere
@@ -162,7 +178,7 @@ export function applyTokenTab({ game, send, button, host, label, arsenal = false
           ? "Every casino win for the rest of today (UTC) pays half again."
           : `This ${label || "match"} pays 1.5× MMR when it is scored.`}</p>`
         : !state.loading && total === 0
-          ? `<p class="tok-empty">You hold no tokens. Buy them with casino money in your profile under ⚡ Token shop.</p>`
+          ? `<p class="tok-empty">You hold none. Buy them with casino money in your profile under ⚡ Token shop.</p>`
           : "";
     h.innerHTML = `
       <div class="tok-modal">
@@ -170,7 +186,7 @@ export function applyTokenTab({ game, send, button, host, label, arsenal = false
         <div class="tok-card" role="dialog" aria-modal="true" aria-label="Apply Token">
           <div class="tok-head"><h2>⚡ Apply Token</h2><button class="tok-x" data-close aria-label="Close">&times;</button></div>
           <div class="tok-body">
-            <p class="tok-sub">Tokens you've bought. Apply the ${here.name} here and this ${label || "match"} pays half again on the MMR${here.game === "casino" ? " — on every win for the rest of the day" : ""}.</p>
+            <p class="tok-sub">Your ${here.where === "the Casino" ? "Casino" : here.where} arsenal. Apply the ${here.name} and this ${label || "match"} pays half again on the MMR${here.game === "casino" ? " — on every win for the rest of the day" : ""}.</p>
             ${rows}
             ${note}
             ${arsenal ? arsenalHtml() : ""}

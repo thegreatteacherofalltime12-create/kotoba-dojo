@@ -3412,7 +3412,9 @@ a.dtab { text-decoration: none; display: inline-block; }
 .locked-card .keyrow { display: flex; gap: .5rem; margin: .6rem 0; }
 .locked-card .keyrow input { flex: 1; font-size: 1rem; letter-spacing: .08em; }
 .locked-card .etsy { display: inline-block; margin-top: .5rem; font-weight: 700; color: #F4CE5A; }
-.key-row { display: grid; grid-template-columns: 1fr auto auto; gap: .6rem; align-items: center; padding: .45rem 0; border-bottom: 1px solid var(--edge); font-size: .82rem; }
+.key-row { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; padding: .45rem 0; border-bottom: 1px solid var(--edge); font-size: .82rem; }
+.key-row > span:first-child { flex: 1 1 12rem; }
+.key-row .btn { flex: none; }
 .key-row.off { opacity: .55; }
 .key-row b { font-family: var(--display); }
 .key-forms { display: grid; gap: .5rem; margin: .6rem 0 1rem; }

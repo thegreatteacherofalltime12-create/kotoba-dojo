@@ -8,8 +8,15 @@
 // for anything.
 //
 // What is stored:
-//   users/{uid}.access     { via: "etsy"|"grandfathered"|"admin", order, at, revoked? }
+// The admin can also hand out a free pass: a key of a different shape,
+// made before anyone holds it, good for one account and then dead. The link
+// a claimed pass leaves behind sends the next person to Etsy.
+//
+// What is stored:
+//   users/{uid}.access     { via: "etsy"|"pass"|"grandfathered"|"admin", order, at, revoked? }
 //   keys/{order}           { uid, name, at, revoked? }   — one document per number
+//   keys/DOJO-XXXX-XXXX    { pass: true, at, expiresAt, by, byName,
+//                            uid?, name?, claimedAt?, revoked? }
 //
 // Every authenticated request asks `membership`; the answer is cached in the
 // isolate so the gate costs one Firestore read per player per ten minutes,
@@ -28,6 +35,53 @@ const admins = (env) => String(env.ADMIN_UIDS || "").split(",").map((x) => x.tri
 export const epochOf = (env) => Date.parse(env.KEY_EPOCH || "") || 0;
 export const cleanOrder = (raw) => String(raw || "").replace(/[^\d]/g, "");
 export const validOrder = (order) => ORDER_RE.test(order);
+
+// ── free passes ──────────────────────────────────────────────────────
+//
+// A pass code can never be mistaken for an Etsy order number: those are
+// digits only, and every pass begins with DOJO and carries letters.
+
+const PASS_RE = /^DOJO-[0-9A-Z]{4}-[0-9A-Z]{4}$/;
+// No 0/O or 1/I: these get read aloud and typed by hand.
+const PASS_CHARS = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+export const PASS_DAYS = 7;
+
+/** A pass code from anything the player pasted, or "" if it isn't one. */
+export function cleanPass(raw) {
+  const s = String(raw || "").toUpperCase().replace(/[^0-9A-Z]/g, "");
+  const m = /^DOJO([0-9A-Z]{8})$/.exec(s);
+  return m ? `DOJO-${m[1].slice(0, 4)}-${m[1].slice(4)}` : "";
+}
+export const validPass = (code) => PASS_RE.test(code);
+
+/** A fresh code. 256 divides by 32, so every character is equally likely. */
+export function newPassCode() {
+  const bytes = crypto.getRandomValues(new Uint8Array(8));
+  let out = "";
+  for (const b of bytes) out += PASS_CHARS[b % PASS_CHARS.length];
+  return `DOJO-${out.slice(0, 4)}-${out.slice(4)}`;
+}
+
+/**
+ * What a pass document says about itself, right now: open, claimed,
+ * expired, revoked, or unknown for anything that isn't a pass at all.
+ * Pure, so the gate and the claim both decide it the same way.
+ */
+export function passVerdict(fields, now = Date.now()) {
+  const f = fields || {};
+  if (!f.pass?.booleanValue) return "unknown";
+  if (f.revoked?.booleanValue) return "revoked";
+  if (f.uid?.stringValue) return "claimed";
+  if (Number(f.expiresAt?.integerValue || 0) <= now) return "expired";
+  return "open";
+}
+
+const PASS_REFUSAL = {
+  claimed: "That pass has already been claimed.",
+  expired: "That pass has expired.",
+  revoked: "That pass was withdrawn.",
+  unknown: "That pass code isn't one of ours.",
+};
 
 /** True while a key has been tried too often. */
 function throttled(key) {
@@ -185,6 +239,56 @@ export async function redeem(env, user, raw) {
 }
 
 /**
+ * Where a pass stands, for anyone at all. Only the verdict goes back: a
+ * link that has been used says so without naming who used it.
+ */
+export async function passState(env, raw) {
+  const code = cleanPass(raw);
+  if (!code) return { state: "unknown" };
+  const doc = await readDoc(env, `keys/${code}`);
+  if (doc === undefined || !doc) return { state: "unknown" };
+  return { state: passVerdict(doc.fields), code };
+}
+
+/**
+ * Claiming one. The document already exists, so the check is not that it is
+ * absent but that nobody has touched it since we read it: the write carries
+ * that read's updateTime, and two people clicking at once means the second
+ * write fails rather than both getting in.
+ */
+export async function claimPass(env, user, raw) {
+  const code = cleanPass(raw);
+  if (!code) return { ok: false, error: "That isn't a pass code." };
+  if (throttled(`p:${user.uid}`)) return { ok: false, error: "Too many tries. Wait an hour." };
+  const token = await accessToken(env);
+  if (!token) return { ok: false, error: "The arena can't take passes right now." };
+  const doc = await readDoc(env, `keys/${code}`);
+  if (doc === undefined) return { ok: false, error: "The arena can't take passes right now." };
+  const verdict = passVerdict(doc?.fields);
+  if (verdict !== "open") return { ok: false, error: PASS_REFUSAL[verdict] };
+  const at = Date.now();
+  const res = await fetch(`https://firestore.googleapis.com/v1/${base(env)}:commit`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ writes: [
+      {
+        update: { name: `${base(env)}/keys/${code}`, fields: { uid: S(user.uid), name: S(user.name || "Player"), claimedAt: I(at) } },
+        updateMask: { fieldPaths: ["uid", "name", "claimedAt"] },
+        currentDocument: { updateTime: doc.updateTime },
+      },
+      {
+        update: { name: `${base(env)}/users/${user.uid}`, fields: { access: accessFields({ via: "pass", order: code, at }), name: S(user.name || "Player") } },
+        updateMask: { fieldPaths: ["access", "name"] },
+      },
+    ] }),
+  });
+  if (res.status === 400 || res.status === 409) return { ok: false, error: "That pass has already been claimed." };
+  if (!res.ok) return { ok: false, error: "Firestore refused the pass. Try again." };
+  forget(user.uid);
+  return { ok: true, code };
+}
+
+/**
  * A forgotten pin, reset against the key: the name's account must be the one
  * the order number unlocked. Throttled by name and by number.
  */
@@ -205,6 +309,34 @@ export async function recover(env, { name, order: raw, pin, address }) {
 
 // ── the admin's desk ─────────────────────────────────────────────────
 
+/**
+ * A new pass, unclaimed. The write insists the code is free, so a collision
+ * costs a retry rather than somebody else's pass.
+ */
+export async function makePass(env, admin, days = PASS_DAYS) {
+  const token = await accessToken(env);
+  if (!token) return { ok: false, error: "The arena can't make passes right now." };
+  const at = Date.now();
+  const expiresAt = at + days * 86_400_000;
+  for (let tries = 0; tries < 5; tries++) {
+    const code = newPassCode();
+    const res = await fetch(`https://firestore.googleapis.com/v1/${base(env)}:commit`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ writes: [{
+        update: {
+          name: `${base(env)}/keys/${code}`,
+          fields: { pass: { booleanValue: true }, at: I(at), expiresAt: I(expiresAt), by: S(admin.uid), byName: S(admin.name || "Admin") },
+        },
+        currentDocument: { exists: false },
+      }] }),
+    });
+    if (res.ok) return { ok: true, code, at, expiresAt };
+    if (res.status !== 400 && res.status !== 409) return { ok: false, error: "Firestore refused the pass." };
+  }
+  return { ok: false, error: "Couldn't find a free code. Try again." };
+}
+
 /** Every key, newest first. */
 export async function listKeys(env, limit = 200) {
   const token = await accessToken(env);
@@ -223,12 +355,19 @@ export async function listKeys(env, limit = 200) {
   for (const r of await res.json()) {
     const d = r.document;
     if (!d) continue;
+    const pass = !!d.fields?.pass?.booleanValue;
     rows.push({
       order: d.name.split("/").pop(),
       uid: d.fields?.uid?.stringValue || "",
       name: d.fields?.name?.stringValue || "",
       at: Number(d.fields?.at?.integerValue || 0),
       revoked: !!d.fields?.revoked?.booleanValue,
+      ...(pass ? {
+        pass: true,
+        state: passVerdict(d.fields),
+        expiresAt: Number(d.fields?.expiresAt?.integerValue || 0),
+        claimedAt: Number(d.fields?.claimedAt?.integerValue || 0),
+      } : {}),
     });
   }
   return rows;
@@ -239,13 +378,15 @@ export async function revokeKey(env, order, revoked) {
   const key = await readDoc(env, `keys/${order}`);
   if (!key) return { ok: false, error: "No such key." };
   const uid = key.fields?.uid?.stringValue;
+  const via = key.fields?.pass?.booleanValue ? "pass" : "etsy";
   const token = await accessToken(env);
   const res = await fetch(`https://firestore.googleapis.com/v1/${base(env)}:commit`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify({ writes: [
       { update: { name: `${base(env)}/keys/${order}`, fields: { revoked: { booleanValue: !!revoked } } }, updateMask: { fieldPaths: ["revoked"] } },
-      { update: { name: `${base(env)}/users/${uid}`, fields: { "access": accessFields({ via: "etsy", order, at: Number(key.fields?.at?.integerValue || Date.now()), revoked: !!revoked }) } }, updateMask: { fieldPaths: ["access"] } },
+      // An unclaimed pass has no account behind it to shut.
+      ...(uid ? [{ update: { name: `${base(env)}/users/${uid}`, fields: { "access": accessFields({ via, order, at: Number(key.fields?.at?.integerValue || Date.now()), revoked: !!revoked }) } }, updateMask: { fieldPaths: ["access"] } }] : []),
     ] }),
   });
   if (!res.ok) return { ok: false, error: "Firestore refused." };

@@ -199,10 +199,11 @@ function setMode(mode) {
   $("btn-auth").textContent = { signin: "Enter the dojo", signup: "Create and enter", recover: "Reset the pin and enter" }[mode];
   $("auth-pin").autocomplete = mode === "signin" ? "current-password" : "new-password";
   $("auth-pin-label").textContent = mode === "recover" ? "New six-digit pin" : "Six-digit pin";
-  $("auth-order-field").hidden = mode === "signin";
+  $("auth-order-field").hidden = mode === "signin" || !!pendingPass;
   $("btn-forgot").hidden = mode !== "signin";
   $("btn-forgot").textContent = "Forgot your pin?";
-  $("gate-key").hidden = mode === "signin";
+  // A pass is the key, so the line about order numbers would only confuse.
+  $("gate-key").hidden = mode === "signin" || !!pendingPass;
   $("gate-hint").textContent = {
     signin: "Forgotten your pin? Your Etsy order number resets it.",
     signup: "Names are yours alone. Pins are not — pick one you'll remember, and don't reuse a pin that guards anything important.",
@@ -221,7 +222,7 @@ async function loadShopfront() {
   a.hidden = !S.etsy;
   if (S.etsy) a.href = S.etsy;
 }
-loadShopfront();
+loadShopfront().then(passFromLink);
 
 $("btn-forgot").onclick = () => setMode(authMode === "recover" ? "signin" : "recover");
 
@@ -229,6 +230,49 @@ $("btn-forgot").onclick = () => setMode(authMode === "recover" ? "signin" : "rec
 let pendingOrder = null;
 const ORDER_RE = /^\d{8,12}$/;
 const cleanOrder = (v) => String(v || "").replace(/[^\d]/g, "");
+
+// A free pass from the admin. It arrives as ?pass=DOJO-XXXX-XXXX on a link,
+// or typed into the key field like an order number, and is held across the
+// registration the way an order number is. The server decides whether it is
+// still good; this only carries it.
+let pendingPass = null;
+const cleanPass = (v) => {
+  const s = String(v || "").toUpperCase().replace(/[^0-9A-Z]/g, "");
+  const m = /^DOJO([0-9A-Z]{8})$/.exec(s);
+  return m ? `DOJO-${m[1].slice(0, 4)}-${m[1].slice(4)}` : "";
+};
+const passLink = (code) => `${location.origin}/?pass=${code}`;
+const holdPass = (code) => { try { code ? sessionStorage.setItem("kd-pass", code) : sessionStorage.removeItem("kd-pass"); } catch { /* private window */ } };
+const heldPass = () => { try { return sessionStorage.getItem("kd-pass") || ""; } catch { return ""; } };
+
+/**
+ * A pass link, checked before anybody registers. An open one turns the gate
+ * into a free registration; a used one says so and points at Etsy, which is
+ * the whole point of forwarding it.
+ */
+async function passFromLink() {
+  const code = cleanPass(new URLSearchParams(location.search).get("pass") || heldPass());
+  if (!code) return;
+  let state = "unknown";
+  try { state = (await (await fetch(`/api/pass?code=${encodeURIComponent(code)}`)).json()).state || "unknown"; } catch { return; }
+  const box = $("gate-pass");
+  if (state === "open") {
+    pendingPass = code;
+    holdPass(code);
+    box.className = "notice notice-good";
+    box.innerHTML = "\u{1F39F}\uFE0F <b>You have a free pass to the dojo.</b> Pick a name and a six-digit pin and it's yours \u2014 no order number needed.";
+    setMode("signup");
+  } else {
+    holdPass("");
+    box.className = "notice notice-bad";
+    box.textContent = {
+      claimed: "This free pass has already been claimed. A key of your own comes from Etsy.",
+      expired: "This free pass has expired. A key of your own comes from Etsy.",
+      revoked: "This free pass was withdrawn. A key of your own comes from Etsy.",
+    }[state] || "That pass code isn't one of ours. A key comes from Etsy.";
+  }
+  box.hidden = false;
+}
 
 $("tab-signin").onclick = () => setMode("signin");
 $("tab-signup").onclick = () => setMode("signup");
@@ -270,15 +314,18 @@ $("btn-auth").onclick = async () => {
   if (!PIN_RE.test(pin))
     return say("gate-error", "The pin is exactly six digits.");
 
-  const order = cleanOrder($("auth-order").value);
-  if (authMode !== "signin" && !ORDER_RE.test(order))
+  const typed = $("auth-order").value;
+  const order = cleanOrder(typed);
+  const typedPass = cleanPass(typed);
+  if (typedPass) pendingPass = typedPass;
+  if (authMode !== "signin" && !pendingPass && !ORDER_RE.test(order))
     return say("gate-error", "The Etsy order number is 8 to 12 digits — it's on your receipt.");
 
   $("btn-auth").disabled = true;
   say("gate-error", "");
   try {
     if (authMode === "signup") {
-      pendingOrder = order;
+      pendingOrder = pendingPass ? null : order;
       const cred = await createUserWithEmailAndPassword(auth, addressFor(name), secretFor(pin));
       await updateProfile(cred.user, { displayName: name });
     } else if (authMode === "recover") {
@@ -324,9 +371,10 @@ onAuthStateChanged(auth, async (user) => {
     // The gate: an account without a key is held here. A registration that
     // came with one hands it over now; anyone else is asked for theirs.
     let me = await askStanding();
-    if (me && !me.unlocked && !me.unknown && pendingOrder) {
-      const out = await redeemKey(pendingOrder);
-      pendingOrder = null;
+    if (me && !me.unlocked && !me.unknown && (pendingPass || pendingOrder)) {
+      const out = pendingPass ? await claimFreePass(pendingPass) : await redeemKey(pendingOrder);
+      pendingPass = null; pendingOrder = null;
+      holdPass("");
       if (out.ok) me = await askStanding();
       else { drawLocked(me, out.error); return; }
     }
@@ -361,6 +409,17 @@ async function redeemKey(order) {
   } catch { return { ok: false, error: "Couldn't reach the arena. Try again." }; }
 }
 
+async function claimFreePass(code) {
+  try {
+    const res = await fetch("/api/claim", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${await idToken()}` },
+      body: JSON.stringify({ code }),
+    });
+    return await res.json();
+  } catch { return { ok: false, error: "Couldn't reach the arena. Try again." }; }
+}
+
 // Held at the door: signed in, no key yet (or a revoked one).
 function drawLocked(me, error) {
   show("gate");
@@ -372,11 +431,11 @@ function drawLocked(me, error) {
     <div class="barred-card locked-card">
       <h2>${revoked ? "\u26D4 This key was revoked" : unknown ? "\u23F3 One moment" : "\u{1F511} Enter your key"}</h2>
       ${revoked
-        ? `<p>The order number on this account was revoked by the admin. If that's a mistake, send a message through Etsy with your name here (<b>${escapeHtml(S.user?.displayName || "")}</b>).</p>`
+        ? `<p>The key on this account was revoked by the admin. If that's a mistake, send a message through Etsy with your name here (<b>${escapeHtml(S.user?.displayName || "")}</b>).</p>`
         : unknown
           ? `<p>${escapeHtml(me.reason || "The arena couldn't check your key.")}</p>`
           : `<p>You're signed in as <b>${escapeHtml(S.user?.displayName || "")}</b>. The game is sold on Etsy; the order number on your receipt is your key. Enter it once and it's yours \u2014 it opens this account and resets a forgotten pin.</p>
-             <div class="keyrow"><input id="locked-order" inputmode="numeric" maxlength="14" placeholder="Etsy order number" autocomplete="off"><button id="locked-go" class="btn btn-primary">Unlock</button></div>`}
+             <div class="keyrow"><input id="locked-order" maxlength="16" placeholder="Etsy order number or pass code" autocomplete="off"><button id="locked-go" class="btn btn-primary">Unlock</button></div>`}
       <p id="locked-error" class="notice notice-bad" ${error ? "" : "hidden"}>${escapeHtml(error || "")}</p>
       ${S.etsy && !revoked ? `<a class="etsy" href="${escapeHtml(S.etsy)}" target="_blank" rel="noopener">Get a key on Etsy \u2192</a>` : ""}
       <div class="keyrow">
@@ -390,10 +449,14 @@ function drawLocked(me, error) {
     if (again && again.unlocked) enterHome(); else drawLocked(again || me);
   };
   if ($("locked-go")) $("locked-go").onclick = async () => {
-    const order = cleanOrder($("locked-order").value);
-    if (!ORDER_RE.test(order)) return say("locked-error", "An Etsy order number is 8 to 12 digits.");
+    const typed = $("locked-order").value;
+    const pass = cleanPass(typed);
+    const order = cleanOrder(typed);
+    if (!pass && !ORDER_RE.test(order))
+      return say("locked-error", "An Etsy order number is 8 to 12 digits, or paste the pass code you were sent.");
     $("locked-go").disabled = true;
-    const out = await redeemKey(order);
+    const out = pass ? await claimFreePass(pass) : await redeemKey(order);
+    if (out.ok) holdPass("");
     if (out.ok) { const again = await askStanding(); if (again?.unlocked) return enterHome(); }
     say("locked-error", out.error || "That key didn't open the door.");
     $("locked-go").disabled = false;
@@ -952,6 +1015,21 @@ async function askStanding() {
 // Every order number that has opened an account. Revoke one and the account
 // it opened is held at the door; let a name in by hand after checking the
 // order on Etsy; reset a pin for someone who has lost theirs.
+//
+// Free passes live here too: make one, copy its link, and the first person
+// to register on it is in for nothing. After that the link sends whoever
+// follows it to Etsy.
+
+/** What a pass row says about itself, in words. */
+function passWords(k) {
+  const days = Math.max(0, Math.ceil((k.expiresAt - Date.now()) / 86_400_000));
+  return {
+    open: `unclaimed \u00b7 ${days} day${days === 1 ? "" : "s"} left`,
+    claimed: `claimed by ${k.name || "someone"}`,
+    expired: "expired, unclaimed",
+    revoked: k.uid ? `withdrawn \u00b7 was ${k.name || "someone"}'s` : "withdrawn, unclaimed",
+  }[k.state] || k.state;
+}
 async function drawKeys() {
   const host = $("avatar-modal");
   host.hidden = false;
@@ -975,7 +1053,9 @@ async function drawKeys() {
       return true;
     } catch { say("keys-status", "Couldn't reach the desk."); return false; }
   };
-  const keys = desk.keys || [];
+  const all = desk.keys || [];
+  const passes = all.filter((k) => k.pass);
+  const keys = all.filter((k) => !k.pass);
   host.querySelector(".modal-body").innerHTML = `
     <p class="panel-sub">Accounts from before ${desk.epoch ? new Date(desk.epoch).toLocaleDateString() : "the keys"} are in without one. ${desk.etsy ? "" : "No Etsy link is set yet \u2014 put it in ETSY_URL and the invite and gate will carry it."}</p>
     <div class="key-forms">
@@ -983,6 +1063,16 @@ async function drawKeys() {
       <div class="joinrow"><input id="keys-pin-name" maxlength="16" placeholder="Name"><input id="keys-pin" inputmode="numeric" maxlength="6" placeholder="New pin" style="flex:0 0 7rem"><button class="btn btn-small" id="keys-setpin">Reset pin</button></div>
       <p id="keys-status" class="notice" hidden></p>
     </div>
+    <h3 class="rec-h">Free passes \u00b7 ${passes.length}</h3>
+    <div class="joinrow"><button class="btn btn-small" id="keys-makepass">\u{1F39F}\uFE0F Make a pass</button>
+      <span class="panel-sub">One free account each. A pass dies when it is claimed, or after seven days.</span></div>
+    ${passes.length ? passes.map((k) => `
+      <div class="key-row ${k.state === "open" ? "" : "off"}">
+        <span><b>${escapeHtml(k.order)}</b> \u00b7 ${escapeHtml(passWords(k))}</span>
+        <span class="rep-when">${ago(new Date(k.at).toISOString())}</span>
+        ${k.state === "open" ? `<button class="btn btn-small" data-copy="${escapeHtml(k.order)}">Copy link</button>` : ""}
+        <button class="btn btn-small" data-key="${escapeHtml(k.order)}" data-do="${k.revoked ? "restore" : "revoke"}">${k.revoked ? "Restore" : "Withdraw"}</button>
+      </div>`).join("") : `<p class="panel-sub">No pass has been made yet.</p>`}
     <h3 class="rec-h">Keys used \u00b7 ${keys.length}</h3>
     ${keys.length ? keys.map((k) => `
       <div class="key-row ${k.revoked ? "off" : ""}">
@@ -993,6 +1083,29 @@ async function drawKeys() {
   host.querySelectorAll("[data-key]").forEach((b) => {
     b.onclick = async () => { if (await post({ action: b.dataset.do, order: b.dataset.key })) drawKeys(); };
   });
+  host.querySelectorAll("[data-copy]").forEach((b) => {
+    b.onclick = async () => {
+      const link = passLink(b.dataset.copy);
+      try { await navigator.clipboard.writeText(link); say("keys-status", "Link copied. One account, first come.", false); }
+      catch { say("keys-status", link, false); }
+    };
+  });
+  $("keys-makepass").onclick = async () => {
+    $("keys-makepass").disabled = true;
+    try {
+      const res = await fetch("/api/admin/keys", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${await idToken()}` },
+        body: JSON.stringify({ action: "pass" }),
+      });
+      const out = await res.json();
+      if (!out.ok) return say("keys-status", out.error || "The pass could not be made.");
+      try { await navigator.clipboard.writeText(passLink(out.code)); } catch { /* the row has a Copy button */ }
+      await drawKeys();
+      say("keys-status", `${out.code} is ready, and the link is on your clipboard.`, false);
+    } catch { say("keys-status", "Couldn't reach the desk."); }
+    finally { if ($("keys-makepass")) $("keys-makepass").disabled = false; }
+  };
   $("keys-unlock").onclick = async () => {
     const name = $("keys-unlock-name").value.trim();
     if (await post({ action: "unlock", name })) say("keys-status", `${name} is in.`, false);
@@ -2605,7 +2718,9 @@ function ago(iso) {
   const secs = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 1000));
   if (secs < 60) return "just now";
   if (secs < 3600) return `${Math.floor(secs / 60)}m ago`;
-  return `${Math.floor(secs / 3600)}h ago`;
+  if (secs < 86400) return `${Math.floor(secs / 3600)}h ago`;
+  // Passes live a week, so hours stop being a useful way to say it.
+  return `${Math.floor(secs / 86400)}d ago`;
 }
 
 // A promotion is news. The feed tab pulses yellow from the moment someone

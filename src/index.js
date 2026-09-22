@@ -1,5 +1,5 @@
 import { verifyIdToken } from "./jwt.js";
-import { membership, redeem, recover, listKeys, revokeKey, adminUnlock } from "./access.js";
+import { membership, redeem, recover, listKeys, revokeKey, adminUnlock, makePass, claimPass, passState, cleanPass } from "./access.js";
 import { moderate } from "./moderation.js";
 import {
   prestigePlayer, retirePlayer, recordMatch, readRatings, saveCosmetics, strikePlayer, clearStrikes,
@@ -317,6 +317,24 @@ export default {
     // The gate's public face: where a key comes from.
     if (path === "/api/config") return json({ etsy: env.ETSY_URL || "" });
 
+    // Where a free pass stands. Public, and it names nobody: a link that has
+    // been used says so without anyone having to register to find out.
+    if (path === "/api/pass") {
+      const out = await passState(env, url.searchParams.get("code"));
+      return json({ ...out, etsy: env.ETSY_URL || "" });
+    }
+
+    // Claiming one. Signed in, because a pass opens an account.
+    if (path === "/api/claim" && request.method === "POST") {
+      const token = (request.headers.get("Authorization") || "").replace(/^Bearer /, "");
+      let user;
+      try { user = await verifyIdToken(token, env.FIREBASE_PROJECT_ID); }
+      catch { return json({ error: "Sign in first." }, 401); }
+      const body = await request.json().catch(() => ({}));
+      const result = await claimPass(env, user, body.code);
+      return json(result, result.ok ? 200 : 400);
+    }
+
     // An Etsy order number, locked to this account.
     if (path === "/api/redeem" && request.method === "POST") {
       const token = (request.headers.get("Authorization") || "").replace(/^Bearer /, "");
@@ -348,7 +366,12 @@ export default {
       const body = await request.json().catch(() => ({}));
       const name = String(body.name || "").trim();
       let result;
-      if (body.action === "revoke" || body.action === "restore") result = await revokeKey(env, String(body.order || "").replace(/[^\d]/g, ""), body.action === "revoke");
+      if (body.action === "pass") result = await makePass(env, user);
+      // A pass code keeps its letters; an order number keeps only its digits.
+      else if (body.action === "revoke" || body.action === "restore") {
+        const raw = String(body.order || "");
+        result = await revokeKey(env, cleanPass(raw) || raw.replace(/[^\d]/g, ""), body.action === "revoke");
+      }
       else if (body.action === "unlock" || body.action === "pin") {
         if (!NAME_RE.test(name)) result = { ok: false, error: "That isn't a name." };
         else result = await adminUnlock(env, { name, address: addressFor(name), pin: body.action === "pin" ? String(body.pin || "") : null });

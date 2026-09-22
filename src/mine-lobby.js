@@ -714,7 +714,12 @@ export class MineField {
     try { list = (await this.env.PUZZLES.get(key, "json")) || []; } catch { return; }
 
     for (const p of cleared) {
-      list.push({ uid: p.uid, name: p.name, ms: p.finishedAt, at: Date.now() });
+      list.push({
+        uid: p.uid, name: p.name, ms: p.finishedAt, at: Date.now(),
+        // A reveal, a buster or a stopwatch makes a fast clear easier, so
+        // the row carries the fact rather than the board pretending.
+        assisted: Object.values(p.ars?.used || {}).some((n) => n > 0),
+      });
     }
     // One entry per player: their best, not every run they ever made.
     const best = new Map();

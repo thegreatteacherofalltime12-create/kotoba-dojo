@@ -1719,6 +1719,12 @@ function tokensRules() {
         "The Casino boost is spent the moment it's applied and boosts <b>every casino win for the rest of the day</b> (UTC). The daily cap still stands.",
         "The feed marks a boosted win with \u26A1.",
       ])}
+      ${box("\u26A1 Tokens and the record books", [
+        "A round that fires a token is a <b>token-assisted</b> round, and the record books mark it with \u26A1. Nothing is kept off a board for using one \u2014 the figure stands, and the mark only says how it was set.",
+        "<b>Fastest Clears</b> (Minesweeper, per level) marks the time. <b>Course records</b> (Golf) keep two marks for each player \u2014 the best card played clean and the best played with tokens \u2014 and show the lower of the two, marked if it took a token.",
+        "<b>Highest single round</b> marks its holder if that round used one, and the Battleship tallies say how many of the rounds behind them did.",
+        "The <b>1.5\u00d7 boost</b> is not an assist: it pays more for a round, it does not play it for you.",
+      ])}
       ${box("\u{1F3B0} The Casino Arsenal", [
         "Eighteen tokens for the floor, priced in casino money. Arm them under <b>\u26A1 Apply Token</b>; fire them from the Arsenal strip above the floor. Each is capped per session, and a casino token is spent the moment it is used \u2014 there is no round to settle up at the end of.",
         "<b>Not one of them hands you cash.</b> Table money banks to your wallet one for one, so a token that paid cash would be a money pump. These give chips, odds, sight and MMR instead.",
@@ -2122,6 +2128,21 @@ function drawInvite() {
 // Everything here is read from what the server already wrote: the leaderboard
 // the Worker maintains, and the clear times the Minesweeper object banks in
 // KV. Nothing is self-reported, so a record means what it says.
+/**
+ * The mark a record carries when a token had a hand in it. A boolean is one
+ * entry set with help; a number is how many rounds of a lifetime tally used
+ * one. The figure is never hidden or held back — this only says how.
+ */
+function asstTag(a) {
+  if (a === true) return '<span class="rec-asst" title="Set with an arsenal token in hand">\u26A1</span>';
+  if (typeof a === "number" && a > 0)
+    return '<span class="rec-asst" title="' + a + ' token-assisted round' + (a === 1 ? "" : "s") +
+      ' in this tally">\u26A1' + a + '</span>';
+  return "";
+}
+const ASSIST_LEGEND =
+  '<p class="panel-sub rec-legend">\u26A1 marks a figure a token had a hand in. The record still stands \u2014 the mark only says how it was set.</p>';
+
 async function loadRecords(tab = "arena") {
   const host = $("drawer-records");
   if (tab === "wallet") return drawWallet(host);
@@ -2140,7 +2161,8 @@ async function loadRecords(tab = "arena") {
 
   const best = (key) => [...standings].sort((a, z) => (z[key] || 0) - (a[key] || 0))[0];
   const holders = [
-    ["Highest single round", best("best"), (r) => `${r.best} points`],
+    ["Highest single round", best("best"), (r) => `${r.best} points`,
+      (r) => asstTag(!!r.bestAsst && r.best <= r.bestAsst)],
     ["Most MMR banked", best("mmr"), (r) => `${r.mmr.toLocaleString()} MMR`],
     ["Most rounds played", best("rounds"), (r) => `${r.rounds} rounds`],
     ["Most prestiges", best("prestige"), (r) => (r.prestige ? `${r.prestige}\u00d7` : "none yet")],
@@ -2160,14 +2182,15 @@ async function loadRecords(tab = "arena") {
           <p class="bc-sub">Mark to beat: ${bounty.holder.perHour}/hr &middot; ${bounty.holder.defends || 0} defence${(bounty.holder.defends || 0) === 1 ? "" : "s"}${bounty.holder.rotated ? " &middot; auto-rotated" : ""}</p>
         </div>` : ""}
       <p class="panel-sub">Held across the whole arena. Set by the games themselves, not self-reported.</p>
+      ${ASSIST_LEGEND}
 
       <div class="rules-cols">
         <div class="rule-sec">
           <h3>Arena</h3>
-          ${holders.length ? `<div class="belt-rows">${holders.map(([label, r, fmt]) => `
+          ${holders.length ? `<div class="belt-rows">${holders.map(([label, r, fmt, mark]) => `
             <div class="belt-row ${r.uid === S.user?.uid ? "is-mine" : ""}">
               <span class="bn">${label}</span>
-              <span class="rec-who">${escapeHtml(r.name)}</span>
+              <span class="rec-who">${escapeHtml(r.name)}${mark ? mark(r) : ""}</span>
               <span class="bt">${fmt(r)}</span>
             </div>`).join("")}</div>`
             : `<p class="panel-sub">No ranked rounds recorded yet.</p>`}
@@ -2182,7 +2205,7 @@ async function loadRecords(tab = "arena") {
               ${rows.length ? `<div class="belt-rows">${rows.map((r, i) => `
                 <div class="belt-row ${r.uid === S.user?.uid ? "is-mine" : ""}">
                   <span class="rec-rank">${i + 1}</span>
-                  <span class="bn">${escapeHtml(r.name)}</span>
+                  <span class="bn">${escapeHtml(r.name)}${asstTag(r.assisted === true)}</span>
                   <span class="bt">${secs(r.ms)}</span>
                 </div>`).join("")}</div>`
                 : `<p class="panel-sub">Nobody has cleared it yet.</p>`}`;
@@ -2231,7 +2254,7 @@ const topFive = (rows, fmt) => rows?.length
   ? `<div class="belt-rows">${rows.map((r, i) => `
       <div class="belt-row ${r.uid === S.user?.uid ? "is-mine" : ""}">
         <span class="rec-rank">${i + 1}</span>
-        <span class="bn">${escapeHtml(r.name)}</span>
+        <span class="bn">${escapeHtml(r.name)}${asstTag(r.assisted)}</span>
         <span class="bt">${fmt(r.value)}</span>
       </div>`).join("")}</div>`
   : `<p class="panel-sub">Nobody has set this yet.</p>`;
@@ -2246,6 +2269,7 @@ async function drawBattleshipRecords(host) {
       <div class="drawer-head"><h2>⚓ Battleship</h2></div>
       ${recTabs("battleship")}
       <p class="panel-sub">Lifetime tallies, kept by the games themselves.</p>
+      <p class="panel-sub rec-legend">\u26A1 counts the rounds behind a tally that fired an arsenal token.</p>
       <div class="rules-cols">
         <div class="rule-sec"><h3>Most hits</h3>${topFive(b.hits, (v) => `${v.toLocaleString()} hits`)}</div>
         <div class="rule-sec"><h3>Most ships sunk</h3>${topFive(b.sunk, (v) => `${v.toLocaleString()} sunk`)}</div>
@@ -2271,6 +2295,7 @@ async function drawGolfRecords(host) {
       <div class="drawer-head"><h2>⛳ Golf</h2></div>
       ${recTabs("golf")}
       <p class="panel-sub">Course records: the five best rounds to par on each course. Tap a course.</p>
+      ${ASSIST_LEGEND}
       <div class="course-tiles">
         ${courses.map((c) => {
           const rows = golf[c.id] || [];
@@ -2279,7 +2304,7 @@ async function drawGolfRecords(host) {
               <span class="ct-ico">${c.ico}</span>
               <span class="ct-name">${escapeHtml(c.name)}</span>
               <span class="ct-sub">${escapeHtml(c.loc)} · par ${c.par}</span>
-              <span class="ct-rec">${rows.length ? `Record ${toParText(rows[0].value)} · ${escapeHtml(rows[0].name)}` : "No record yet"}</span>
+              <span class="ct-rec">${rows.length ? `Record ${toParText(rows[0].value)}${rows[0].assisted ? " \u26A1" : ""} · ${escapeHtml(rows[0].name)}` : "No record yet"}</span>
             </button>`;
         }).join("")}
       </div>

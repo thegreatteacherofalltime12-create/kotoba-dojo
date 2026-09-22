@@ -34,11 +34,13 @@ ok("the fields are masked, so prestige is never touched",
   board.every((w) => !w.updateMask.fieldPaths.includes("prestige") && !w.updateMask.fieldPaths.includes("totalPoints")));
 ok("the rate is written only when there is one",
   board[0].updateMask.fieldPaths.includes("lastRate") && !board[1].updateMask.fieldPaths.includes("lastRate"));
-ok("the three increments first, in the order the room expects",
-  board.every((w) => w.updateTransforms.slice(0, 3).map((t) => t.fieldPath).join() === "totalPoints,roundsPlayed,bestScore"));
+ok("the four base transforms first, in the order the room expects",
+  board.every((w) => w.updateTransforms.slice(0, 4).map((t) => t.fieldPath).join() === "totalPoints,roundsPlayed,bestScore,bestAsst"));
+ok("a clean round offers nothing to the assisted best",
+  board.every((w) => w.updateTransforms[3].maximum?.integerValue === "0"));
 ok("then the round's feats: the winner's win, everyone's play",
-  board[0].updateTransforms.slice(3).map((t) => t.fieldPath).join() === "feats.played_any,feats.played_crossword,feats.won_any,feats.won_crossword"
-  && board[1].updateTransforms.slice(3).map((t) => t.fieldPath).join() === "feats.played_any,feats.played_crossword");
+  board[0].updateTransforms.slice(4).map((t) => t.fieldPath).join() === "feats.played_any,feats.played_crossword,feats.won_any,feats.won_crossword"
+  && board[1].updateTransforms.slice(4).map((t) => t.fieldPath).join() === "feats.played_any,feats.played_crossword");
 ok("the tags carry the feat keys", tags[4].feats.length === 4 && tags[5].feats.length === 2);
 ok("the private log is written under the player",
   writes[1].update.name === `${BASE}/users/a/history/ABCDE-2-1700000000000`);
@@ -48,14 +50,15 @@ const iv = (n) => ({ integerValue: String(n) });
 const commit = {
   writeResults: [
     {}, {}, {}, {},
-    { transformResults: [iv(1095), iv(12), iv(300), iv(12), iv(9), iv(4), iv(3)] },
-    { transformResults: [iv(540), iv(3), iv(60), iv(3), iv(3)] },
-    { transformResults: [iv(0), iv(1), iv(0), iv(1), iv(1)] },
+    { transformResults: [iv(1095), iv(12), iv(300), iv(210), iv(12), iv(9), iv(4), iv(3)] },
+    { transformResults: [iv(540), iv(3), iv(60), iv(0), iv(3), iv(3)] },
+    { transformResults: [iv(0), iv(1), iv(0), iv(0), iv(1), iv(1)] },
   ],
 };
 const rows = boardRowsFromCommit(tags, commit);
 ok("the totals are read back by tag", rows.length === 3 && rows[0].uid === "a" && rows[0].totalPoints === 1095);
 ok("with rounds and best", rows[1].roundsPlayed === 3 && rows[1].bestScore === 60);
+ok("and the best round a token had a hand in", rows[0].bestAsst === 210 && rows[1].bestAsst === 0);
 ok("and the rate when there was one", rows[0].lastRate === 120 && !("lastRate" in rows[1]));
 ok("and the feats, by name", rows[0].feats.won_crossword === 3 && rows[0].feats.played_any === 12 && rows[1].feats.played_crossword === 3 && !("won_any" in rows[1].feats));
 ok("a short result for a row with feats is null",
@@ -72,19 +75,40 @@ ok("a course record is written as a minimum, the rest as increments",
   golfBoard.updateTransforms.some((t) => t.fieldPath === "feats.best_links_pebble" && t.minimum?.integerValue === "-1")
   && golfBoard.updateTransforms.filter((t) => t.increment).length >= 4);
 
+console.log("\na token-assisted round");
+const helped = matchWrites(BASE, "H-1-1", {
+  code: "HELP1", roundNo: 1, finishedAt: 1, puzzleId: "p1", game: "minesweeper",
+  results: [{ uid: "h", name: "Hal", score: 90, gain: 90, status: "cleared", placement: 1, elapsedMs: 40_000, spent: { mn_watch: 1 } }],
+}, true);
+const helpedBoard = helped.writes[helped.tags.findIndex((t) => t.kind === "board")];
+ok("the round's score is offered to the assisted best",
+  helpedBoard.updateTransforms[3].fieldPath === "bestAsst" && helpedBoard.updateTransforms[3].maximum?.integerValue === "90");
+ok("and it is counted, by game and overall",
+  helpedBoard.updateTransforms.some((t) => t.fieldPath === "feats.assisted_minesweeper")
+  && helpedBoard.updateTransforms.some((t) => t.fieldPath === "feats.assisted_any"));
+ok("the player's own log says the round had help",
+  helped.writes[helped.tags.findIndex((t) => t.kind === "history")].update.fields.assisted.booleanValue === true);
+
+const helpedGolf = matchWrites(BASE, "GH-1-1", { code: "GOLF2", roundNo: 1, finishedAt: 1, puzzleId: "links", game: "links", courseId: "pebble",
+  results: [{ uid: "g", name: "Gee", score: 80, gain: 60, status: "finished", placement: 1, toPar: -4, holes: 18, spent: { gf_pencil: 1 } }] }, true);
+const helpedGolfBoard = helpedGolf.writes[helpedGolf.tags.findIndex((t) => t.kind === "board")];
+ok("an assisted card sets its own course mark, not the clean one",
+  helpedGolfBoard.updateTransforms.some((t) => t.fieldPath === "feats.best_asst_links_pebble" && t.minimum?.integerValue === "-4")
+  && !helpedGolfBoard.updateTransforms.some((t) => t.fieldPath === "feats.best_links_pebble"));
+
 console.log("\na boosted round");
 const boostedMatch = { ...match, results: [{ ...match.results[0], boost: true }, match.results[1]] };
 const bm = matchWrites(BASE, "B-1-1", boostedMatch, true);
 const bw = bm.writes[bm.tags.findIndex((t) => t.kind === "board")];
-ok("the token is spent last in the round's own write, after the three totals and the feats",
+ok("the token is spent last in the round's own write, after the four totals and the feats",
   bw.updateTransforms.at(-1).fieldPath === "tokens.crossword" && bw.updateTransforms.at(-1).increment.integerValue === "-1"
-  && bw.updateTransforms.slice(0, 3).map((t) => t.fieldPath).join() === "totalPoints,roundsPlayed,bestScore"
+  && bw.updateTransforms.slice(0, 4).map((t) => t.fieldPath).join() === "totalPoints,roundsPlayed,bestScore,bestAsst"
   && !bw.updateTransforms.slice(0, -1).some((t) => t.fieldPath.startsWith("tokens.")));
 ok("an unboosted row spends nothing", !bm.writes[bm.tags.findIndex((t) => t.kind === "board") + 1].updateTransforms.some((t) => t.fieldPath.startsWith("tokens.")));
 {
   const feats = bm.tags.find((t) => t.kind === "board").feats.length;
-  const results = [iv(1), iv(1), iv(1), ...Array.from({ length: feats }, (_, j) => iv(10 + j)), iv(0)];
-  const row = boardRowsFromCommit(bm.tags, { writeResults: [{}, {}, {}, { transformResults: results }, { transformResults: [iv(2), iv(2), iv(2), ...Array.from({ length: feats }, () => iv(1))] }] })[0];
+  const results = [iv(1), iv(1), iv(1), iv(0), ...Array.from({ length: feats }, (_, j) => iv(10 + j)), iv(0)];
+  const row = boardRowsFromCommit(bm.tags, { writeResults: [{}, {}, {}, { transformResults: results }, { transformResults: [iv(2), iv(2), iv(2), iv(0), ...Array.from({ length: feats }, () => iv(1))] }] })[0];
   ok("the totals and every feat still read back by position on a boosted row",
     row.totalPoints === 1 && Object.values(row.feats)[0] === 10 && Object.values(row.feats).at(-1) === 10 + feats - 1);
   ok("the token count read back rides along for the room", row.tokens?.crossword === 0);

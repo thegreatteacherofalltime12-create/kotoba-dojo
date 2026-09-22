@@ -256,6 +256,14 @@ export const BIG_BANK = 500;                    // a single cash-out this size i
 /** A counter that is a low-water mark rather than a running total. */
 export const isMark = (key) => key.startsWith("best_");
 
+/**
+ * Did an arsenal token help this round along? The 1.5x boost does not
+ * count: it pays more for a round, it does not play it for you. A round
+ * that used one is marked on the record boards rather than kept off them.
+ */
+export const assistedRound = (r) =>
+  r?.assisted === true || Object.values(r?.spent || {}).some((n) => Number(n) > 0);
+
 export function featsFor(match, r) {
   const game = match.game || "crossword";
   const field = match.results.length;
@@ -264,6 +272,8 @@ export function featsFor(match, r) {
   const out = { played_any: 1, [`played_${game}`]: 1 };
   if (won) { out.won_any = 1; out[`won_${game}`] = 1; }
   if (field === 1 && done) out[`solo_${game}`] = 1;
+  const helped = assistedRound(r);
+  if (helped) { out.assisted_any = 1; out[`assisted_${game}`] = 1; }
   if (game === "crossword") {
     if (r.solved > 0) out.solved_crossword = r.solved;
     if (done && r.elapsedMs > 0 && r.elapsedMs < FAST_CROSSWORD_MS) out.fast_crossword = 1;
@@ -286,7 +296,10 @@ export function featsFor(match, r) {
       if (r.toPar < 0) out.under_par_links = 1;
       // The course record: a low-water mark, not a count. Keys that begin
       // with best_ are written as a minimum rather than an increment.
-      if (match.courseId && Number.isFinite(r.toPar)) out[`best_links_${match.courseId}`] = r.toPar;
+      // A card set with tokens keeps its own mark, so the clean record and
+      // the assisted one sit side by side instead of one erasing the other.
+      if (match.courseId && Number.isFinite(r.toPar))
+        out[helped ? `best_asst_links_${match.courseId}` : `best_links_${match.courseId}`] = r.toPar;
     }
   }
   return out;
@@ -416,9 +429,10 @@ export function achievementsFor(standing) {
 
 const STAT_GAMES = { crossword: "Word-Cross", battleship: "Battleship", minesweeper: "Minesweeper", links: "Golf", casino: "Casino", any: "All games" };
 function statLabel(key) {
+  if (key.startsWith("best_asst_links_")) return `Best assisted round to par, ${key.slice("best_asst_links_".length)}`;
   if (key.startsWith("best_links_")) return `Best round to par, ${key.slice("best_links_".length)}`;
   if (FEAT_TEXT[key] && !key.startsWith("played_")) return FEAT_TEXT[key][0].toUpperCase() + FEAT_TEXT[key].slice(1);
-  const m = key.match(/^(played|won|solo)_(\w+)$/);
-  if (m) return `${{ played: "Played", won: "Won", solo: "Solo finishes" }[m[1]]}, ${STAT_GAMES[m[2]] || m[2]}`;
+  const m = key.match(/^(played|won|solo|assisted)_(\w+)$/);
+  if (m) return `${{ played: "Played", won: "Won", solo: "Solo finishes", assisted: "Token-assisted rounds" }[m[1]]}, ${STAT_GAMES[m[2]] || m[2]}`;
   return key;
 }

@@ -197,6 +197,7 @@ export class Commons {
       name: r.name || "Unknown",
       mmr: num(r.totalPoints),
       best: num(r.bestScore),
+      bestAsst: num(r.bestAsst),
       rounds: num(r.roundsPlayed),
       prestige: num(r.prestige),
       branch: num(r.branch),
@@ -235,22 +236,48 @@ export class Commons {
    */
   records() {
     const rows = Object.values(this.board).filter((r) => r.feats);
-    const top = (key, desc = true) => rows
+    // A lifetime tally carries the number of its rounds that used a token,
+    // so a board can say where the help was without hiding the figure.
+    const top = (key, desc = true, asstKey = null) => rows
       .filter((r) => Number.isFinite(r.feats[key]))
       .sort((a, b) => (desc ? num(b.feats[key]) - num(a.feats[key]) : num(a.feats[key]) - num(b.feats[key])) || a.name.localeCompare(b.name))
       .slice(0, RECORD_ROWS)
-      .map((r) => ({ uid: r.uid, name: r.name || "Someone", value: num(r.feats[key]) }));
+      .map((r) => ({
+        uid: r.uid, name: r.name || "Someone", value: num(r.feats[key]),
+        ...(asstKey ? { assisted: num(r.feats[asstKey]) } : {}),
+      }));
     const courses = {};
     for (const r of rows) {
-      for (const k of Object.keys(r.feats)) if (k.startsWith("best_links_")) courses[k.slice("best_links_".length)] = true;
+      for (const k of Object.keys(r.feats)) {
+        if (k.startsWith("best_links_")) courses[k.slice("best_links_".length)] = true;
+        else if (k.startsWith("best_asst_links_")) courses[k.slice("best_asst_links_".length)] = true;
+      }
     }
+    // A course record is the better of a player's clean card and the best
+    // one they set with tokens; the row says which of the two it was.
+    const course = (id) => rows
+      .map((r) => {
+        const clean = r.feats["best_links_" + id];
+        const asst = r.feats["best_asst_links_" + id];
+        const hasClean = Number.isFinite(clean);
+        const hasAsst = Number.isFinite(asst);
+        if (!hasClean && !hasAsst) return null;
+        const useAsst = !hasClean || (hasAsst && num(asst) < num(clean));
+        return {
+          uid: r.uid, name: r.name || "Someone",
+          value: num(useAsst ? asst : clean), assisted: useAsst,
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.value - b.value || a.name.localeCompare(b.name))
+      .slice(0, RECORD_ROWS);
     return {
       battleship: {
-        hits: top("hits_battleship"),
-        sunk: top("sunk_battleship"),
-        eliminated: top("eliminated_battleship"),
+        hits: top("hits_battleship", true, "assisted_battleship"),
+        sunk: top("sunk_battleship", true, "assisted_battleship"),
+        eliminated: top("eliminated_battleship", true, "assisted_battleship"),
       },
-      golf: Object.fromEntries(Object.keys(courses).map((c) => [c, top(`best_links_${c}`, false)])),
+      golf: Object.fromEntries(Object.keys(courses).map((c) => [c, course(c)])),
       hallOfFame: this.hallOfFame(),
     };
   }

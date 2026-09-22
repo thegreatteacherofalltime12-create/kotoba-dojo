@@ -40,6 +40,14 @@ list = JSON.parse(kv.get('scores:mines:beginner'));
 ok('the board keeps only ten', list.length === 10);
 ok('it stays sorted', list.every((r,i)=> i===0 || list[i-1].ms <= r.ms));
 
+await f.recordHighScores([
+  { uid:'c', name:'Cy', finishedAt: 5000, ars: { used: { mn_watch: 1 } } },
+  { uid:'d', name:'Dee', finishedAt: 5500, ars: { used: {} } },
+]);
+list = JSON.parse(kv.get('scores:mines:beginner'));
+ok('a clear that fired a token is marked', list.find(r=>r.uid==='c').assisted === true);
+ok('one that did not is not', list.find(r=>r.uid==='d').assisted === false);
+
 f.g.level = 'expert';
 await f.recordHighScores([{ uid:'a', name:'Ada', finishedAt: 200000 }]);
 ok('each difficulty has its own board',

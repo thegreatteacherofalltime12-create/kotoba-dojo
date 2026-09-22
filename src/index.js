@@ -209,6 +209,10 @@ export default {
             results: [{
               uid: user.uid, name: user.name, score: award, gain: award,
               status: "solved", elapsedMs,
+              // Extra Credit pays full marks whatever the clock said, so the
+              // round it came from is a token-assisted one. Flashcards only
+              // doubles the cash, which no record board reads.
+              ...(perks.fullMmr ? { assisted: true } : {}),
             }],
           }).catch(() => {})
         );

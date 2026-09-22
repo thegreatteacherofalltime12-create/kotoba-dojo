@@ -3453,3 +3453,8 @@ a.dtab { text-decoration: none; display: inline-block; }
   color: var(--ok, #2f7d32); border: 1px solid currentColor; border-radius: var(--pill, 999px);
   padding: .1rem .5rem; margin-top: .1rem;
 }
+
+/* The mark a record carries when a token had a hand in it. */
+.rec-asst { margin-left: .35rem; letter-spacing: 0; font-size: .72rem; color: #F4CE5A; vertical-align: .05em; }
+.rec-legend { margin-top: -.45rem; opacity: .8; }
+.hs-legend { grid-column: 1 / -1; font-size: .78rem; letter-spacing: .04em; opacity: .75; }

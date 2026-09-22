@@ -424,10 +424,13 @@ function drawScores() {
   rows.slice(0, 5).forEach((r, i) => {
     const line = el("div", "hs-row" + (r.uid === M.you ? " mine" : ""));
     line.append(el("span", "hs-rank", `${i + 1}.`));
-    line.append(el("span", "hs-name", r.name));
+    line.append(el("span", "hs-name", r.name + (r.assisted ? " \u26A1" : "")));
     line.append(el("span", "hs-time", secs(r.ms)));
     body.append(line);
   });
+  // A clear that had a token behind it says so, here and in Records.
+  if (rows.slice(0, 5).some((r) => r.assisted))
+    body.append(el("div", "hs-legend", "\u26A1 set with a token"));
 }
 
 // ── controls and results ────────────────────────────────────────────

@@ -88,13 +88,13 @@ ok("twenty-four rows at most", standings.length === 24);
 ok("officers first, by prestige then MMR", standings.slice(0, 3).map((r) => r.uid).join() === "o1,o3,o2");
 ok("then everyone else by MMR", standings[3].uid === "p0" && standings[23].uid === "p20");
 ok("exactly the fields the client reads",
-  standings.every((r) => Object.keys(r).sort().join() === "best,branch,cos,feats,mmr,name,prestige,retired,rounds,spent,tokens,uid"));
+  standings.every((r) => Object.keys(r).sort().join() === "best,bestAsst,branch,cos,feats,mmr,name,prestige,retired,rounds,spent,tokens,uid"));
 
 // The client's old merge, ported, on the same board: the room must agree.
 function clientMerge(board) {
   const all = board.map((v) => ({
     uid: v.uid, name: v.name || "Unknown", mmr: v.totalPoints || 0,
-    best: v.bestScore || 0, rounds: v.roundsPlayed || 0, prestige: v.prestige || 0, branch: 0, retired: 0, spent: 0, cos: null, feats: null, tokens: null,
+    best: v.bestScore || 0, bestAsst: v.bestAsst || 0, rounds: v.roundsPlayed || 0, prestige: v.prestige || 0, branch: 0, retired: 0, spent: 0, cos: null, feats: null, tokens: null,
   }));
   const officers = all.filter((r) => r.prestige > 0).sort((a, b) => b.prestige - a.prestige).slice(0, 60);
   const byMmr = [...all].sort((a, b) => b.mmr - a.mmr).slice(0, 24);
@@ -143,6 +143,27 @@ ok("five most hits, highest first", books.battleship.hits.map((r) => r.value).jo
 ok("most eliminated", books.battleship.eliminated.map((r) => r.uid).join() === "p2,p0");
 ok("a course record runs lowest to par first, ties by name", books.golf.augusta.map((r) => `${r.uid}:${r.value}`).join() === "p0:-3,p2:-3,p1:1");
 ok("every course with a round gets a book", Object.keys(books.golf).sort().join() === "augusta,pebble");
+
+// Tokens in the record books: a lifetime tally says how many of its rounds
+// had one, and a course keeps a clean card and an assisted one apart.
+await post("/board/upsert", { rows: [
+  { uid: "p0", feats: { best_asst_links_augusta: -6 } },
+  { uid: "p3", feats: { assisted_battleship: 4 } },
+  { uid: "p1", feats: { best_asst_links_augusta: 3 } },
+  { uid: "p7", name: "P7", feats: { best_asst_links_pebble: -2 } },
+] });
+const marked = await get("/records");
+ok("a battleship tally carries the rounds a token had a hand in",
+  marked.battleship.hits.find((r) => r.uid === "p3").assisted === 4
+  && marked.battleship.hits.find((r) => r.uid === "p4").assisted === 0);
+const aug = marked.golf.augusta;
+ok("an assisted card that beats the clean one takes the place, marked",
+  aug[0].uid === "p0" && aug[0].value === -6 && aug[0].assisted === true);
+ok("a clean card that is still the better one is not marked",
+  aug.find((r) => r.uid === "p1").value === 1 && aug.find((r) => r.uid === "p1").assisted === false);
+ok("a player with nothing but an assisted card is on the board, marked",
+  marked.golf.pebble[0].uid === "p7" && marked.golf.pebble[0].assisted === true);
+delete room.board.p7;
 ok("the hall of fame is cut from the standings", books.hallOfFame.rows.length === 10 && books.hallOfFame.rows[0].uid === "o1");
 ok("and says when the next cut is", books.hallOfFame.next - books.hallOfFame.at === 91 * 24 * 3600_000);
 await post("/board/upsert", { rows: [{ uid: "zz", name: "ZZ", totalPoints: 99999, roundsPlayed: 1, bestScore: 1, prestige: 9 }] });

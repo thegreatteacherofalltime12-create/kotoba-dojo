@@ -11,7 +11,7 @@
 
 import { ALL_TOKENS } from "./arsenals.js";
 import { tellCommons } from "./commons-notify.js";
-import { allowed, featsFor, isMark, BIG_BANK } from "../public/cosmetics.js";
+import { allowed, featsFor, isMark, assistedRound, BIG_BANK } from "../public/cosmetics.js";
 import { GI_COLORS } from "../public/arena.js";
 import { rankOf, atTop, nextBranch, branchOf } from "../public/ranks.js";
 
@@ -134,6 +134,7 @@ function boardRow(doc) {
     totalPoints: n("totalPoints"),
     roundsPlayed: n("roundsPlayed"),
     bestScore: n("bestScore"),
+    bestAsst: n("bestAsst"),
     lastRate: n("lastRate"),
     prestige: n("prestige"),
     branch: n("branch"),
@@ -1233,6 +1234,7 @@ export function matchWrites(base, matchId, match, logged) {
             solved: r.solved == null ? { nullValue: null } : I(r.solved),
             status: S(r.status),
             belt: S(r.belt || ""),
+            assisted: { booleanValue: assistedRound(r) },
           },
         },
       });
@@ -1244,6 +1246,7 @@ export function matchWrites(base, matchId, match, logged) {
     // What the round adds to the record, after the three the ladder reads.
     // Banners are earned from these; the arcade and the diagnostic count
     // for nothing.
+    const helped = assistedRound(r);
     const feats = logged ? featsFor(match, r) : {};
     const featKeys = Object.keys(feats);
     const spends = [
@@ -1262,6 +1265,12 @@ export function matchWrites(base, matchId, match, logged) {
         { fieldPath: "totalPoints", increment: I(r.gain ?? r.score) },
         { fieldPath: "roundsPlayed", increment: I(1) },
         { fieldPath: "bestScore", maximum: I(r.score) },
+        // The best round a token had a hand in. Always written, so the four
+        // base transforms keep their places in the reply: a clean round offers
+        // nothing and a maximum ignores it. When this matches bestScore, the
+        // arena's highest single round was an assisted one — and a board row
+        // written before any of this existed has neither, so it stays unmarked.
+        { fieldPath: "bestAsst", maximum: I(helped ? Math.max(0, r.score) : 0) },
         ...featKeys.map((k) => (isMark(k)
           ? { fieldPath: `feats.${k}`, minimum: I(feats[k]) }
           : { fieldPath: `feats.${k}`, increment: I(feats[k]) })),
@@ -1286,15 +1295,15 @@ export function boardRowsFromCommit(tags, body) {
     if (t.kind !== "board") continue;
     const keys = t.feats || [];
     const spends = t.spends || [];
-    const got = transformNumbers(body, i, 3 + keys.length + spends.length);
+    const got = transformNumbers(body, i, 4 + keys.length + spends.length);
     if (!got) return null;
     const feats = {};
-    keys.forEach((k, j) => { feats[k] = got[3 + j]; });
+    keys.forEach((k, j) => { feats[k] = got[4 + j]; });
     const tokens = {};
-    spends.forEach((k, j) => { tokens[k] = Math.max(0, got[3 + keys.length + j]); });
+    spends.forEach((k, j) => { tokens[k] = Math.max(0, got[4 + keys.length + j]); });
     rows.push({
       uid: t.uid, name: t.name,
-      totalPoints: got[0], roundsPlayed: got[1], bestScore: got[2],
+      totalPoints: got[0], roundsPlayed: got[1], bestScore: got[2], bestAsst: got[3],
       ...(t.rate ? { lastRate: t.rate } : {}),
       ...(keys.length ? { feats } : {}),
       ...(spends.length ? { tokens } : {}),

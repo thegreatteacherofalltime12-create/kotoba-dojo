@@ -17,6 +17,17 @@ export const KEEP_DAYS = 7;
 
 export const UPDATES = [
   {
+    at: "2026-09-23T01:00:00Z",
+    where: "Records",
+    title: "The record books mark a token",
+    text: "A round that fires an arsenal token now carries a \u26A1 wherever it is recorded: "
+      + "the Minesweeper Fastest Clears, the golf course records, the highest single round and "
+      + "the Battleship tallies, which say how many of their rounds used one. A course keeps "
+      + "your clean card and your assisted one apart and shows the better of the two. Nothing is "
+      + "kept off a board for using a token, and the 1.5\u00d7 boost is not an assist \u2014 it pays "
+      + "more for a round, it does not play it for you.",
+  },
+  {
     at: "2026-09-22T22:00:00Z",
     where: "Casino",
     title: "The casino arsenal",

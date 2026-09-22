@@ -14,7 +14,7 @@ const el = (tag, cls, text) => {
 };
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-import { applyTokenTab } from "./boost.js";
+import { applyTokenTab, CASINO_ARSENAL_ITEMS } from "./boost.js";
 import { casinoRulesHtml, TABLE_GAMES, ROULETTE_UI, BIGSIX_UI, BACCARAT_BOARD,
   BIGSIX_WHEEL, BIGSIX_TONE } from "./game-modes.js";
 
@@ -79,7 +79,7 @@ const send = (o) => { if (K.socket?.readyState === WebSocket.OPEN) K.socket.send
 // The floor's Apply Token tab. A casino token boosts the day, so nothing
 // here ever resets it.
 let boostTab = null;
-const tokenTab = () => (boostTab ||= applyTokenTab({ game: "casino", send, button: $("btn-casino-boost"), label: "day" }));
+const tokenTab = () => (boostTab ||= applyTokenTab({ game: "casino", send, button: $("btn-casino-boost"), label: "day", arsenal: CASINO_ARSENAL_ITEMS }));
 
 function handle(msg) {
   switch (msg.type) {
@@ -108,10 +108,87 @@ function handle(msg) {
     case "TABLE_PEEK": pgPeek(msg); break;
     case "TABLE_RESULT": showTableResult(msg); break;
     case "FLOOR_ERROR": say(msg.message); break;
-    case "FLOOR_TOKENS": tokenTab().receive(msg); break;
+    case "FLOOR_TOKENS":
+      tokenTab().receive(msg);
+      if (msg.arsenal) { K.ars = msg.arsenal; drawFloorArsenal(); }
+      break;
+    case "FLOOR_ARSENAL_STATE":
+      K.ars = msg.arsenal;
+      tokenTab().arsenalState(msg.arsenal);
+      drawFloorArsenal();
+      break;
+    case "FLOOR_NOTE": say(msg.text); break;
   }
 }
 
+// ── the arsenal ─────────────────────────────────────────────────────
+//
+// One button per armed token with uses left. Nothing here hands out cash:
+// table money banks one for one, so a cash token would be a money pump.
+function drawFloorArsenal() {
+  const host = $("floor-arsenal");
+  if (!host) return;
+  const a = K.ars;
+  const left = (k) => (a?.armed?.[k] || 0) - (a?.used?.[k] || 0);
+  const any = a && CASINO_ARSENAL_ITEMS.some((t) => left(t.key) > 0);
+  host.hidden = !any;
+  host.textContent = "";
+  if (!any) return;
+
+  host.append(el("span", "ars-label", "Arsenal"));
+  for (const t of CASINO_ARSENAL_ITEMS) {
+    const n = left(t.key);
+    if (n <= 0) continue;
+    const seated = !!a.seated;
+    const off =
+      (["peek", "redeal", "tip"].includes(t.act) && !(seated && a.phase === "ACTING")) ||
+      (t.act === "shoe" && a.phase === "ACTING") ||
+      (t.act === "scratch" && !a.bets?.length) ||
+      (t.act === "furlong" && a.racePhase !== "BETTING") ||
+      (t.act === "comp" && a.comp) ||
+      (t.act === "cap" && a.capRaised);
+    const title =
+      ["peek", "redeal", "tip"].includes(t.act) && off ? "For a hand you are playing"
+      : t.act === "scratch" && off ? "You have nothing on this race"
+      : t.act === "furlong" && off ? "Before the off"
+      : t.blurb;
+    const short = t.name.replace("Blackjack ", "").replace("Dealer's ", "").replace(" Policy", "").replace(" the Dealer", "").replace(" the Bet", "").replace("Raise the Cap", "Raise Cap");
+    const b = el("button", "ars-btn", t.icon + " " + short + " \u00d7" + n);
+    b.type = "button";
+    b.disabled = !!off;
+    b.title = title;
+    b.onclick = () => {
+      if (t.aim === "horse") return askHorse(t);
+      if (!window.confirm(t.name + "? " + t.blurb)) return;
+      send({ type: "FLOOR_ARSENAL", action: t.act });
+    };
+    host.append(b);
+  }
+  const flags = [];
+  if (a.comp) flags.push("Comp Pass");
+  if (a.safe) flags.push(a.safe + " safety");
+  if (a.insure) flags.push(a.insure + " insured");
+  if (a.tie) flags.push(a.tie + " tie" + (a.tie === 1 ? "" : "s") + " paid");
+  if (a.photo) flags.push(a.photo + " photo finish");
+  if (a.double) flags.push(a.double + " doubler");
+  if (a.flash) flags.push(a.flash + " flashcards");
+  if (a.credit) flags.push(a.credit + " extra credit");
+  if (a.capRaised) flags.push("ceiling " + a.ceiling);
+  if (flags.length) host.append(el("p", "ars-hint", flags.join(" \u00b7 ")));
+  if (a.reports?.length)
+    host.append(el("p", "ars-hint ars-intel", a.reports.map((x) => x.text).join("  \u00b7  ")));
+}
+
+/** Which horse gets the extra furlong. */
+function askHorse(t) {
+  const names = (K.horses || []).map((h, i) => (i + 1) + " " + h.name).join(", ");
+  const answer = window.prompt("Extra Furlong \u2014 which horse starts a step up? " + names, "1");
+  if (!answer) return;
+  const n = Number(String(answer).trim());
+  const horse = (K.horses || [])[n - 1];
+  if (!horse) return say("No horse by that number.");
+  send({ type: "FLOOR_ARSENAL", action: "furlong", horse: horse.id });
+}
 function say(text) {
   // A table overlay covers the floor, so a message posted down there is a
   // message nobody reads. If a table is open it goes on the table.
@@ -184,6 +261,7 @@ function draw() {
 
   $("floor-cash").textContent = money(K.mine?.table);
   $("floor-tokens").textContent = String(K.mine?.tokens ?? 0);
+  drawFloorArsenal();
   $("race-body").hidden = K.minimised;
   $("ft-min").textContent = K.minimised ? "\u25B2" : "\u25BC";
   $("ft-min").title = K.minimised ? "Show the race" : "Minimise the race";

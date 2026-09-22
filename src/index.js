@@ -184,8 +184,22 @@ export default {
       const correct = Number(body.answer) === held.answer;
       if (!correct) return json({ correct: false, answer: held.answer, elapsedMs });
 
-      const { award, fast, expired } = scoreSolve(elapsedMs);
-      const cash = cashReward();
+      const solved = scoreSolve(elapsedMs);
+      const fast = solved.fast;
+      const expired = solved.expired;
+      // Flashcards and Extra Credit live on the floor, because that is where
+      // the session is. Asking spends them.
+      let perks = { cash: 1, fullMmr: false };
+      try {
+        const res = await env.FLOOR.get(env.FLOOR.idFromName("global")).fetch("https://floor/perks", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ uid: user.uid }),
+        });
+        if (res.ok) perks = await res.json();
+      } catch { /* the arcade pays its plain rate */ }
+      const award = perks.fullMmr ? MAX_AWARD : solved.award;
+      const cash = cashReward() * (perks.cash || 1);
 
       if (award > 0) {
         ctx.waitUntil(
@@ -213,6 +227,7 @@ export default {
       return json({
         correct: true, elapsedMs, mmr: award, fast, expired,
         cash, token: 1, multiplier: fast ? FAST_MULTIPLIER : 1,
+        perks: { cash: perks.cash || 1, fullMmr: !!perks.fullMmr },
       });
     }
 

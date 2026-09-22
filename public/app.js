@@ -1719,6 +1719,17 @@ function tokensRules() {
         "The Casino boost is spent the moment it's applied and boosts <b>every casino win for the rest of the day</b> (UTC). The daily cap still stands.",
         "The feed marks a boosted win with \u26A1.",
       ])}
+      ${box("\u{1F3B0} The Casino Arsenal", [
+        "Eighteen tokens for the floor, priced in casino money. Arm them under <b>\u26A1 Apply Token</b>; fire them from the Arsenal strip above the floor. Each is capped per session, and a casino token is spent the moment it is used \u2014 there is no round to settle up at the end of.",
+        "<b>Not one of them hands you cash.</b> Table money banks to your wallet one for one, so a token that paid cash would be a money pump. These give chips, odds, sight and MMR instead.",
+        "<b>Chip Run</b> ($2,000, 2): five table tokens. <b>Comp Pass</b> ($900, 1): the card room takes you without one for the rest of the day.",
+        "<b>Blackjack Safety</b> ($600, 4): a losing hand costs no table token. <b>Insurance Policy</b> ($2,500, 2): a losing hand gives your stake back. <b>Dealer's Off Day</b> ($1,100, 3): a push pays as a win.",
+        "<b>Peek</b> ($1,800, 2): shows the dealer's hole card. <b>Second Deal</b> ($1,200, 3): re-deals your opening two. <b>Tip the Dealer</b> ($800, 4): swaps one card for the next in the shoe. <b>Card Counter</b> ($1,400, 3): names the tens and aces left. <b>Fresh Shoe</b> ($400, 3): six new decks, between hands.",
+        "<b>Photo Finish</b> ($1,500, 3): a horse of yours that comes third pays as if it came second. <b>Scratch the Bet</b> ($1,000, 3): pulls a bet off the board, stake returned, even after the off. <b>Extra Furlong</b> ($2,200, 2): a horse you name starts a step up, called before the off. <b>Bet Doubler</b> ($3,000, 2): your next winning bet pays twice.",
+        "<b>Flashcards</b> ($1,600, 2): your next three arcade puzzles pay double cash. <b>Extra Credit</b> ($2,400, 2): your next puzzle pays the full 50 MMR whatever the clock says. <b>Raise the Cap</b> ($4,000, 1): today's 100 MMR ceiling becomes 150.",
+        "<b>Night Deposit</b> ($2,000, 2): banks what is on your table without ending your session \u2014 leave the table and settle any bet first.",
+        "Extra Credit and Raise the Cap lift MMR directly; everything else changes the game, not the ladder.",
+      ])}
       ${box("\u{1F520} The Word-Cross Arsenal", [
         "Eighteen tokens, priced in casino money. Arm them under <b>\u26A1 Apply Token</b>; fire them from the Arsenal strip above the grid. Each is capped per round; only what you use is spent, and the rest stays armed for the next round in that dojo.",
         "<b>Free Letter</b> ($300, 8): shows one letter of the entry you are on. <b>Word Shape</b> ($500, 5): its first and last. <b>First Letters</b> ($1,200, 2): the opening letter of every entry left.",
@@ -1864,6 +1875,7 @@ const GAME_RULES = [
     score: [
       "Every hand or race you win pays <b>5 MMR</b>, up to <b>100 a day</b>. The arcade pays up to 50 MMR a puzzle by speed (see the Arena tab).",
       "Banked money buys the arena's tokens in your profile's Token shop.",
+      "The <b>arsenal</b> \u2014 eighteen tokens, from a Comp Pass to a Night Deposit \u2014 is armed under \u26A1 Apply Token and fired from the strip above the floor. Rules in the \u26A1 Tokens tab.",
       "The full table rules \u2014 baccarat's third card, roulette's layout, the Big Six wheel \u2014 are under <b>Casino Game Rules</b> on the floor bar.",
     ],
   },

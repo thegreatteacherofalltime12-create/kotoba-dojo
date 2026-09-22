@@ -187,7 +187,47 @@ export const WORD_ARSENAL_ITEMS = [
   { key: "wc_quiet", name: "Quiet Grid", icon: "\u{1F92B}", price: 700, max: 3, act: "quiet",
     blurb: "Your progress stops showing to the field. Three a round." },
 ];
+// The Casino arsenal. Mirrors src/arsenals.js.
+export const CASINO_ARSENAL_ITEMS = [
+  { key: "cs_chips", name: "Chip Run", icon: "\u{1F39F}\uFE0F", price: 2000, max: 2, act: "chips",
+    blurb: "Five table tokens straight to your seat. Two a session." },
+  { key: "cs_comp", name: "Comp Pass", icon: "\u{1F3AB}", price: 900, max: 1, act: "comp",
+    blurb: "The card room takes you without a table token for the rest of the day. One a session." },
+  { key: "cs_safe", name: "Blackjack Safety", icon: "\u{1F6E1}\uFE0F", price: 600, max: 4, act: "safe",
+    blurb: "A losing hand costs you no table token. Four a session." },
+  { key: "cs_peek", name: "Peek", icon: "\u{1F440}", price: 1800, max: 2, act: "peek",
+    blurb: "Shows the dealer's hole card on the hand in play. Two a session." },
+  { key: "cs_redeal", name: "Second Deal", icon: "\u{1F504}", price: 1200, max: 3, act: "redeal",
+    blurb: "Re-deals your opening two cards. Three a session." },
+  { key: "cs_tip", name: "Tip the Dealer", icon: "\u{1F4B5}", price: 800, max: 4, act: "tip",
+    blurb: "Swaps one card in your hand for the next in the shoe. Four a session." },
+  { key: "cs_count", name: "Card Counter", icon: "\u{1F9EE}", price: 1400, max: 3, act: "count",
+    blurb: "Names how many tens and aces are left in the shoe. Three a session." },
+  { key: "cs_insure", name: "Insurance Policy", icon: "\u{1F4CB}", price: 2500, max: 2, act: "insure",
+    blurb: "A losing hand gives your stake back. Two a session." },
+  { key: "cs_tie", name: "Dealer\'s Off Day", icon: "\u{1F91D}", price: 1100, max: 3, act: "tie",
+    blurb: "A push pays as a win. Three a session." },
+  { key: "cs_shoe", name: "Fresh Shoe", icon: "\u{1F0CF}", price: 400, max: 3, act: "shoe",
+    blurb: "Six new decks, shuffled, between hands. Three a session." },
+  { key: "cs_photo", name: "Photo Finish", icon: "\u{1F4F8}", price: 1500, max: 3, act: "photo",
+    blurb: "A horse of yours that comes third pays as if it came second. Three a session." },
+  { key: "cs_scratch", name: "Scratch the Bet", icon: "\u2702\uFE0F", price: 1000, max: 3, act: "scratch",
+    blurb: "Pulls your bet back off the board, stake returned, even after the off. Three a session." },
+  { key: "cs_furlong", name: "Extra Furlong", icon: "\u{1F40E}", price: 2200, max: 2, act: "furlong", aim: "horse",
+    blurb: "A horse you pick starts one step up the track. Before the off. Two a session." },
+  { key: "cs_double", name: "Bet Doubler", icon: "\u2716\uFE0F", price: 3000, max: 2, act: "double",
+    blurb: "Your next winning bet pays double. Two a session." },
+  { key: "cs_flash", name: "Flashcards", icon: "\u{1F5C2}\uFE0F", price: 1600, max: 2, act: "flash",
+    blurb: "Your next three arcade puzzles pay double cash. Two a session." },
+  { key: "cs_credit", name: "Extra Credit", icon: "\u{1F393}", price: 2400, max: 2, act: "credit",
+    blurb: "Your next arcade puzzle pays the full 50 MMR whatever the clock says. Two a session." },
+  { key: "cs_cap", name: "Raise the Cap", icon: "\u{1F4C8}", price: 4000, max: 1, act: "cap",
+    blurb: "Today's 100 MMR ceiling becomes 150. One a session." },
+  { key: "cs_deposit", name: "Night Deposit", icon: "\u{1F3E6}", price: 2000, max: 2, act: "deposit",
+    blurb: "Banks what is on your table without ending your session. Two a session." },
+];
 export const GAME_ARSENAL_ITEMS = {
+  casino: CASINO_ARSENAL_ITEMS,
   crossword: WORD_ARSENAL_ITEMS, battleship: ARSENAL_ITEMS, minesweeper: MINE_ARSENAL_ITEMS, links: LINKS_ARSENAL_ITEMS };
 
 /**

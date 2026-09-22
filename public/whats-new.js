@@ -17,6 +17,16 @@ export const KEEP_DAYS = 7;
 
 export const UPDATES = [
   {
+    at: "2026-09-22T22:00:00Z",
+    where: "Casino",
+    title: "The casino arsenal",
+    text: "Eighteen tokens for the floor, and that is every game covered. At the tables: Peek, Second "
+      + "Deal, Tip the Dealer, Card Counter, Fresh Shoe, Blackjack Safety, Insurance Policy and "
+      + "Dealer's Off Day, which pays a push as a win. At the track: Photo Finish, Scratch the Bet, "
+      + "Extra Furlong and Bet Doubler. Elsewhere: Chip Run, Comp Pass, Flashcards, Extra Credit, "
+      + "Raise the Cap and a Night Deposit that banks your table without ending the session.",
+  },
+  {
     at: "2026-09-22T20:00:00Z",
     where: "Word-Cross",
     title: "The Word-Cross arsenal",

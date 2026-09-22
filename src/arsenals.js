@@ -5,6 +5,26 @@
 // write only need the keys and the prices. public/boost.js mirrors this
 // list for the client and must be kept in step.
 export const ARSENALS = {
+  casino: {
+    cs_chips:   { name: "Chip Run",           price: 2_000, max: 2, icon: "\u{1F39F}\uFE0F" },
+    cs_comp:    { name: "Comp Pass",          price: 900,   max: 1, icon: "\u{1F3AB}" },
+    cs_safe:    { name: "Blackjack Safety",   price: 600,   max: 4, icon: "\u{1F6E1}\uFE0F" },
+    cs_peek:    { name: "Peek",               price: 1_800, max: 2, icon: "\u{1F440}" },
+    cs_redeal:  { name: "Second Deal",        price: 1_200, max: 3, icon: "\u{1F504}" },
+    cs_tip:     { name: "Tip the Dealer",     price: 800,   max: 4, icon: "\u{1F4B5}" },
+    cs_count:   { name: "Card Counter",       price: 1_400, max: 3, icon: "\u{1F9EE}" },
+    cs_insure:  { name: "Insurance Policy",   price: 2_500, max: 2, icon: "\u{1F4CB}" },
+    cs_tie:     { name: "Dealer's Off Day",   price: 1_100, max: 3, icon: "\u{1F91D}" },
+    cs_shoe:    { name: "Fresh Shoe",         price: 400,   max: 3, icon: "\u{1F0CF}" },
+    cs_photo:   { name: "Photo Finish",       price: 1_500, max: 3, icon: "\u{1F4F8}" },
+    cs_scratch: { name: "Scratch the Bet",    price: 1_000, max: 3, icon: "\u2702\uFE0F" },
+    cs_furlong: { name: "Extra Furlong",      price: 2_200, max: 2, icon: "\u{1F40E}" },
+    cs_double:  { name: "Bet Doubler",        price: 3_000, max: 2, icon: "\u2716\uFE0F" },
+    cs_flash:   { name: "Flashcards",         price: 1_600, max: 2, icon: "\u{1F5C2}\uFE0F" },
+    cs_credit:  { name: "Extra Credit",       price: 2_400, max: 2, icon: "\u{1F393}" },
+    cs_cap:     { name: "Raise the Cap",      price: 4_000, max: 1, icon: "\u{1F4C8}" },
+    cs_deposit: { name: "Night Deposit",      price: 2_000, max: 2, icon: "\u{1F3E6}" },
+  },
   crossword: {
     wc_letter:  { name: "Free Letter",    price: 300,   max: 8, icon: "\u{1F58A}\uFE0F" },
     wc_shape:   { name: "Word Shape",     price: 500,   max: 5, icon: "\u{1F524}" },

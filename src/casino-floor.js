@@ -20,6 +20,7 @@ import { compare as compare2 } from "./casino-games.js";
 import { bankWallet, writeHistory, postFeed, awardMmr, spendToken } from "./firestore.js";
 import { boosted } from "./mmr.js";
 import { heldTokens } from "./boost.js";
+import { ARSENALS } from "./arsenals.js";
 
 // A win at any table or on the track is worth this much MMR, up to the
 // day's cap. Small on purpose: a hand takes ten seconds and a ranked round
@@ -167,7 +168,9 @@ export class CasinoFloor {
     this.f.mmrDaily = this.f.mmrDaily || {};
     const row = this.f.mmrDaily[uid]?.day === day ? this.f.mmrDaily[uid] : { day, given: 0 };
     // A casino token applied today (see applyToken) makes every win pay half again.
-    const award = Math.min(row.boost ? boosted(WIN_MMR) : WIN_MMR, WIN_MMR_DAILY_CAP - row.given);
+    // The ceiling is the day's, unless a token lifted it.
+    const ceiling = WIN_MMR_DAILY_CAP + (this.arsOf(p).cap ? 50 : 0);
+    const award = Math.min(row.boost ? boosted(WIN_MMR) : WIN_MMR, ceiling - row.given);
     if (award <= 0) { this.f.mmrDaily[uid] = row; return 0; }
     row.given += award;
     this.f.mmrDaily[uid] = row;
@@ -197,7 +200,245 @@ export class CasinoFloor {
         await this.save();
       } else error = "The token could not be spent. Try again.";
     }
-    this.send(ws, "FLOOR_TOKENS", { game: "casino", tokens, applied: !!row.boost, error, day: true });
+    this.send(ws, "FLOOR_TOKENS", { game: "casino", tokens, applied: !!row.boost, error, day: true, arsenal: p ? this.arsenalView(p) : null });
+  }
+
+  // ── the arsenal ──────────────────────────────────────────────────
+  //
+  // Eighteen tokens for the floor. Nothing here hands out cash: table money
+  // banks to the wallet one for one, so a token that paid cash would be a
+  // money pump. These give chips, odds, sight, and MMR instead.
+  freshArs() {
+    return {
+      armed: {}, used: {},
+      comp: false,        // the door is open without a table token
+      safe: 0,            // losing hands that cost no token
+      insure: 0,          // losing hands that give the stake back
+      tie: 0,             // pushes that pay as wins
+      photo: 0,           // a third place that pays as second
+      double: 0,          // a winning bet that pays twice
+      flash: 0,           // arcade puzzles paying double cash
+      credit: 0,          // arcade puzzles paying full MMR
+      cap: false,         // today's ceiling lifted
+      reports: [],
+    };
+  }
+  arsOf(p) { return p.ars || (p.ars = this.freshArs()); }
+  armedLeft(p, key) { const a = this.arsOf(p); return (a.armed[key] || 0) - (a.used[key] || 0); }
+  useToken(p, key) { const a = this.arsOf(p); a.used[key] = (a.used[key] || 0) + 1; }
+
+  arsenalView(p) {
+    const a = this.arsOf(p);
+    const day = new Date().toISOString().slice(0, 10);
+    const row = this.f.mmrDaily?.[p.uid]?.day === day ? this.f.mmrDaily[p.uid] : null;
+    return {
+      on: true, armed: a.armed, used: a.used,
+      max: Object.fromEntries(Object.entries(ARSENALS.casino).map(([k, v]) => [k, v.max || 99])),
+      comp: !!a.comp, safe: a.safe || 0, insure: a.insure || 0, tie: a.tie || 0,
+      photo: a.photo || 0, double: a.double || 0, flash: a.flash || 0,
+      credit: a.credit || 0, capRaised: !!a.cap,
+      seated: !!this.f.table.seats[p.uid],
+      phase: this.f.table.phase, racePhase: this.f.phase,
+      given: row?.given || 0, ceiling: a.cap ? WIN_MMR_DAILY_CAP + 50 : WIN_MMR_DAILY_CAP,
+      bets: this.f.bets.filter((b) => b.uid === p.uid).map((b) => ({ id: b.id, type: b.type, stake: b.stake })),
+      reports: (a.reports || []).slice(0, 4),
+    };
+  }
+
+  /** What the arcade should pay this player, and it is spent by asking. */
+  arcadePerks(uid) {
+    const p = this.f?.players?.[uid];
+    if (!p) return { cash: 1, fullMmr: false };
+    const a = this.arsOf(p);
+    const out = { cash: 1, fullMmr: false };
+    if (a.flash > 0) { a.flash -= 1; out.cash = 2; }
+    if (a.credit > 0) { a.credit -= 1; out.fullMmr = true; }
+    return out;
+  }
+
+  async sendTokens(ws, uid, error = null) {
+    const p = this.f.players[uid];
+    const tokens = await heldTokens(this.env, uid);
+    this.send(ws, "FLOOR_TOKENS", {
+      game: "casino", tokens, applied: !!this.f.mmrDaily?.[uid]?.boost, day: true,
+      error, arsenal: p ? this.arsenalView(p) : null,
+    });
+  }
+
+  async arm(ws, uid, msg) {
+    const p = this.f.players[uid];
+    if (!p) return;
+    const key = String(msg.key || "");
+    const spec = ARSENALS.casino[key];
+    if (!spec) return this.sendTokens(ws, uid, "No such token.");
+    const a = this.arsOf(p);
+    if (spec.max && (a.armed[key] || 0) >= spec.max) return this.sendTokens(ws, uid, `${spec.max} ${spec.name} is the limit for one session.`);
+    const held = (await heldTokens(this.env, uid))[key] || 0;
+    if (held <= (a.armed[key] || 0)) return this.sendTokens(ws, uid, `You hold no more ${spec.name} tokens. The Token shop sells them.`);
+    a.armed[key] = (a.armed[key] || 0) + 1;
+    await this.save();
+    await this.sendTokens(ws, uid);
+  }
+
+  async disarm(ws, uid, msg) {
+    const p = this.f.players[uid];
+    if (!p) return;
+    const key = String(msg.key || "");
+    const a = this.arsOf(p);
+    if (this.armedLeft(p, key) <= 0) return this.sendTokens(ws, uid, "Nothing to put back.");
+    a.armed[key] -= 1;
+    if (!a.armed[key]) delete a.armed[key];
+    await this.save();
+    await this.sendTokens(ws, uid);
+  }
+
+  /**
+   * Firing one. A token used here is spent at once — the casino has no round
+   * to settle up at the end of, so the shop's count goes down as it is used.
+   */
+  async arsenal(ws, uid, msg) {
+    const p = this.f.players[uid];
+    if (!p) return;
+    const action = String(msg.action || "");
+    const key = {
+      chips: "cs_chips", comp: "cs_comp", safe: "cs_safe", peek: "cs_peek",
+      redeal: "cs_redeal", tip: "cs_tip", count: "cs_count", insure: "cs_insure",
+      tie: "cs_tie", shoe: "cs_shoe", photo: "cs_photo", scratch: "cs_scratch",
+      furlong: "cs_furlong", double: "cs_double", flash: "cs_flash",
+      credit: "cs_credit", cap: "cs_cap", deposit: "cs_deposit",
+    }[action];
+    if (!key) return this.send(ws, "FLOOR_ERROR", { message: "Unrecognised action." });
+    if (this.armedLeft(p, key) <= 0)
+      return this.send(ws, "FLOOR_ERROR", { message: `No ${ARSENALS.casino[key].name} armed. Arm one under Apply Token.` });
+
+    const a = this.arsOf(p);
+    const t = this.f.table;
+    const seat = t.seats[uid];
+    const report = (text) => {
+      a.reports = [{ text, at: Date.now() }, ...(a.reports || [])].slice(0, 8);
+      this.send(ws, "FLOOR_NOTE", { text });
+    };
+
+    if (action === "chips") {
+      p.tokens = (p.tokens || 0) + 5;
+      this.useToken(p, key);
+      report(`Chip Run: five table tokens. You hold ${p.tokens}.`);
+    } else if (action === "comp") {
+      if (a.comp) return this.send(ws, "FLOOR_ERROR", { message: "The door is already open to you." });
+      a.comp = true;
+      this.useToken(p, key);
+      report("Comp Pass: the card room takes you without a table token today.");
+    } else if (action === "safe") {
+      a.safe = (a.safe || 0) + 1;
+      this.useToken(p, key);
+      report(`Blackjack Safety: your next ${a.safe} losing hand${a.safe === 1 ? "" : "s"} cost no table token.`);
+    } else if (action === "insure") {
+      a.insure = (a.insure || 0) + 1;
+      this.useToken(p, key);
+      report(`Insurance Policy: your next ${a.insure} losing hand${a.insure === 1 ? "" : "s"} gives the stake back.`);
+    } else if (action === "tie") {
+      a.tie = (a.tie || 0) + 1;
+      this.useToken(p, key);
+      report(`Dealer's Off Day: your next ${a.tie} push${a.tie === 1 ? "" : "es"} pay${a.tie === 1 ? "s" : ""} as a win.`);
+    } else if (action === "peek") {
+      if (t.phase !== "ACTING" || !seat) return this.send(ws, "FLOOR_ERROR", { message: "Peek at a hand in play, from a seat." });
+      const hole = t.dealer?.[1] || t.dealer?.[0];
+      if (!hole) return this.send(ws, "FLOOR_ERROR", { message: "The dealer has nothing to hide yet." });
+      this.useToken(p, key);
+      report(`Peek: the dealer's hole card is ${hole.rank}${hole.suit}.`);
+    } else if (action === "redeal") {
+      if (t.phase !== "ACTING" || !seat || seat.done) return this.send(ws, "FLOOR_ERROR", { message: "Re-deal a live hand of your own." });
+      if (seat.cards.length !== 2) return this.send(ws, "FLOOR_ERROR", { message: "A re-deal is for your opening two." });
+      seat.cards = [t.shoe.pop(), t.shoe.pop()];
+      this.useToken(p, key);
+      report("Second Deal: two fresh cards.");
+    } else if (action === "tip") {
+      if (t.phase !== "ACTING" || !seat || seat.done) return this.send(ws, "FLOOR_ERROR", { message: "Tip the dealer on a live hand of your own." });
+      if (!seat.cards.length) return this.send(ws, "FLOOR_ERROR", { message: "Nothing to swap yet." });
+      const i = Math.max(0, Math.min(seat.cards.length - 1, Math.round(Number(msg.index) || 0)));
+      const gone = seat.cards[i];
+      seat.cards[i] = t.shoe.pop();
+      this.useToken(p, key);
+      report(`Tip the Dealer: ${gone.rank}${gone.suit} swapped for ${seat.cards[i].rank}${seat.cards[i].suit}.`);
+    } else if (action === "count") {
+      const shoe = t.shoe || [];
+      // Before the first hand the shoe has not been opened, and counting an
+      // empty one would spend the token to say nothing.
+      if (!shoe.length) return this.send(ws, "FLOOR_ERROR", { message: "The shoe has not been opened yet. Count it once a hand is dealt." });
+      const tens = shoe.filter((c) => ["10", "J", "Q", "K"].includes(c.rank)).length;
+      const aces = shoe.filter((c) => c.rank === "A").length;
+      this.useToken(p, key);
+      report(`Card Counter: ${tens} tens and ${aces} aces left in ${shoe.length} cards.`);
+    } else if (action === "shoe") {
+      if (t.phase === "ACTING") return this.send(ws, "FLOOR_ERROR", { message: "Not mid-hand." });
+      t.shoe = shuffled(6);
+      this.useToken(p, key);
+      report("Fresh Shoe: six new decks, shuffled.");
+      this.note(`${p.name} calls for a fresh shoe.`);
+    } else if (action === "photo") {
+      a.photo = (a.photo || 0) + 1;
+      this.useToken(p, key);
+      report(`Photo Finish: your next ${a.photo} third place${a.photo === 1 ? "" : "s"} pay${a.photo === 1 ? "s" : ""} as second.`);
+    } else if (action === "double") {
+      a.double = (a.double || 0) + 1;
+      this.useToken(p, key);
+      report(`Bet Doubler: your next ${a.double} winning bet${a.double === 1 ? "" : "s"} pay${a.double === 1 ? "s" : ""} double.`);
+    } else if (action === "scratch") {
+      const mine = this.f.bets.filter((b) => b.uid === uid);
+      if (!mine.length) return this.send(ws, "FLOOR_ERROR", { message: "You have nothing on this race." });
+      if (this.f.phase === "PAID") return this.send(ws, "FLOOR_ERROR", { message: "That race is settled." });
+      const bet = mine.find((b) => b.id === msg.betId) || mine[mine.length - 1];
+      this.f.bets = this.f.bets.filter((b) => b.id !== bet.id);
+      this.f.pool = Math.max(0, this.f.pool - bet.stake);
+      p.table += bet.stake;
+      this.useToken(p, key);
+      report(`Scratch the Bet: $${bet.stake} back off the board.`);
+      this.note(`${p.name} scratches a bet.`);
+    } else if (action === "furlong") {
+      if (this.f.phase !== "BETTING") return this.send(ws, "FLOOR_ERROR", { message: "Call this before the off." });
+      const horse = String(msg.horse || "");
+      if (!(horse in (this.f.race?.at || {}))) return this.send(ws, "FLOOR_ERROR", { message: "Pick a horse." });
+      this.f.race.at[horse] += 1;
+      this.useToken(p, key);
+      report(`Extra Furlong: ${horse} starts a step up.`);
+      this.note(`${p.name} backs a horse into a better berth.`);
+    } else if (action === "flash") {
+      a.flash = (a.flash || 0) + 3;
+      this.useToken(p, key);
+      report(`Flashcards: your next ${a.flash} arcade puzzles pay double cash.`);
+    } else if (action === "credit") {
+      a.credit = (a.credit || 0) + 1;
+      this.useToken(p, key);
+      report(`Extra Credit: your next ${a.credit} arcade puzzle${a.credit === 1 ? "" : "s"} pay${a.credit === 1 ? "s" : ""} the full 50 MMR.`);
+    } else if (action === "cap") {
+      if (a.cap) return this.send(ws, "FLOOR_ERROR", { message: "The ceiling is already up." });
+      a.cap = true;
+      this.useToken(p, key);
+      report(`Raise the Cap: today's ceiling is ${WIN_MMR_DAILY_CAP + 50} MMR.`);
+    } else if (action === "deposit") {
+      const amount = Math.max(0, Math.round(p.table));
+      if (!amount) return this.send(ws, "FLOOR_ERROR", { message: "Nothing on the table to bank." });
+      if (t.seats[uid]) return this.send(ws, "FLOOR_ERROR", { message: "Leave the table first." });
+      if (this.f.bets.some((b) => b.uid === uid) && this.f.phase !== "PAID")
+        return this.send(ws, "FLOOR_ERROR", { message: "You have money on a race. Wait for it to finish." });
+      p.table = 0;
+      await this.save();
+      let banked = false;
+      try { banked = await bankWallet(this.env, uid, amount, p.name); } catch { banked = false; }
+      if (!banked) {
+        p.table = amount;
+        await this.save();
+        this.push();
+        return this.send(ws, "FLOOR_ERROR", { message: "Couldn't reach your wallet. Nothing was moved." });
+      }
+      this.useToken(p, key);
+      report(`Night Deposit: $${amount.toLocaleString()} banked. Your seat is still yours.`);
+      this.note(`${p.name} makes a night deposit.`);
+    }
+
+    await this.save();
+    this.send(ws, "FLOOR_ARSENAL_STATE", { arsenal: this.arsenalView(p) });
+    this.push();
   }
 
   /** " (+5 MMR)" or nothing. */
@@ -216,6 +457,15 @@ export class CasinoFloor {
     // Arcade winnings arrive here rather than from the browser: the Worker
     // marked the sum and timed it, so it is the only thing allowed to say
     // what a player earned. The floor just adds it to their table money.
+    // What the arcade should pay this solver, spent by the asking.
+    if (new URL(request.url).pathname === "/perks") {
+      if (!this.f) this.f = this.blank();
+      const { uid } = await request.json().catch(() => ({}));
+      const perks = this.arcadePerks(uid);
+      await this.save();
+      return new Response(JSON.stringify(perks), { headers: { "Content-Type": "application/json" } });
+    }
+
     if (new URL(request.url).pathname === "/credit") {
       if (!this.f) this.f = this.blank();
       const { uid, name, cash = 0, tokens = 0, mmr = 0, reason = "arcade" } =
@@ -365,6 +615,9 @@ export class CasinoFloor {
         case "FLOOR_BANK":   return await this.bankOut(ws, who.uid);
         case "TOKENS":       return await this.tokens(ws, who.uid, this.f.players[who.uid], false);
         case "APPLY_TOKEN":  return await this.tokens(ws, who.uid, this.f.players[who.uid], true);
+        case "ARM_TOKEN":    return await this.arm(ws, who.uid, msg);
+        case "DISARM_TOKEN": return await this.disarm(ws, who.uid, msg);
+        case "FLOOR_ARSENAL": return await this.arsenal(ws, who.uid, msg);
         default: return this.send(ws, "FLOOR_ERROR", { message: "Unrecognised message." });
       }
     } catch (err) {
@@ -466,11 +719,21 @@ export class CasinoFloor {
     for (const b of this.f.bets) {
       const p = this.f.players[b.uid];
       if (!p) continue;
-      if (betWins(b.type, b.picks, order, this.f.race)) {
-        const paid = Math.round(b.stake + b.stake * oddsFor(b.type));
-        p.table += paid;
-        winners.push({ name: b.name, paid, type: b.type, uid: b.uid });
+      const a = this.arsOf(p);
+      let won = betWins(b.type, b.picks, order, this.f.race);
+      let note = "";
+      // A Photo Finish lifts a third place onto the board, for the bets that
+      // are about placing at all.
+      if (!won && a.photo > 0 && ["place", "win"].includes(b.type) && order[2] === b.picks[0]) {
+        a.photo -= 1;
+        won = true;
+        note = " (photo finish)";
       }
+      if (!won) continue;
+      let paid = Math.round(b.stake + b.stake * oddsFor(b.type));
+      if (a.double > 0) { a.double -= 1; paid *= 2; note += " (doubled)"; }
+      p.table += paid;
+      winners.push({ name: b.name, paid, type: b.type, uid: b.uid, note });
     }
     // One award a race however many bets came in: it is the race that was won.
     const rewarded = {};
@@ -483,7 +746,7 @@ export class CasinoFloor {
     this.f.phase = "PAID";
     const names = order.map((id) => horseById(id).name);
     this.note(`Finish: ${names.join(", ")}.`);
-    for (const w of winners) this.note(`${w.name} collects ${w.paid} on ${betById(w.type).name}${this.plus(w.mmr)}.`);
+    for (const w of winners) this.note(`${w.name} collects ${w.paid} on ${betById(w.type).name}${w.note || ""}${this.plus(w.mmr)}.`);
     if (!winners.length) this.note("The board is beaten. Nothing collects.");
 
     await this.save();
@@ -593,10 +856,24 @@ export class CasinoFloor {
       const out = settle(seat.cards, t.dealer);
       seat.result = out.result;
       let award = 0;
+      const a = this.arsOf(p);
+      let extra = "";
       if (out.result === "win") { p.table += seat.bet * 2; award = await this.reward(uid, p); }
-      else if (out.result === "push") { p.table += seat.bet; }
-      else { p.tokens = Math.max(0, p.tokens - 1); }
-      this.note(`${p.name} ${out.result === "win" ? "wins" : out.result === "push" ? "pushes" : "loses"} \u2014 ${out.why}${this.plus(award)}.`);
+      else if (out.result === "push") {
+        // Dealer's Off Day turns a push into a win, paid and rewarded.
+        if (a.tie > 0) {
+          a.tie -= 1;
+          p.table += seat.bet * 2;
+          award = await this.reward(uid, p);
+          seat.result = "win";
+          extra = " \u2014 Dealer's Off Day pays the tie";
+        } else p.table += seat.bet;
+      } else {
+        if (a.safe > 0) { a.safe -= 1; extra = " \u2014 Blackjack Safety held the token"; }
+        else p.tokens = Math.max(0, p.tokens - 1);
+        if (a.insure > 0) { a.insure -= 1; p.table += seat.bet; extra += " \u2014 the policy returns the stake"; }
+      }
+      this.note(`${p.name} ${seat.result === "win" ? "wins" : seat.result === "push" ? "pushes" : "loses"} \u2014 ${out.why}${extra}${this.plus(award)}.`);
     }
 
     t.phase = "SETTLED";
@@ -630,6 +907,7 @@ export class CasinoFloor {
    * what keeps a broke player earning at the arcade rather than stuck.
    */
   noToken(ws, p) {
+    if (this.arsOf(p).comp) return false;
     if ((p.tokens || 0) >= 1) return false;
     this.send(ws, "FLOOR_ERROR", {
       message: "You need a token to play. Earn one at the arcade.",

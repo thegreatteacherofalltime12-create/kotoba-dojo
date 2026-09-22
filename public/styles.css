@@ -3437,3 +3437,5 @@ a.dtab { text-decoration: none; display: inline-block; }
 .mcell.crater { background: #8f8f8f; border: 1px solid #5a5a5a; box-shadow: inset 0 0 0 2px #d7a94a; }
 .mcell.blast { background: color-mix(in srgb, #F4CE5A 60%, #fff) !important; border-color: #b08a3a !important; }
 .mgrid.aiming .mcell:not(.open) { cursor: crosshair; }
+
+.ars-intel { color: var(--muted); font-size: .72rem; }

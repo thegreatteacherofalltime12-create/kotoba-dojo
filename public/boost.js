@@ -48,14 +48,42 @@ export const arsenalItem = (key) => ARSENAL_ITEMS.find((t) => t.key === key);
 
 // The Minesweeper arsenal. Mirrors src/arsenals.js.
 export const MINE_ARSENAL_ITEMS = [
-  { key: "ms_reveal", name: "Mine Reveal", icon: "\u{1F50E}", price: 2000, max: 2,
+  { key: "ms_reveal", name: "Mine Reveal", icon: "\u{1F50E}", price: 2000, max: 2, act: "reveal",
     blurb: "Shows two of the field's mines on your board. Any field. Two a round." },
-  { key: "ms_buster", name: "Mine Buster", icon: "\u{1F9E8}", price: 500, max: 5,
+  { key: "ms_buster", name: "Mine Buster", icon: "\u{1F9E8}", price: 500, max: 5, act: "buster", aim: "cell",
     blurb: "Pick a square: a mine there is destroyed and the ground opens; clean ground just opens. Intermediate and Expert only. Five a round." },
-  { key: "ms_clear", name: "Clear Map", icon: "\u{1F9F9}", price: 20000, max: 1,
+  { key: "ms_clear", name: "Clear Map", icon: "\u{1F9F9}", price: 20000, max: 1, act: "clear", aim: "cell",
     blurb: "Before you have dug anything, opens a 5\u00d75 where you point \u2014 a mine inside it ends your sweep. One a round." },
-  { key: "ms_shield", name: "Invincibility", icon: "\u{1F6E1}\uFE0F", price: 3055, max: 2,
+  { key: "ms_shield", name: "Invincibility", icon: "\u{1F6E1}\uFE0F", price: 3055, max: 2, act: "shield",
     blurb: "Ten seconds in which a mine you dig is defused instead of ending you. Two a round." },
+  { key: "ms_detect", name: "Metal Detector", icon: "\u{1F9F2}", price: 800, max: 5, act: "detect", aim: "cell",
+    blurb: "Names how many mines sit in the 3\u00d73 you point at, without opening it. Any field. Five a round." },
+  { key: "ms_radar", name: "Radar Sweep", icon: "\u{1F4E1}", price: 1200, max: 4, act: "radar", aim: "line",
+    blurb: "Names how many mines are in one row or column you pick. Four a round." },
+  { key: "ms_quad", name: "Quadrant Scan", icon: "\u{1F5FA}\uFE0F", price: 600, max: 3, act: "quad",
+    blurb: "Mine counts for the four quarters of the field. Three a round." },
+  { key: "ms_drone", name: "Spotter Drone", icon: "\u{1F6F8}", price: 1500, max: 3, act: "drone",
+    blurb: "Opens the three safest unopened squares \u2014 numbers only, no flood. Three a round." },
+  { key: "ms_flags", name: "Frontier Flags", icon: "\u{1F6A9}", price: 2400, max: 3, act: "flags",
+    blurb: "Flags three mines that touch ground you have already opened. Three a round." },
+  { key: "ms_gloves", name: "Sapper\'s Gloves", icon: "\u{1F9E4}", price: 4500, max: 2, act: "gloves",
+    blurb: "The next three mines you dig are defused, however long it takes. Two a round." },
+  { key: "ms_second", name: "Second Sweep", icon: "\u267B\uFE0F", price: 12000, max: 1, act: "second",
+    blurb: "If you hit a mine, your sweep carries on from where it stood \u2014 once. One a round." },
+  { key: "ms_recon", name: "Recon Patrol", icon: "\u{1FA96}", price: 3200, max: 3, act: "recon", aim: "cell",
+    blurb: "Opens a 3\u00d73; any mine inside is flagged rather than triggered. Three a round." },
+  { key: "ms_demo", name: "Demolition Charge", icon: "\u{1F4A5}", price: 2500, max: 2, act: "demo", aim: "cell",
+    blurb: "Destroys the three mines nearest the square you pick. Two a round." },
+  { key: "ms_opening", name: "Lucky Opening", icon: "\u{1F331}", price: 1000, max: 1, act: "opening",
+    blurb: "Before your first dig, opens the biggest clearing on the field. One a round." },
+  { key: "ms_chord", name: "Chord", icon: "\u26CF\uFE0F", price: 300, max: 8, act: "chord", aim: "cell",
+    blurb: "Opens everything around a number whose flags already match it \u2014 with the same risk as doing it by hand. Eight a round." },
+  { key: "ms_watch", name: "Stopwatch", icon: "\u23F1\uFE0F", price: 2000, max: 3, act: "watch",
+    blurb: "Thirty seconds off your clear time when the round is scored. Three a round." },
+  { key: "ms_hazard", name: "Hazard Pay", icon: "\u{1FA79}", price: 1800, max: 2, act: "hazard",
+    blurb: "A sweep ended by a mine scores as if you had uncovered 15% more. Two a round." },
+  { key: "ms_promo", name: "Field Promotion", icon: "\u{1F396}\uFE0F", price: 3500, max: 1, act: "promo",
+    blurb: "Your round is scored one level up \u2014 Beginner as Intermediate, Intermediate as Expert. One a round." },
 ];
 // The golf arsenal. Mirrors src/arsenals.js.
 export const LINKS_ARSENAL_ITEMS = [
@@ -95,6 +123,7 @@ export const LINKS_ARSENAL_ITEMS = [
     blurb: "Reads you the clues for the next three holes. Two a round." },
   { key: "gf_ace", name: "Ace Chaser", icon: "\u{1F3AF}", price: 2800, max: 2, act: "ace",
     blurb: "Your next hole in one pays 150 points instead of 100. Two a round." },
+
 ];
 export const GAME_ARSENAL_ITEMS = { battleship: ARSENAL_ITEMS, minesweeper: MINE_ARSENAL_ITEMS, links: LINKS_ARSENAL_ITEMS };
 

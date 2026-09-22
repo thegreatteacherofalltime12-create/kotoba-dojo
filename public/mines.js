@@ -113,6 +113,10 @@ function handle(msg) {
       drawArsenal();
       break;
     case "MINE_NOTE": say(msg.text); break;
+    case "MINE_FLAGS":
+      for (const c of msg.cells || []) M.flags.add(c);
+      paintCells(msg.cells || []);
+      break;
     case "MINE_FLAGGED":
       if (msg.on) M.flags.add(msg.cell); else M.flags.delete(msg.cell);
       paintCells([msg.cell]);
@@ -249,8 +253,11 @@ function drawBoard() {
       box.onclick = () => {
         // A press that became a flag is not also a dig.
         if (flagged) { flagged = false; return; }
-        if (M.mode === "buster" || M.mode === "clear") {
-          const what = M.mode === "buster" ? "Bust this square?" : "Clear the 5\u00d75 around this square? A mine inside it ends your sweep.";
+        const aimed = MINE_ARSENAL_ITEMS.find((t) => t.act === M.mode && t.aim === "cell");
+        if (aimed) {
+          const what = M.mode === "clear"
+            ? "Clear the 5\u00d75 around this square? A mine inside it ends your sweep."
+            : aimed.name + " here?";
           if (!window.confirm(what)) return;
           send({ type: "MINE_ARSENAL", action: M.mode, cell });
           M.mode = null;
@@ -262,15 +269,16 @@ function drawBoard() {
         send({ type: "MINE_DIG", cell });
       };
       box.onmouseenter = () => {
-        if (M.mode !== "clear") return;
+        const span = M.mode === "clear" ? 2 : M.mode === "recon" || M.mode === "detect" ? 1 : 0;
+        if (!span) return;
         grid.querySelectorAll(".blast").forEach((n) => n.classList.remove("blast"));
         const [r0, c0] = cell.split(",").map(Number);
-        for (let i = -2; i <= 2; i++) for (let j = -2; j <= 2; j++) {
+        for (let i = -span; i <= span; i++) for (let j = -span; j <= span; j++) {
           const n = grid.querySelector(`[data-cell="${r0 + i},${c0 + j}"]`);
           if (n && !n.classList.contains("open")) n.classList.add("blast");
         }
       };
-      box.onmouseleave = () => { if (M.mode === "clear") grid.querySelectorAll(".blast").forEach((n) => n.classList.remove("blast")); };
+      box.onmouseleave = () => { grid.querySelectorAll(".blast").forEach((n) => n.classList.remove("blast")); };
       // Still there for anyone who prefers it, on a mouse.
       box.oncontextmenu = (e) => { e.preventDefault(); cancelHold(); send({ type: "MINE_FLAG", cell }); };
       grid.append(box);
@@ -289,9 +297,9 @@ function drawArsenal() {
   const me = M.game?.players?.find((p) => p.uid === M.you);
   const live = M.game?.phase === "ACTIVE" && M.shape && me && !me.done && !me.watching;
   const left = (k) => (ars?.armed?.[k] || 0) - (ars?.used?.[k] || 0);
-  const any = ars && ["ms_reveal", "ms_buster", "ms_clear", "ms_shield"].some((k) => left(k) > 0);
+  const any = ars && MINE_ARSENAL_ITEMS.some((t) => left(t.key) > 0);
   const shielded = M.shieldUntil > Date.now();
-  host.hidden = !(live && (any || shielded));
+  host.hidden = !(live && (any || shielded || ars?.gloves > 0 || ars?.second));
   host.textContent = "";
   $("mine-grid").querySelector(".mgrid")?.classList.toggle("aiming", !!M.mode && !host.hidden);
   if (host.hidden) { M.mode = null; clearInterval(M.shieldTick); M.shieldTick = null; return; }
@@ -303,28 +311,64 @@ function drawArsenal() {
     b.onclick = click;
     host.append(b);
   };
-  const aim = (mode) => () => { M.mode = M.mode === mode ? null : mode; drawArsenal(); };
-  if (left("ms_reveal") > 0)
-    mk(`\u{1F50E} Reveal \u00d7${left("ms_reveal")}`, false, false,
-      () => { if (window.confirm("Show two mines on your board?")) send({ type: "MINE_ARSENAL", action: "reveal" }); }, "Shows two mines");
-  if (left("ms_buster") > 0)
-    mk(`\u{1F9E8} Buster \u00d7${left("ms_buster")}`, M.mode === "buster", !ars.canBust, aim("buster"),
-      ars.canBust ? "Pick a square to bust" : "Intermediate and Expert fields only");
-  if (left("ms_clear") > 0)
-    mk(`\u{1F9F9} Clear Map`, M.mode === "clear", ars.digs > 0, aim("clear"),
-      ars.digs > 0 ? "Only before you have dug anything" : "Pick the centre of a 5\u00d75");
-  if (left("ms_shield") > 0 || shielded)
-    mk(shielded ? `\u{1F6E1}\uFE0F ${Math.ceil((M.shieldUntil - Date.now()) / 1000)}s` : `\u{1F6E1}\uFE0F Invincibility \u00d7${left("ms_shield")}`, shielded, shielded || left("ms_shield") <= 0,
-      () => { if (window.confirm("Go invincible for ten seconds?")) send({ type: "MINE_ARSENAL", action: "shield" }); }, "Ten seconds without explosions");
-  if (M.mode) {
-    const p = el("p", "ars-hint", (M.mode === "buster" ? "Buster armed \u2014 tap the square to bust. " : "Clear Map armed \u2014 tap the centre of the 5\u00d75. A mine inside ends your sweep. "));
+  for (const t of MINE_ARSENAL_ITEMS) {
+    const n = left(t.key);
+    if (n <= 0) continue;
+    if (t.act === "shield" && shielded) continue;
+    const short = t.name.replace("Sapper's ", "").replace(" Charge", "").replace(" Patrol", "").replace(" Sweep", (t.act === "second" ? " Sweep" : ""));
+    const label = t.icon + " " + short + " \u00d7" + n;
+    const off =
+      (t.act === "buster" && !ars.canBust) ||
+      (t.act === "clear" && ars.digs > 0) ||
+      (t.act === "opening" && ars.digs > 0) ||
+      (t.act === "second" && ars.second) ||
+      (t.act === "promo" && ars.promo);
+    const title =
+      t.act === "buster" && !ars.canBust ? "Intermediate and Expert fields only"
+      : (t.act === "clear" || t.act === "opening") && ars.digs > 0 ? "Only before you have dug anything"
+      : t.blurb;
+    mk(label, false, off, () => {
+      if (t.aim === "cell") { M.mode = M.mode === t.act ? null : t.act; drawArsenal(); return; }
+      if (t.aim === "line") { askLine(t); return; }
+      if (!window.confirm(t.name + "? " + t.blurb)) return;
+      send({ type: "MINE_ARSENAL", action: t.act });
+    }, title);
+  }
+  if (shielded)
+    mk("\u{1F6E1}\uFE0F " + Math.ceil((M.shieldUntil - Date.now()) / 1000) + "s", true, true, () => {}, "Invincible");
+  if (ars.gloves > 0)
+    mk("\u{1F9E4} " + ars.gloves + " left", true, true, () => {}, "Mines the gloves will defuse");
+  if (ars.second)
+    mk("\u267B\uFE0F Ready", true, true, () => {}, "One mine will not end your sweep");
+
+  const aiming = MINE_ARSENAL_ITEMS.find((t) => t.act === M.mode);
+  if (aiming) {
+    const p = el("p", "ars-hint", aiming.name + " \u2014 tap the square. ");
     const x = el("button", "btn btn-tiny", "Cancel");
     x.type = "button"; x.onclick = () => { M.mode = null; drawArsenal(); };
     p.append(x);
     host.append(p);
   }
+  // What the scouts have found, newest first.
+  if (ars.intel?.length) {
+    const p = el("p", "ars-hint", ars.intel.map((x) => x.text).join("  \u00b7  "));
+    p.className = "ars-hint ars-intel";
+    host.append(p);
+  }
   clearInterval(M.shieldTick); M.shieldTick = null;
   if (shielded) M.shieldTick = setInterval(() => { if (M.shieldUntil <= Date.now()) { $("mine-face").textContent = "\u{1F642}"; } drawArsenal(); }, 1000);
+}
+
+/** A row or a column, for the radar. */
+function askLine(t) {
+  const answer = window.prompt("Radar Sweep \u2014 which line? A row as R then its number, a column as C then its number (R1 to R" + (M.shape?.rows || 0) + ", C1 to C" + (M.shape?.cols || 0) + ").", "R1");
+  if (!answer) return;
+  const m = /^\s*([rcRC])\s*(\d+)\s*$/.exec(answer);
+  if (!m) return say("That is not a line. Try R3, or C7.");
+  const n = Number(m[2]) - 1;
+  const max = m[1].toLowerCase() === "r" ? (M.shape?.rows || 0) : (M.shape?.cols || 0);
+  if (!(n >= 0 && n < max)) return say("There is no line there.");
+  send({ type: "MINE_ARSENAL", action: "radar", line: m[1].toLowerCase() + n });
 }
 
 function paintCells(cells) {

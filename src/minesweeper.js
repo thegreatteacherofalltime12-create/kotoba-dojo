@@ -73,6 +73,126 @@ export function areaCells(cell, span, rows, cols) {
   return out;
 }
 
+export const GLOVES_DIGS = 3;      // mines the gloves defuse
+export const DRONE_PICKS = 3;      // squares the drone opens
+export const FLAG_PICKS = 3;       // mines the frontier flags mark
+export const DEMO_PICKS = 3;       // mines the charge destroys
+export const RECON_SPAN = 3;       // the recon patrol's area
+export const WATCH_MS = 30_000;    // what a stopwatch takes off the clock
+export const HAZARD_LIFT = 0.15;   // what hazard pay adds to a lost sweep
+export const NEXT_LEVEL = { beginner: "intermediate", intermediate: "expert", expert: "expert" };
+
+/** Every square of the board, in reading order. */
+export function allCells(board) {
+  const out = [];
+  for (let r = 0; r < board.rows; r++) for (let c = 0; c < board.cols; c++) out.push(key(r, c));
+  return out;
+}
+
+/** The squares that touch this one. */
+export const around = (board, cell) => {
+  const [r, c] = String(cell).split(",").map(Number);
+  return neighbours(r, c, board.rows, board.cols).map(([rr, cc]) => key(rr, cc));
+};
+
+/** Mines in an area, for the detector and the radar. */
+export const minesIn = (board, cells) => cells.filter((x) => isMine(board, x)).length;
+
+/** One row or one column, named as "r3" or "c7". */
+export function lineCells(board, name) {
+  const m = /^([rc])([0-9]+)$/.exec(String(name || ""));
+  if (!m) return [];
+  const n = Number(m[2]);
+  const out = [];
+  if (m[1] === "r") { if (n < 0 || n >= board.rows) return []; for (let c = 0; c < board.cols; c++) out.push(key(n, c)); }
+  else { if (n < 0 || n >= board.cols) return []; for (let r = 0; r < board.rows; r++) out.push(key(r, n)); }
+  return out;
+}
+
+/** The four quarters, with how many mines sit in each. */
+export function quadrants(board) {
+  const midR = Math.ceil(board.rows / 2), midC = Math.ceil(board.cols / 2);
+  const box = (r0, r1, c0, c1) => {
+    let n = 0;
+    for (let r = r0; r < r1; r++) for (let c = c0; c < c1; c++) if (isMine(board, key(r, c))) n++;
+    return n;
+  };
+  return [
+    { name: "top left", mines: box(0, midR, 0, midC) },
+    { name: "top right", mines: box(0, midR, midC, board.cols) },
+    { name: "bottom left", mines: box(midR, board.rows, 0, midC) },
+    { name: "bottom right", mines: box(midR, board.rows, midC, board.cols) },
+  ];
+}
+
+/**
+ * The mines that touch ground a player has already opened — what a sapper
+ * could work out with time, handed over at once.
+ */
+export function frontierMines(board, revealed) {
+  const open = Object.keys(revealed).filter((k) => revealed[k] >= 0);
+  const out = new Set();
+  for (const cell of open) for (const n of around(board, cell)) {
+    if (isMine(board, n) && revealed[n] === undefined) out.add(n);
+  }
+  return [...out];
+}
+
+/** Safe unopened squares, nearest the ground already opened first. */
+export function safeSquares(board, revealed, flags = []) {
+  const open = new Set(Object.keys(revealed).filter((k) => revealed[k] >= 0));
+  const touching = new Set();
+  for (const cell of open) for (const n of around(board, cell)) touching.add(n);
+  const free = allCells(board).filter((x) => revealed[x] === undefined && !isMine(board, x) && !flags.includes(x));
+  return free.sort((a, b) => (touching.has(b) ? 1 : 0) - (touching.has(a) ? 1 : 0));
+}
+
+/** The mines nearest a square, for a demolition charge. */
+export function nearestMines(board, cell, howMany) {
+  const [r, c] = String(cell).split(",").map(Number);
+  return board.mineList
+    .map((m) => { const [mr, mc] = m.split(",").map(Number); return { m, d: Math.max(Math.abs(mr - r), Math.abs(mc - c)) }; })
+    .sort((a, b) => a.d - b.d)
+    .slice(0, howMany)
+    .map((x) => x.m);
+}
+
+/**
+ * A chord: the squares around an open number whose flags already match it.
+ * Returns the unflagged neighbours to open, or an empty list if the number
+ * is not satisfied — the classic rule, and the same risk.
+ */
+export function chordCells(board, revealed, flags, cell) {
+  const n = revealed[cell];
+  if (!(n > 0)) return [];
+  const near = around(board, cell);
+  const flagged = near.filter((x) => flags.includes(x)).length;
+  if (flagged !== n) return [];
+  return near.filter((x) => !flags.includes(x) && revealed[x] === undefined);
+}
+
+/** The biggest patch of empty ground on the board, for a better opening. */
+export function bestOpening(board) {
+  const zeros = Object.keys(board.counts).filter((k) => board.counts[k] === 0);
+  let best = null, bestSize = -1;
+  const seen = new Set();
+  for (const z of zeros) {
+    if (seen.has(z)) continue;
+    const stack = [z];
+    const group = [];
+    while (stack.length) {
+      const at = stack.pop();
+      if (seen.has(at)) continue;
+      seen.add(at);
+      group.push(at);
+      if (board.counts[at] !== 0) continue;
+      for (const nb of around(board, at)) if (!seen.has(nb) && board.counts[nb] !== undefined) stack.push(nb);
+    }
+    if (group.length > bestSize) { bestSize = group.length; best = z; }
+  }
+  return best || board.start;
+}
+
 /**
  * A board everyone in the round shares.
  *

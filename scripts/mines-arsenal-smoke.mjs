@@ -4,7 +4,7 @@
 // a buster on a mine and on clean ground, Clear Map with and without a mine
 // under it, invincibility defusing a dig, and the spend on the results.
 import { MineField } from "../src/mine-lobby.js";
-import { isMine, bustBoard, areaCells, MINE_ARSENAL } from "../src/minesweeper.js";
+import { isMine, bustBoard, areaCells, around, MINE_ARSENAL } from "../src/minesweeper.js";
 
 let bad = 0;
 const ok = (l, c) => { console.log(`${c ? "  pass" : "  FAIL"}  ${l}`); if (!c) bad++; };
@@ -124,8 +124,9 @@ console.log("\nclear map");
     await say("a", { type: "MINE_ARSENAL", action: "clear", cell: "4,4" });
     ok("a 5x5 with a mine in it ends the sweep", p.done && !p.won && socks.a.last("MINE_BOOM"));
   }
+  const usedFirst = p.ars.used.ms_clear || 0;
   await say("a", { type: "MINE_ARSENAL", action: "clear", cell: "0,0" });
-  ok("one clear is the limit", /No Clear Map armed/.test(socks.a.last("MINE_ERROR").message));
+  ok("one clear is the limit", (p.ars.used.ms_clear || 0) === usedFirst && field.armedLeft(p, "ms_clear") <= 0);
 }
 {
   const { field, socks, say } = await room("beginner", ["a"]);
@@ -168,8 +169,120 @@ console.log("\ninvincibility on a dig, and the spend");
   ok("the second shield and the reveal stay armed for the next round", p.ars.armed.ms_shield === 1 && p.ars.armed.ms_reveal === 1);
 }
 
+console.log("\nthe scouts");
+{
+  const { field, socks, say } = await room("intermediate", ["a"]);
+  const p = field.g.players.a;
+  arm(p, { ms_detect: 5, ms_radar: 4, ms_quad: 3, ms_drone: 3, ms_flags: 3, ms_opening: 1 });
+  await say("a", { type: "MINE_START" });
+  await say("a", { type: "MINE_ARSENAL", action: "detect", cell: "8,8" });
+  ok("the detector counts the nine squares it is pointed at", /Metal Detector at 8,8: \d+ mine/.test(socks.a.last("MINE_NOTE").text));
+  await say("a", { type: "MINE_ARSENAL", action: "radar", line: "r3" });
+  ok("the radar reads a row", /Row 4: \d+ mine/.test(socks.a.last("MINE_NOTE").text));
+  await say("a", { type: "MINE_ARSENAL", action: "radar", line: "z9" });
+  ok("a line that is not one is refused", /row or a column/.test(socks.a.last("MINE_ERROR").message));
+  await say("a", { type: "MINE_ARSENAL", action: "quad" });
+  ok("the quadrant scan names all four", /top left \d+, top right \d+, bottom left \d+, bottom right \d+/.test(socks.a.last("MINE_NOTE").text));
+  const before = Object.keys(p.revealed).length;
+  await say("a", { type: "MINE_ARSENAL", action: "drone" });
+  const opened = Object.entries(p.revealed).filter(([, v]) => v >= 0);
+  ok("the drone opens three safe squares", Object.keys(p.revealed).length === before + 3 && !p.done);
+  ok("and none of them is a mine", opened.every(([k]) => !isMine(field.board, k)));
+  await say("a", { type: "MINE_ARSENAL", action: "flags" });
+  const flagged = p.flags;
+  ok("the frontier flags land on real mines touching open ground", flagged.length > 0 && flagged.every((f) => isMine(field.board, f)));
+  ok("and they reach the client", (socks.a.last("MINE_FLAGS").cells || []).length === flagged.length);
+  await say("a", { type: "MINE_ARSENAL", action: "opening" });
+  ok("Lucky Opening is refused once you have dug", /before you have dug/.test(socks.a.last("MINE_ERROR").message));
+}
+{
+  const { field, socks, say } = await room("beginner", ["a"]);
+  const p = field.g.players.a;
+  arm(p, { ms_opening: 1 });
+  await say("a", { type: "MINE_START" });
+  const before = Object.keys(p.revealed).length;
+  await say("a", { type: "MINE_ARSENAL", action: "opening" });
+  ok("Lucky Opening opens a clearing at the start", Object.keys(p.revealed).length >= before && /Lucky Opening: \d+ squares/.test(socks.a.last("MINE_NOTE").text));
+}
+
+console.log("\nsurviving");
+{
+  const { field, socks, say } = await room("beginner", ["a"]);
+  const p = field.g.players.a;
+  arm(p, { ms_gloves: 2, ms_second: 1 });
+  await say("a", { type: "MINE_START" });
+  await say("a", { type: "MINE_ARSENAL", action: "gloves" });
+  ok("the gloves are good for three", p.ars.gloves === 3);
+  const mines = field.board.mineList.filter((m) => p.revealed[m] === undefined);
+  await say("a", { type: "MINE_DIG", cell: mines[0] });
+  ok("the first mine is defused and the ground opens", !p.done && p.ars.gloves === 2 && p.ars.busted.includes(mines[0]));
+  await say("a", { type: "MINE_DIG", cell: mines[1] });
+  await say("a", { type: "MINE_DIG", cell: mines[2] });
+  ok("three mines later they are used up", !p.done && p.ars.gloves === 0);
+  await say("a", { type: "MINE_ARSENAL", action: "second" });
+  await say("a", { type: "MINE_DIG", cell: mines[3] });
+  ok("a Second Sweep carries you past the fourth", !p.done && p.ars.second === false && p.ars.busted.includes(mines[3]));
+  await say("a", { type: "MINE_DIG", cell: mines[4] });
+  ok("and then a mine is a mine", p.done && !p.won);
+}
+{
+  const { field, socks, say } = await room("beginner", ["a"]);
+  const p = field.g.players.a;
+  arm(p, { ms_recon: 3, ms_demo: 2 });
+  await say("a", { type: "MINE_START" });
+  const mine = field.board.mineList.find((m) => p.revealed[m] === undefined);
+  await say("a", { type: "MINE_ARSENAL", action: "recon", cell: mine });
+  ok("a recon patrol over a mine flags it rather than setting it off", !p.done && p.flags.includes(mine));
+  await say("a", { type: "MINE_ARSENAL", action: "demo", cell: "4,4" });
+  ok("the charge destroys three mines", p.ars.busted.length === 3 && !p.done);
+  ok("and every one of them was a mine", p.ars.busted.every((m) => isMine(field.board, m)));
+  const own = field.boardOf(p);
+  ok("the player board is three mines lighter", own.mineList.length === field.board.mineList.length - 3);
+}
+
+console.log("\nthe chord");
+{
+  const { field, socks, say } = await room("beginner", ["a"]);
+  const p = field.g.players.a;
+  arm(p, { ms_chord: 8 });
+  await say("a", { type: "MINE_START" });
+  // A number with at least one square still closed beside it, or the chord
+  // has nowhere to go and the refusal is a different one.
+  const numbered = Object.entries(p.revealed).find(([k, v]) =>
+    v > 0 && around(field.board, k).some((x) => p.revealed[x] === undefined && !isMine(field.board, x)));
+  await say("a", { type: "MINE_ARSENAL", action: "chord", cell: numbered[0] });
+  ok("a number whose flags do not match yet refuses", /flags/.test(socks.a.last("MINE_ERROR").message));
+  for (const n of around(field.board, numbered[0])) if (isMine(field.board, n)) p.flags.push(n);
+  await say("a", { type: "MINE_ARSENAL", action: "chord", cell: numbered[0] });
+  ok("with the flags right it opens the rest", !p.done && p.ars.used.ms_chord === 1);
+}
+
+console.log("\nthe score");
+{
+  const { field, socks, say } = await room("beginner", ["a"]);
+  const p = field.g.players.a;
+  arm(p, { ms_watch: 3, ms_hazard: 2, ms_promo: 1 });
+  await say("a", { type: "MINE_START" });
+  await say("a", { type: "MINE_ARSENAL", action: "watch" });
+  await say("a", { type: "MINE_ARSENAL", action: "watch" });
+  ok("two stopwatches take a minute off", p.ars.watch === 60000);
+  await say("a", { type: "MINE_ARSENAL", action: "promo" });
+  ok("a promotion scores the round a level up", p.ars.promo === true && field.levelFor(p) === "intermediate");
+  await say("a", { type: "MINE_ARSENAL", action: "promo" });
+  ok("a second promotion is refused", /already playing up|No Field Promotion armed/.test(socks.a.last("MINE_ERROR").message));
+  await say("a", { type: "MINE_ARSENAL", action: "hazard" });
+  const mine = field.board.mineList.find((m) => p.revealed[m] === undefined);
+  await say("a", { type: "MINE_DIG", cell: mine });
+  ok("a lost sweep still scores, lifted by hazard pay", p.done && p.score > 0);
+  const row = socks.a.last("MINE_OVER").results.find((r) => r.uid === "a");
+  ok("the round spends every token used", row.spent.ms_watch === 2 && row.spent.ms_promo === 1 && row.spent.ms_hazard === 1);
+  ok("and the third stopwatch stays armed", p.ars.armed.ms_watch === 1);
+}
+
 console.log("\nthe registry");
-ok("the four tokens carry their limits", MINE_ARSENAL.ms_reveal.max === 2 && MINE_ARSENAL.ms_buster.max === 5 && MINE_ARSENAL.ms_clear.max === 1 && MINE_ARSENAL.ms_shield.max === 2);
+ok("eighteen tokens, every one with a price and a limit", Object.keys(MINE_ARSENAL).length === 18
+  && Object.values(MINE_ARSENAL).every((t) => t.price > 0 && t.max > 0));
+ok("the first four keep their limits", MINE_ARSENAL.ms_reveal.max === 2 && MINE_ARSENAL.ms_buster.max === 5 && MINE_ARSENAL.ms_clear.max === 1 && MINE_ARSENAL.ms_shield.max === 2);
 ok("bustBoard with nothing busted is the same board", (() => { const b = { mineList: ["0,0"], rows: 2, cols: 2, counts: {}, safeTotal: 3 }; return bustBoard(b, []) === b; })());
 
 console.log(bad ? `\n${bad} failing\n` : "\nall mines arsenal checks passed\n");

@@ -1748,11 +1748,18 @@ function tokensRules() {
         "<b>Wind Gauge</b> ($2,200, 2): shows the dealt letters in their right order for two seconds. <b>Caddie's Book</b> ($900, 2): reads you the clues for the next three holes.",
       ])}
       ${box("💣 The Minesweeper Arsenal", [
-        "Four tokens, priced in casino money: Mine Reveal ($2,000), Mine Buster ($500), Clear Map ($20,000) and Invincibility ($3,055). Arm them under <b>⚡ Apply Token</b>; fire them from the Arsenal strip above the field. Only what you use is spent; the rest stays armed for the next round.",
+        "Eighteen tokens, priced in casino money. Arm them under <b>⚡ Apply Token</b>; fire them from the Arsenal strip above the field. Each is capped per round; only what you use is spent, and the rest stays armed for the next round.",
         "<b>Mine Reveal:</b> shows two of the field's mines on your board, marked so you can't dig them. Any field. Two a round.",
         "<b>Mine Buster:</b> pick a square. A mine there is destroyed — for you only; the numbers around it drop and the square opens. Clean ground just opens. Intermediate and Expert fields only. Five a round.",
         "<b>Clear Map:</b> only before you have dug anything yourself (the opening doesn't count). Opens a 5×5 around the square you pick. A mine inside it ends your sweep — unless you are invincible, in which case the mines are defused. One a round.",
         "<b>Invincibility:</b> for ten seconds a mine you dig is defused under your feet instead of ending you. Two a round.",
+        "<b>Metal Detector</b> ($800, 5): names how many mines sit in the 3\u00d73 you point at, without opening it. <b>Radar Sweep</b> ($1,200, 4): the same for a whole row or column. <b>Quadrant Scan</b> ($600, 3): mine counts for the four quarters.",
+        "<b>Spotter Drone</b> ($1,500, 3): opens the three safest unopened squares, numbers only. <b>Frontier Flags</b> ($2,400, 3): flags three mines that touch ground you have already opened.",
+        "<b>Sapper's Gloves</b> ($4,500, 2): the next three mines you dig are defused, however long it takes. <b>Second Sweep</b> ($12,000, 1): one mine does not end you \u2014 your sweep carries on from where it stood.",
+        "<b>Recon Patrol</b> ($3,200, 3): opens a 3\u00d73 and flags any mine inside rather than triggering it. <b>Demolition Charge</b> ($2,500, 2): destroys the three mines nearest the square you pick.",
+        "<b>Lucky Opening</b> ($1,000, 1): before your first dig, opens the biggest clearing on the field. <b>Chord</b> ($300, 8): opens everything around a number whose flags already match it \u2014 with the same risk as doing it by hand.",
+        "<b>Stopwatch</b> ($2,000, 3): thirty seconds off your clear time when the round is scored. <b>Hazard Pay</b> ($1,800, 2): a sweep ended by a mine scores as if you had uncovered 15% more. <b>Field Promotion</b> ($3,500, 1): your round is scored one level up.",
+        "The last three change what the round is worth, so they lift your MMR and can reach the Fastest Clears board.",
         "A defused or busted mine leaves a crater on your board and counts as ground to clear; the shared field everyone else races on never changes.",
       ])}
     </div>`;
@@ -1798,7 +1805,7 @@ const GAME_RULES = [
       "Three fields: <b>Beginner</b> (9\u00d79, 10 mines), <b>Intermediate</b> (16\u00d716, 40 mines) and <b>Expert</b> (16\u00d730, 99 mines). Everyone in the room sweeps the same field; the opening square is safe and already cleared.",
       "Tap to dig, long-press or right-click to flag. A number is how many mines touch that square. Dig a mine and your sweep ends where it stands.",
       "<b>Solo Sweep</b> is you against the clock. In a race the first to clear wins; the round caps at <b>10 minutes</b>.",
-      "The <b>arsenal</b> — Mine Reveal, Mine Buster, Clear Map, Invincibility — is armed under ⚡ Apply Token and fired from the strip above the field. Rules in the ⚡ Tokens tab.",
+      "The <b>arsenal</b> — eighteen tokens, from a Metal Detector to a Second Sweep — is armed under ⚡ Apply Token and fired from the strip above the field. Rules in the ⚡ Tokens tab.",
     ],
     score: [
       "A cleared field scores 55 plus up to 45 for speed, weighted by the level (Intermediate \u00d71.15, Expert \u00d71.3).",

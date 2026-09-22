@@ -17,6 +17,15 @@ export const KEEP_DAYS = 7;
 
 export const UPDATES = [
   {
+    at: "2026-09-22T16:00:00Z",
+    where: "Minesweeper",
+    title: "Fourteen more for the minefield",
+    text: "The Minesweeper Arsenal is eighteen tokens now. Scouts: Metal Detector, Radar Sweep, Quadrant "
+      + "Scan, Spotter Drone, Frontier Flags. Survival: Sapper's Gloves, Second Sweep, Recon Patrol. "
+      + "Ground: Demolition Charge, Lucky Opening, Chord. And three that change what the round is worth "
+      + "\u2014 Stopwatch, Hazard Pay and Field Promotion.",
+  },
+  {
     at: "2026-09-22T05:00:00Z",
     where: "Multiverse Golf",
     title: "The golf arsenal",

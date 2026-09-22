@@ -8,7 +8,7 @@
 // draws. Nothing here decides anything — the room does, and the round's own
 // record write spends the token.
 
-export const TOKEN_PRICE = 2000;
+export const TOKEN_PRICE = 200;
 
 export const TOKEN_ITEMS = [
   { game: "crossword", name: "Word-Cross boost", icon: "\u{1F520}", where: "Word-Cross", blurb: "1.5× MMR on one ranked Word-Cross round" },
@@ -25,19 +25,19 @@ export const tokenItem = (game) => TOKEN_ITEMS.find((t) => t.game === game) || T
 // strip on the battle screen. Only what is used is spent. Prices and rules
 // mirror src/battleship.js.
 export const ARSENAL_ITEMS = [
-  { key: "bs_nuke", name: "Nuke Missile", icon: "\u2622\uFE0F", price: 500000, max: 2,
+  { key: "bs_nuke", name: "Nuke Missile", icon: "\u2622\uFE0F", price: 50000, max: 2,
     blurb: "Takes your turn. Skirmish: a hit sinks the whole ship. Fleet Action: a 3\u00d73 blast. Open Ocean: 7\u00d77. Two a battle." },
-  { key: "bs_shots", name: "Extra Shots", icon: "\u{1F3AF}", price: 25000,
+  { key: "bs_shots", name: "Extra Shots", icon: "\u{1F3AF}", price: 2500,
     blurb: "+2 / +4 / +6 shots by chart for one turn, spread over captains as usual." },
-  { key: "bs_ships", name: "Extra Ships", icon: "\u{1F6A2}", price: 5000,
+  { key: "bs_ships", name: "Extra Ships", icon: "\u{1F6A2}", price: 500,
     blurb: "Three more hulls of your choosing, on any chart. Arm before you place." },
-  { key: "bs_strike", name: "Tactical Air Strike", icon: "\u2708\uFE0F", price: 35000,
+  { key: "bs_strike", name: "Tactical Air Strike", icon: "\u2708\uFE0F", price: 3500,
     blurb: "Takes your turn. A 6\u00d76 blast anchored where you point, on any chart. Needs a carrier afloat." },
-  { key: "bs_shield", name: "Air Strike Defence", icon: "\u{1F6E1}\uFE0F", price: 40000,
+  { key: "bs_shield", name: "Air Strike Defence", icon: "\u{1F6E1}\uFE0F", price: 4000,
     blurb: "A hidden 6\u00d76 area of your water. Squares of an air strike inside it do nothing; it then shows, spent." },
-  { key: "bs_reveal", name: "Air Strike Reveal", icon: "\u{1F52D}", price: 13000,
+  { key: "bs_reveal", name: "Air Strike Reveal", icon: "\u{1F52D}", price: 1300,
     blurb: "Shows you one captain's Air Strike Defence, if they have one, before you waste a strike on it." },
-  { key: "bs_torpedo", name: "Submarine Torpedo", icon: "\u{1F41F}", price: 1437,
+  { key: "bs_torpedo", name: "Submarine Torpedo", icon: "\u{1F41F}", price: 143,
     blurb: "One extra single-square shot on your turn, on top of your volley, while your submarine is afloat." },
 ];
 export const HULL_OPTIONS = [
@@ -48,13 +48,13 @@ export const arsenalItem = (key) => ARSENAL_ITEMS.find((t) => t.key === key);
 
 // The Minesweeper arsenal. Mirrors src/arsenals.js.
 export const MINE_ARSENAL_ITEMS = [
-  { key: "ms_reveal", name: "Mine Reveal", icon: "\u{1F50E}", price: 20000, max: 2,
+  { key: "ms_reveal", name: "Mine Reveal", icon: "\u{1F50E}", price: 2000, max: 2,
     blurb: "Shows two of the field's mines on your board. Any field. Two a round." },
-  { key: "ms_buster", name: "Mine Buster", icon: "\u{1F9E8}", price: 5000, max: 5,
+  { key: "ms_buster", name: "Mine Buster", icon: "\u{1F9E8}", price: 500, max: 5,
     blurb: "Pick a square: a mine there is destroyed and the ground opens; clean ground just opens. Intermediate and Expert only. Five a round." },
-  { key: "ms_clear", name: "Clear Map", icon: "\u{1F9F9}", price: 200000, max: 1,
+  { key: "ms_clear", name: "Clear Map", icon: "\u{1F9F9}", price: 20000, max: 1,
     blurb: "Before you have dug anything, opens a 5\u00d75 where you point \u2014 a mine inside it ends your sweep. One a round." },
-  { key: "ms_shield", name: "Invincibility", icon: "\u{1F6E1}\uFE0F", price: 30550, max: 2,
+  { key: "ms_shield", name: "Invincibility", icon: "\u{1F6E1}\uFE0F", price: 3055, max: 2,
     blurb: "Ten seconds in which a mine you dig is defused instead of ending you. Two a round." },
 ];
 export const GAME_ARSENAL_ITEMS = { battleship: ARSENAL_ITEMS, minesweeper: MINE_ARSENAL_ITEMS };

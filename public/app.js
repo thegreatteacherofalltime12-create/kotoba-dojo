@@ -1710,7 +1710,7 @@ function tokensRules() {
         "Tokens cost <b>casino money</b>, never real money. Nothing in the game is bought with real money.",
         "Casino money comes from the floor: solve arcade puzzles under <b>Earn Money</b> ($5\u201315 each), win hands at the tables, collect on horse races.",
         "Winnings sit on the table until you <b>Officially end match</b>; only then do they bank to your wallet. Quitting the floor forfeits what's on the table.",
-        "The wallet you see in the Token shop is that banked money. A boost costs $2,000; the Battleship arsenal runs from $1,437 to $500,000.",
+        "The wallet you see in the Token shop is that banked money. A boost costs $200; the arsenals run from $143 to $50,000.",
       ])}
       ${box("\u26A1 How a boost is used", [
         "A token does nothing until you apply it. In the game, press <b>\u26A1 Apply Token</b> and apply the boost to the match you're in.",
@@ -1719,7 +1719,7 @@ function tokensRules() {
         "The feed marks a boosted win with \u26A1.",
       ])}
       ${box("\u2622\uFE0F The Battleship Arsenal", [
-        "Seven tokens, priced in casino money: Nuke Missile ($500,000), Extra Shots ($25,000), Extra Ships ($5,000), Tactical Air Strike ($35,000), Air Strike Defence ($40,000), Air Strike Reveal ($13,000) and Submarine Torpedo ($1,437).",
+        "Seven tokens, priced in casino money: Nuke Missile ($50,000), Extra Shots ($2,500), Extra Ships ($500), Tactical Air Strike ($3,500), Air Strike Defence ($4,000), Air Strike Reveal ($1,300) and Submarine Torpedo ($143).",
         "Inside a battle, open <b>\u26A1 Apply Token</b> to <b>arm</b> them: at most <b>four</b> tokens a battle, and at most <b>two</b> nukes. Armed tokens appear on the <b>Arsenal strip</b> above the target list; that is where they are fired.",
         "Only what you fire is spent. Anything armed and unused goes back to your pile when the battle is recorded.",
         "<b>Nuke:</b> takes your turn. On Skirmish a hit sinks the whole ship it lands on. On Fleet Action it blasts 3\u00d73; on Open Ocean, 7\u00d77.",
@@ -1732,7 +1732,7 @@ function tokensRules() {
         "Blast hits count for score and sinkings, but not toward your accuracy bonus. Computer captains never carry tokens. The host can switch the arsenal off for a battle.",
       ])}
       ${box("💣 The Minesweeper Arsenal", [
-        "Four tokens, priced in casino money: Mine Reveal ($20,000), Mine Buster ($5,000), Clear Map ($200,000) and Invincibility ($30,550). Arm them under <b>⚡ Apply Token</b>; fire them from the Arsenal strip above the field. Only what you use is spent; the rest stays armed for the next round.",
+        "Four tokens, priced in casino money: Mine Reveal ($2,000), Mine Buster ($500), Clear Map ($20,000) and Invincibility ($3,055). Arm them under <b>⚡ Apply Token</b>; fire them from the Arsenal strip above the field. Only what you use is spent; the rest stays armed for the next round.",
         "<b>Mine Reveal:</b> shows two of the field's mines on your board, marked so you can't dig them. Any field. Two a round.",
         "<b>Mine Buster:</b> pick a square. A mine there is destroyed — for you only; the numbers around it drop and the square opens. Clean ground just opens. Intermediate and Expert fields only. Five a round.",
         "<b>Clear Map:</b> only before you have dug anything yourself (the opening doesn't count). Opens a 5×5 around the square you pick. A mine inside it ends your sweep — unless you are invincible, in which case the mines are defused. One a round.",

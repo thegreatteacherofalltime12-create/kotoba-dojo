@@ -17,6 +17,13 @@ export const KEEP_DAYS = 7;
 
 export const UPDATES = [
   {
+    at: "2026-09-21T20:30:00Z",
+    where: "Token shop",
+    title: "Every token is a tenth of the price",
+    text: "Every price in the Token shop has lost its last digit: a boost is $200, a nuke is $50,000, a "
+      + "torpedo is $143, Clear Map is $20,000. Same tokens, same rules, a tenth of the cost.",
+  },
+  {
     at: "2026-09-21T18:00:00Z",
     where: "Minesweeper",
     title: "The Minesweeper arsenal",
@@ -64,7 +71,7 @@ export const UPDATES = [
     where: "Profile",
     title: "The token shop",
     text: "Billing is gone \u2014 nothing in the game costs real money. Casino money buys boost tokens "
-      + "instead: one for each game, $2,000 apiece from your wallet, under Token shop in your profile. "
+      + "instead: one for each game, $200 apiece from your wallet, under Token shop in your profile. "
       + "A token pays half again on the MMR of the round it's applied to; the "
       + "casino one boosts every win for a day. The feed marks a boosted win \u26A1.",
   },

@@ -1731,6 +1731,22 @@ function tokensRules() {
         "<b>Submarine Torpedo:</b> one extra single-square shot on your turn, on top of your volley, while your submarine is afloat.",
         "Blast hits count for score and sinkings, but not toward your accuracy bonus. Computer captains never carry tokens. The host can switch the arsenal off for a battle.",
       ])}
+      ${box("⛳ The Golf Arsenal", [
+        "Eighteen tokens, armed under <b>\u26A1 Apply Token</b> and fired from the Arsenal strip above the hole. Each is capped per round; only what you use is spent, and the rest stays armed for the next round in that room.",
+        "<b>Mulligan</b> ($800, 3): takes one stroke back off the hole you are on.",
+        "<b>Caddie's Hint</b> ($400, 5): places one letter of the word you are on. <b>Local Knowledge</b> ($600, 4): places the first and last.",
+        "<b>Range Finder</b> ($600, 3): buys the clue early on the hard tees, where it is withheld until two words are behind you.",
+        "<b>Ground Under Repair</b> ($900, 3): the next word you fail costs one stroke instead of two \u2014 and on the forward tees a blown hole is par+1 rather than par+3.",
+        "<b>Gimme</b> ($2,500, 2): concedes the hole you are on at par and moves you along.",
+        "<b>Practice Swing</b> ($500, 5): your next guess costs no stroke and eats no guess. <b>Extra Club</b> ($500, 4): two more guesses on this word.",
+        "<b>Club Fitting</b> ($700, 3): swaps the word for another of the same length. <b>Drop Zone</b> ($1,200, 2): the word starts again and the strokes it cost come off.",
+        "<b>Lucky Bounce</b> ($1,800, 2): the hole you are on scores no worse than par.",
+        "<b>Preferred Lies</b> ($1,500, 2): the next hole is played from one tee forward \u2014 fewer words, at that tee's par.",
+        "<b>Double Down</b> ($1,000, 3): declared on the tee before you swing \u2014 par or better doubles the hole's points, worse halves them.",
+        "<b>Eagle Eye</b> ($2,000, 2): your next hole under par pays double. <b>Ace Chaser</b> ($2,800, 2): your next hole in one pays 150 instead of 100.",
+        "<b>Scorecard Pencil</b> ($3,000, 1): your worst hole comes off the card when the round is scored.",
+        "<b>Wind Gauge</b> ($2,200, 2): shows the dealt letters in their right order for two seconds. <b>Caddie's Book</b> ($900, 2): reads you the clues for the next three holes.",
+      ])}
       ${box("💣 The Minesweeper Arsenal", [
         "Four tokens, priced in casino money: Mine Reveal ($2,000), Mine Buster ($500), Clear Map ($20,000) and Invincibility ($3,055). Arm them under <b>⚡ Apply Token</b>; fire them from the Arsenal strip above the field. Only what you use is spent; the rest stays armed for the next round.",
         "<b>Mine Reveal:</b> shows two of the field's mines on your board, marked so you can't dig them. Any field. Two a round.",
@@ -1797,6 +1813,7 @@ const GAME_RULES = [
       "Each hole is a word: the letters are dealt scrambled with a clue. <b>Unscramble the letters to score a hole in one.</b> Every guess is a stroke; the ball moves down the fairway with each one.",
       "<b>Easy:</b> one word to hole out, the first letter shown, familiar words, no hazards. <b>Medium:</b> five words a hole, par 5, hazards live. <b>Hard:</b> eight words, par 8, one guess fewer, no clue until you've played two.",
       "Hole out and the ball flies to the pin; press <b>Ready for the next hole</b> when you are. Everyone moves at their own pace; the field table keeps score underneath.",
+      "The <b>arsenal</b> \u2014 eighteen tokens, from a mulligan to a gimme \u2014 is armed under \u26A1 Apply Token and fired from the strip above the hole. Rules in the \u26A1 Tokens tab.",
     ],
     score: [
       "Points per hole against par: a hole in one is 100, an eagle 48, a birdie 30, par 18, a bogey 9, and a triple bogey 1.",

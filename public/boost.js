@@ -57,7 +57,46 @@ export const MINE_ARSENAL_ITEMS = [
   { key: "ms_shield", name: "Invincibility", icon: "\u{1F6E1}\uFE0F", price: 3055, max: 2,
     blurb: "Ten seconds in which a mine you dig is defused instead of ending you. Two a round." },
 ];
-export const GAME_ARSENAL_ITEMS = { battleship: ARSENAL_ITEMS, minesweeper: MINE_ARSENAL_ITEMS };
+// The golf arsenal. Mirrors src/arsenals.js.
+export const LINKS_ARSENAL_ITEMS = [
+  { key: "gf_mulligan", name: "Mulligan", icon: "\u{1F504}", price: 800, max: 3, act: "mulligan",
+    blurb: "Takes one stroke back off the hole you are on. Three a round." },
+  { key: "gf_hint", name: "Caddie\'s Hint", icon: "\u{1F4A1}", price: 400, max: 5, act: "hint",
+    blurb: "Places one letter of the word you are on. Five a round." },
+  { key: "gf_finder", name: "Range Finder", icon: "\u{1F4CF}", price: 600, max: 3, act: "finder",
+    blurb: "Buys the clue early on the hard tees, where it is withheld until two words are behind you. Three a round." },
+  { key: "gf_relief", name: "Ground Under Repair", icon: "\u{1F6A7}", price: 900, max: 3, act: "relief",
+    blurb: "The next word you fail costs one stroke instead of two \u2014 and on the forward tees a blown hole is par+1 rather than par+3. Three a round." },
+  { key: "gf_gimme", name: "Gimme", icon: "\u{1F91D}", price: 2500, max: 2, act: "gimme",
+    blurb: "Concedes the hole you are on at par and moves you along. Two a round." },
+  { key: "gf_practice", name: "Practice Swing", icon: "\u{1F3CC}\uFE0F", price: 500, max: 5, act: "practice",
+    blurb: "Your next guess costs no stroke and eats no guess. Five a round." },
+  { key: "gf_fitting", name: "Club Fitting", icon: "\u{1F527}", price: 700, max: 3, act: "fitting",
+    blurb: "Swaps the word you are on for another of the same length. Three a round." },
+  { key: "gf_bounce", name: "Lucky Bounce", icon: "\u{1F340}", price: 1800, max: 2, act: "bounce",
+    blurb: "The hole you are on scores no worse than par. Two a round." },
+  { key: "gf_local", name: "Local Knowledge", icon: "\u{1F5FA}\uFE0F", price: 600, max: 4, act: "local",
+    blurb: "Places the first and last letters of the word you are on. Four a round." },
+  { key: "gf_club", name: "Extra Club", icon: "\u{1F3CC}", price: 500, max: 4, act: "club",
+    blurb: "Two more guesses on the word you are on before the hole is conceded. Four a round." },
+  { key: "gf_drop", name: "Drop Zone", icon: "\u{1F3AF}", price: 1200, max: 2, act: "drop",
+    blurb: "The word starts again, and the strokes your guesses cost come off. Two a round." },
+  { key: "gf_tees", name: "Preferred Lies", icon: "\u26F3", price: 1500, max: 2, act: "tees",
+    blurb: "The next hole is played from one tee forward \u2014 fewer words, at that tee's par. Two a round." },
+  { key: "gf_double", name: "Double Down", icon: "\u2696\uFE0F", price: 1000, max: 3, act: "double",
+    blurb: "Declared on the tee: par or better doubles the hole's points, worse halves them. Three a round." },
+  { key: "gf_eagle", name: "Eagle Eye", icon: "\u{1F985}", price: 2000, max: 2, act: "eagle",
+    blurb: "Your next hole under par pays double. Two a round." },
+  { key: "gf_pencil", name: "Scorecard Pencil", icon: "\u270F\uFE0F", price: 3000, max: 1, act: "pencil",
+    blurb: "Your worst hole comes off the card when the round is scored. One a round." },
+  { key: "gf_wind", name: "Wind Gauge", icon: "\u{1F32C}\uFE0F", price: 2200, max: 2, act: "wind",
+    blurb: "Shows the dealt letters in their right order for two seconds. Two a round." },
+  { key: "gf_book", name: "Caddie\'s Book", icon: "\u{1F4D2}", price: 900, max: 2, act: "book",
+    blurb: "Reads you the clues for the next three holes. Two a round." },
+  { key: "gf_ace", name: "Ace Chaser", icon: "\u{1F3AF}", price: 2800, max: 2, act: "ace",
+    blurb: "Your next hole in one pays 150 points instead of 100. Two a round." },
+];
+export const GAME_ARSENAL_ITEMS = { battleship: ARSENAL_ITEMS, minesweeper: MINE_ARSENAL_ITEMS, links: LINKS_ARSENAL_ITEMS };
 
 /**
  * The shop, one arsenal per game: the game's 1.5\u00d7 boost first, then

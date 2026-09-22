@@ -2,7 +2,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { firebaseConfig } from "./firebase-config.js";
 import { attachHole, setHole, strike } from "./hole.js";
-import { applyTokenTab } from "./boost.js";
+import { applyTokenTab, LINKS_ARSENAL_ITEMS } from "./boost.js";
 
 /**
  * Multiverse Golf, wired to the arena.
@@ -134,17 +134,28 @@ async function connect({ joining = false } = {}) {
   sock.onmessage = (e) => {
     let msg;
     try { msg = JSON.parse(e.data); } catch { return; }
-    if (msg.type === "LINKS_STATE") return draw(msg.state);
+    if (msg.type === "LINKS_STATE") { draw(msg.state); drawArsenal(); return; }
     if (msg.type === "LINKS_MARK") return marked(msg);
     if (msg.type === "LINKS_REJECT") return say(msg.why, "bad");
     if (msg.type === "LINKS_OVER") { tokenTab.reset(); return over(msg); }
-    if (msg.type === "LINKS_TOKENS") return tokenTab.receive(msg);
+    if (msg.type === "LINKS_TOKENS") {
+      tokenTab.receive(msg);
+      if (msg.arsenal) { S.ars = msg.arsenal; drawArsenal(); }
+      return;
+    }
+    if (msg.type === "LINKS_ARSENAL_STATE") {
+      S.ars = msg.arsenal;
+      tokenTab.arsenalState(msg.arsenal);
+      drawArsenal();
+      return;
+    }
+    if (msg.type === "LINKS_NOTE") return say(msg.text, "good");
   };
 }
 
 const send = (o) => { try { S.sock?.send(JSON.stringify(o)); } catch { /* closed */ } };
 
-const tokenTab = applyTokenTab({ game: "links", send, button: $("btn-boost"), label: "round" });
+const tokenTab = applyTokenTab({ game: "links", send, button: $("btn-boost"), label: "round", arsenal: LINKS_ARSENAL_ITEMS });
 // A token is applied inside a room, so the tee box has nothing to show yet.
 $("btn-boost").onclick = () => (S.sock ? tokenTab.open() : say("Go to the tee first — tokens are applied inside a room."));
 
@@ -181,6 +192,70 @@ function drawWaiting(state) {
       : "Waiting for the player who opened the room to tee off.";
 }
 
+// ── the arsenal ─────────────────────────────────────────────────────
+//
+// One button per armed token with uses left. Everything is decided by the
+// room; this asks, and draws what comes back.
+function drawArsenal() {
+  const host = $("gf-arsenal");
+  if (!host) return;
+  const a = S.ars;
+  const left = (k) => (a?.armed?.[k] || 0) - (a?.used?.[k] || 0);
+  const any = a && a.playing && LINKS_ARSENAL_ITEMS.some((t) => left(t.key) > 0);
+  host.hidden = !any;
+  host.textContent = "";
+  if (!any) return;
+
+  host.append(el("span", "gf-l", "Arsenal"));
+  for (const t of LINKS_ARSENAL_ITEMS) {
+    const n = left(t.key);
+    if (n <= 0) continue;
+    const on =
+      (t.act === "bounce" && a.bounce) || (t.act === "double" && a.double) ||
+      (t.act === "eagle" && a.eagle) || (t.act === "ace" && a.ace) ||
+      (t.act === "pencil" && a.pencil) || (t.act === "relief" && a.relief) ||
+      (t.act === "practice" && a.practice);
+    const off = on ||
+      (t.act === "double" && !a.atTee) ||
+      (t.act === "finder" && a.diff !== "hard") ||
+      (t.act === "tees" && a.words === 1);
+    const label = t.icon + " " + t.name.replace(/^Caddie's /, "") + " \u00d7" + n;
+    const b = el("button", "gf-btn" + (on ? " on" : ""), label);
+    b.type = "button";
+    b.disabled = !!off;
+    b.title = t.blurb;
+    b.onclick = () => {
+      if (!window.confirm(t.name + "? " + t.blurb)) return;
+      send({ type: "LINKS_ARSENAL", action: t.act });
+    };
+    host.append(b);
+  }
+  const flags = [];
+  if (a.bounce) flags.push("Lucky Bounce on this hole");
+  if (a.double) flags.push("Double Down declared");
+  if (a.eagle) flags.push("Eagle Eye watching");
+  if (a.ace) flags.push("Ace Chaser on");
+  if (a.pencil) flags.push("Pencil out");
+  if (a.relief) flags.push("Relief taken");
+  if (a.practice) flags.push("Practice swing lined up");
+  if (a.easyHole != null) flags.push("Hole " + (a.easyHole + 1) + " from the forward tee");
+  if (flags.length) host.append(el("p", "gf-note", flags.join(" \u00b7 ")));
+}
+
+/** The letters in their right order, for two seconds. */
+function flashWord(word) {
+  let host = $("gf-flash");
+  if (!host) {
+    host = el("div", "gf-slots");
+    host.id = "gf-flash";
+    $("h-dealt").after(host);
+  }
+  host.textContent = "";
+  for (const ch of word) host.append(el("div", "got", ch));
+  clearTimeout(S.flash);
+  S.flash = setTimeout(() => { host.textContent = ""; }, 2000);
+}
+
 function draw(state) {
   S.state = state;
   if (!state) return;
@@ -215,11 +290,33 @@ function draw(state) {
     // The letters dealt. Redrawn whenever the word changes, which on the
     // multi-word tees is several times a hole.
     const dealt = $("h-dealt");
-    const key = `${h.no}:${h.wordIndex}:${h.scrambled || ""}`;
+    const hints = h.hints || [];
+    const key = h.no + ":" + h.wordIndex + ":" + (h.scrambled || "") + ":" + hints.length;
     if (dealt.dataset.key !== key) {
       dealt.dataset.key = key;
       dealt.textContent = "";
       for (const ch of (h.scrambled || "")) dealt.append(el("div", "gtile", ch));
+      // A hint is a letter and the place it belongs, shown as a row of
+      // slots under the dealt letters.
+      const old = $("gf-hints");
+      if (old) old.remove();
+      if (hints.length) {
+        const row = el("div", "gf-slots");
+        row.id = "gf-hints";
+        for (let i = 0; i < h.len; i++) {
+          const found = hints.find((x) => x.i === i);
+          row.append(el("div", found ? "got" : "", found ? found.ch : "\u00b7"));
+        }
+        dealt.after(row);
+      }
+    }
+    const book = $("gf-book");
+    if (book) book.remove();
+    if (S.ars?.book?.length) {
+      const n = el("p", "gf-book");
+      n.id = "gf-book";
+      n.innerHTML = "<b>Caddie's Book</b> \u2014 " + S.ars.book.map((x) => x.no + ": " + escapeHtml(x.clue) + " (" + x.len + ")").join(" \u00b7 ");
+      $("h-clue").after(n);
     }
 
     $("in-guess").maxLength = h.len;
@@ -273,6 +370,8 @@ function drawGuesses(guesses, len) {
 }
 
 function marked(msg) {
+  if (msg.reveal) flashWord(msg.reveal);
+  if (msg.practice) say("Practice swing \u2014 no stroke.", "good");
   if (msg.holed) {
     const { name, strokes, points } = msg.holed;
     say(`${name} — ${strokes} shots, ${points} points.`, "good");

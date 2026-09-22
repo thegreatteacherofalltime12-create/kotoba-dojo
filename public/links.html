@@ -108,6 +108,19 @@ select,input{
 }
 .dealt-note{text-align:center; margin:0 0 .4rem; font-size:.85rem; color:var(--ink-faint)}
 
+/* the arsenal, above the hole */
+.gfars{display:flex; flex-wrap:wrap; gap:.35rem; align-items:center; margin:0 0 .7rem; padding-bottom:.6rem; border-bottom:1px solid var(--line)}
+.gfars .gf-l{font-family:var(--display); font-size:.62rem; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-faint); margin-right:.2rem}
+.gf-btn{font:inherit; font-weight:600; font-size:.74rem; cursor:pointer; padding:.3rem .55rem; border-radius:7px; background:var(--panel2); border:1px solid var(--gold); color:var(--gold)}
+.gf-btn:disabled{opacity:.4; cursor:default}
+.gf-btn.on{background:var(--gold); color:#2b2200}
+.gf-note{flex-basis:100%; margin:.25rem 0 0; font-size:.74rem; color:var(--gold)}
+.gf-slots{display:flex; gap:8px; justify-content:center; margin:.2rem 0 .4rem}
+.gf-slots div{width:2.2rem; height:2.4rem; display:grid; place-items:center; font-family:var(--display); font-size:1.2rem; background:var(--panel); border:1px solid var(--line2); border-radius:6px; color:var(--ink-faint)}
+.gf-slots div.got{background:var(--fairway-deep); border-color:var(--fairway); color:#eafaea}
+.gf-book{margin:.2rem 0 .4rem; font-size:.78rem; color:var(--ink-dim)}
+.gf-book b{color:var(--gold)}
+
 .entry{display:flex; gap:.5rem; margin-top:.6rem}
 .entry input{flex:1; text-transform:uppercase; letter-spacing:.25em; font-family:var(--display); font-size:1.05rem}
 
@@ -170,6 +183,7 @@ tr.you{background:rgba(255,166,77,.10)}
   </div>
 
   <div class="card" id="play" hidden>
+    <div id="gf-arsenal" class="gfars" hidden></div>
     <div class="holehead">
       <span class="holeno" id="h-no">1</span>
       <span class="holename" id="h-name"></span>

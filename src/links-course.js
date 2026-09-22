@@ -2,9 +2,10 @@ import {
   COURSES, DIFF, PAR_LEN, courseById, poolFor, evaluate,
   pointsFor, scoreName, maxGuesses, scramble, sameLetters, placed,
 } from "./links.js";
+import { ARSENALS } from "./arsenals.js";
 import { recordMatch, readRatings } from "./firestore.js";
 import { boosted } from "./mmr.js";
-import { tokensReply } from "./boost.js";
+import { tokensReply, heldTokens } from "./boost.js";
 import { announceRoom } from "./rooms.js";
 import { sessionGain, fieldMmrFor, beltFor } from "./mmr.js";
 
@@ -100,10 +101,250 @@ export class LinksCourse {
       guesses: [],          // marks for the word in play, for redraw on reload
       card: [],             // strokes per finished hole
       points: 0,
+      ars: this.freshArs(),
+      hints: {},            // "hole:word" -> positions already shown
+      swapped: {},          // "hole:word" -> a word put in place of the drawn one
       ball: 0,              // 0 at the tee, 1 in the cup
       done: false,
       lastSeen: Date.now(),
     };
+  }
+
+  /* ── the arsenal ───────────────────────────────────────────────── */
+  //
+  // Eighteen tokens, each capped per round. Some fire at once (a mulligan,
+  // a hint), some arm a promise the hole pays off later (Lucky Bounce,
+  // Double Down, Ace Chaser). Only what is used is spent; what is armed and
+  // unused stays armed for the next round in this room.
+
+  freshArs() {
+    return {
+      armed: {}, used: {},
+      relief: false,        // the next word lost costs one stroke, not two
+      practice: false,      // the next guess is not a stroke
+      extra: 0,             // guesses added to the word in play
+      bounce: false,        // this hole scores no worse than par
+      double: false,        // this hole doubles, or halves
+      eagle: false,         // the next hole under par pays double
+      ace: false,           // an ace pays 150
+      pencil: false,        // the worst hole comes off the card
+      finder: {},           // "hole:word" -> the clue is shown early
+      easyHole: null,       // the hole to be played from one tee forward
+      book: [],             // clues read ahead
+    };
+  }
+  arsOf(p) { return p.ars || (p.ars = this.freshArs()); }
+  armedLeft(p, key) { const a = this.arsOf(p); return (a.armed[key] || 0) - (a.used[key] || 0); }
+  useToken(p, key) { const a = this.arsOf(p); a.used[key] = (a.used[key] || 0) + 1; }
+
+  /** How many words this player must solve on the hole they are standing on. */
+  wordsFor(room, p, hole = p.hole) {
+    const words = DIFF[room.diff].words;
+    if (this.arsOf(p).easyHole === hole) return words === 8 ? 5 : words === 5 ? 1 : 1;
+    return words;
+  }
+  /** The par the hole is scored against for this player. */
+  parFor(room, p, holeIndex = p.hole) {
+    const w = this.wordsFor(room, p, holeIndex);
+    return w > 1 ? w : room.board[holeIndex]?.par ?? 4;
+  }
+  /** The word in play, which a Club Fitting may have replaced. */
+  wordAt(room, p, holeIndex = p.hole, wordIndex = p.wordIndex) {
+    const swapped = p.swapped?.[`${holeIndex}:${wordIndex}`];
+    return swapped || room.board[holeIndex]?.words[wordIndex];
+  }
+
+  arsenalView(room, p) {
+    const a = this.arsOf(p);
+    const key = `${p.hole}:${p.wordIndex}`;
+    return {
+      on: true, armed: a.armed, used: a.used,
+      max: Object.fromEntries(Object.entries(ARSENALS.links).map(([k, v]) => [k, v.max || 99])),
+      playing: room.phase === "PLAYING" && !p.done,
+      atTee: p.strokes === 0 && p.wordIndex === 0 && !(p.guesses || []).length,
+      hints: p.hints?.[key] || [],
+      relief: !!a.relief, practice: !!a.practice, extra: a.extra || 0,
+      bounce: !!a.bounce, double: !!a.double, eagle: !!a.eagle, ace: !!a.ace, pencil: !!a.pencil,
+      easyHole: a.easyHole, book: a.book || [], finder: !!a.finder?.[key],
+      words: this.wordsFor(room, p), diff: room.diff,
+    };
+  }
+
+  async sendTokens(ws, uid, apply, error = null) {
+    const room = this.room;
+    room.applied = room.applied || {};
+    const reply = await tokensReply(this.env, uid, "links", {
+      applied: room.applied, over: room.phase === "OVER", apply,
+    });
+    if (reply.changed) await this.save();
+    const p = room.players[uid];
+    this.send(ws, "LINKS_TOKENS", {
+      ...reply, error: error || reply.error,
+      arsenal: p ? this.arsenalView(room, p) : null,
+    });
+  }
+
+  async arm(ws, uid, msg) {
+    const room = this.room;
+    const p = room?.players?.[uid];
+    if (!p) return;
+    const key = String(msg.key || "");
+    const spec = ARSENALS.links[key];
+    if (!spec) return this.sendTokens(ws, uid, false, "No such token.");
+    const a = this.arsOf(p);
+    if (spec.max && (a.armed[key] || 0) >= spec.max) return this.sendTokens(ws, uid, false, `${spec.max} ${spec.name} is the limit for one round.`);
+    const held = (await heldTokens(this.env, uid))[key] || 0;
+    if (held <= (a.armed[key] || 0)) return this.sendTokens(ws, uid, false, `You hold no more ${spec.name} tokens. The Token shop sells them.`);
+    a.armed[key] = (a.armed[key] || 0) + 1;
+    await this.save();
+    await this.sendTokens(ws, uid, false);
+  }
+
+  async disarm(ws, uid, msg) {
+    const p = this.room?.players?.[uid];
+    if (!p) return;
+    const key = String(msg.key || "");
+    const a = this.arsOf(p);
+    if (this.armedLeft(p, key) <= 0) return this.sendTokens(ws, uid, false, "Nothing to put back.");
+    a.armed[key] -= 1;
+    if (!a.armed[key]) delete a.armed[key];
+    await this.save();
+    await this.sendTokens(ws, uid, false);
+  }
+
+  /** Firing one. Everything that changes the hole in play happens here. */
+  async useArsenal(ws, uid, msg) {
+    const room = this.room;
+    const p = room?.players?.[uid];
+    if (!p) return;
+    if (room.phase !== "PLAYING" || p.done) return this.send(ws, "LINKS_REJECT", { why: "No round is running." });
+    const action = String(msg.action || "");
+    const key = {
+      mulligan: "gf_mulligan", hint: "gf_hint", finder: "gf_finder", relief: "gf_relief",
+      gimme: "gf_gimme", practice: "gf_practice", fitting: "gf_fitting", bounce: "gf_bounce",
+      local: "gf_local", club: "gf_club", drop: "gf_drop", tees: "gf_tees",
+      double: "gf_double", eagle: "gf_eagle", pencil: "gf_pencil", wind: "gf_wind",
+      book: "gf_book", ace: "gf_ace",
+    }[action];
+    if (!key) return this.send(ws, "LINKS_REJECT", { why: "Unrecognised action." });
+    if (this.armedLeft(p, key) <= 0) return this.send(ws, "LINKS_REJECT", { why: `No ${ARSENALS.links[key].name} armed. Arm one under Apply Token.` });
+
+    const a = this.arsOf(p);
+    const hole = room.board[p.hole];
+    const word = this.wordAt(room, p);
+    const multi = this.wordsFor(room, p) > 1;
+    const par = this.parFor(room, p);
+    const wkey = `${p.hole}:${p.wordIndex}`;
+    const atTee = p.strokes === 0 && p.wordIndex === 0 && !(p.guesses || []).length;
+    const out = {};
+    let note = "";
+
+    if (action === "mulligan") {
+      if (p.strokes <= 0) return this.send(ws, "LINKS_REJECT", { why: "No stroke to take back yet." });
+      p.strokes -= 1;
+      note = "Mulligan: one stroke back.";
+    } else if (action === "hint" || action === "local") {
+      const shown = new Set(p.hints[wkey] || []);
+      const pick = [];
+      if (action === "local") {
+        for (const i of [0, word.answer.length - 1]) if (!shown.has(i)) pick.push(i);
+      } else {
+        const free = [...word.answer].map((_, i) => i).filter((i) => !shown.has(i));
+        if (free.length) pick.push(free[Math.floor(Math.random() * free.length)]);
+      }
+      if (!pick.length) return this.send(ws, "LINKS_REJECT", { why: "Nothing left to show on this word." });
+      p.hints[wkey] = [...shown, ...pick];
+      note = action === "local" ? "Local Knowledge: the first and last letters." : "Caddie's Hint: one letter placed.";
+    } else if (action === "finder") {
+      if (room.diff !== "hard" || p.wordIndex >= 2) return this.send(ws, "LINKS_REJECT", { why: "The clue is already yours on this word." });
+      a.finder[wkey] = true;
+      note = "Range Finder: the clue, early.";
+    } else if (action === "relief") {
+      if (a.relief) return this.send(ws, "LINKS_REJECT", { why: "Relief is already taken on this hole." });
+      a.relief = true;
+      note = "Ground Under Repair: the next word you lose costs one stroke, not two.";
+    } else if (action === "gimme") {
+      p.strokes = par;
+      p.guesses = [];
+      this.useToken(p, key);
+      await this.holeOut(p, room, out);
+      await this.save();
+      this.send(ws, "LINKS_MARK", { ...out, marks: [], solved: false, ball: 1, strokes: par, gimme: true });
+      this.send(ws, "LINKS_NOTE", { text: "Gimme: the hole is conceded at par." });
+      this.send(ws, "LINKS_ARSENAL_STATE", { arsenal: this.arsenalView(room, p) });
+      this.pushAll();
+      return;
+    } else if (action === "practice") {
+      if (a.practice) return this.send(ws, "LINKS_REJECT", { why: "A practice swing is already lined up." });
+      a.practice = true;
+      note = "Practice Swing: your next guess is not a stroke.";
+    } else if (action === "fitting") {
+      const pool = poolFor(room.dict, hole.len, room.diff);
+      const taken = new Set([word.answer]);
+      let pick = null;
+      for (let i = 0; i < 80 && !pick; i++) {
+        const c = pool[Math.floor(Math.random() * pool.length)];
+        if (!taken.has(c[0])) pick = c;
+      }
+      if (!pick) return this.send(ws, "LINKS_REJECT", { why: "No other word of that length to hand." });
+      p.swapped[wkey] = { answer: pick[0], clue: pick[1], scrambled: scramble(pick[0]) };
+      p.guesses = [];
+      delete p.hints[wkey];
+      note = "Club Fitting: a new word, same length.";
+    } else if (action === "bounce") {
+      if (a.bounce) return this.send(ws, "LINKS_REJECT", { why: "This hole is already covered." });
+      a.bounce = true;
+      note = "Lucky Bounce: this hole will score no worse than par.";
+    } else if (action === "club") {
+      a.extra += 2;
+      note = "Extra Club: two more guesses on this word.";
+    } else if (action === "drop") {
+      if (!multi) p.strokes = Math.max(0, p.strokes - (p.guesses || []).length);
+      p.guesses = [];
+      a.extra = 0;
+      note = "Drop Zone: the word starts again, and the strokes it cost are gone.";
+    } else if (action === "tees") {
+      if (p.hole + 1 >= room.holes) return this.send(ws, "LINKS_REJECT", { why: "There is no next hole." });
+      if (DIFF[room.diff].words === 1) return this.send(ws, "LINKS_REJECT", { why: "These are already the forward tees." });
+      a.easyHole = p.hole + 1;
+      note = `Preferred Lies: hole ${p.hole + 2} is played from one tee forward.`;
+    } else if (action === "double") {
+      if (!atTee) return this.send(ws, "LINKS_REJECT", { why: "Double Down is declared on the tee, before you swing." });
+      if (a.double) return this.send(ws, "LINKS_REJECT", { why: "This hole is already doubled." });
+      a.double = true;
+      note = "Double Down: par or better doubles this hole, worse halves it.";
+    } else if (action === "eagle") {
+      if (a.eagle) return this.send(ws, "LINKS_REJECT", { why: "Eagle Eye is already watching." });
+      a.eagle = true;
+      note = "Eagle Eye: your next hole under par pays double.";
+    } else if (action === "pencil") {
+      if (a.pencil) return this.send(ws, "LINKS_REJECT", { why: "The pencil is already out." });
+      a.pencil = true;
+      note = "Scorecard Pencil: your worst hole comes off the card at the end.";
+    } else if (action === "wind") {
+      out.reveal = word.answer;
+      note = "Wind Gauge: the letters, in order, for two seconds.";
+    } else if (action === "book") {
+      const ahead = [];
+      for (let h = p.hole + 1; h < Math.min(room.holes, p.hole + 4); h++) {
+        const w = room.board[h]?.words[0];
+        if (w) ahead.push({ no: h + 1, clue: w.clue, len: room.board[h].len });
+      }
+      if (!ahead.length) return this.send(ws, "LINKS_REJECT", { why: "There is nothing left to read ahead." });
+      a.book = ahead;
+      note = "Caddie's Book: the next holes, read ahead.";
+    } else if (action === "ace") {
+      if (a.ace) return this.send(ws, "LINKS_REJECT", { why: "Ace Chaser is already on." });
+      a.ace = true;
+      note = "Ace Chaser: your next ace pays 150.";
+    }
+
+    this.useToken(p, key);
+    await this.save();
+    if (Object.keys(out).length) this.send(ws, "LINKS_MARK", { marks: [], solved: false, ball: p.ball, strokes: p.strokes, ...out });
+    this.send(ws, "LINKS_NOTE", { text: note });
+    this.send(ws, "LINKS_ARSENAL_STATE", { arsenal: this.arsenalView(room, p) });
+    this.pushAll();
   }
 
   /* ── the round ─────────────────────────────────────────────────── */
@@ -137,7 +378,9 @@ export class LinksCourse {
     room.startedAt = Date.now();
     room.roundNo += 1;
     for (const p of Object.values(room.players)) {
+      const armed = { ...this.arsOf(p).armed };
       Object.assign(p, this.freshPlayer(p.uid, p.name));
+      p.ars.armed = armed;
     }
 
     // Ratings are read once, at the off. Everything the curve needs — how
@@ -164,27 +407,35 @@ export class LinksCourse {
     const hole = room.board[p.hole];
     if (!hole) return null;
     const course = courseById(room.courseId);
-    const multi = DIFF[room.diff].words > 1;
+    const words = this.wordsFor(room, p);
+    const multi = words > 1;
+    const a = this.arsOf(p);
+    const wkey = `${p.hole}:${p.wordIndex}`;
+    const word = this.wordAt(room, p);
+    // A hint is a position and the letter standing in it — never the word.
+    const hints = (p.hints?.[wkey] || []).map((i) => ({ i, ch: word?.answer[i] })).filter((h) => h.ch);
     return {
       no: p.hole + 1,
       name: course.names?.[p.hole] || null,
       yards: course.yards[p.hole],
       cardPar: hole.par,
-      par: multi ? DIFF[room.diff].words : hole.par,
+      par: multi ? words : hole.par,
       len: hole.len,
       hazard: course.haz?.[p.hole] || null,
       // The clue, but never the word. On the hard tee it is withheld until
-      // two words are behind you, exactly as the single-player game had it.
-      clue: (room.diff === "hard" && p.wordIndex < 2) ? null : hole.words[p.wordIndex]?.clue,
+      // two words are behind you, unless a Range Finder bought it early.
+      clue: (room.diff === "hard" && p.wordIndex < 2 && !a.finder?.[wkey]) ? null : word?.clue,
       // The letters, in the order they were dealt. The answer is these
       // letters put right, and it is the one thing this view never carries.
-      scrambled: hole.words[p.wordIndex]?.scrambled || null,
+      scrambled: word?.scrambled || null,
       wordIndex: p.wordIndex,
-      wordsTotal: DIFF[room.diff].words,
-      maxGuesses: maxGuesses(hole.par, room.diff),
+      wordsTotal: words,
+      maxGuesses: maxGuesses(hole.par, room.diff) + (a.extra || 0),
       guesses: p.guesses,
       strokes: p.strokes,
       ball: p.ball,
+      hints,
+      forward: a.easyHole === p.hole,
     };
   }
 
@@ -195,7 +446,8 @@ export class LinksCourse {
 
     const hole = room.board[p.hole];
     if (!hole) return;
-    const word = hole.words[p.wordIndex];
+    const word = this.wordAt(room, p);
+    const a = this.arsOf(p);
     const g = String(msg.word || "").toUpperCase().replace(/[^A-Z]/g, "");
 
     if (g.length !== hole.len) return this.send(ws, "LINKS_REJECT", { why: "wrong length" });
@@ -208,41 +460,50 @@ export class LinksCourse {
     const marks = evaluate(g, word.answer);
     const q = placed(marks);
     const solved = g === word.answer;
-    const multi = DIFF[room.diff].words > 1;
+    const words = this.wordsFor(room, p);
+    const multi = words > 1;
 
-    p.guesses.push({ word: g, marks });
+    // A practice swing costs nothing: no stroke, and it does not eat a guess.
+    const practice = !!a.practice;
+    if (practice) a.practice = false;
+    if (!practice) p.guesses.push({ word: g, marks });
 
     // Easy counts every guess as a stroke. The multi-word tees count each word
     // solved as one shot down the fairway, so the ball only moves on a solve.
-    if (!multi) p.strokes += 1;
+    if (!multi && !practice) p.strokes += 1;
     p.ball = multi
-      ? (p.wordIndex + (solved ? 1 : 0)) / DIFF[room.diff].words
+      ? (p.wordIndex + (solved ? 1 : 0)) / words
       : Math.max(p.ball, q);
 
-    const out = { marks, solved, ball: p.ball, strokes: p.strokes };
+    const out = { marks, solved, ball: p.ball, strokes: p.strokes, practice };
 
     if (solved) {
       if (multi) {
         p.strokes += 1;
         p.wordIndex += 1;
         p.guesses = [];
-        if (p.wordIndex >= DIFF[room.diff].words) await this.holeOut(p, room, out);
+        a.extra = 0;
+        if (p.wordIndex >= words) await this.holeOut(p, room, out);
         else out.nextWord = true;
       } else {
         await this.holeOut(p, room, out);
       }
-    } else if (p.guesses.length >= maxGuesses(hole.par, room.diff)) {
+    } else if (p.guesses.length >= maxGuesses(hole.par, room.diff) + (a.extra || 0)) {
       // Out of guesses on this word. In the single-word game that is the hole
       // conceded; in the multi-word tees it costs a shot and moves you on.
+      // Relief, if it was taken, softens whichever of the two lands.
+      const relief = a.relief;
+      if (relief) { a.relief = false; out.relief = true; }
       if (multi) {
-        p.strokes += 2;                       // a penalty, not a free pass
+        p.strokes += relief ? 1 : 2;          // a penalty, not a free pass
         p.wordIndex += 1;
         p.guesses = [];
+        a.extra = 0;
         out.conceded = word.answer;
-        if (p.wordIndex >= DIFF[room.diff].words) await this.holeOut(p, room, out);
+        if (p.wordIndex >= words) await this.holeOut(p, room, out);
         else out.nextWord = true;
       } else {
-        p.strokes = (multi ? DIFF[room.diff].words : hole.par) + 3;
+        p.strokes = hole.par + (relief ? 1 : 3);
         out.conceded = word.answer;
         await this.holeOut(p, room, out);
       }
@@ -250,18 +511,34 @@ export class LinksCourse {
 
     await this.save();
     this.send(ws, "LINKS_MARK", out);
+    this.send(ws, "LINKS_ARSENAL_STATE", { arsenal: this.arsenalView(room, p) });
     this.pushAll();
   }
 
   async holeOut(p, room, out) {
     const hole = room.board[p.hole];
-    const par = DIFF[room.diff].words > 1 ? DIFF[room.diff].words : hole.par;
-    const gained = Math.round(pointsFor(p.strokes, par) * DIFF[room.diff].mult);
+    const a = this.arsOf(p);
+    const par = this.parFor(room, p);
+    // Lucky Bounce first: it changes the score the hole is judged on, and
+    // everything after reads that. An ace is an ace whatever else is on.
+    let strokes = p.strokes;
+    const marks = [];
+    if (a.bounce && strokes > par) { strokes = par; marks.push("bounce"); }
+    let raw = strokes === 1 && a.ace ? 150 : pointsFor(strokes, par);
+    if (strokes === 1 && a.ace) { a.ace = false; marks.push("ace"); }
+    if (a.eagle && strokes < par) { raw *= 2; a.eagle = false; marks.push("eagle"); }
+    if (a.double) { raw = strokes <= par ? raw * 2 : Math.round(raw / 2); a.double = false; marks.push(strokes <= par ? "double" : "halved"); }
+    const gained = Math.round(raw * DIFF[room.diff].mult);
 
-    p.card.push({ hole: p.hole + 1, par, strokes: p.strokes, points: gained });
+    p.card.push({ hole: p.hole + 1, par, strokes, points: gained, ...(marks.length ? { marks } : {}) });
     p.points += gained;
-    out.holed = { par, strokes: p.strokes, name: scoreName(p.strokes, par), points: gained };
+    out.holed = { par, strokes, name: scoreName(strokes, par), points: gained, marks };
 
+    a.bounce = false;
+    a.relief = false;
+    a.practice = false;
+    a.extra = 0;
+    a.book = [];
     p.hole += 1;
     p.wordIndex = 0;
     p.strokes = 0;
@@ -292,9 +569,27 @@ export class LinksCourse {
    * are real cards to look at, move it so a good round sits high but rare.
    */
   scoreOf(room, p) {
-    const parPoints = p.card.reduce((a, h) => a + pointsFor(h.par, h.par), 0);
+    const card = this.cardOf(p);
+    const parPoints = card.reduce((a, h) => a + pointsFor(h.par, h.par), 0);
     if (parPoints <= 0) return 0;
-    return Math.max(0, Math.min(100, Math.round((p.points / parPoints) * 50)));
+    const points = card.reduce((a, h) => a + h.points, 0);
+    return Math.max(0, Math.min(100, Math.round((points / parPoints) * 50)));
+  }
+
+  /**
+   * The card a round is scored on. A Scorecard Pencil strikes the worst hole
+   * from it — the hole itself and the par it was played against, so what is
+   * left still reads as a round of golf.
+   */
+  cardOf(p) {
+    const card = p.card || [];
+    if (!this.arsOf(p).pencil || card.length < 2) return card;
+    let worst = 0;
+    for (let i = 1; i < card.length; i++) {
+      const w = card[worst], h = card[i];
+      if (h.points < w.points || (h.points === w.points && (h.strokes - h.par) > (w.strokes - w.par))) worst = i;
+    }
+    return card.filter((_, i) => i !== worst);
   }
 
   async finish(room, status) {
@@ -330,12 +625,13 @@ export class LinksCourse {
         seed: p.seed || null,
         // The golf card stays on the result: it is what the player wants to
         // read, even though the ladder only ever sees `score`.
-        points: p.points,
+        points: this.cardOf(p).reduce((n, h) => n + h.points, 0),
+        spent: p.ars?.used && Object.keys(p.ars.used).length ? { ...p.ars.used } : undefined,
         status: p.done ? "finished" : "ended",
         elapsedMs: Date.now() - room.startedAt,
-        toPar: p.card.reduce((a, h) => a + (h.strokes - h.par), 0),
-        holes: p.card.length,
-        aces: p.card.filter((h) => h.strokes === 1).length,
+        toPar: this.cardOf(p).reduce((a, h) => a + (h.strokes - h.par), 0),
+        holes: this.cardOf(p).length,
+        aces: this.cardOf(p).filter((h) => h.strokes === 1).length,
         mmrBefore: p.mmrAtStart || 0,
         gain: gain.total, boost: !!p.boost,
         breakdown: { base: gain.base, challenge: gain.challenge, completion: gain.completion, seed: gain.seed },
@@ -346,6 +642,17 @@ export class LinksCourse {
     });
 
     room.applied = {};
+    // What the arsenal used is spent by the record write; what was armed and
+    // never fired stays armed for the next round in this room. Saved before
+    // anything is broadcast, so a sleeping object cannot lose the spend.
+    for (const p of field) {
+      const ars = this.arsOf(p);
+      for (const [k, n] of Object.entries(ars.used)) {
+        ars.armed[k] = Math.max(0, (ars.armed[k] || 0) - n);
+        if (!ars.armed[k]) delete ars.armed[k];
+      }
+      ars.used = {};
+    }
     await this.save();
     this.pushAll();
     this.broadcast("LINKS_OVER", { results, status, mode });
@@ -479,15 +786,11 @@ export class LinksCourse {
       if (msg.type === "LINKS_GUESS") return void await this.guess(server, uid, msg);
       if (msg.type === "LINKS_END") return void await this.finish(this.room, "ended");
       if (msg.type === "PING") { this.announce(); return; }
-      if (msg.type === "TOKENS" || msg.type === "APPLY_TOKEN") {
-        const room = this.room;
-        room.applied = room.applied || {};
-        const reply = await tokensReply(this.env, uid, "links", {
-          applied: room.applied, over: room.phase === "OVER", apply: msg.type === "APPLY_TOKEN",
-        });
-        if (reply.changed) await this.save();
-        return void this.send(server, "LINKS_TOKENS", reply);
-      }
+      if (msg.type === "TOKENS" || msg.type === "APPLY_TOKEN")
+        return void await this.sendTokens(server, uid, msg.type === "APPLY_TOKEN");
+      if (msg.type === "ARM_TOKEN") return void await this.arm(server, uid, msg);
+      if (msg.type === "DISARM_TOKEN") return void await this.disarm(server, uid, msg);
+      if (msg.type === "LINKS_ARSENAL") return void await this.useArsenal(server, uid, msg);
     });
 
     const drop = async () => {

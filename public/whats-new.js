@@ -17,6 +17,16 @@ export const KEEP_DAYS = 7;
 
 export const UPDATES = [
   {
+    at: "2026-09-22T05:00:00Z",
+    where: "Multiverse Golf",
+    title: "The golf arsenal",
+    text: "Eighteen tokens for Multiverse Golf: a Mulligan takes a stroke back, a Gimme concedes the hole "
+      + "at par, Caddie's Hint and Local Knowledge place letters, Lucky Bounce caps a bad hole at par, "
+      + "Double Down and Eagle Eye and Ace Chaser pay out on a good one, and the Scorecard Pencil strikes "
+      + "your worst hole from the card. Arm them under \u26A1 Apply Token, fire them from the strip above "
+      + "the hole. Only what you use is spent.",
+  },
+  {
     at: "2026-09-21T20:30:00Z",
     where: "Token shop",
     title: "Every token is a tenth of the price",

@@ -730,6 +730,10 @@ function drawMyRank() {
   $("pb-star").title = rank ? `${rank.name}, ${rank.branch.name}` : "Not yet earned";
 
   $("pb-avatar").innerHTML = framedHtml(avatarHtml(S.avatar, 56, giSvg), S.frame, 56, true);
+  // An earned frame is the ring. The button stops drawing its own when one
+  // is worn, so the two don't sit one inside the other with a disc of the
+  // card's own backdrop showing between them.
+  $("pb-avatar").classList.toggle("has-frame", !$("pb-avatar").querySelector(".af-none"));
   const top = atTop(branch, p);
   $("btn-prestige").hidden = mmr < PRESTIGE_COST || top;
   $("btn-retire").hidden = !top;

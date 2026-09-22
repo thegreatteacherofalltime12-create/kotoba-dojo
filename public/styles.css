@@ -3103,6 +3103,12 @@ a.dtab { text-decoration: none; display: inline-block; }
   transition: transform .12s ease, box-shadow .15s ease;
 }
 .pb-avatar:hover { transform: scale(1.04); box-shadow: 0 0 0 2px #0b1420, 0 0 0 4px #F4CE5A, 0 0 18px rgba(244,206,90,.45); }
+/* A worn frame is the only ring: the button drops its border, its backdrop
+   and its glow, and the frame fills it. The size the markup carries inline
+   is overridden here so the ring grows with the button at every width. */
+.pb-avatar.has-frame { border: none; background: none; box-shadow: none; }
+.pb-avatar.has-frame .af, .pb-avatar.has-frame .av { --s: 78px !important; }
+.pb-avatar.has-frame:hover { box-shadow: 0 0 18px rgba(244,206,90,.45); }
 .pb-avatar svg { display: block; width: 64px; height: 64px; }
 .pb-stats { display: flex; flex-direction: column; align-items: flex-end; text-align: right; gap: .1rem; }
 .playerbox .pb-label { font-size: .58rem; letter-spacing: .2em; color: #C7D2DC; margin: 0; }
@@ -3135,6 +3141,7 @@ a.dtab { text-decoration: none; display: inline-block; }
 @media (max-width: 700px) {
   .playerbox { width: 176px; top: 8px; right: 8px; padding: .4rem .5rem .45rem; }
   .pb-avatar { width: 54px; height: 54px; border-width: 2px; }
+  .pb-avatar.has-frame .af, .pb-avatar.has-frame .av { --s: 54px !important; }
   .pb-avatar svg { width: 44px; height: 44px; }
   .playerbox .whoami { font-size: .78rem; }
   .playerbox .pb-amount { font-size: 1.05rem; }

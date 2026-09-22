@@ -22,7 +22,7 @@ import { enterCasino, leaveCasino, bindCasino } from "./casino.js";
 import { casinoRulesHtml } from "./game-modes.js";
 import { UPDATES, PULSE_HOURS, KEEP_DAYS } from "./whats-new.js";
 import { BRANCHES, branchOf, rankOf, atTop, rankLabel } from "./ranks.js";
-import { applyTokenTab, GAME_ARSENALS, shopItem } from "./boost.js";
+import { applyTokenTab, GAME_ARSENALS, shopItem, WORD_ARSENAL_ITEMS } from "./boost.js";
 
 /**
  * True where typing summons an on-screen keyboard. Three tests rather than
@@ -1385,13 +1385,14 @@ function drawRuleBelts(tab = "arena") {
 
   if (tab === "modes") {
     $("drawer-rules").innerHTML = shell(`
-      <p class="panel-sub">Every game in the arena. Tap one for how it is played and how it scores.</p>
+      <p class="panel-sub">Every game in the arena \u2014 and <b>every one of them can be played on your own</b>. Tap a game for how it is played and how it scores.</p>
       <div class="gamegrid rules-games">
         ${GAME_RULES.map((g) => `
           <button class="gamepick" data-game-rules="${g.id}">
             <span class="gp-ico">${g.icon}</span>
             <span class="gp-name">${g.name}</span>
             <span class="gp-players">${g.players}</span>
+            <span class="gp-solo">${g.solo}</span>
           </button>`).join("")}
       </div>`);
     bindRuleTabs();
@@ -1718,6 +1719,17 @@ function tokensRules() {
         "The Casino boost is spent the moment it's applied and boosts <b>every casino win for the rest of the day</b> (UTC). The daily cap still stands.",
         "The feed marks a boosted win with \u26A1.",
       ])}
+      ${box("\u{1F520} The Word-Cross Arsenal", [
+        "Eighteen tokens, priced in casino money. Arm them under <b>\u26A1 Apply Token</b>; fire them from the Arsenal strip above the grid. Each is capped per round; only what you use is spent, and the rest stays armed for the next round in that dojo.",
+        "<b>Free Letter</b> ($300, 8): shows one letter of the entry you are on. <b>Word Shape</b> ($500, 5): its first and last. <b>First Letters</b> ($1,200, 2): the opening letter of every entry left.",
+        "<b>Anagram Sheet</b> ($800, 4): that entry's letters, scrambled. <b>Spellcheck</b> ($900, 4): marks what you have typed, letter by letter \u2014 right letter right place, right letter wrong place.",
+        "<b>Sensei's Eye</b> ($600, 3): names the unsolved entry that crosses the most others. <b>Theme Reading</b> ($200, 2): names the scroll.",
+        "<b>Random Gift</b> ($1,500, 4) solves one entry for you; <b>Shortest Straw</b> ($1,200, 3) takes the shortest; <b>Free Word</b> ($2,500, 3) takes the one you point at; <b>Last Word</b> ($900, 2) closes the grid when one is left.",
+        "<b>Cascade</b> ($4,000, 1): solves the entry you point at, then every entry its crossings complete \u2014 which on a tight grid can be most of what is left.",
+        "<b>Head Start</b> ($1,000, 3): your clock reads 45 seconds earlier when the round is scored. <b>Perfect Ink</b> ($3,000, 1): finish, and the round scores no lower than 75. <b>Double Ink</b> ($2,600, 2): \u00d71.25 on the score. <b>Salvage</b> ($1,400, 2): a round you do not finish scores as if you had solved two more.",
+        "<b>Fast Hands</b> ($400, 2): the typing rate limit is lifted for the round. <b>Quiet Grid</b> ($700, 3): the field stops seeing you close.",
+        "Those last four change what the round is worth, so they lift your MMR.",
+      ])}
       ${box("\u2622\uFE0F The Battleship Arsenal", [
         "Eighteen tokens, priced in casino money: Nuke Missile ($50,000), Extra Shots ($2,500), Extra Ships ($500), Tactical Air Strike ($3,500), Air Strike Defence ($4,000), Air Strike Reveal ($1,300) and Submarine Torpedo ($143), and the nine below.",
         "Inside a battle, open <b>\u26A1 Apply Token</b> to <b>arm</b> them: at most <b>six</b> tokens a battle, and at most <b>two</b> nukes. Armed tokens appear on the <b>Arsenal strip</b> above the target list; that is where they are fired.",
@@ -1780,8 +1792,9 @@ function tokensRules() {
 // tab shows them as a grid; each opens over the rule book on its own.
 const GAME_RULES = [
   {
-    id: "crossword", icon: "\u{1F520}", name: "Word-Cross", players: "1 or more \u00b7 ranked",
+    id: "crossword", icon: "\u{1F520}", name: "Word-Cross", players: "1 or more \u00b7 ranked", solo: "\u2713 SOLO TRAINING",
     play: [
+      "<b>Solo Training \u2014 yes, you can play this alone.</b> One solver, the same grid, the same fifteen-minute clock, and it scores and pays MMR exactly as a match does. Switch it on in the host controls before you begin.",
       "The host (the <b>sensei</b>) picks a scroll \u2014 a ten-word crossword from the bank or one a player published \u2014 and begins the round. Everyone solves the same grid at once.",
       "Tap a clue or a square, type the word, and the arena checks it: a right answer locks in, a wrong one flashes. Every entry is checked on the server, never guessed on your phone.",
       "<b>Solo Training</b> is you against the clock on the same terms. <b>Rumble</b> is three or more solvers; placement counts.",
@@ -1794,8 +1807,9 @@ const GAME_RULES = [
     ],
   },
   {
-    id: "battleship", icon: "\u2693", name: "Battleship Royale", players: "2 to 8, or solo vs 1\u20135 AI",
+    id: "battleship", icon: "\u2693", name: "Battleship Royale", players: "2 to 8 captains", solo: "\u2713 SOLO VS 1\u20135 AI",
     play: [
+      "<b>Solo Match \u2014 yes, you can play this alone.</b> You against one to five computer captains at one difficulty, and it scores and pays MMR exactly as a battle between people does.",
       "Three charts: <b>Skirmish</b> (10\u00d710, 5 ships, 2 shots a turn), <b>Fleet Action</b> (15\u00d715, 7 ships, 4 shots) and <b>Open Ocean</b> (20\u00d720, 9 ships, 5 shots). The host picks before fleets are laid.",
       "Lay your fleet by hand or press Random. Turns go round the table; on yours, pick your squares on one or more captains' water and fire. Split the shots however you like \u2014 or all on one.",
       "<b>Rotation:</b> with more than three opponents you must fire at three others before coming back to the same captain, so nobody can be ganged up on. The AI obeys it too.",
@@ -1809,8 +1823,9 @@ const GAME_RULES = [
     ],
   },
   {
-    id: "minesweeper", icon: "\u{1F4A3}", name: "Minesweeper", players: "1 or more \u00b7 race",
+    id: "minesweeper", icon: "\u{1F4A3}", name: "Minesweeper", players: "1 or more \u00b7 a race", solo: "\u2713 SOLO SWEEP",
     play: [
+      "<b>Solo Sweep \u2014 yes, you can play this alone.</b> One sweeper against the clock on the same field, scored and paid exactly as a race is.",
       "Three fields: <b>Beginner</b> (9\u00d79, 10 mines), <b>Intermediate</b> (16\u00d716, 40 mines) and <b>Expert</b> (16\u00d730, 99 mines). Everyone in the room sweeps the same field; the opening square is safe and already cleared.",
       "Tap to dig, long-press or right-click to flag. A number is how many mines touch that square. Dig a mine and your sweep ends where it stands.",
       "<b>Solo Sweep</b> is you against the clock. In a race the first to clear wins; the round caps at <b>10 minutes</b>.",
@@ -1823,8 +1838,9 @@ const GAME_RULES = [
     ],
   },
   {
-    id: "links", icon: "\u26F3", name: "Multiverse Golf", players: "1 or more \u00b7 18 holes",
+    id: "links", icon: "\u26F3", name: "Multiverse Golf", players: "1 or more \u00b7 18 holes", solo: "\u2713 SOLO ROUND",
     play: [
+      "<b>Solo \u2014 yes, you can play this alone.</b> Eighteen holes on your own, chosen under Playing before you go to the tee, scored and paid exactly as a room is.",
       "Eighteen holes on one of six real courses \u2014 Augusta, Pebble Beach, St Andrews, Sawgrass, Royal Melbourne, Kiawah \u2014 or a random draw. Pick your tees and a dictionary (Webster 1828 or Modern).",
       "Each hole is a word: the letters are dealt scrambled with a clue. <b>Unscramble the letters to score a hole in one.</b> Every guess is a stroke; the ball moves down the fairway with each one.",
       "<b>Easy:</b> one word to hole out, the first letter shown, familiar words, no hazards. <b>Medium:</b> five words a hole, par 5, hazards live. <b>Hard:</b> eight words, par 8, one guess fewer, no clue until you've played two.",
@@ -1837,8 +1853,9 @@ const GAME_RULES = [
     ],
   },
   {
-    id: "casino", icon: "\u{1F3B0}", name: "The Casino", players: "the whole arena \u00b7 one floor",
+    id: "casino", icon: "\u{1F3B0}", name: "The Casino", players: "the whole arena \u00b7 one floor", solo: "\u2713 PLAY ALONE",
     play: [
+      "<b>Yes, you can play this alone.</b> The floor is shared, but nothing on it needs anyone else \u2014 the arcade, the horse race and every table can be played on your own, for the same MMR.",
       "One shared floor. You walk in with <b>$100</b> and no table tokens; <b>Earn Money</b> opens the maths arcade, where every solved puzzle pays $5\u201315 to the table and a table token \u2014 and the quickest MMR in the arena.",
       "<b>Horse Race:</b> free to enter, cash wagers from 1:1 to 24:1, place a bet and start the race.",
       "<b>Table Card Games</b> open at $50 and 2 table tokens: blackjack, baccarat, roulette, Big Six, hold'em and more. Every table plays the same dealer.",
@@ -3296,6 +3313,7 @@ function selectFrom(key) {
 
 function setCurrent(entryId, idx) {
   S.cur = { entryId, idx };
+  drawDojoArsenal();
   const e = S.entries.get(entryId);
   if (e) {
     $("cb-num").textContent = `${e.num}${e.dir === "across" ? "A" : "D"}`;
@@ -3553,7 +3571,7 @@ function sendMsg(obj) {
 
 // The Apply Token tab of the dojo. The room answers TOKENS; a scored round
 // clears what was applied, so the light goes out with it.
-const dojoTokens = applyTokenTab({ game: "crossword", send: sendMsg, button: $("btn-dojo-boost"), label: "round" });
+const dojoTokens = applyTokenTab({ game: "crossword", send: sendMsg, button: $("btn-dojo-boost"), label: "round", arsenal: WORD_ARSENAL_ITEMS });
 
 $("btn-leave").onclick = () => {
   if (S.puzzle && !confirm("End the match and take the MMR you've earned so far?")) return;
@@ -3586,6 +3604,7 @@ function handle(msg) {
 
     case "ROUND_START":
       startRound(msg);
+      sendMsg({ type: "TOKENS" });
       break;
 
     case "ROUND_RESUME":
@@ -3593,7 +3612,7 @@ function handle(msg) {
       break;
 
     case "CHECK_RESULT":
-      if (msg.correct) markSolved(msg.entryId);
+      if (msg.correct) { if (msg.gift) fillEntry(msg.entryId, msg.word); markSolved(msg.entryId); }
       else flashWrong(msg.entryId);
       break;
 
@@ -3612,6 +3631,31 @@ function handle(msg) {
 
     case "TOKENS":
       dojoTokens.receive(msg);
+      if (msg.arsenal) { S.ars = msg.arsenal; drawDojoArsenal(); }
+      break;
+
+    case "ARSENAL_STATE":
+      S.ars = msg.arsenal;
+      dojoTokens.arsenalState(msg.arsenal);
+      paintArsenal();
+      drawDojoArsenal();
+      break;
+
+    case "ARSENAL_NOTE":
+      feed(escapeHtml(msg.text), true);
+      say("dojo-error", msg.text);
+      break;
+
+    case "ARSENAL_ANAGRAM":
+      feed(`<b>Anagram</b> — ${escapeHtml(msg.letters)}`, true);
+      break;
+
+    case "ARSENAL_SPELL":
+      showSpell(msg);
+      break;
+
+    case "ARSENAL_POINT":
+      pointAt(msg.entryId);
       break;
 
     case "PUZZLE_ACCEPTED":
@@ -3623,6 +3667,101 @@ function handle(msg) {
       else say("dojo-error", msg.message);
       break;
   }
+}
+
+// ── the arsenal ─────────────────────────────────────────────────────
+//
+// One button per armed token with uses left. The ones that work on an entry
+// use whichever entry you are on; the rest fire where they stand.
+function drawDojoArsenal() {
+  const host = $("dojo-arsenal");
+  if (!host) return;
+  const a = S.ars;
+  const left = (k) => (a?.armed?.[k] || 0) - (a?.used?.[k] || 0);
+  const any = a && a.playing && WORD_ARSENAL_ITEMS.some((t) => left(t.key) > 0);
+  host.hidden = !any;
+  host.textContent = "";
+  if (!any) return;
+
+  host.append(el("span", "ars-label", "Arsenal"));
+  for (const t of WORD_ARSENAL_ITEMS) {
+    const n = left(t.key);
+    if (n <= 0) continue;
+    const on = (t.act === "perfect" && a.perfect) || (t.act === "fast" && a.fast) || (t.act === "quiet" && a.quiet);
+    const off = on
+      || (t.aim === "entry" && !S.cur)
+      || (t.act === "last" && a.left !== 1);
+    const short = t.name.replace("Sensei's ", "").replace(" Sheet", "").replace(" Reading", "");
+    const b = el("button", "ars-btn" + (on ? " on" : ""), `${t.icon} ${short} \u00d7${n}`);
+    b.type = "button";
+    b.disabled = !!off;
+    b.title = off && t.aim === "entry" ? "Pick an entry first" : t.blurb;
+    b.onclick = () => {
+      if (!window.confirm(`${t.name}? ${t.blurb}`)) return;
+      const body = { type: "USE_TOKEN", action: t.act };
+      if (t.aim === "entry") body.entryId = S.cur?.entryId;
+      if (t.act === "spell") body.guess = typedWord(S.cur?.entryId);
+      sendMsg(body);
+    };
+    host.append(b);
+  }
+  const flags = [];
+  if (a.head) flags.push(`${Math.round(a.head / 1000)}s off the clock`);
+  if (a.perfect) flags.push("Perfect Ink");
+  if (a.double) flags.push(`Double Ink \u00d7${(1.25 ** a.double).toFixed(2)}`);
+  if (a.salvage) flags.push(`Salvage +${a.salvage}`);
+  if (a.fast) flags.push("Fast Hands");
+  if (a.quiet) flags.push("Quiet Grid");
+  if (flags.length) host.append(el("p", "ars-hint", flags.join(" \u00b7 ")));
+  if (a.reports?.length)
+    host.append(el("p", "ars-hint ars-intel", a.reports.map((x) => x.text).join("  \u00b7  ")));
+}
+
+/** What is typed in an entry right now, for the spellcheck. */
+function typedWord(entryId) {
+  if (!entryId || !S.entries.has(entryId)) return "";
+  return entryCells(entryId).map((c) => c.input.value || "").join("");
+}
+
+/** Letters a token has shown, painted into the grid. */
+function paintArsenal() {
+  const shown = S.ars?.letters || {};
+  for (const [entryId, letters] of Object.entries(shown)) {
+    if (!S.entries.has(entryId)) continue;
+    const cells = entryCells(entryId);
+    for (const [i, ch] of Object.entries(letters)) {
+      const cell = cells[Number(i)];
+      if (!cell || cell.input.readOnly) continue;
+      cell.input.value = ch;
+      cell.box.classList.add("shown");
+    }
+  }
+}
+
+/** An entry a token solved outright: its letters go in before it locks. */
+function fillEntry(entryId, word) {
+  if (!S.entries.has(entryId)) return;
+  entryCells(entryId).forEach((cell, i) => {
+    if (word?.[i]) cell.input.value = word[i];
+    cell.box.classList.add("gifted");
+  });
+}
+
+function showSpell(msg) {
+  const row = el("div", "wc-spell");
+  [...msg.guess].forEach((ch, i) => row.append(el("span", msg.marks[i] || "no", ch)));
+  const host = $("clue-bar") || $("grid-wrap");
+  feed("<b>Spellcheck</b> — " + [...msg.guess].map((ch, i) =>
+    msg.marks[i] === "right" ? `<b>${escapeHtml(ch)}</b>` : msg.marks[i] === "near" ? `<i>${escapeHtml(ch)}</i>` : escapeHtml(ch)).join(""), true);
+  void host; void row;
+}
+
+/** The Sensei's Eye: light an entry up for a moment. */
+function pointAt(entryId) {
+  if (!S.entries.has(entryId)) return;
+  const cells = entryCells(entryId);
+  for (const c of cells) c.box.classList.add("pointed");
+  setTimeout(() => { for (const c of cells) c.box.classList.remove("pointed"); }, 6000);
 }
 
 // ───────────────────────────────────────────────────────────── lobby paint

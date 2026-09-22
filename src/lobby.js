@@ -2,7 +2,8 @@ import { ROUND_MS, scoreFor } from "./scoring.js";
 import { validatePuzzle, stripAnswers, answerKey, WORD_COUNT } from "./validate.js";
 import { recordMatch, readRatings, getScroll, bumpScroll } from "./firestore.js";
 import { boosted } from "./mmr.js";
-import { tokensReply } from "./boost.js";
+import { tokensReply, heldTokens } from "./boost.js";
+import { ARSENALS } from "./arsenals.js";
 import { sessionGain, fieldMmrFor, beltFor } from "./mmr.js";
 import { STARTER_PUZZLES } from "./starter-puzzles.js";
 import { announceRoom } from "./rooms.js";
@@ -256,17 +257,13 @@ export class DojoLobby {
           this.announce();
           return;
         case "PING": return this.beat();
+        // The Apply Token tab: what is held, what is armed for this round,
+        // and the tokens themselves. Scoring clears what was applied.
         case "TOKENS":
-        case "APPLY_TOKEN": {
-          // The Apply Token tab: what is held, and applying one to this round
-          // (or, between rounds, to the next). Scoring clears the map.
-          this.lobby.applied = this.lobby.applied || {};
-          const reply = await tokensReply(this.env, who.uid, "crossword", {
-            applied: this.lobby.applied, over: false, apply: msg.type === "APPLY_TOKEN",
-          });
-          if (reply.changed) await this.persist();
-          return this.send(ws, "TOKENS", reply);
-        }
+        case "APPLY_TOKEN":  return await this.sendTokens(ws, who.uid, msg.type === "APPLY_TOKEN");
+        case "ARM_TOKEN":    return await this.arm(ws, who.uid, msg);
+        case "DISARM_TOKEN": return await this.disarm(ws, who.uid, msg);
+        case "USE_TOKEN":    return await this.useArsenal(ws, who.uid, msg);
         case "START_ROUND":
           if (!isSensei) return this.send(ws, "ERROR", { message: "Only the sensei can begin." });
           return await this.startRound(ws);
@@ -358,6 +355,274 @@ export class DojoLobby {
    * bonus only for completing the lot inside twenty minutes. A speed curve
    * makes no sense without a deadline, and those two have none.
    */
+  // ── the arsenal ──────────────────────────────────────────────────
+  //
+  // Word-Cross is scored on the clock, so most of these buy time: a letter
+  // shown, a word filled in, the grid read. A few change the score itself.
+  // Everything a token gives is worked out here; the browser only draws it.
+  freshArs() {
+    return {
+      armed: {}, used: {},
+      letters: {},       // entryId -> letters shown, by position
+      shown: {},         // entryId -> "shape" | "anagram" | "firsts"
+      gifts: [],         // entries a token solved, so the feed can say so
+      head: 0,           // milliseconds off the clock
+      perfect: false, double: 0, salvage: 0, fast: false, quiet: false,
+      reports: [],
+    };
+  }
+  arsOf(p) { return p.ars || (p.ars = this.freshArs()); }
+  armedLeft(p, key) { const a = this.arsOf(p); return (a.armed[key] || 0) - (a.used[key] || 0); }
+  useToken(p, key) { const a = this.arsOf(p); a.used[key] = (a.used[key] || 0) + 1; }
+
+  /** Every entry of the scroll in play, with its answer. */
+  entries() { return this.clientPuzzle?.entries || []; }
+  answerOf(id) { return this.answers?.[id] || ""; }
+  unsolved(p) { return this.entries().filter((e) => !p.solved.includes(e.id)); }
+
+  /** How many other entries an entry crosses. */
+  crossingsOf(entry) {
+    const cells = (e) => {
+      const out = [];
+      for (let k = 0; k < e.len; k++) out.push(`${e.row + (e.dir === "down" ? k : 0)},${e.col + (e.dir === "across" ? k : 0)}`);
+      return out;
+    };
+    const mine = new Set(cells(entry));
+    return this.entries().filter((e) => e.id !== entry.id && cells(e).some((c) => mine.has(c))).length;
+  }
+
+  /** The letters of an entry a player can already read off solved crossings. */
+  knownLetters(p, entry) {
+    const out = {};
+    const at = (e, k) => `${e.row + (e.dir === "down" ? k : 0)},${e.col + (e.dir === "across" ? k : 0)}`;
+    const filled = new Map();
+    for (const e of this.entries()) {
+      if (!p.solved.includes(e.id)) continue;
+      const word = this.answerOf(e.id);
+      for (let k = 0; k < e.len; k++) filled.set(at(e, k), word[k]);
+    }
+    for (let k = 0; k < entry.len; k++) {
+      const ch = filled.get(at(entry, k));
+      if (ch) out[k] = ch;
+    }
+    return out;
+  }
+
+  arsenalView(p) {
+    const a = this.arsOf(p);
+    return {
+      on: true, armed: a.armed, used: a.used,
+      max: Object.fromEntries(Object.entries(ARSENALS.crossword).map(([k, v]) => [k, v.max || 99])),
+      playing: this.lobby.phase === "ACTIVE" && p.status === "playing",
+      letters: a.letters, shown: a.shown, gifts: a.gifts,
+      head: a.head, perfect: !!a.perfect, double: a.double || 0,
+      salvage: a.salvage || 0, fast: !!a.fast, quiet: !!a.quiet,
+      left: this.unsolved(p).length,
+      reports: (a.reports || []).slice(0, 4),
+    };
+  }
+
+  async sendTokens(ws, uid, apply, error = null) {
+    this.lobby.applied = this.lobby.applied || {};
+    const reply = await tokensReply(this.env, uid, "crossword", {
+      applied: this.lobby.applied, over: false, apply,
+    });
+    if (reply.changed) await this.persist();
+    const p = this.lobby.players[uid];
+    this.send(ws, "TOKENS", { ...reply, error: error || reply.error, arsenal: p ? this.arsenalView(p) : null });
+  }
+
+  async arm(ws, uid, msg) {
+    const p = this.lobby.players[uid];
+    if (!p) return this.sendTokens(ws, uid, false, "Tokens are armed once you are solving.");
+    const key = String(msg.key || "");
+    const spec = ARSENALS.crossword[key];
+    if (!spec) return this.sendTokens(ws, uid, false, "No such token.");
+    const a = this.arsOf(p);
+    if (spec.max && (a.armed[key] || 0) >= spec.max) return this.sendTokens(ws, uid, false, `${spec.max} ${spec.name} is the limit for one round.`);
+    const held = (await heldTokens(this.env, uid))[key] || 0;
+    if (held <= (a.armed[key] || 0)) return this.sendTokens(ws, uid, false, `You hold no more ${spec.name} tokens. The Token shop sells them.`);
+    a.armed[key] = (a.armed[key] || 0) + 1;
+    await this.persist();
+    await this.sendTokens(ws, uid, false);
+  }
+
+  async disarm(ws, uid, msg) {
+    const p = this.lobby.players[uid];
+    if (!p) return;
+    const key = String(msg.key || "");
+    const a = this.arsOf(p);
+    if (this.armedLeft(p, key) <= 0) return this.sendTokens(ws, uid, false, "Nothing to put back.");
+    a.armed[key] -= 1;
+    if (!a.armed[key]) delete a.armed[key];
+    await this.persist();
+    await this.sendTokens(ws, uid, false);
+  }
+
+  /** Marks an entry solved by a token, and finishes the round if that was the last. */
+  async gift(ws, p, entry, how) {
+    if (!p.solved.includes(entry.id)) p.solved.push(entry.id);
+    this.arsOf(p).gifts.push(entry.id);
+    // The word goes with it: the browser has never seen an answer, so a
+    // gifted entry would otherwise lock a row of empty squares.
+    this.send(ws, "CHECK_RESULT", { entryId: entry.id, correct: true, solved: p.solved.length, gift: how, word: this.answerOf(entry.id) });
+    if (!this.arsOf(p).quiet) this.broadcast("PROGRESS", { uid: p.uid, solved: p.solved.length, total: this.terms().words });
+    if (p.solved.length === this.terms().words) await this.finishFor(ws, p);
+  }
+
+  /** One solver's round is over — the same path a last correct entry takes. */
+  async finishFor(ws, p) {
+    const elapsed = Date.now() - this.lobby.roundStartedAt;
+    p.finishedAt = elapsed;
+    p.score = this.scoreFor(p, true);
+    p.status = "finished";
+    await this.persist();
+    this.broadcast("PLAYER_FINISHED", { uid: p.uid, name: this.lobby.members[p.uid]?.name || "Student", elapsedMs: elapsed, score: p.score });
+    this.broadcastLobby();
+    if (Object.values(this.lobby.players).every((x) => x.status !== "playing")) await this.endRound();
+  }
+
+  async useArsenal(ws, uid, msg) {
+    const p = this.lobby.players[uid];
+    if (!p) return;
+    if (this.lobby.phase !== "ACTIVE" || p.status !== "playing")
+      return this.send(ws, "ERROR", { message: "No round is running." });
+    const action = String(msg.action || "");
+    const key = {
+      letter: "wc_letter", shape: "wc_shape", anagram: "wc_anagram", spell: "wc_spell",
+      eye: "wc_eye", theme: "wc_theme", firsts: "wc_firsts", gift: "wc_gift",
+      short: "wc_short", word: "wc_word", last: "wc_last", cascade: "wc_cascade",
+      head: "wc_head", perfect: "wc_perfect", double: "wc_double", salvage: "wc_salvage",
+      fast: "wc_fast", quiet: "wc_quiet",
+    }[action];
+    if (!key) return this.send(ws, "ERROR", { message: "Unrecognised action." });
+    if (this.armedLeft(p, key) <= 0)
+      return this.send(ws, "ERROR", { message: `No ${ARSENALS.crossword[key].name} armed. Arm one under Apply Token.` });
+
+    const a = this.arsOf(p);
+    const id = String(msg.entryId || "");
+    const entry = this.entries().find((e) => e.id === id);
+    const report = (text) => {
+      a.reports = [{ text, at: Date.now() }, ...(a.reports || [])].slice(0, 8);
+      this.send(ws, "ARSENAL_NOTE", { text });
+    };
+    const needsEntry = ["letter", "shape", "anagram", "spell", "word", "cascade"].includes(action);
+    if (needsEntry && (!entry || p.solved.includes(entry.id)))
+      return this.send(ws, "ERROR", { message: "Pick an entry you haven't solved." });
+
+    if (action === "letter") {
+      const word = this.answerOf(entry.id);
+      const known = { ...this.knownLetters(p, entry), ...(a.letters[entry.id] || {}) };
+      const free = [...word].map((_, i) => i).filter((i) => known[i] === undefined);
+      if (!free.length) return this.send(ws, "ERROR", { message: "Every letter of that entry is already yours." });
+      const at = free[Math.floor(Math.random() * free.length)];
+      a.letters[entry.id] = { ...(a.letters[entry.id] || {}), [at]: word[at] };
+      this.useToken(p, key);
+      report(`Free Letter: ${entry.num} ${entry.dir} has "${word[at]}" at ${at + 1}.`);
+    } else if (action === "shape") {
+      const word = this.answerOf(entry.id);
+      a.letters[entry.id] = { ...(a.letters[entry.id] || {}), 0: word[0], [word.length - 1]: word[word.length - 1] };
+      a.shown[entry.id] = "shape";
+      this.useToken(p, key);
+      report(`Word Shape: ${entry.num} ${entry.dir} runs ${word[0]} \u2026 ${word[word.length - 1]}, ${word.length} letters.`);
+    } else if (action === "anagram") {
+      const word = this.answerOf(entry.id);
+      const jumble = [...word].sort(() => Math.random() - 0.5).join("");
+      a.shown[entry.id] = "anagram";
+      a.reports = a.reports || [];
+      this.useToken(p, key);
+      this.send(ws, "ARSENAL_ANAGRAM", { entryId: entry.id, letters: jumble });
+      report(`Anagram Sheet: ${entry.num} ${entry.dir} is ${jumble}.`);
+    } else if (action === "spell") {
+      const word = this.answerOf(entry.id);
+      const guess = String(msg.guess || "").toUpperCase().replace(/[^A-Z]/g, "");
+      if (!guess) return this.send(ws, "ERROR", { message: "Type a guess first, then spellcheck it." });
+      const marks = [...guess].map((ch, i) => (word[i] === ch ? "right" : word.includes(ch) ? "near" : "no"));
+      this.useToken(p, key);
+      this.send(ws, "ARSENAL_SPELL", { entryId: entry.id, guess, marks });
+      report(`Spellcheck on ${entry.num} ${entry.dir}: ${marks.filter((m) => m === "right").length} in place.`);
+    } else if (action === "eye") {
+      const open = this.unsolved(p);
+      if (!open.length) return this.send(ws, "ERROR", { message: "The grid is done." });
+      const best = open.map((e) => ({ e, n: this.crossingsOf(e) })).sort((x, y) => y.n - x.n)[0];
+      this.useToken(p, key);
+      report(`Sensei's Eye: ${best.e.num} ${best.e.dir} crosses ${best.n} other${best.n === 1 ? "" : "s"} \u2014 solve that one.`);
+      this.send(ws, "ARSENAL_POINT", { entryId: best.e.id });
+    } else if (action === "theme") {
+      this.useToken(p, key);
+      report(`Theme Reading: this scroll is "${this.clientPuzzle?.title || "Untitled"}".`);
+    } else if (action === "firsts") {
+      const open = this.unsolved(p);
+      for (const e of open) {
+        const word = this.answerOf(e.id);
+        a.letters[e.id] = { ...(a.letters[e.id] || {}), 0: word[0] };
+      }
+      this.useToken(p, key);
+      report(`First Letters: the opening letter of all ${open.length} entries left.`);
+    } else if (action === "gift" || action === "short" || action === "last" || action === "word") {
+      const open = this.unsolved(p);
+      if (!open.length) return this.send(ws, "ERROR", { message: "The grid is done." });
+      let pick = null;
+      if (action === "word") pick = entry;
+      else if (action === "gift") pick = open[Math.floor(Math.random() * open.length)];
+      else if (action === "short") pick = [...open].sort((x, y) => x.len - y.len)[0];
+      else {
+        if (open.length !== 1) return this.send(ws, "ERROR", { message: `Last Word waits until one entry is left. You have ${open.length}.` });
+        pick = open[0];
+      }
+      this.useToken(p, key);
+      report(`${ARSENALS.crossword[key].name}: ${pick.num} ${pick.dir} is "${this.answerOf(pick.id)}".`);
+      await this.gift(ws, p, pick, action);
+    } else if (action === "cascade") {
+      this.useToken(p, key);
+      await this.gift(ws, p, entry, "cascade");
+      // Anything the crossings now spell out falls with it.
+      let rolled = 0;
+      for (let pass = 0; pass < 4; pass++) {
+        let more = false;
+        for (const e of this.unsolved(p)) {
+          const known = this.knownLetters(p, e);
+          if (Object.keys(known).length < e.len) continue;
+          await this.gift(ws, p, e, "cascade");
+          rolled++; more = true;
+        }
+        if (!more) break;
+      }
+      report(`Cascade: ${entry.num} ${entry.dir}${rolled ? `, and ${rolled} more fell with it` : ""}.`);
+    } else if (action === "head") {
+      a.head = (a.head || 0) + 45_000;
+      this.useToken(p, key);
+      report(`Head Start: your clock will read ${Math.round(a.head / 1000)} seconds earlier when this round is scored.`);
+    } else if (action === "perfect") {
+      if (a.perfect) return this.send(ws, "ERROR", { message: "The ink is already perfect." });
+      a.perfect = true;
+      this.useToken(p, key);
+      report("Perfect Ink: finish the grid and this round scores no lower than 75.");
+    } else if (action === "double") {
+      a.double = (a.double || 0) + 1;
+      this.useToken(p, key);
+      report(`Double Ink: this round scores \u00d7${(1.25 ** a.double).toFixed(2)}.`);
+    } else if (action === "salvage") {
+      a.salvage = (a.salvage || 0) + 2;
+      this.useToken(p, key);
+      report(`Salvage: an unfinished round will score as if you had solved ${a.salvage} more.`);
+    } else if (action === "fast") {
+      if (a.fast) return this.send(ws, "ERROR", { message: "Your hands are already free." });
+      a.fast = true;
+      this.useToken(p, key);
+      report("Fast Hands: type as fast as you like this round.");
+    } else if (action === "quiet") {
+      if (a.quiet) return this.send(ws, "ERROR", { message: "You are already off the board." });
+      a.quiet = true;
+      this.useToken(p, key);
+      report("Quiet Grid: the field stops seeing you close.");
+    }
+
+    await this.persist();
+    this.send(ws, "ARSENAL_STATE", { arsenal: this.arsenalView(p) });
+    this.broadcastLobby();
+  }
+
   terms() {
     const m = this.lobby.puzzleMeta || {};
     return {
@@ -370,6 +635,16 @@ export class DojoLobby {
   }
 
   /** What a player has earned, given how far they got and how long it took. */
+  /** A player's score, with the clock and the promises their tokens made. */
+  scoreFor(p, finished) {
+    const a = this.arsOf(p);
+    const elapsed = Math.max(0, (p.finishedAt ?? (Date.now() - this.lobby.roundStartedAt)) - (a.head || 0));
+    let score = this.scoreOf(Math.min(this.terms().words, p.solved.length + (finished ? 0 : a.salvage || 0)), elapsed, finished);
+    if (finished && a.perfect) score = Math.max(score, 75);
+    if (a.double) score = Math.round(score * (1.25 ** a.double));
+    return Math.max(0, Math.min(200, score));
+  }
+
   scoreOf(solved, elapsed, finished) {
     const t = this.terms();
     if (!t.untimed || t.perWord === null) {
@@ -405,6 +680,7 @@ export class DojoLobby {
       // A sensei who wrote the scroll knows every answer, so they referee it.
       m.role = custom && m.uid === this.lobby.senseiUid ? "referee" : "player";
       if (m.role === "player") {
+        const armed = { ...(this.lobby.players[m.uid]?.ars?.armed || {}) };
         this.lobby.players[m.uid] = {
           uid: m.uid,
           solved: [],
@@ -413,6 +689,7 @@ export class DojoLobby {
           status: "playing",
           mmrAtStart: 0,
           seed: null,
+          ars: { ...this.freshArs(), armed },
         };
       }
     }
@@ -479,8 +756,9 @@ export class DojoLobby {
     const player = this.lobby.players[uid];
     if (!player || player.status !== "playing") return;
 
-    // Cheap defence against grinding short entries by brute force.
-    if (!this.allow(uid)) return this.send(ws, "ERROR", { message: "Slow down." });
+    // Cheap defence against grinding short entries by brute force. Fast
+    // Hands buys a round without it.
+    if (!this.arsOf(player).fast && !this.allow(uid)) return this.send(ws, "ERROR", { message: "Slow down." });
 
     const entryId = String(msg.entryId || "");
     const expected = this.answers?.[entryId];
@@ -493,7 +771,7 @@ export class DojoLobby {
 
     this.send(ws, "CHECK_RESULT", { entryId, correct, solved: player.solved.length });
 
-    if (correct) {
+    if (correct && !this.arsOf(player).quiet) {
       // Everyone sees the pressure build without seeing anyone's letters.
       this.broadcast("PROGRESS", { uid, solved: player.solved.length, total: this.terms().words });
     }
@@ -501,7 +779,7 @@ export class DojoLobby {
     if (player.solved.length === this.terms().words) {
       const elapsed = Date.now() - this.lobby.roundStartedAt;
       player.finishedAt = elapsed;
-      player.score = this.scoreOf(player.solved.length, elapsed, true);
+      player.score = this.scoreFor(player, true);
       player.status = "finished";
 
       await this.persist();
@@ -537,7 +815,7 @@ export class DojoLobby {
         const elapsed = Date.now() - this.lobby.roundStartedAt;
         p.status = "ended";
         p.finishedAt = elapsed;
-        p.score = this.scoreOf(p.solved.length, elapsed, false);
+        p.score = this.scoreFor(p, false);
       } else {
         p.status = "dnf"; p.score = 0; p.finishedAt = null;
       }
@@ -575,6 +853,7 @@ export class DojoLobby {
         placement,
         seed: p.seed || null,
         mmrBefore: p.mmrAtStart || 0,
+        spent: p.ars?.used && Object.keys(p.ars.used).length ? { ...p.ars.used } : undefined,
         gain: gain.total, boost: !!p.boost,
         breakdown: { base: gain.base, challenge: gain.challenge, completion: gain.completion, seed: gain.seed },
         mmrAfter: after,
@@ -585,8 +864,17 @@ export class DojoLobby {
 
     this.lobby.phase = "RESULTS";
     this.lobby.lastResults = results;
-    // The tokens applied to this round go out with it.
+    // The tokens applied to this round go out with it, and the arsenal a
+    // solver spent is taken off what they had armed.
     this.lobby.applied = {};
+    for (const p of Object.values(this.lobby.players)) {
+      const a = this.arsOf(p);
+      for (const [k, n] of Object.entries(a.used)) {
+        a.armed[k] = Math.max(0, (a.armed[k] || 0) - n);
+        if (!a.armed[k]) delete a.armed[k];
+      }
+      a.used = {};
+    }
     // The bounty is settled before the results go out, so the bonus is part
     // of the MMR players are shown rather than an adjustment afterwards.
     const bounty = await applyBounty(this.env, this.state, {

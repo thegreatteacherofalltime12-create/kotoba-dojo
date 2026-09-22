@@ -148,7 +148,47 @@ export const LINKS_ARSENAL_ITEMS = [
     blurb: "Your next hole in one pays 150 points instead of 100. Two a round." },
 
 ];
-export const GAME_ARSENAL_ITEMS = { battleship: ARSENAL_ITEMS, minesweeper: MINE_ARSENAL_ITEMS, links: LINKS_ARSENAL_ITEMS };
+// The Word-Cross arsenal. Mirrors src/arsenals.js.
+export const WORD_ARSENAL_ITEMS = [
+  { key: "wc_letter", name: "Free Letter", icon: "\u{1F58A}\uFE0F", price: 300, max: 8, act: "letter", aim: "entry",
+    blurb: "Reveals one letter of the entry you are on. Eight a round." },
+  { key: "wc_shape", name: "Word Shape", icon: "\u{1F524}", price: 500, max: 5, act: "shape", aim: "entry",
+    blurb: "Names the first and last letters of the entry you are on. Five a round." },
+  { key: "wc_anagram", name: "Anagram Sheet", icon: "\u{1F500}", price: 800, max: 4, act: "anagram", aim: "entry",
+    blurb: "Shows that entry's letters, scrambled. Four a round." },
+  { key: "wc_spell", name: "Spellcheck", icon: "\u2705", price: 900, max: 4, act: "spell", aim: "entry",
+    blurb: "Marks what you have typed letter by letter \u2014 right letter right place, right letter wrong place. Four a round." },
+  { key: "wc_eye", name: "Sensei\'s Eye", icon: "\u{1F441}\uFE0F", price: 600, max: 3, act: "eye",
+    blurb: "Points out the unsolved entry that crosses the most others. Three a round." },
+  { key: "wc_theme", name: "Theme Reading", icon: "\u{1F4DC}", price: 200, max: 2, act: "theme",
+    blurb: "Names the scroll's title. Two a round." },
+  { key: "wc_firsts", name: "First Letters", icon: "\u{1F170}\uFE0F", price: 1200, max: 2, act: "firsts",
+    blurb: "Reveals the first letter of every unsolved entry at once. Two a round." },
+  { key: "wc_gift", name: "Random Gift", icon: "\u{1F381}", price: 1500, max: 4, act: "gift",
+    blurb: "Solves one unsolved entry, chosen for you. Four a round." },
+  { key: "wc_short", name: "Shortest Straw", icon: "\u{1F956}", price: 1200, max: 3, act: "short",
+    blurb: "Solves the shortest unsolved entry. Three a round." },
+  { key: "wc_word", name: "Free Word", icon: "\u270D\uFE0F", price: 2500, max: 3, act: "word", aim: "entry",
+    blurb: "Solves the entry you are on. Three a round." },
+  { key: "wc_last", name: "Last Word", icon: "\u{1F3C1}", price: 900, max: 2, act: "last",
+    blurb: "Solves the final entry when only one is left. Two a round." },
+  { key: "wc_cascade", name: "Cascade", icon: "\u{1F30A}", price: 4000, max: 1, act: "cascade", aim: "entry",
+    blurb: "Solves the entry you are on, then any entry its crossings complete. One a round." },
+  { key: "wc_head", name: "Head Start", icon: "\u23EA", price: 1000, max: 3, act: "head",
+    blurb: "Your clock reads 45 seconds earlier when the round is scored. Three a round." },
+  { key: "wc_perfect", name: "Perfect Ink", icon: "\u{1F48E}", price: 3000, max: 1, act: "perfect",
+    blurb: "Finish the grid and the round scores no lower than 75. One a round." },
+  { key: "wc_double", name: "Double Ink", icon: "\u2716\uFE0F", price: 2600, max: 2, act: "double",
+    blurb: "The round's score is multiplied by 1.25. Two a round." },
+  { key: "wc_salvage", name: "Salvage", icon: "\u{1F9F0}", price: 1400, max: 2, act: "salvage",
+    blurb: "A round you do not finish scores as if you had solved two more. Two a round." },
+  { key: "wc_fast", name: "Fast Hands", icon: "\u26A1", price: 400, max: 2, act: "fast",
+    blurb: "The typing rate limit is lifted for you this round. Two a round." },
+  { key: "wc_quiet", name: "Quiet Grid", icon: "\u{1F92B}", price: 700, max: 3, act: "quiet",
+    blurb: "Your progress stops showing to the field. Three a round." },
+];
+export const GAME_ARSENAL_ITEMS = {
+  crossword: WORD_ARSENAL_ITEMS, battleship: ARSENAL_ITEMS, minesweeper: MINE_ARSENAL_ITEMS, links: LINKS_ARSENAL_ITEMS };
 
 /**
  * The shop, one arsenal per game: the game's 1.5\u00d7 boost first, then

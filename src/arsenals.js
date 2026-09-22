@@ -5,6 +5,26 @@
 // write only need the keys and the prices. public/boost.js mirrors this
 // list for the client and must be kept in step.
 export const ARSENALS = {
+  crossword: {
+    wc_letter:  { name: "Free Letter",    price: 300,   max: 8, icon: "\u{1F58A}\uFE0F" },
+    wc_shape:   { name: "Word Shape",     price: 500,   max: 5, icon: "\u{1F524}" },
+    wc_anagram: { name: "Anagram Sheet",  price: 800,   max: 4, icon: "\u{1F500}" },
+    wc_spell:   { name: "Spellcheck",     price: 900,   max: 4, icon: "\u2705" },
+    wc_eye:     { name: "Sensei's Eye",   price: 600,   max: 3, icon: "\u{1F441}\uFE0F" },
+    wc_theme:   { name: "Theme Reading",  price: 200,   max: 2, icon: "\u{1F4DC}" },
+    wc_firsts:  { name: "First Letters",  price: 1_200, max: 2, icon: "\u{1F170}\uFE0F" },
+    wc_gift:    { name: "Random Gift",    price: 1_500, max: 4, icon: "\u{1F381}" },
+    wc_short:   { name: "Shortest Straw", price: 1_200, max: 3, icon: "\u{1F956}" },
+    wc_word:    { name: "Free Word",      price: 2_500, max: 3, icon: "\u270D\uFE0F" },
+    wc_last:    { name: "Last Word",      price: 900,   max: 2, icon: "\u{1F3C1}" },
+    wc_cascade: { name: "Cascade",        price: 4_000, max: 1, icon: "\u{1F30A}" },
+    wc_head:    { name: "Head Start",     price: 1_000, max: 3, icon: "\u23EA" },
+    wc_perfect: { name: "Perfect Ink",    price: 3_000, max: 1, icon: "\u{1F48E}" },
+    wc_double:  { name: "Double Ink",     price: 2_600, max: 2, icon: "\u2716\uFE0F" },
+    wc_salvage: { name: "Salvage",        price: 1_400, max: 2, icon: "\u{1F9F0}" },
+    wc_fast:    { name: "Fast Hands",     price: 400,   max: 2, icon: "\u26A1" },
+    wc_quiet:   { name: "Quiet Grid",     price: 700,   max: 3, icon: "\u{1F92B}" },
+  },
   battleship: {
     bs_nuke:    { name: "Nuke Missile",        price: 50_000, max: 2, icon: "☢️" },
     bs_shots:   { name: "Extra Shots",          price: 2_500,  icon: "\u{1F3AF}" },

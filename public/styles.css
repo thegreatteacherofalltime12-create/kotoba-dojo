@@ -3439,3 +3439,17 @@ a.dtab { text-decoration: none; display: inline-block; }
 .mgrid.aiming .mcell:not(.open) { cursor: crosshair; }
 
 .ars-intel { color: var(--muted); font-size: .72rem; }
+
+.xcell.gifted input { color: var(--accent-2); }
+.xcell.shown input { background: color-mix(in srgb, #F4CE5A 28%, var(--board)); }
+.xcell.pointed { box-shadow: inset 0 0 0 2px #F4CE5A; }
+.wc-spell { display: flex; gap: .25rem; margin: .3rem 0 0; }
+.wc-spell span { width: 1.5rem; height: 1.7rem; display: grid; place-items: center; border-radius: 4px; font-family: var(--display); font-weight: 800; background: rgba(255,255,255,.08); }
+.wc-spell .right { background: #2f7d32; color: #fff; }
+.wc-spell .near { background: #b8860b; color: #fff; }
+
+.gamepick .gp-solo {
+  font-family: var(--display); font-size: .6rem; letter-spacing: .12em; font-weight: 800;
+  color: var(--ok, #2f7d32); border: 1px solid currentColor; border-radius: var(--pill, 999px);
+  padding: .1rem .5rem; margin-top: .1rem;
+}

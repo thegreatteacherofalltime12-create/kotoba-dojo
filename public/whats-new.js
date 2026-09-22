@@ -17,6 +17,16 @@ export const KEEP_DAYS = 7;
 
 export const UPDATES = [
   {
+    at: "2026-09-22T20:00:00Z",
+    where: "Word-Cross",
+    title: "The Word-Cross arsenal",
+    text: "Eighteen tokens for the dojo. Sight: Free Letter, Word Shape, First Letters, Anagram Sheet, "
+      + "Spellcheck, Sensei's Eye, Theme Reading. Solving for you: Random Gift, Shortest Straw, Free "
+      + "Word, Last Word, and a Cascade that takes everything its crossings complete. Points: Head "
+      + "Start, Perfect Ink, Double Ink, Salvage, Fast Hands, and a Quiet Grid that hides your progress "
+      + "from the field. Game Modes now marks every game that can be played alone \u2014 which is all of them.",
+  },
+  {
     at: "2026-09-22T18:00:00Z",
     where: "Battleship",
     title: "Eleven more for the fleet",

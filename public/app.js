@@ -1719,8 +1719,8 @@ function tokensRules() {
         "The feed marks a boosted win with \u26A1.",
       ])}
       ${box("\u2622\uFE0F The Battleship Arsenal", [
-        "Seven tokens, priced in casino money: Nuke Missile ($50,000), Extra Shots ($2,500), Extra Ships ($500), Tactical Air Strike ($3,500), Air Strike Defence ($4,000), Air Strike Reveal ($1,300) and Submarine Torpedo ($143).",
-        "Inside a battle, open <b>\u26A1 Apply Token</b> to <b>arm</b> them: at most <b>four</b> tokens a battle, and at most <b>two</b> nukes. Armed tokens appear on the <b>Arsenal strip</b> above the target list; that is where they are fired.",
+        "Eighteen tokens, priced in casino money: Nuke Missile ($50,000), Extra Shots ($2,500), Extra Ships ($500), Tactical Air Strike ($3,500), Air Strike Defence ($4,000), Air Strike Reveal ($1,300) and Submarine Torpedo ($143), and the nine below.",
+        "Inside a battle, open <b>\u26A1 Apply Token</b> to <b>arm</b> them: at most <b>six</b> tokens a battle, and at most <b>two</b> nukes. Armed tokens appear on the <b>Arsenal strip</b> above the target list; that is where they are fired.",
         "Only what you fire is spent. Anything armed and unused goes back to your pile when the battle is recorded.",
         "<b>Nuke:</b> takes your turn. On Skirmish a hit sinks the whole ship it lands on. On Fleet Action it blasts 3\u00d73; on Open Ocean, 7\u00d77.",
         "<b>Extra Shots:</b> +2 on Skirmish, +4 on Fleet Action, +6 on Open Ocean, for the one turn you call it \u2014 spread over captains like any volley.",
@@ -1729,6 +1729,15 @@ function tokensRules() {
         "<b>Air Strike Defence:</b> a hidden 6\u00d76 area of your own water. Strike squares inside it do nothing; the defence then shows and is spent. It does not stop a nuke.",
         "<b>Air Strike Reveal:</b> shows you one captain's defence, if they have one, so a strike isn't wasted on it.",
         "<b>Submarine Torpedo:</b> one extra single-square shot on your turn, on top of your volley, while your submarine is afloat.",
+        "<b>Sonar Ping</b> ($900, 4): names how many ship squares sit in the 3\u00d73 you point at, without firing. <b>Radar Sweep</b> ($1,500, 3): the same for a whole row or column.",
+        "<b>Spotter Plane</b> ($1,200, 3): pinpoints one square of a ship still afloat. <b>Periscope</b> ($700, 3): names which ships a captain still has, and their lengths.",
+        "<b>Depth Charge</b> ($2,000, 3): takes your turn \u2014 a five-square cross, the square you pick and the four beside it.",
+        "<b>Priority Target</b> ($1,000, 3): the rotation is lifted for one turn, so you may fire at anyone, even the captain you just hit.",
+        "<b>Point Defence</b> ($1,600, 3): the next shot that would hit you is turned aside and reads as a miss.",
+        "<b>Repair Crew</b> ($3,000, 2): takes one hit off your most damaged ship, and that square reads as open water again.",
+        "<b>Reinforced Hull</b> ($2,600, 2): your largest unhurt ship turns the first shell aside \u2014 the water stays unmarked, and she needs one more shot than her length.",
+        "<b>Evasive Maneuvers</b> ($2,200, 2): moves your largest unhit ship to a new berth. Shots that missed her old one mean nothing now.",
+        "<b>Smoke Screen</b> ($4,500, 1): for a full round of turns every hit on your water is reported to the shooter as a miss. When it clears, the hits appear where they always were.",
         "Blast hits count for score and sinkings, but not toward your accuracy bonus. Computer captains never carry tokens. The host can switch the arsenal off for a battle.",
       ])}
       ${box("⛳ The Golf Arsenal", [
@@ -1791,7 +1800,7 @@ const GAME_RULES = [
       "Lay your fleet by hand or press Random. Turns go round the table; on yours, pick your squares on one or more captains' water and fire. Split the shots however you like \u2014 or all on one.",
       "<b>Rotation:</b> with more than three opponents you must fire at three others before coming back to the same captain, so nobody can be ganged up on. The AI obeys it too.",
       "A captain whose last ship goes down is out. Last afloat wins. <b>Solo Match</b> puts you against one to five computers at one difficulty; Hard ones split their fire.",
-      "The host may hide names (everyone is Captain A, B, C) and may switch the <b>arsenal</b> off. Tokens are in the \u26A1 Tokens tab.",
+      "The host may hide names (everyone is Captain A, B, C) and may switch the <b>arsenal</b> off \u2014 eighteen tokens, from a Sonar Ping to a Smoke Screen, six armed a battle. Tokens are in the \u26A1 Tokens tab.",
     ],
     score: [
       "Hits and ships sunk, weighted by the chart, times an <b>accuracy bonus</b>: half your shots landing is par, sharper shooting pays up to 1.75\u00d7, spraying the water costs up to a quarter.",

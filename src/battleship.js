@@ -59,9 +59,12 @@ export const fleetFor = (id) => FLEETS[id] || FLEETS.easy;
 // is used is spent. Every rule here is pure; the room applies them.
 export const ARSENAL = ARSENALS.battleship;
 export const ARSENAL_KEYS = Object.keys(ARSENAL);
-export const ARM_CAP = 4;
+export const ARM_CAP = 6;
 export const NUKE_MAX = 2;
 export const EXTRA_HULLS = 3;
+export const SONAR_SPAN = 3;      // the sonar's window
+export const DEPTH_ARMS = 5;      // the depth charge's cross
+export const SMOKE_TURNS = 1;     // rounds of turns a smoke screen holds
 export const STRIKE_SPAN = 6;     // an air strike, and the shield that stops one
 export const NUKE_RADIUS = { easy: 0, medium: 1, hard: 3 };   // 0 = sinks the ship it hits
 export const extraShotsFor = (mapId) => ({ easy: 2, medium: 4, hard: 6 })[mapId] || 2;
@@ -221,9 +224,14 @@ export function targetOptions(shooterUid, players, history) {
  */
 export function fireAt(board, cell) {
   if (board.incoming.includes(cell)) return { result: "repeat" };
-  board.incoming.push(cell);
 
-  const ship = board.ships.find((s) => s.cells.includes(cell) && !s.sunk);
+  const found = board.ships.find((s) => s.cells.includes(cell) && !s.sunk);
+  // Armour turns the first shell aside before the square is even marked:
+  // the water there reads as untouched, and she can be hit there again.
+  if (found && found.armour > 0) { found.armour -= 1; return { result: "armour", ship: found.name }; }
+
+  board.incoming.push(cell);
+  const ship = found;
   if (!ship) return { result: "miss" };
 
   ship.hits.push(cell);
@@ -235,6 +243,50 @@ export function fireAt(board, cell) {
 }
 
 export const fleetSunk = (board) => board.ships.every((s) => s.sunk);
+
+/** Is there a ship still afloat on this square? */
+export const shipAt = (board, cell) => board.ships.some((s) => !s.sunk && s.cells.includes(cell));
+
+/** The cross a depth charge falls in: the square, and the four beside it. */
+export function crossCells(cell, size) {
+  const [r, c] = String(cell).split(",").map(Number);
+  if (!Number.isInteger(r) || !Number.isInteger(c)) return [];
+  return [[r, c], [r - 1, c], [r + 1, c], [r, c - 1], [r, c + 1]]
+    .filter(([rr, cc]) => rr >= 0 && cc >= 0 && rr < size && cc < size)
+    .map(([rr, cc]) => key(rr, cc));
+}
+
+/** One row or one column, named as "r3" or "c7". */
+export function lineOf(name, size) {
+  const m = /^([rc])([0-9]+)$/.exec(String(name || ""));
+  if (!m) return [];
+  const n = Number(m[2]);
+  if (n < 0 || n >= size) return [];
+  const out = [];
+  for (let i = 0; i < size; i++) out.push(m[1] === "r" ? key(n, i) : key(i, n));
+  return out;
+}
+
+/** Ship squares in an area — what the sonar and the radar report. */
+export const shipSquares = (board, cells) => cells.filter((x) => shipAt(board, x)).length;
+
+/**
+ * A berth for one ship that clears the rest of the fleet. Previously missed
+ * water is fair game: that a captain fired there once is exactly what makes
+ * moving worth doing.
+ */
+export function newBerth(board, ship, size) {
+  const taken = new Set(board.ships.filter((s) => s.id !== ship.id).flatMap((s) => s.cells));
+  for (let tries = 0; tries < 400; tries++) {
+    const dir = Math.random() < 0.5 ? "across" : "down";
+    const row = Math.floor(Math.random() * (dir === "down" ? size - ship.len + 1 : size));
+    const col = Math.floor(Math.random() * (dir === "across" ? size - ship.len + 1 : size));
+    const cells = cellsFor(row, col, dir, ship.len);
+    if (cells.some((x) => taken.has(x))) continue;
+    return { row, col, dir, cells };
+  }
+  return null;
+}
 
 /**
  * How much a captain's aim is worth.

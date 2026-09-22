@@ -3,6 +3,7 @@ import {
   normalizeVolley, aiTargets, accuracyBonus,
   canTarget, targetOptions, fireAt, fleetSunk, battleScore,
   ARSENAL, ARM_CAP, NUKE_MAX, EXTRA_HULLS, STRIKE_SPAN, NUKE_RADIUS, extraShotsFor, blastArea, extraHulls,
+  SONAR_SPAN, SMOKE_TURNS, shipAt, crossCells, lineOf, shipSquares, newBerth,
 } from "./battleship.js";
 import { chooseShots, remember, freshMemory, DIFFICULTIES } from "./ai.js";
 import { recordMatch, readRatings, strikePlayer } from "./firestore.js";
@@ -279,7 +280,7 @@ export class BattleRoyale {
         online: online.has(p.uid),
         // Where they've been hit is public; where their ships are is not.
         incoming: p.board?.incoming || [],
-        struck: p.board ? p.board.ships.flatMap((s) => s.hits) : [],
+        struck: p.board ? p.board.ships.flatMap((s) => s.hits).filter((c) => !(p.ars?.hidden || []).includes(c)) : [],
         sunkShips: p.board ? p.board.ships.filter((s) => s.sunk).map((s) => s.name) : [],
         sunkCells: p.board ? p.board.ships.filter((s) => s.sunk).flatMap((s) => s.cells) : [],
         remaining: p.board ? p.board.ships.filter((s) => !s.sunk).length : this.fleet.length,
@@ -467,7 +468,16 @@ export class BattleRoyale {
   // What a captain armed for this battle and what they have used of it.
   // Arming checks the shop's count; using is what spends, in the round's
   // own record write. Everything here is per player and dies with the room.
-  freshArs() { return { armed: {}, used: {}, hulls: [], shield: null, extraTurn: null, intel: {}, blast: 0 }; }
+  freshArs() {
+    return {
+      armed: {}, used: {}, hulls: [], shield: null, extraTurn: null, intel: {}, blast: 0,
+      point: 0,          // shots that will be turned aside
+      priority: null,    // the turn the rotation is lifted for
+      smokeUntil: 0,     // the turn a smoke screen lifts
+      hidden: [],        // hits kept from the enemy while the smoke holds
+      reports: [],       // what the scouts found, newest first
+    };
+  }
   arsOf(p) { return p.ars || (p.ars = this.freshArs()); }
   armedLeft(p, key) { const a = this.arsOf(p); return (a.armed[key] || 0) - (a.used[key] || 0); }
   useToken(p, key) { const a = this.arsOf(p); a.used[key] = (a.used[key] || 0) + 1; }
@@ -487,6 +497,14 @@ export class BattleRoyale {
       extraActive: this.g.phase === "ACTIVE" && a.extraTurn === this.g.turnNo,
       extraShots: extraShotsFor(this.g.mapId),
       intel: a.intel,
+      point: a.point || 0,
+      priority: a.priority === this.g.turnNo,
+      smoke: (a.smokeUntil || 0) > (this.g.turnNo || 0),
+      reports: (a.reports || []).slice(0, 4),
+      damaged: (p.board?.ships || []).some((sh) => !sh.sunk && sh.hits.length),
+      movable: (p.board?.ships || []).some((sh) => !sh.sunk && !sh.hits.length),
+      armourable: (p.board?.ships || []).some((sh) => !sh.sunk && !sh.armour),
+      size: this.map.size,
       subAfloat: this.afloat(p, /submarine/), carrierAfloat: this.afloat(p, /carrier/),
       nukeSpan: NUKE_RADIUS[this.g.mapId] ? NUKE_RADIUS[this.g.mapId] * 2 + 1 : 1, strikeSpan: STRIKE_SPAN,
     };
@@ -564,12 +582,96 @@ export class BattleRoyale {
     if (!me || me.ai) return;
     if (this.g.phase !== "ACTIVE") return this.send(ws, "BATTLE_ERROR", { message: "The battle isn't on." });
     const action = String(msg.action || "");
-    const key = { nuke: "bs_nuke", strike: "bs_strike", extra: "bs_shots", shield: "bs_shield", reveal: "bs_reveal", torpedo: "bs_torpedo" }[action];
+    const key = {
+      nuke: "bs_nuke", strike: "bs_strike", extra: "bs_shots", shield: "bs_shield",
+      reveal: "bs_reveal", torpedo: "bs_torpedo",
+      sonar: "bs_sonar", radar: "bs_radar", spotter: "bs_spotter", scope: "bs_scope",
+      depth: "bs_depth", priority: "bs_priority", point: "bs_point", repair: "bs_repair",
+      armour: "bs_armour", evade: "bs_evade", smoke: "bs_smoke",
+    }[action];
     if (!key) return this.send(ws, "BATTLE_ERROR", { message: "Unrecognised action." });
     if (this.armedLeft(me, key) <= 0) return this.send(ws, "BATTLE_ERROR", { message: `No ${ARSENAL[key].name} armed. Arm one under Apply Token.` });
     const a = this.arsOf(me);
     const myTurn = this.g.turnUid === uid;
     const size = this.map.size;
+
+    // ── the ones that ask nothing of a target ─────────────────────
+    const report = (text) => {
+      a.reports = [{ text, at: Date.now() }, ...(a.reports || [])].slice(0, 8);
+      this.send(ws, "BATTLE_NOTE", { text });
+    };
+
+    if (action === "point") {
+      a.point = (a.point || 0) + 1;
+      this.useToken(me, key);
+      report(`Point Defence: the next ${a.point} shot${a.point === 1 ? "" : "s"} that would hit you will miss.`);
+      await this.persist();
+      this.send(ws, "BATTLE_ARSENAL_STATE", { arsenal: this.arsenalView(me) });
+      this.pushState();
+      return;
+    }
+    if (action === "priority") {
+      if (!myTurn) return this.send(ws, "BATTLE_ERROR", { message: "Wait for your turn." });
+      a.priority = this.g.turnNo;
+      this.useToken(me, key);
+      report("Priority Target: the rotation is lifted for this turn.");
+      await this.persist();
+      this.send(ws, "BATTLE_ARSENAL_STATE", { arsenal: this.arsenalView(me) });
+      this.pushState();
+      return;
+    }
+    if (action === "smoke") {
+      if ((a.smokeUntil || 0) > this.g.turnNo) return this.send(ws, "BATTLE_ERROR", { message: "The smoke is already up." });
+      const players = Object.values(this.g.players).filter((p) => p.alive && p.board).length;
+      a.smokeUntil = this.g.turnNo + Math.max(2, players * SMOKE_TURNS);
+      this.useToken(me, key);
+      report("Smoke Screen up: every hit on you is reported as a miss until it clears.");
+      this.log(`${this.nameOf(me)} lays a smoke screen.`);
+      await this.persist();
+      this.send(ws, "BATTLE_ARSENAL_STATE", { arsenal: this.arsenalView(me) });
+      this.pushState();
+      return;
+    }
+    if (action === "repair") {
+      const hurt = (me.board?.ships || []).filter((sh) => !sh.sunk && sh.hits.length)
+        .sort((x, y) => y.hits.length - x.hits.length)[0];
+      if (!hurt) return this.send(ws, "BATTLE_ERROR", { message: "Nothing of yours is damaged." });
+      const patched = hurt.hits.pop();
+      me.board.incoming = me.board.incoming.filter((c) => c !== patched);
+      a.hidden = (a.hidden || []).filter((c) => c !== patched);
+      this.useToken(me, key);
+      report(`Repair Crew: a hit patched on your ${hurt.name}. That square reads as open water again.`);
+      await this.persist();
+      this.send(ws, "BATTLE_ARSENAL_STATE", { arsenal: this.arsenalView(me) });
+      this.pushState();
+      return;
+    }
+    if (action === "armour") {
+      const pick = (me.board?.ships || []).filter((sh) => !sh.sunk && !sh.armour)
+        .sort((x, y) => y.len - x.len)[0];
+      if (!pick) return this.send(ws, "BATTLE_ERROR", { message: "Every ship you have is already reinforced, or gone." });
+      pick.armour = 1;
+      this.useToken(me, key);
+      report(`Reinforced Hull: your ${pick.name} takes one more hit before it goes down.`);
+      await this.persist();
+      this.send(ws, "BATTLE_ARSENAL_STATE", { arsenal: this.arsenalView(me) });
+      this.pushState();
+      return;
+    }
+    if (action === "evade") {
+      const pick = (me.board?.ships || []).filter((sh) => !sh.sunk && !sh.hits.length)
+        .sort((x, y) => y.len - x.len)[0];
+      if (!pick) return this.send(ws, "BATTLE_ERROR", { message: "Only an unhit ship can slip away." });
+      const berth = newBerth(me.board, pick, size);
+      if (!berth) return this.send(ws, "BATTLE_ERROR", { message: "There is nowhere to move her." });
+      pick.row = berth.row; pick.col = berth.col; pick.dir = berth.dir; pick.cells = berth.cells;
+      this.useToken(me, key);
+      report(`Evasive Maneuvers: your ${pick.name} is under way. Shots that missed her old berth mean nothing now.`);
+      await this.persist();
+      this.send(ws, "BATTLE_ARSENAL_STATE", { arsenal: this.arsenalView(me) });
+      this.pushState();
+      return;
+    }
 
     if (action === "extra") {
       if (!myTurn) return this.send(ws, "BATTLE_ERROR", { message: "Wait for your turn." });
@@ -599,6 +701,57 @@ export class BattleRoyale {
     const target = this.g.players[msg.target];
     if (!target || target.uid === uid || !target.alive || !target.board)
       return this.send(ws, "BATTLE_ERROR", { message: "Pick a live opponent." });
+
+    if (action === "scope") {
+      this.useToken(me, key);
+      const afloat = target.board.ships.filter((sh) => !sh.sunk);
+      report(`Periscope on ${this.nameOf(target)}: ` + (afloat.length
+        ? afloat.map((sh) => `${sh.name} (${sh.len})`).join(", ")
+        : "nothing afloat."));
+      await this.persist();
+      this.send(ws, "BATTLE_ARSENAL_STATE", { arsenal: this.arsenalView(me) });
+      this.pushState();
+      return;
+    }
+    if (action === "spotter") {
+      this.useToken(me, key);
+      const open = target.board.ships.filter((sh) => !sh.sunk)
+        .flatMap((sh) => sh.cells).filter((c) => !target.board.incoming.includes(c));
+      if (!open.length) {
+        report(`Spotter Plane over ${this.nameOf(target)}: every ship square you can reach is already known.`);
+      } else {
+        const found = open[Math.floor(Math.random() * open.length)];
+        a.intel[target.uid] = [...(a.intel[target.uid] || []), found];
+        report(`Spotter Plane over ${this.nameOf(target)}: a ship at ${found}.`);
+      }
+      await this.persist();
+      this.send(ws, "BATTLE_ARSENAL_STATE", { arsenal: this.arsenalView(me) });
+      this.pushState();
+      return;
+    }
+    if (action === "sonar") {
+      const cells = blastArea(String(msg.cell || ""), SONAR_SPAN, size);
+      if (!cells.length) return this.send(ws, "BATTLE_ERROR", { message: "That square isn't on the board." });
+      this.useToken(me, key);
+      const n = shipSquares(target.board, cells);
+      report(`Sonar Ping on ${this.nameOf(target)} at ${msg.cell}: ${n} ship square${n === 1 ? "" : "s"} in those ${cells.length}.`);
+      await this.persist();
+      this.send(ws, "BATTLE_ARSENAL_STATE", { arsenal: this.arsenalView(me) });
+      this.pushState();
+      return;
+    }
+    if (action === "radar") {
+      const cells = lineOf(String(msg.line || ""), size);
+      if (!cells.length) return this.send(ws, "BATTLE_ERROR", { message: "Pick a row or a column." });
+      this.useToken(me, key);
+      const n = shipSquares(target.board, cells);
+      const which = String(msg.line)[0] === "r" ? `Row ${Number(String(msg.line).slice(1)) + 1}` : `Column ${Number(String(msg.line).slice(1)) + 1}`;
+      report(`Radar Sweep on ${this.nameOf(target)} — ${which}: ${n} ship square${n === 1 ? "" : "s"}.`);
+      await this.persist();
+      this.send(ws, "BATTLE_ARSENAL_STATE", { arsenal: this.arsenalView(me) });
+      this.pushState();
+      return;
+    }
 
     if (action === "reveal") {
       this.useToken(me, key);
@@ -639,15 +792,16 @@ export class BattleRoyale {
       return;
     }
 
-    // A nuke or an air strike: the turn's fire, all at once.
+    // A nuke, an air strike or a depth charge: the turn's fire, all at once.
     if (action === "strike" && !this.afloat(me, /carrier/))
       return this.send(ws, "BATTLE_ERROR", { message: "An air strike needs a carrier afloat, and yours is gone." });
     const radius = NUKE_RADIUS[this.g.mapId] || 0;
     let cells = action === "nuke"
       ? (radius ? blastArea(cell, radius * 2 + 1, size) : [cell])
+      : action === "depth" ? crossCells(cell, size)
       : blastArea(cell, STRIKE_SPAN, size);
     this.useToken(me, key);
-    const label = action === "nuke" ? "a nuke" : "an air strike";
+    const label = action === "nuke" ? "a nuke" : action === "depth" ? "a depth charge" : "an air strike";
 
     let absorbed = 0;
     if (action === "strike") {
@@ -881,7 +1035,9 @@ export class BattleRoyale {
         });
       if (!target || !target.alive || !target.board || target.uid === uid)
         return this.send(ws, "BATTLE_ERROR", { message: "Pick a live opponent." });
-      const verdict = canTarget(me.history, target.uid, aliveOpponents);
+      const verdict = this.arsOf(me).priority === this.g.turnNo
+        ? { ok: true }
+        : canTarget(me.history, target.uid, aliveOpponents);
       if (!verdict.ok) return this.send(ws, "BATTLE_ERROR", { message: verdict.error });
       for (const cell of part.cells) {
         const [r, c] = cell.split(",").map(Number);
@@ -913,17 +1069,38 @@ export class BattleRoyale {
    */
   salvo(me, target, cells, memory = null) {
     let hits = 0;
+    let turned = 0;
+    let bounced = 0;
     const sunkNames = [];
+    const ta = this.arsOf(target);
+    const smoked = (ta.smokeUntil || 0) > (this.g.turnNo || 0);
     for (const cell of cells) {
+      // Point defence turns a shot that would have hit into a miss, and is
+      // spent doing it. It cannot save a square that holds nothing.
+      if ((ta.point || 0) > 0 && shipAt(target.board, cell) && !target.board.incoming.includes(cell)) {
+        ta.point -= 1;
+        turned += 1;
+        target.board.incoming.push(cell);
+        if (memory) remember(memory, cell, "miss");
+        continue;
+      }
       const shot = fireAt(target.board, cell);
-      if (memory) remember(memory, cell, shot.result);
+      if (shot.result === "armour") { bounced += 1; if (memory) remember(memory, cell, "miss"); continue; }
+      const seen = smoked && (shot.result === "hit" || shot.result === "sunk") ? "miss" : shot.result;
+      if (smoked && seen === "miss" && shot.result !== "miss") ta.hidden.push(cell);
+      if (memory) remember(memory, cell, seen);
       if (shot.result === "hit") { hits++; me.hits++; }
       if (shot.result === "sunk") { hits++; me.hits++; me.sunk++; sunkNames.push(shot.ship); }
     }
     me.shots = (me.shots || 0) + cells.length;
 
-    let line = `${this.nameOf(me)} fired ${cells.length} shot${cells.length === 1 ? "" : "s"} at ${this.nameOf(target)}: ${hits} Hit, ${cells.length - hits} Miss`;
-    if (sunkNames.length) line += ` — sank their ${sunkNames.join(" and ")}`;
+    // Under smoke the shooter is told they missed; the log says the same, and
+    // the truth comes out when it lifts.
+    const shown = smoked ? 0 : hits;
+    let line = `${this.nameOf(me)} fired ${cells.length} shot${cells.length === 1 ? "" : "s"} at ${this.nameOf(target)}: ${shown} Hit, ${cells.length - shown} Miss`;
+    if (!smoked && sunkNames.length) line += ` — sank their ${sunkNames.join(" and ")}`;
+    if (turned) line += ` — ${turned} turned aside`;
+    if (bounced) line += ` — ${bounced} bounced off armour`;
     this.log(line + ".");
 
     if (fleetSunk(target.board)) {
@@ -942,6 +1119,13 @@ export class BattleRoyale {
     const at = order.indexOf(this.g.turnUid);
     this.g.turnUid = order[(at + 1) % order.length];
     this.g.turnNo = (this.g.turnNo || 0) + 1;
+    for (const p of Object.values(this.g.players)) {
+      const a = p.ars;
+      if (!a?.hidden?.length) continue;
+      if ((a.smokeUntil || 0) > this.g.turnNo) continue;
+      a.hidden = [];
+      this.log(`${this.nameOf(p)}'s smoke screen clears.`);
+    }
     if (order.indexOf(this.g.turnUid) === 0) this.g.round += 1;
     this.g.turnEndsAt = Date.now() + TURN_MS;
 

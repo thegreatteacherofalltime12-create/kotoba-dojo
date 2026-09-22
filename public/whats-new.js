@@ -17,6 +17,16 @@ export const KEEP_DAYS = 7;
 
 export const UPDATES = [
   {
+    at: "2026-09-22T18:00:00Z",
+    where: "Battleship",
+    title: "Eleven more for the fleet",
+    text: "The Battleship Arsenal is eighteen tokens now, and you may arm six a battle instead of four. "
+      + "Scouting: Sonar Ping, Radar Sweep, Spotter Plane, Periscope. Firepower: Depth Charge, and "
+      + "Priority Target, which lifts the rotation for a turn. Damage control: Point Defence, Repair "
+      + "Crew, Reinforced Hull, Evasive Maneuvers, and a Smoke Screen that reports every hit on you as "
+      + "a miss until it clears.",
+  },
+  {
     at: "2026-09-22T16:00:00Z",
     where: "Minesweeper",
     title: "Fourteen more for the minefield",

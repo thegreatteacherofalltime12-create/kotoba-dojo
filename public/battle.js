@@ -16,6 +16,14 @@ const cellsFor = (row, col, dir, len) => {
 
 /** A fleet laid out at random, for the auto-place button. */
 // The squares a blast covers — the same rule as the server's, for the preview.
+/** The cross a depth charge falls in — the server's shape, for the preview. */
+function crossArea(cell, size) {
+  const [r, c] = String(cell).split(",").map(Number);
+  return [[r, c], [r - 1, c], [r + 1, c], [r, c - 1], [r, c + 1]]
+    .filter(([rr, cc]) => rr >= 0 && cc >= 0 && rr < size && cc < size)
+    .map(([rr, cc]) => `${rr},${cc}`);
+}
+
 function blastArea(cell, span, size) {
   const [r, c] = String(cell).split(",").map(Number);
   const odd = span % 2 === 1;
@@ -203,6 +211,11 @@ function handle(msg) {
     case "BATTLE_NOTE":
       feedLine(msg.text);
       say(msg.text);
+      break;
+    case "BATTLE_ARSENAL_STATE":
+      B.arsenal = msg.arsenal;
+      tokenTab().arsenalState(msg.arsenal);
+      if (B.game) drawBattle(B.game.players.find((p) => p.uid === B.you));
       break;
   }
 }
@@ -570,10 +583,12 @@ function drawBattle(me) {
     const seen = new Set(enemy.incoming || []);
     const wrecked = new Set(enemy.sunkCells || []);
     // A defence you were shown, or one that has already taken a strike.
-    const intel = new Set(B.arsenal?.intel?.[enemy.uid] || []);
+    const intel = new Set(B.arsenal?.intel?.[enemy.uid] || []);   // a defence, or a ship the spotter found
     const shown = new Set(enemy.shieldShown || []);
-    const blastMode = B.mode === "nuke" || B.mode === "strike";
-    const span = B.mode === "nuke" ? (B.arsenal?.nukeSpan || 1) : B.mode === "strike" ? (B.arsenal?.strikeSpan || 6) : 1;
+    const blastMode = ["nuke", "strike", "depth", "sonar"].includes(B.mode);
+    const span = B.mode === "nuke" ? (B.arsenal?.nukeSpan || 1)
+      : B.mode === "strike" ? (B.arsenal?.strikeSpan || 6)
+      : B.mode === "sonar" ? 3 : 1;
     const grid = el("div", "bgrid");
     grid.style.setProperty("--n", String(B.size));
     for (let r = 0; r < B.size; r++) {
@@ -590,7 +605,8 @@ function drawBattle(me) {
         if (blastMode) {
           box.onmouseenter = () => {
             grid.querySelectorAll(".blast").forEach((n) => n.classList.remove("blast"));
-            for (const x of blastArea(cell, span, B.size)) {
+            const area = B.mode === "depth" ? crossArea(cell, B.size) : blastArea(cell, span, B.size);
+            for (const x of area) {
               const [rr, cc] = x.split(",").map(Number);
               grid.children[rr * B.size + cc]?.classList.add("blast");
             }
@@ -598,12 +614,12 @@ function drawBattle(me) {
           box.onmouseleave = () => grid.querySelectorAll(".blast").forEach((n) => n.classList.remove("blast"));
         }
         box.onclick = () => {
-          if (B.mode === "nuke" || B.mode === "strike" || B.mode === "torpedo") {
-            const what = { nuke: "the nuke", strike: "the air strike", torpedo: "a torpedo" }[B.mode];
-            if (!window.confirm(`Fire ${what} at ${enemy.name} here?`)) return;
+          if (["nuke", "strike", "torpedo", "depth", "sonar"].includes(B.mode)) {
+            const what = { nuke: "the nuke", strike: "the air strike", torpedo: "a torpedo", depth: "a depth charge", sonar: "a sonar ping" }[B.mode];
+            if (!window.confirm(`Send ${what} at ${enemy.name} here?`)) return;
             send({ type: "BATTLE_ARSENAL", action: B.mode, target: enemy.uid, cell });
-            // A blast is the turn; a torpedo leaves the volley as picked.
-            if (B.mode !== "torpedo") B.volley = {};
+            // A blast is the turn; a torpedo or a ping leaves the volley alone.
+            if (B.mode === "nuke" || B.mode === "strike" || B.mode === "depth") B.volley = {};
             B.mode = null;
             drawBattle(me);
             return;
@@ -693,7 +709,7 @@ function drawArsenal(me, myTurn) {
   const ars = B.arsenal;
   const g = B.game;
   const left = (k) => (ars?.armed?.[k] || 0) - (ars?.used?.[k] || 0);
-  const any = ars && ars.on && ["bs_nuke", "bs_shots", "bs_strike", "bs_shield", "bs_reveal", "bs_torpedo"].some((k) => left(k) > 0);
+  const any = ars && ars.on && ARSENAL_ITEMS.some((t) => t.act !== "ships" && left(t.key) > 0);
   host.hidden = !any || g.phase !== "ACTIVE" || !me?.alive;
   host.textContent = "";
   if (host.hidden) { if (B.mode) B.mode = null; return; }
@@ -706,41 +722,75 @@ function drawArsenal(me, myTurn) {
     host.append(b);
   };
   const aim = (mode) => () => { B.mode = B.mode === mode ? null : mode; drawBattle(me); };
+  const target = () => g.players.find((p) => p.uid === B.target);
 
-  if (left("bs_nuke") > 0)
-    mk(`\u2622\uFE0F Nuke \u00d7${left("bs_nuke")}`, B.mode === "nuke", !myTurn, aim("nuke"), "Takes your turn");
-  if (left("bs_strike") > 0)
-    mk(`\u2708\uFE0F Air Strike \u00d7${left("bs_strike")}`, B.mode === "strike", !myTurn || !ars.carrierAfloat, aim("strike"),
-      ars.carrierAfloat ? "Takes your turn. 6\u00d76." : "Your carrier is gone");
-  if (left("bs_torpedo") > 0)
-    mk(`\u{1F41F} Torpedo \u00d7${left("bs_torpedo")}`, B.mode === "torpedo", !myTurn || !ars.subAfloat, aim("torpedo"),
-      ars.subAfloat ? "One extra square, on top of your volley" : "Your submarine is gone");
-  if (left("bs_shots") > 0)
-    mk(ars.extraActive ? `\u{1F3AF} +${ars.extraShots} this turn` : `\u{1F3AF} Extra shots \u00d7${left("bs_shots")}`, ars.extraActive, !myTurn || ars.extraActive,
-      () => { if (window.confirm(`Call for ${ars.extraShots} extra shots this turn?`)) send({ type: "BATTLE_ARSENAL", action: "extra" }); }, `+${ars.extraShots} shots for one turn`);
-  if (left("bs_shield") > 0)
-    mk(`\u{1F6E1}\uFE0F Defence \u00d7${left("bs_shield")}`, B.mode === "shield", !!(ars.shield && !ars.shield.spent), aim("shield"),
-      ars.shield && !ars.shield.spent ? "A defence is already in place" : "Pick a 6\u00d76 area of your water");
-  if (left("bs_reveal") > 0)
-    mk(`\u{1F52D} Reveal \u00d7${left("bs_reveal")}`, false, !B.target,
-      () => {
-        const t = g.players.find((p) => p.uid === B.target);
-        if (t && window.confirm(`Use a Reveal on ${t.name}'s water?`)) send({ type: "BATTLE_ARSENAL", action: "reveal", target: B.target });
-      }, "Shows the selected captain's Air Strike Defence, if any");
+  for (const t of ARSENAL_ITEMS) {
+    if (t.act === "ships") continue;             // armed before the fleets sail
+    const n = left(t.key);
+    if (n <= 0) continue;
+    const short = t.name.replace("Tactical ", "").replace("Submarine ", "").replace(" Missile", "").replace("Air Strike Reveal", "Reveal").replace("Air Strike Defence", "Defence").replace("Evasive Maneuvers", "Evade").replace("Reinforced Hull", "Armour");
+    let label = t.icon + " " + short + " \u00d7" + n;
+    let on = false;
+    let off = false;
+    let title = t.blurb;
+    if (t.act === "extra" && ars.extraActive) { label = t.icon + " +" + ars.extraShots + " this turn"; on = true; off = true; }
+    else if (t.act === "extra") off = !myTurn;
+    else if (t.act === "strike") { off = !myTurn || !ars.carrierAfloat; if (!ars.carrierAfloat) title = "Your carrier is gone"; }
+    else if (t.act === "torpedo") { off = !myTurn || !ars.subAfloat; if (!ars.subAfloat) title = "Your submarine is gone"; }
+    else if (t.act === "nuke" || t.act === "depth") off = !myTurn;
+    else if (t.act === "priority") { on = !!ars.priority; off = !myTurn || !!ars.priority; }
+    else if (t.act === "shield") { on = B.mode === "shield"; off = !!(ars.shield && !ars.shield.spent); if (off) title = "A defence is already in place"; }
+    else if (t.act === "smoke") { on = !!ars.smoke; off = !!ars.smoke; if (off) title = "The smoke is already up"; }
+    else if (t.act === "repair") { off = !ars.damaged; if (off) title = "Nothing of yours is damaged"; }
+    else if (t.act === "armour") { off = !ars.armourable; if (off) title = "Every ship you have is reinforced, or gone"; }
+    else if (t.act === "evade") { off = !ars.movable; if (off) title = "Only an unhit ship can slip away"; }
+    if (t.aim === "cell" || t.aim === "own") on = B.mode === t.act;
+    if ((t.aim === "target" || t.aim === "line") && !B.target) { off = true; title = "Pick a captain first"; }
+    mk(label, on, off, () => {
+      if (t.aim === "cell" || t.aim === "own") return aim(t.act)();
+      if (t.aim === "line") return askLine(t);
+      const who = target();
+      const ask = t.aim === "target" ? t.name + " on " + (who ? who.name : "them") + "?" : t.name + "? " + t.blurb;
+      if (!window.confirm(ask)) return;
+      send({ type: "BATTLE_ARSENAL", action: t.act, ...(t.aim === "target" ? { target: B.target } : {}) });
+    }, title);
+  }
+  if (ars.point > 0)
+    mk("\u{1F6DF} " + ars.point + " ready", true, true, () => {}, "Shots that will be turned aside");
+  if (ars.smoke)
+    mk("\u{1F32B}\uFE0F Smoke up", true, true, () => {}, "Hits on you read as misses until it clears");
 
   if (B.mode) {
     const hint = {
       nuke: "Nuke armed \u2014 pick a square on the enemy's water. It takes your turn.",
       strike: "Air strike armed \u2014 point at the enemy's water; the 6\u00d76 area is shown as you hover. It takes your turn.",
+      depth: "Depth charge armed \u2014 pick a square; the cross around it is shown as you hover. It takes your turn.",
+      sonar: "Sonar armed \u2014 point at the enemy's water; the 3\u00d73 window is shown as you hover.",
       torpedo: "Torpedo armed \u2014 pick one square on the enemy's water.",
       shield: "Pick a square on your own water; the 6\u00d76 defence is shown as you hover.",
     }[B.mode];
-    const p = el("p", "ars-hint", hint + " ");
+    const p = el("p", "ars-hint", (hint || "Pick a square.") + " ");
     const x = el("button", "btn btn-tiny", "Cancel");
     x.type = "button"; x.onclick = () => { B.mode = null; drawBattle(me); };
     p.append(x);
     host.append(p);
   }
+  if (ars.reports?.length) {
+    const p = el("p", "ars-hint ars-intel", ars.reports.map((x) => x.text).join("  \u00b7  "));
+    host.append(p);
+  }
+}
+
+/** A row or a column, for the radar. */
+function askLine(t) {
+  const size = B.size || 10;
+  const answer = window.prompt("Radar Sweep \u2014 which line? A row as R then its number, a column as C then its number (R1 to R" + size + ", C1 to C" + size + ").", "R1");
+  if (!answer) return;
+  const m = /^\s*([rcRC])\s*([0-9]+)\s*$/.exec(answer);
+  if (!m) return say("That is not a line. Try R3, or C7.");
+  const n = Number(m[2]) - 1;
+  if (!(n >= 0 && n < size)) return say("There is no line there.");
+  send({ type: "BATTLE_ARSENAL", action: "radar", target: B.target, line: m[1].toLowerCase() + n });
 }
 
 // ── feed and chat ───────────────────────────────────────────────────
@@ -838,5 +888,5 @@ function showResults(msg) {
 
   drawReveal(msg.reveal);
   partingClock();
-}import { applyTokenTab } from "./boost.js";
+}import { applyTokenTab, ARSENAL_ITEMS } from "./boost.js";
 

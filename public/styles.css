@@ -3412,6 +3412,14 @@ a.dtab { text-decoration: none; display: inline-block; }
 .locked-card .keyrow { display: flex; gap: .5rem; margin: .6rem 0; }
 .locked-card .keyrow input { flex: 1; font-size: 1rem; letter-spacing: .08em; }
 .locked-card .etsy { display: inline-block; margin-top: .5rem; font-weight: 700; color: #F4CE5A; }
+/* The same link on the gate, where a used pass leaves somebody who came
+   for a free game and now needs telling where to buy one. */
+.gate-form #gate-pass .etsy {
+  display: inline-block; margin-top: .45rem; padding: .3rem .7rem;
+  font-family: var(--display); font-size: .78rem; font-weight: 800; letter-spacing: .06em;
+  color: #0b1420; background: #F4CE5A; border-radius: var(--pill, 999px); text-decoration: none;
+}
+.gate-form #gate-pass .etsy:hover { background: #FFD966; }
 .key-row { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; padding: .45rem 0; border-bottom: 1px solid var(--edge); font-size: .82rem; }
 .key-row > span:first-child { flex: 1 1 12rem; }
 .key-row .btn { flex: none; }

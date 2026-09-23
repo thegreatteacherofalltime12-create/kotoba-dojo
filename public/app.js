@@ -270,6 +270,15 @@ async function passFromLink() {
       expired: "This free pass has expired. A key of your own comes from Etsy.",
       revoked: "This free pass was withdrawn. A key of your own comes from Etsy.",
     }[state] || "That pass code isn't one of ours. A key comes from Etsy.";
+    // Telling someone to go to Etsy without a way there is the one thing
+    // this page must not do: it is the whole point of a forwarded link.
+    if (S.etsy) {
+      const shop = el("a", "etsy", "Get a key on Etsy \u2192");
+      shop.href = S.etsy;
+      shop.target = "_blank";
+      shop.rel = "noopener";
+      box.append(document.createElement("br"), shop);
+    }
   }
   box.hidden = false;
 }

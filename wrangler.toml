@@ -100,7 +100,7 @@ ADMIN_UIDS = "tUcsYGm2n8ZWrHtIpLuUcLcVliE3"
 # needs an Etsy order number. Set once, when the keys went in.
 KEY_EPOCH = "2026-09-20T16:00:00Z"
 # The listing the invite and the gate point at. Empty until it exists.
-ETSY_URL = ""
+ETSY_URL = "https://www.etsy.com/listing/4581033703/multiplayer-solo-browser-game-for"
 
 # Optional secret, set with:
 #   wrangler secret put FIREBASE_SERVICE_ACCOUNT

@@ -1,13 +1,14 @@
 /**
- * Multiverse Grand Prix — the track, and the words engine that drives it.
+ * Multiverse Grand Prix — the track itself.
  *
- * The answers never leave this module, the way golf's don't: the browser is
- * told the scrambled letters and a clue, and the room checks the guess.
+ * Circuits, lengths, the distance rule, the item boxes and the computer
+ * drivers. What a racer is actually answering lives in prix-engines.js, and
+ * nothing here knows or cares which engine is running.
  *
  * Everything here is pure, so the race can be tested without a Durable
  * Object. The room in grand-prix.js does the sockets and the bookkeeping.
  */
-import { DICT, isWord } from "./links.js";
+import { engineById } from "./prix-engines.js";
 
 // ── the track ────────────────────────────────────────────────────────
 
@@ -46,73 +47,14 @@ export const metresFor = (circuit, length) => lapsFor(circuit, length) * circuit
  */
 export const capFor = (circuit, length) => lapsFor(circuit, length) * 300_000;
 
-// ── the words engine ─────────────────────────────────────────────────
+// ── levels ───────────────────────────────────────────────────────────
+//
+// A level belongs to an engine now: Junior and Pro are word classes, and
+// maths counts in school grades. The room asks the engine, and all the
+// track cares about is what the level pays.
 
-/**
- * A class is how hard the engine runs. The circuit suggests one; a racer may
- * set their own, because a family racing together is the point. The allowance
- * is what the distance rule measures against, so a Junior being quick and a
- * Pro being quick move the same distance — see distanceFor.
- */
-export const CLASSES = [
-  { id: "junior", name: "Junior", lens: [4, 5], firstLetter: true, hideClueMs: 0, mult: 1, sub: "4 to 5 letters, first letter given" },
-  { id: "standard", name: "Standard", lens: [5, 6], firstLetter: false, hideClueMs: 0, mult: 1.15, sub: "5 to 6 letters" },
-  { id: "pro", name: "Pro", lens: [6], firstLetter: false, hideClueMs: 8_000, mult: 1.3, sub: "6 letters, no clue for 8 seconds" },
-];
-export const classById = (id) => CLASSES.find((c) => c.id === id) || CLASSES[1];
-export const CLASS_FOR_CIRCUIT = { easiest: "junior", middle: "standard", hardest: "pro" };
-
-/** How long an item ought to take, which is what the distance is scored against. */
-export function allowanceMs(word, cls) {
-  const base = { 4: 12_000, 5: 15_000, 6: 18_000 }[word.length] || 15_000;
-  // A clue you cannot read yet is time you cannot use.
-  return cls.hideClueMs ? Math.min(20_000, base + 2_000) : base;
-}
-
-/** Every word of the lengths a class uses, with its clue. Both dictionaries. */
-export function deckFor(cls) {
-  const out = [];
-  for (const set of ["classic", "modern"]) {
-    for (const n of cls.lens) {
-      for (const [word, clue] of DICT[set][n] || []) out.push({ word, clue });
-    }
-  }
-  return out;
-}
-
-/** Fisher-Yates, against a supplied random so a test can pin it. */
-export function shuffled(list, rnd = Math.random) {
-  const a = [...list];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(rnd() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-
-/** The letters, in an order that is not the answer. */
-export function scramble(word, rnd = Math.random) {
-  if (word.length < 2) return word;
-  for (let tries = 0; tries < 12; tries++) {
-    const s = shuffled([...word], rnd).join("");
-    if (s !== word) return s;
-  }
-  return [...word].reverse().join("");
-}
-
-/**
- * A real word made of the same letters, but not the one dealt.
- *
- * GIRD and GRID are both words and both fit the tiles. Spinning a racer for
- * typing the other one would be unfair anywhere, and on the class that hides
- * the clue for eight seconds it would be unavoidable. So it costs nothing,
- * changes nothing, and says what happened.
- */
-export function nearMiss(said, answer) {
-  if (!said || said === answer || said.length !== answer.length) return false;
-  if ([...said].sort().join("") !== [...answer].sort().join("")) return false;
-  return isWord(said);
-}
+export const levelMult = (engineId, levelId) =>
+  engineById(engineId).levels.find((l) => l.id === levelId)?.mult ?? 1;
 
 // ── the distance rule ────────────────────────────────────────────────
 
@@ -122,8 +64,8 @@ export const SPIN_COST = 15;     // metres lost to a wrong answer
 
 /**
  * What an answer is worth. Measured against the item's own allowance, which
- * is the whole reason four engines and every school grade can share a track:
- * being quick at your own level is what moves the kart.
+ * is the whole reason four engines and every school grade can share one
+ * track: being quick at your own level is what moves the kart.
  */
 export function distanceFor(elapsedMs, allowance) {
   const ratio = allowance > 0 ? elapsedMs / allowance : 1;

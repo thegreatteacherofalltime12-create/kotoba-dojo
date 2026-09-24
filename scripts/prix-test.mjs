@@ -4,13 +4,17 @@
 // the engine deals, the vote that picks the circuit, and the chat that shuts
 // when the lights go out.
 import {
-  CIRCUITS, LENGTHS, CLASSES, circuitById, lengthById, classById,
-  lapsFor, metresFor, capFor, allowanceMs, deckFor, shuffled, scramble,
-  distanceFor, raceScore, standings, nearMiss, FULL_BOOST, FLOOR_BOOST, SPIN_COST,
+  CIRCUITS, LENGTHS, circuitById, lengthById,
+  lapsFor, metresFor, capFor,
+  distanceFor, raceScore, standings, FULL_BOOST, FLOOR_BOOST, SPIN_COST,
   ITEMS, boxMarks, boxesBetween, itemWeights, rollItem, flared,
   SLIPSTREAM_M, COMET_M, SLICK_M, FLARE_CUT,
   AI_LEVELS, AI_MAX, AI_ALLOWANCE, aiPace, aiShouldFire, metresFor as raceMetres,
 } from "../src/prix.js";
+import {
+  ENGINES, engineById, engineList, defaultLevel,
+  wordDeck, scramble, shuffled, nearMiss, mathsProblem, triviaPool, THEMES, MEM_MAX,
+} from "../src/prix-engines.js";
 import { GrandPrix } from "../src/grand-prix.js";
 
 let bad = 0;
@@ -35,22 +39,32 @@ ok("it never pays more than full or less than the floor", [0, 1, 4999, 5001, 149
   .every((t) => { const d = distanceFor(t, A); return d >= FLOOR_BOOST && d <= FULL_BOOST; }));
 // The point of the whole design: quick at your level beats slow at a harder one.
 {
-  const junior = allowanceMs("WORD", classById("junior"));
-  const pro = allowanceMs("SPLINT".slice(0, 6), classById("pro"));
+  const words = engineById("words");
+  const junior = words.deal("junior", { deck: [] }).allowance;
+  const pro = words.deal("pro", { deck: [] }).allowance;
   ok("a junior and a pro being equally quick move equally far",
     distanceFor(junior / 4, junior) === distanceFor(pro / 4, pro));
   ok("and a pro dawdling moves less than a junior hurrying",
     distanceFor(pro * 0.9, pro) < distanceFor(junior / 4, junior));
+  // The same holds across engines, which is what lets a family share a track.
+  const maths = engineById("maths");
+  const infant = maths.deal("g12", {}).allowance;
+  const senior = maths.deal("g1112", {}).allowance;
+  ok("a first grader and a twelfth grader, both quick, move equally far",
+    distanceFor(infant / 4, infant) === distanceFor(senior / 4, senior));
 }
 
 console.log("\nthe words engine");
-for (const c of CLASSES) {
-  const deck = deckFor(c);
-  ok(`${c.id} has a deck, and every word fits its class`,
-    deck.length > 40 && deck.every((w) => c.lens.includes(w.word.length) && w.clue.length > 3));
+for (const c of engineById("words").levels) {
+  const deck = wordDeck(c.id);
+  ok(`${c.id} has a deck, and every word carries a clue`,
+    deck.length > 40 && deck.every((w) => w.word.length >= 4 && w.clue.length > 3));
 }
-ok("an allowance sits between twelve and twenty seconds", CLASSES.every((c) =>
-  deckFor(c).every((w) => { const a = allowanceMs(w.word, c); return a >= 12_000 && a <= 20_000; })));
+ok("an allowance sits between twelve and twenty seconds",
+  engineById("words").levels.every((c) => {
+    const p = { deck: [] };
+    return [...Array(30)].every(() => { const a = engineById("words").deal(c.id, p).allowance; return a >= 12_000 && a <= 20_000; });
+  }));
 {
   let same = 0;
   for (let i = 0; i < 200; i++) if (scramble("PLANET") === "PLANET") same++;
@@ -432,6 +446,157 @@ console.log("\nthe drivers on the track");
   room.g.flagAt = Date.now() - 1;
   await room.alarm();
   ok("until the grace runs out", room.g.phase === "RESULTS");
+}
+
+
+console.log("\nfour engines, one shape");
+ok("four of them, each with levels and a way of answering", ENGINES.length === 4
+  && ENGINES.every((e) => e.levels.length >= 3 && ["type", "number", "tiles", "choice"].includes(e.kind)));
+ok("what the browser is told about the engines carries no answers",
+  !engineList().some((e) => "answer" in e || e.levels.some((l) => "answer" in l)));
+ok("every engine starts a racer somewhere sensible",
+  ENGINES.every((e) => e.levels.some((l) => l.id === defaultLevel(e.id))));
+{
+  // The one rule that has to hold everywhere: what a racer is shown must
+  // never contain the answer.
+  let leaked = null;
+  for (const e of ENGINES) {
+    for (const lv of e.levels) {
+      for (let i = 0; i < 40; i++) {
+        const racer = { deck: [], memLen: 5 };
+        const item = e.deal(lv.id, racer);
+        const face = e.face(item, e.hideFor(item, Date.now()));
+        // Only what the racer can read: a sequence length of 1 is not a leak
+        // of the answer 1, but a sum with its own answer written in it is.
+        const shown = [face.text, face.clue, face.scrambled, face.hint, face.question].filter(Boolean).join(" ");
+        if ("answer" in face) leaked = e.id + "/" + lv.id + ": the face carries the answer";
+        // A word written inside its own clue would be a real leak. A digit
+        // turning up in a sum is arithmetic.
+        else if (e.kind === "type" && shown.includes(String(item.answer))) leaked = e.id + "/" + lv.id + ": " + shown;
+      }
+    }
+  }
+  ok("no engine shows a racer the answer", leaked === null);
+  if (leaked) console.log("      " + leaked);
+}
+{
+  let wrongAllowance = null;
+  for (const e of ENGINES) {
+    for (const lv of e.levels) {
+      const item = e.deal(lv.id, { deck: [], memLen: 5 });
+      if (!(item.allowance >= 5_000 && item.allowance <= 60_000)) wrongAllowance = e.id + "/" + lv.id + ":" + item.allowance;
+    }
+  }
+  ok("every allowance is between five seconds and a minute", wrongAllowance === null);
+}
+
+console.log("\nthe maths engine");
+{
+  const maths = engineById("maths");
+  ok("six bands, first grade to twelfth", maths.levels.length === 6
+    && maths.levels[0].id === "g12" && maths.levels[5].id === "g1112");
+  ok("a harder band pays more", maths.levels[5].mult > maths.levels[0].mult);
+  let bad2 = null;
+  for (const lv of maths.levels) {
+    for (let i = 0; i < 200; i++) {
+      const q = mathsProblem(lv.id);
+      // Every answer is a whole number: nobody loses a race to a rounding
+      // convention, and a number pad can type all of them.
+      if (!Number.isFinite(q.answer)) bad2 = lv.id + " not a number";
+      else if (lv.id !== "g56" && !Number.isInteger(q.answer)) bad2 = lv.id + " not whole: " + q.answer;
+      else if (!q.text || q.text.length < 3) bad2 = lv.id + " no question";
+    }
+  }
+  ok("every problem has a question and a workable answer", bad2 === null);
+  ok("an infant sum is small", [...Array(50)].every(() => Math.abs(mathsProblem("g12").answer) <= 20));
+  ok("the answer is checked as a number, not as text",
+    maths.check({ answer: "12" }, " 12 ") === "right"
+    && maths.check({ answer: "12" }, "+12") === "right"
+    && maths.check({ answer: "-5" }, "\u22125") === "right"
+    && maths.check({ answer: "12" }, "13") === "wrong"
+    && maths.check({ answer: "12" }, "") === "wrong");
+  ok("and there is no near miss in arithmetic", maths.check({ answer: "12" }, "21") === "wrong");
+}
+
+console.log("\nthe memory engine");
+{
+  const mem = engineById("memory");
+  const item = mem.deal("standard", { memLen: 0 });
+  ok("a sequence of tiles, and the tiles to tap", item.seq.length === 4 && item.tiles === 6);
+  ok("the allowance carries the watching as well as the tapping", item.allowance > item.seq.length * item.flashMs);
+  ok("a longer sequence is given longer", mem.deal("standard", { memLen: 8 }).allowance > item.allowance);
+  ok("it is answered by tapping them back", mem.check(item, item.seq.join(",")) === "right");
+  ok("in order", mem.check(item, [...item.seq].reverse().join(",")) === (item.seq.join(",") === [...item.seq].reverse().join(",") ? "right" : "wrong"));
+  ok("and never grows past what anyone can hold", mem.deal("long", { memLen: 99 }).seq.length === MEM_MAX);
+}
+
+console.log("\nthe trivia engine");
+{
+  const triv = engineById("trivia");
+  ok("the themes the arena already carries", THEMES.length >= 20 && THEMES.every((t) => t.id && t.name));
+  const item = triv.deal("easy", { deck: [] }, Math.random, "mixed");
+  ok("a question and four answers", item.question.length > 3 && item.options.length === 4);
+  ok("the right one is among them", Number(item.answer) >= 0 && Number(item.answer) < 4);
+  ok("no two the same", new Set(item.options).size === 4);
+  ok("it is answered by tapping one",
+    triv.check(item, item.answer) === "right" && triv.check(item, String((Number(item.answer) + 1) % 4)) === "wrong");
+  {
+    const pool = triviaPool("easy", THEMES[0].id);
+    ok("a theme narrows the pool", pool.length > 0 && pool.every((q) => q.theme === THEMES[0].id));
+  }
+  {
+    // The wrong answers come from the same theme, so nobody wins on register.
+    const one = triv.deal("easy", { deck: [] }, Math.random, THEMES[0].id);
+    const pool = triviaPool("easy", THEMES[0].id).map((q) => q.answer);
+    ok("and the wrong answers come from it too", one.options.every((o) => pool.includes(o)));
+  }
+}
+
+console.log("\nswitching engines");
+{
+  const { room, seats, say } = await roomOf(["a", "Ana"], ["b", "Bo"]);
+  ok("a race runs on words until told otherwise", room.g.engine === "words");
+  await say("b", { type: "PRIX_ENGINE", engine: "maths" });
+  ok("only the host changes it", room.g.engine === "words");
+  await say("a", { type: "PRIX_ENGINE", engine: "maths" });
+  ok("the host changes it", room.g.engine === "maths");
+  ok("and everybody's level moves to that engine's", Object.values(room.g.players).every((p) => p.klass === defaultLevel("maths")));
+  await say("a", { type: "PRIX_CLASS", klass: "junior" });
+  ok("a word class means nothing in a maths race", room.g.players.a.klass !== "junior");
+  await say("a", { type: "PRIX_CLASS", klass: "g910" });
+  ok("but a grade does", room.g.players.a.klass === "g910");
+  await say("a", { type: "PRIX_START" });
+  const item = seats.a.last("PRIX_ITEM");
+  ok("the item that arrives is a sum", item.kind === "number" && !!item.text && !item.scrambled);
+  ok("and it is answered as one", (await say("a", { type: "PRIX_GUESS", guess: room.g.players.a.item.answer })) === undefined
+    && room.g.players.a.solved === 1);
+}
+{
+  const { room, seats, say } = await roomOf(["a", "Ana"]);
+  await say("a", { type: "PRIX_ENGINE", engine: "memory" });
+  await say("a", { type: "PRIX_SOLO", on: true });
+  await say("a", { type: "PRIX_START" });
+  const A = room.g.players.a;
+  ok("a memory race deals tiles", seats.a.last("PRIX_ITEM").kind === "tiles");
+  const seq = A.item.answer;
+  await say("a", { type: "PRIX_GUESS", guess: seq });
+  ok("tapping them back is right", A.solved === 1);
+  ok("and the next one is longer", A.memLen === 5);
+  await say("a", { type: "PRIX_GUESS", guess: "9,9,9" });
+  ok("missing one shortens it again", A.memLen === 4 && A.spins === 1);
+}
+{
+  const { room, seats, say } = await roomOf(["a", "Ana"]);
+  await say("a", { type: "PRIX_ENGINE", engine: "trivia" });
+  await say("a", { type: "PRIX_THEME", theme: THEMES[0].id });
+  ok("the host picks the theme", room.g.theme === THEMES[0].id);
+  await say("a", { type: "PRIX_THEME", theme: "nonsense" });
+  ok("and cannot pick one that is not there", room.g.theme === THEMES[0].id);
+  await say("a", { type: "PRIX_SOLO", on: true });
+  await say("a", { type: "PRIX_START" });
+  const item = seats.a.last("PRIX_ITEM");
+  ok("a trivia race deals a question and four answers", item.kind === "choice" && item.options.length === 4);
+  ok("and never says which is right", !("answer" in item));
 }
 
 console.log(bad ? `\n${bad} failing\n` : "\nall grand prix checks passed\n");

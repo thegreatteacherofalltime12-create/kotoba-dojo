@@ -13,13 +13,13 @@
  * so it reads as movement either way.
  */
 import {
-  CIRCUITS, LENGTHS, CLASSES, circuitById, lengthById, classById,
-  CLASS_FOR_CIRCUIT, lapsFor, metresFor, capFor,
-  allowanceMs, deckFor, shuffled, scramble, distanceFor, raceScore, standings, nearMiss,
+  CIRCUITS, LENGTHS, circuitById, lengthById, lapsFor, metresFor, capFor,
+  distanceFor, raceScore, standings, levelMult,
   SPIN_COST, ITEMS, itemById, boxMarks, boxesBetween, rollItem, flared,
   SLIPSTREAM_M, COMET_M, SLICK_M, FOG_MS, SCRAMBLE_FOG_MS, FLARE_MS,
   AI_LEVELS, AI_MAX, AI_NAMES, AI_ALLOWANCE, aiPace, aiShouldFire,
 } from "./prix.js";
+import { ENGINES, engineById, engineList, defaultLevel, MEM_MAX } from "./prix-engines.js";
 import { recordMatch, readRatings } from "./firestore.js";
 import { moderate } from "./moderation.js";
 import { strikePlayer } from "./firestore.js";
@@ -122,6 +122,7 @@ export class GrandPrix {
       this.g = {
         code, phase: "LOBBY", hostUid: uid,
         solo: false, circuit: "cinder", length: "gp",
+        engine: "words", theme: "mixed",
         aiCount: 3, aiLevel: "medium",
         players: {}, startedAt: null, endsAt: null, round: 0, applied: {},
         votes: {}, chat: [], slicks: [], marks: [], flagAt: null,
@@ -136,7 +137,7 @@ export class GrandPrix {
     this.announce();
     this.send(ws, "PRIX_WELCOME", {
       you: uid, isHost: this.g.hostUid === uid,
-      circuits: CIRCUITS, lengths: LENGTHS, classes: CLASSES, aiLevels: AI_LEVELS, aiMax: AI_MAX,
+      circuits: CIRCUITS, lengths: LENGTHS, engines: engineList(), aiLevels: AI_LEVELS, aiMax: AI_MAX,
     });
     for (const m of (this.g.chat || []).slice(-30)) this.send(ws, "PRIX_CHAT", m);
     this.pushState();
@@ -155,7 +156,7 @@ export class GrandPrix {
     return {
       uid, name, joinedAt: Date.now(),
       watching: this.g.phase === "RACING",
-      klass: CLASS_FOR_CIRCUIT[circuitById(this.g.circuit).hard] || "standard",
+      klass: defaultLevel(this.g.engine),
       at: 0, lap: 1, item: null, deck: [], seen: 0,
       // What is in your hands, and what somebody put on you. `item` is the
       // word you are answering; `holding` is the item box you picked up.
@@ -176,7 +177,8 @@ export class GrandPrix {
       code: this.g.code, phase: this.g.phase, hostUid: this.g.hostUid,
       solo: !!this.g.solo, circuit: this.g.circuit, length: this.g.length,
       aiCount: this.g.aiCount, aiLevel: this.g.aiLevel, aiLevels: AI_LEVELS, aiMax: AI_MAX,
-      circuits: CIRCUITS, lengths: LENGTHS, classes: CLASSES,
+      circuits: CIRCUITS, lengths: LENGTHS, engines: engineList(),
+      engine: this.g.engine, theme: this.g.theme,
       laps: lapsFor(this.g.circuit, this.g.length),
       lapM: circuitById(this.g.circuit).lapM,
       total, endsAt: this.g.endsAt, round: this.g.round,
@@ -236,28 +238,21 @@ export class GrandPrix {
   /** Settles the vote and says so, if it moved the track. */
   async settleVote() {
     const won = this.votedCircuit();
-    if (won !== this.g.circuit) {
-      this.g.circuit = won;
-      const suggested = CLASS_FOR_CIRCUIT[circuitById(won).hard];
-      for (const p of Object.values(this.g.players)) if (!p.chose) p.klass = suggested;
-    }
+    if (won !== this.g.circuit) this.g.circuit = won;
     await this.persist();
     this.pushState();
   }
 
   /** What a racer may see of the item in their hands. Never the answer. */
   itemView(p) {
-    const cls = classById(p.klass);
+    const engine = engineById(this.g.engine);
     const it = p.item;
-    const own = cls.hideClueMs ? Math.max(0, (it.dealtAt + cls.hideClueMs) - Date.now()) : 0;
-    // Somebody else's fog counts the same as the class's own held clue.
-    const hideFor = Math.max(own, Math.max(0, (p.fogUntil || 0) - Date.now()));
+    // Somebody else's fog counts the same as an engine's own held clue.
+    const hideFor = Math.max(engine.hideFor(it, it.dealtAt), Math.max(0, (p.fogUntil || 0) - Date.now()));
     return {
-      scrambled: it.scrambled,
-      len: it.answer.length,
-      clue: hideFor > 0 ? null : it.clue,
-      clueInMs: hideFor,
-      hint: cls.firstLetter ? it.answer[0] : null,
+      ...engine.face(it, hideFor),
+      engine: engine.id,
+      kind: engine.kind,
       allowanceMs: it.allowance,
       dealtAt: it.dealtAt,
       serverNow: Date.now(),
@@ -265,16 +260,11 @@ export class GrandPrix {
     };
   }
 
-  /** The next word for a racer, from their own shuffled deck. */
+  /** The next item for a racer, from whichever engine is running. */
   deal(p) {
-    const cls = classById(p.klass);
-    if (!p.deck?.length) p.deck = shuffled(deckFor(cls)).map((w) => `${w.word}\u0000${w.clue}`);
-    const [word, clue] = String(p.deck.pop()).split("\u0000");
+    const engine = engineById(this.g.engine);
     p.item = {
-      answer: word,
-      clue,
-      scrambled: scramble(word),
-      allowance: allowanceMs(word, cls),
+      ...engine.deal(p.klass, p, Math.random, this.g.theme),
       dealtAt: Date.now(),
     };
     return p.item;
@@ -294,6 +284,8 @@ export class GrandPrix {
         case "PRIX_SOLO": return await this.setSolo(ws, who.uid, msg);
         case "PRIX_VOTE": return await this.vote(ws, who.uid, msg);
         case "PRIX_AI": return await this.setAi(ws, who.uid, msg);
+        case "PRIX_ENGINE": return await this.setEngine(ws, who.uid, msg);
+        case "PRIX_THEME": return await this.setTheme(ws, who.uid, msg);
         case "PRIX_SAY": return await this.say(ws, who.uid, msg);
         case "PRIX_LENGTH": return await this.setLength(ws, who.uid, msg);
         case "PRIX_CLASS": return await this.setClass(ws, who.uid, msg);
@@ -324,6 +316,30 @@ export class GrandPrix {
   async setSolo(ws, uid, msg) {
     if (!this.hostOnly(ws, uid)) return;
     this.g.solo = !!msg.on;
+    await this.persist();
+    this.pushState();
+  }
+
+  /**
+   * Which engine the race runs on. Everyone's level goes back to that
+   * engine's middle, because a word class means nothing to a maths race.
+   */
+  async setEngine(ws, uid, msg) {
+    if (!this.hostOnly(ws, uid)) return;
+    if (!ENGINES.some((e) => e.id === msg.engine)) return;
+    this.g.engine = msg.engine;
+    for (const p of Object.values(this.g.players)) { p.klass = defaultLevel(msg.engine); p.chose = false; p.deck = []; }
+    await this.persist();
+    this.pushState();
+  }
+
+  /** Which theme the trivia comes from, when trivia is what is running. */
+  async setTheme(ws, uid, msg) {
+    if (!this.hostOnly(ws, uid)) return;
+    const themes = engineById("trivia").themes || [];
+    if (msg.theme !== "mixed" && !themes.some((t) => t.id === msg.theme)) return;
+    this.g.theme = msg.theme;
+    for (const p of Object.values(this.g.players)) p.deck = [];
     await this.persist();
     this.pushState();
   }
@@ -390,7 +406,7 @@ export class GrandPrix {
     if (this.g.phase === "RACING")
       return this.send(ws, "PRIX_ERROR", { message: "Not once the lights are out." });
     const p = this.g.players[uid];
-    if (!p || !CLASSES.some((c) => c.id === msg.klass)) return;
+    if (!p || !engineById(this.g.engine).levels.some((c) => c.id === msg.klass)) return;
     p.klass = msg.klass;
     p.chose = true;
     await this.persist();
@@ -419,6 +435,7 @@ export class GrandPrix {
       p.watching = !racing;
       p.at = 0; p.lap = 1; p.item = null; p.deck = [];
       p.holding = null; p.deflector = false; p.fogUntil = 0; p.slowUntil = 0;
+      p.memLen = 0;
       p.boxes = 0; p.fired = 0;
       p.solved = 0; p.spins = 0; p.ratioSum = 0;
       p.done = false; p.finishedAt = null; p.score = 0;
@@ -563,23 +580,27 @@ export class GrandPrix {
     if (!p) return;
     if (!this.allow(uid)) return this.send(ws, "PRIX_ERROR", { message: "Slow down." });
 
-    const said = String(msg.guess || "").trim().toUpperCase();
+    const said = String(msg.guess ?? "").trim();
     if (!said) return;
     const it = p.item;
+    const engine = engineById(this.g.engine);
+    const verdict = engine.check(it, said);
 
-    if (nearMiss(said, it.answer)) {
+    if (verdict === "near") {
       // The other word from the same letters. No spin, no reshuffle: the
       // clue is what separates them, and the racer has not done anything
       // wrong.
       return this.send(ws, "PRIX_RESULT", { ok: false, near: true, delta: 0, at: Math.round(p.at), lap: p.lap });
     }
 
-    if (said !== it.answer) {
+    if (verdict !== "right") {
       p.spins += 1;
       p.at = Math.max(0, p.at - SPIN_COST);
-      // The word stays; the letters move, so a wrong answer costs a moment
-      // as well as the metres.
-      it.scrambled = scramble(it.answer);
+      // Some engines make you look again: the words shuffle their letters,
+      // and a memory sequence shortens so nobody is stuck on one they
+      // cannot hold in their head.
+      engine.onWrong(it);
+      if (engine.id === "memory") { p.memLen = Math.max(3, (p.memLen || 4) - 1); this.deal(p); }
       await this.persist();
       this.send(ws, "PRIX_RESULT", { ok: false, delta: -SPIN_COST, at: Math.round(p.at), lap: p.lap });
       this.send(ws, "PRIX_ITEM", this.itemView(p));
@@ -588,13 +609,16 @@ export class GrandPrix {
     }
 
     const took = Date.now() - it.dealtAt;
+    // A sequence you can hold gets one longer, up to the point where
+    // nobody can.
+    if (engine.id === "memory") p.memLen = Math.min(MEM_MAX, (p.memLen || 4) + 1);
     p.solved += 1;
     p.ratioSum += Math.min(1, took / it.allowance);
     const moved = this.advance(ws, p, distanceFor(took, it.allowance));
 
     this.send(ws, "PRIX_RESULT", {
       ok: true, delta: moved.gained, at: Math.round(p.at), lap: p.lap,
-      word: it.answer, tookMs: took, allowanceMs: it.allowance,
+      word: engine.kind === "type" ? it.answer : null, tookMs: took, allowanceMs: it.allowance,
       slowed: moved.slowed, box: moved.box || null, slick: moved.slick || false,
     });
 
@@ -724,7 +748,7 @@ export class GrandPrix {
       }
       case "nitro": {
         // The word answers itself, at the boost a quick answer would have paid.
-        const answer = p.item?.answer;
+        const answer = engineById(this.g.engine).kind === "type" ? p.item?.answer : "that one";
         p.solved += 1;
         p.ratioSum += 1 / 3;
         const moved = this.advance(ws, p, distanceFor(0, p.item?.allowance || 15_000));
@@ -762,7 +786,7 @@ export class GrandPrix {
         const target = this.ahead(p);
         if (!target) { note = "Nobody ahead to scramble."; break; }
         if (this.land(target, "scrambler", { ms: SCRAMBLE_FOG_MS })) {
-          if (target.item) target.item.scrambled = scramble(target.item.answer);
+          if (target.item) engineById(this.g.engine).onWrong(target.item);
           target.fogUntil = Date.now() + SCRAMBLE_FOG_MS;
           const tws = this.socketFor(target.uid);
           if (tws) this.send(tws, "PRIX_ITEM", this.itemView(target));
@@ -861,7 +885,7 @@ export class GrandPrix {
       const finished = p.at >= total;
       p.score = Math.round(raceScore({
         placement, field: field.length, avgRatio, spins: p.spins, finished,
-      }) * classById(p.klass).mult);
+      }) * levelMult(this.g.engine, p.klass));
       p.score = Math.min(100, p.score);
 
       const gain = sessionGain({
@@ -900,7 +924,7 @@ export class GrandPrix {
     this.state.waitUntil?.(
       recordMatch(this.env, {
         code: this.g.code, roundNo: this.g.round,
-        puzzleId: `prix:${this.g.circuit}:${this.g.length}`,
+        puzzleId: `prix:${this.g.engine}:${this.g.circuit}`,
         game: "prix", mode, courseId: this.g.circuit,
         finishedAt: Date.now(), results: human,
       }).then((ok) => { if (!ok) console.error("[prix] results were not saved"); })

@@ -3574,3 +3574,40 @@ a.dtab { text-decoration: none; display: inline-block; }
 .prix-fire .pf-blurb { font-size: .72rem; opacity: .8; }
 .prix-marks { margin: 0; font-size: .74rem; letter-spacing: .04em; opacity: .85; }
 .prix-waiting { margin: 0; padding: .9rem 1rem; font-family: var(--display); font-size: .86rem; letter-spacing: .06em; color: var(--accent); }
+
+/* The other three engines' faces. */
+.psum { font-family: var(--display); font-size: 2rem; letter-spacing: .04em; color: #EAF2FF; }
+.prix-select {
+  width: 100%; padding: .45rem .6rem; border-radius: 8px;
+  background: var(--surface); color: inherit; border: 1px solid var(--edge); font: inherit;
+}
+.prix-tiles { display: flex; flex-wrap: wrap; gap: .5rem; }
+.ptile-pad {
+  width: 3.2rem; height: 3.2rem; border-radius: 12px; cursor: pointer;
+  border: 1px solid var(--edge); background: rgba(255,255,255,.07);
+  transition: transform .1s ease, box-shadow .12s ease, background .12s ease;
+}
+.ptile-pad:disabled { cursor: default; opacity: .75; }
+.ptile-pad.t0 { background: rgba(244,206,90,.18); }
+.ptile-pad.t1 { background: rgba(127,180,37,.18); }
+.ptile-pad.t2 { background: rgba(96,165,250,.18); }
+.ptile-pad.t3 { background: rgba(244,114,182,.18); }
+.ptile-pad.t4 { background: rgba(167,139,250,.18); }
+.ptile-pad.t5 { background: rgba(251,146,60,.18); }
+.ptile-pad.lit { transform: scale(1.06); box-shadow: 0 0 16px rgba(255,255,255,.5); }
+.ptile-pad.t0.lit { background: #F4CE5A; }
+.ptile-pad.t1.lit { background: #7FB425; }
+.ptile-pad.t2.lit { background: #60A5FA; }
+.ptile-pad.t3.lit { background: #F472B6; }
+.ptile-pad.t4.lit { background: #A78BFA; }
+.ptile-pad.t5.lit { background: #FB923C; }
+.prix-choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .5rem; }
+.pchoice {
+  padding: .6rem .8rem; border-radius: 10px; cursor: pointer; text-align: left; color: inherit;
+  background: var(--surface); border: 1px solid var(--edge); font-size: .9rem;
+}
+.pchoice:hover:not(:disabled) { border-color: var(--accent); background: color-mix(in srgb, var(--a1) 12%, var(--surface)); }
+.pchoice:disabled { opacity: .5; cursor: default; }
+#prix-engines .ai-level { display: grid; gap: .1rem; text-align: left; padding: .5rem .7rem; }
+#prix-engines .ai-level b { font-family: var(--display); font-size: .82rem; letter-spacing: .04em; }
+#prix-engines .ai-level i { font-style: normal; font-size: .7rem; opacity: .75; }

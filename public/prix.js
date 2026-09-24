@@ -140,6 +140,7 @@ function draw() {
   $("prix-chat-tag").textContent = open ? "" : "Shut for the race";
 
   if (!racing) {
+    drawEngines();
     drawDrivers();
     drawCircuits();
     drawLengths();
@@ -150,6 +151,44 @@ function draw() {
       : here < 2 ? "Waiting for at least one more racer." : `${here} on the grid.`;
   }
   drawTrack();
+}
+
+/** What the race runs on, and — for trivia — which theme. The host's call. */
+function drawEngines() {
+  const g = P.game;
+  const host = $("prix-engines");
+  host.textContent = "";
+  for (const e of g.engines || []) {
+    const b = el("button", "ai-level" + (g.engine === e.id ? " is-on" : ""));
+    b.type = "button";
+    b.disabled = !P.isHost;
+    b.append(el("b", null, e.name));
+    b.append(el("i", null, e.sub));
+    b.onclick = () => send({ type: "PRIX_ENGINE", engine: e.id });
+    host.append(b);
+  }
+
+  const themes = (g.engines || []).find((e) => e.id === "trivia")?.themes || [];
+  const box = $("prix-theme-box");
+  const sel = $("prix-theme");
+  box.hidden = g.engine !== "trivia";
+  if (box.hidden) return;
+  if (sel.options.length !== themes.length + 1) {
+    sel.textContent = "";
+    const mixed = document.createElement("option");
+    mixed.value = "mixed";
+    mixed.textContent = "Everything, mixed";
+    sel.append(mixed);
+    for (const t of themes) {
+      const o = document.createElement("option");
+      o.value = t.id;
+      o.textContent = t.name;
+      sel.append(o);
+    }
+  }
+  sel.value = g.theme || "mixed";
+  sel.disabled = !P.isHost;
+  sel.onchange = () => send({ type: "PRIX_THEME", theme: sel.value });
 }
 
 /** How many computers line up, and how quick they are. The host's call. */
@@ -222,7 +261,8 @@ function drawClasses() {
   const me = g.players.find((p) => p.uid === P.you);
   const host = $("prix-classes");
   host.textContent = "";
-  for (const c of g.classes) {
+  const levels = (g.engines || []).find((e) => e.id === g.engine)?.levels || [];
+  for (const c of levels) {
     const b = el("button", "ai-level" + (me?.klass === c.id ? " is-on" : ""));
     b.type = "button";
     b.append(el("b", null, c.name));
@@ -346,29 +386,113 @@ function drawWaiting() {
 function drawItem() {
   const it = P.item;
   if (!it) return;
-  $("prix-clue").textContent = it.clue || (it.clueInMs > 0 ? "No clue yet — the letters are all you get." : "");
-  $("prix-clue").classList.toggle("held", !it.clue);
+  const kind = it.kind || "type";
 
-  const host = $("prix-letters");
-  host.textContent = "";
-  for (const ch of it.scrambled) host.append(el("span", "ptile", ch));
-  if (it.hint) {
-    const h = el("p", "prix-hint", `Starts with ${it.hint}`);
-    host.append(h);
-  }
-
+  // Everything that is not this engine's face goes away first.
+  $("prix-letters").hidden = kind !== "type";
+  $("prix-tiles").hidden = kind !== "tiles";
+  $("prix-choices").hidden = kind !== "choice";
   const box = $("prix-guess");
-  box.value = "";
-  box.maxLength = it.len;
-  box.disabled = false;
-  box.focus();
-  // The flash is not cleared here on purpose: firing an item deals the next
-  // word at once, and wiping it would mean nobody ever reads what their own
-  // item just did.
+  const go = $("btn-prix-guess");
+  const typed = kind === "type" || kind === "number";
+  box.hidden = !typed;
+  go.hidden = !typed;
+
+  $("prix-clue").textContent = clueFor(it);
+  $("prix-clue").classList.toggle("held", kind === "type" && !it.clue);
+
+  if (kind === "type") drawLetters(it);
+  if (kind === "number") drawSum(it);
+  if (kind === "tiles") drawTiles(it);
+  if (kind === "choice") drawChoices(it);
+
+  if (typed) {
+    box.value = "";
+    box.maxLength = kind === "number" ? 12 : it.len;
+    box.inputMode = kind === "number" ? "numeric" : "text";
+    box.placeholder = kind === "number" ? "The answer" : "The word";
+    box.disabled = false;
+    box.focus();
+  }
 
   clearInterval(P.tick);
   P.tick = setInterval(runClock, 100);
   runClock();
+}
+
+/** The line above the item, in whichever engine's words. */
+function clueFor(it) {
+  if (it.kind === "number") return "What does it come to?";
+  if (it.kind === "tiles") return "Watch the tiles, then tap them back in order.";
+  if (it.kind === "choice") return it.question || "";
+  return it.clue || (it.clueInMs > 0 ? "No clue yet \u2014 the letters are all you get." : "");
+}
+
+function drawLetters(it) {
+  const host = $("prix-letters");
+  host.textContent = "";
+  for (const ch of it.scrambled || "") host.append(el("span", "ptile", ch));
+  if (it.hint) host.append(el("p", "prix-hint", `Starts with ${it.hint}`));
+}
+
+/** A sum, written large, because that is the whole of the question. */
+function drawSum(it) {
+  const host = $("prix-letters");
+  host.hidden = false;
+  host.textContent = "";
+  host.append(el("span", "psum", it.text || ""));
+}
+
+/**
+ * The tiles light in order, then it is your turn. The sequence is on screen
+ * for exactly as long as the room said, and the taps are collected here and
+ * sent as one answer.
+ */
+function drawTiles(it) {
+  const host = $("prix-tiles");
+  host.textContent = "";
+  P.taps = [];
+  const pads = [];
+  for (let i = 0; i < (it.tiles || 6); i++) {
+    const b = el("button", `ptile-pad t${i}`);
+    b.type = "button";
+    b.disabled = true;
+    b.onclick = () => {
+      P.taps.push(i);
+      b.classList.add("lit");
+      setTimeout(() => b.classList.remove("lit"), 180);
+      if (P.taps.length >= (it.len || it.seq.length)) {
+        send({ type: "PRIX_GUESS", guess: P.taps.join(",") });
+        P.taps = [];
+      }
+    };
+    pads.push(b);
+    host.append(b);
+  }
+
+  // Play it back, then hand the tiles over.
+  const flash = it.flashMs || 600;
+  (it.seq || []).forEach((tile, n) => {
+    setTimeout(() => { pads[tile]?.classList.add("lit"); }, n * flash);
+    setTimeout(() => { pads[tile]?.classList.remove("lit"); }, n * flash + flash * 0.62);
+  });
+  setTimeout(() => { for (const b of pads) b.disabled = false; }, (it.seq || []).length * flash + 150);
+}
+
+/** Four answers, one tap. */
+function drawChoices(it) {
+  const host = $("prix-choices");
+  host.textContent = "";
+  (it.options || []).forEach((text, i) => {
+    const b = el("button", "pchoice", text);
+    b.type = "button";
+    b.onclick = () => {
+      for (const other of host.children) other.disabled = true;
+      send({ type: "PRIX_GUESS", guess: String(i) });
+    };
+    host.append(b);
+  });
+  if (it.themeName) host.append(el("p", "prix-hint", it.themeName));
 }
 
 /** The allowance, drawn as a bar. Past it the bar is spent, not the round. */
@@ -391,7 +515,9 @@ function runClock() {
 
 function showResult(msg) {
   if (msg.ok) {
-    const bits = [`${msg.word} · +${msg.delta} m`];
+    // Only the words engine has a word to name; a sum or a sequence just
+    // moves you.
+    const bits = [msg.word ? `${msg.word} · +${msg.delta} m` : `Right · +${msg.delta} m`];
     if (msg.slowed) bits.push("(flared)");
     if (msg.box) bits.push(`🎁 ${itemName(msg.box)}`);
     flash(bits.join(" "));

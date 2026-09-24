@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Omni Multiverse of Madness</title>
-<meta name="build" content="2026-09-24 13:46 UTC">
+<meta name="build" content="2026-09-24 15:25 UTC">
 <meta name="description" content="Omni Multiverse of Madness — competitive arena. Belts, MMR, casino floor and live standings.">
 <meta name="theme-color" content="#F4F1EA">
 <meta name="mobile-web-app-capable" content="yes">
@@ -483,6 +483,15 @@ if (location.protocol === "file:") {
           <h3 class="prix-h">How long</h3>
           <div id="prix-lengths" class="ai-levels"></div>
 
+          <div id="prix-engines-box">
+            <h3 class="prix-h">What you will be doing</h3>
+            <div id="prix-engines" class="ai-levels"></div>
+            <div id="prix-theme-box" hidden>
+              <h3 class="prix-h">Which theme</h3>
+              <select id="prix-theme" class="prix-select"></select>
+            </div>
+          </div>
+
           <h3 class="prix-h">Your level</h3>
           <p class="panel-sub">Yours alone. Every answer is scored against its own clock, so being quick at your level is what moves you — a harder level pays more MMR, not more speed.</p>
           <div id="prix-classes" class="ai-levels"></div>
@@ -498,6 +507,8 @@ if (location.protocol === "file:") {
         <div class="pad prix-item" id="prix-item">
           <p id="prix-clue" class="prix-clue"></p>
           <div id="prix-letters" class="prix-letters"></div>
+          <div id="prix-tiles" class="prix-tiles" hidden></div>
+          <div id="prix-choices" class="prix-choices" hidden></div>
           <div id="prix-bar" class="prix-bar"><span id="prix-bar-fill"></span></div>
           <div id="prix-hand" class="prix-hand" hidden></div>
           <div class="prix-answer">

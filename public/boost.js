@@ -420,7 +420,7 @@ export function applyTokenTab({ game, send, button, host, label, arsenal = false
         <div class="tok-card" role="dialog" aria-modal="true" aria-label="Apply Token">
           <div class="tok-head"><h2>⚡ Apply Token</h2><button class="tok-x" data-close aria-label="Close">&times;</button></div>
           <div class="tok-body">
-            <p class="tok-sub">Your ${here.where === "the Casino" ? "Casino" : here.where} arsenal. Apply the ${here.name} and this ${label || "match"} pays half again on the MMR${here.game === "casino" ? " — on every win for the rest of the day" : ""}.</p>
+            <p class="tok-sub">Your ${String(here.where || "").replace(/^the /, "")} arsenal. Apply the ${here.name} and this ${label || "match"} pays half again on the MMR${here.game === "casino" ? " — on every win for the rest of the day" : ""}.</p>
             ${rows}
             ${note}
             ${arsenal ? arsenalHtml() : ""}

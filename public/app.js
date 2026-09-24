@@ -1991,6 +1991,7 @@ const GAME_RULES = [
       "<b>Item boxes</b> sit on every lap. Drive over one with empty hands and you get an item \u2014 a slipstream, a comet, an oil slick, fog \u2014 and you hold one at a time. The further back you are, the better the item.",
       "A solar flare is fired from fourth or worse, so it belongs to the back of the field. Climb past fourth while holding one and you can throw it away rather than carry a dead hand to the flag \u2014 full hands wave every later box straight past.",
       "The <b>paddock chat</b> is open in the lobby and shuts when the lights go out. A race ends one minute after the winner is home.",
+      "<b>Anyone arriving once the lights are out watches instead of racing</b>, and the gallery is shown what every kart is carrying. On the road you see only your own hands \u2014 which is what makes an item a decision, and what Telemetry is for.",
     ],
     score: [
       "Every item carries an <b>allowance</b> \u2014 the time it ought to take. Answer inside a third of it for a <b>full boost</b>, falling evenly to a half boost at the allowance and never below. A wrong answer is a spin and costs you a little ground.",

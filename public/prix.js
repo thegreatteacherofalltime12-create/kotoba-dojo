@@ -366,6 +366,10 @@ function drawTrack() {
   host.textContent = "";
   const field = g.players.filter((p) => !p.watching);
   if (!field.length) { host.append(el("p", "panel-sub", "Nobody on the grid yet.")); return; }
+  // Watching rather than racing: the room sends the gallery every hand, so
+  // the gallery is shown them. On the road you see only your own, which is
+  // what makes an item a decision and Telemetry worth buying.
+  const inStands = !!g.players.find((x) => x.uid === P.you)?.watching;
 
   const order = [...field].sort((a, b) => (a.place || 99) - (b.place || 99));
   for (const p of order) {
@@ -391,6 +395,14 @@ function drawTrack() {
     kart.style.left = `${Math.min(100, (p.at / g.total) * 100)}%`;
     road.append(kart);
     row.append(road);
+    if (inStands) {
+      const carried = [p.holding, p.holding2].filter(Boolean);
+      const bits = carried.map((it) => ITEM_ICONS[it] || "🎁");
+      if (p.deflector) bits.push(p.deflector > 1 ? `🛡️\u00d7${p.deflector}` : "🛡️");
+      const strip = el("span", "pl-hand", bits.join(" "));
+      strip.title = carried.length ? carried.map(itemName).join(", ") : "Empty hands";
+      row.append(strip);
+    }
     row.append(el("span", "pl-lap", p.done ? "FLAG" : `L${p.lap}/${g.laps}`));
     host.append(row);
   }

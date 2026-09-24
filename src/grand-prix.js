@@ -176,7 +176,11 @@ export class GrandPrix {
 
   // ------------------------------------------------------------------ state
 
-  publicState() {
+  /**
+   * The room as a viewer is allowed to see it. The open view is the
+   * gallery's, which holds nothing back.
+   */
+  publicState(open = false) {
     const online = this.connected();
     const total = metresFor(this.g.circuit, this.g.length);
     const field = Object.values(this.g.players).filter((p) => !p.watching);
@@ -201,18 +205,61 @@ export class GrandPrix {
         klass: p.klass, at: Math.round(p.at), lap: p.lap,
         solved: p.solved, spins: p.spins,
         ai: !!p.ai, aiLevel: p.aiLevel || null,
-        holding: p.holding || null, holding2: p.holding2 || null, deflector: p.deflector || 0,
-        // Whether what is in hand can be fired from where they are: the
-        // rule about flares lives here, so the browser never has to know it.
-        canFire: !!p.holding && this.mayFire(p, p.holding),
+        // Fog and a flare are public: they land with an announcement and
+        // you can see them on the road. What is in somebody's hands is not.
         fogged: (p.fogUntil || 0) > Date.now(), slowed: (p.slowUntil || 0) > Date.now(),
         place: p.watching ? null : order.indexOf(p.uid) + 1,
         finishedAt: p.finishedAt,
+        ...(open ? this.handOf(p) : {}),
       })),
     };
   }
 
-  pushState() { this.broadcast("PRIX_STATE", { game: this.publicState() }); }
+  /**
+   * What only a racer themself may know, and what the gallery may know
+   * about everybody.
+   *
+   * Reading the whole grid's hands turns every decision into arithmetic —
+   * whether to aim a comet at the leader is only a question while you do
+   * not know they are holding a Deflector — and it would mean Telemetry
+   * sold information the browser already had.
+   */
+  handOf(p) {
+    return {
+      holding: p.holding || null,
+      holding2: p.holding2 || null,
+      deflector: p.deflector || 0,
+      // Whether what is in hand can be fired from where they are: the rule
+      // about flares lives here, so the browser never has to know it. It is
+      // private too, or it would say plainly that a hand is full.
+      canFire: !!p.holding && this.mayFire(p, p.holding),
+    };
+  }
+
+  /**
+   * One grid, sent as many ways as there are kinds of viewer: every racer
+   * sees their own hand and nobody else's, and anybody watching rather than
+   * racing sees the lot, because that is what makes a race worth watching.
+   */
+  pushState() {
+    const shut = this.publicState(false);
+    let gallery = null;
+    for (const ws of this.sockets()) {
+      let uid = null;
+      try { uid = ws.deserializeAttachment()?.uid; } catch { /* gone */ }
+      const me = uid && this.g.players[uid];
+      if (me && me.watching) {
+        gallery = gallery || this.publicState(true);
+        this.send(ws, "PRIX_STATE", { game: gallery });
+        continue;
+      }
+      if (!me) { this.send(ws, "PRIX_STATE", { game: shut }); continue; }
+      const hand = this.handOf(me);
+      this.send(ws, "PRIX_STATE", {
+        game: { ...shut, players: shut.players.map((r) => (r.uid === uid ? { ...r, ...hand } : r)) },
+      });
+    }
+  }
 
   /**
    * What the grid voted for. Every circuit with a vote, most first.

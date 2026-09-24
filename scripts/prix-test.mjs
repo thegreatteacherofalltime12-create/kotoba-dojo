@@ -1023,7 +1023,7 @@ console.log("\nthe magnet keeps what you carry, and a dead hand is not for ever"
   A.holding = "flare";
   await say("a", { type: "PRIX_USE" });
   ok("a flare will not fire from the front", /fourth or worse/.test(seats.a.last("PRIX_ERROR").message) && A.holding === "flare");
-  ok("and the room says so in the state", room.publicState().players.find((x) => x.uid === "a").canFire === false);
+  ok("and the room says so in the state", room.publicState(true).players.find((x) => x.uid === "a").canFire === false);
   await say("a", { type: "PRIX_DROP" });
   ok("but it can be thrown away", A.holding === null);
   ok("and the racer is told what went", /thrown away/.test(seats.a.last("PRIX_USED").note));
@@ -1045,6 +1045,69 @@ console.log("\nthe magnet keeps what you carry, and a dead hand is not for ever"
   A.holding = null;
   await say("a", { type: "PRIX_DROP" });
   ok("and empty hands drop nothing", /Nothing in your hands/.test(seats.a.last("PRIX_ERROR").message));
+}
+
+
+console.log("\nwhat is in your hands is yours");
+{
+  const { room, seats, say } = await roomOf(["a", "Ana"], ["b", "Bo"]);
+  await say("a", { type: "PRIX_START" });
+  const A = room.g.players.a, B = room.g.players.b;
+  A.holding = "comet";
+  B.holding = "deflector"; B.holding2 = "nitro"; B.deflector = 2;
+  room.pushState();
+  const grid = seats.a.last("PRIX_STATE").game.players;
+  const mine = grid.find((x) => x.uid === "a");
+  const yours = grid.find((x) => x.uid === "b");
+  ok("you see your own hand", mine.holding === "comet");
+  ok("and whether you may fire it", mine.canFire === true);
+  ok("but not the hand of the kart beside you", yours.holding === undefined && yours.holding2 === undefined);
+  ok("nor their shields", yours.deflector === undefined);
+  ok("nor whether their hand is full", yours.canFire === undefined);
+  // Everything a race is run on is still there.
+  ok("the grid itself is unchanged", typeof yours.at === "number" && typeof yours.place === "number"
+    && yours.name === "Bo" && yours.lap >= 1);
+}
+{
+  // What lands in the open stays in the open: fog and a flare arrive with
+  // an announcement, so hiding them would be a lie rather than a secret.
+  const { room, seats, say } = await roomOf(["a", "Ana"], ["b", "Bo"]);
+  await say("a", { type: "PRIX_START" });
+  const B = room.g.players.b;
+  B.fogUntil = Date.now() + 5_000;
+  B.slowUntil = Date.now() + 5_000;
+  room.pushState();
+  const yours = seats.a.last("PRIX_STATE").game.players.find((x) => x.uid === "b");
+  ok("fog on somebody else is still visible", yours.fogged === true);
+  ok("and so is a flare", yours.slowed === true);
+}
+{
+  // The gallery is not racing, so the gallery sees everything.
+  const { room, seats, say } = await roomOf(["a", "Ana"], ["b", "Bo"], ["c", "Cy"]);
+  await say("a", { type: "PRIX_START" });
+  room.g.players.a.holding = "nitro";
+  room.g.players.b.holding = "slick";
+  room.g.players.c.watching = true;      // watching rather than racing
+  room.pushState();
+  const seen = seats.c.last("PRIX_STATE").game.players;
+  ok("a spectator sees every hand",
+    seen.find((x) => x.uid === "a").holding === "nitro" && seen.find((x) => x.uid === "b").holding === "slick");
+  // And the racers still cannot see each other.
+  const racer = seats.a.last("PRIX_STATE").game.players.find((x) => x.uid === "b");
+  ok("while the racers still cannot", racer.holding === undefined);
+}
+{
+  // Telemetry is the way to know, and it still is.
+  const { room, seats, say } = await roomOf(["a", "Ana"], ["b", "Bo"]);
+  await say("a", { type: "PRIX_START" });
+  const A = room.g.players.a, B = room.g.players.b;
+  A.at = 10; B.at = 500; B.holding = "comet";
+  A.tele = true;
+  room.send(room.socketFor("a"), "PRIX_ITEM", room.itemView(A));
+  ok("a racer who paid for Telemetry is told what is ahead", seats.a.last("PRIX_ITEM").ahead === "comet");
+  A.tele = false;
+  room.send(room.socketFor("a"), "PRIX_ITEM", room.itemView(A));
+  ok("and one who did not is told nothing", seats.a.last("PRIX_ITEM").ahead === undefined);
 }
 
 console.log(bad ? `\n${bad} failing\n` : "\nall grand prix checks passed\n");

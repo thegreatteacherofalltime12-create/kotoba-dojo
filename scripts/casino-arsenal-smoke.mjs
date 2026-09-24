@@ -3,7 +3,7 @@
 // The casino arsenal on the floor: the limits, the door, the blackjack
 // table's safeties, the track's odds, the arcade's perks and the ceiling.
 import { CasinoFloor } from "../src/casino-floor.js";
-import { HORSES, placings, oddsFor } from "../src/casino-core.js";
+import { HORSES, placings, oddsFor, isBlackjack } from "../src/casino-core.js";
 import { ARSENALS } from "../src/arsenals.js";
 
 let bad = 0;
@@ -88,15 +88,28 @@ console.log("\nthe blackjack table");
   await say({ type: "SEAT_TAKE", bet: 50 });
   await say({ type: "SEAT_DEAL" });
   const t = floor.f.table;
-  ok("the hand is live", t.phase === "ACTING" && t.seats.p1.cards.length === 2);
+  // A natural finishes the seat the moment it is dealt — the table stays
+  // in ACTING for everyone else, so "is the table acting" is not the same
+  // question as "is this hand still mine to play". Neither of the two
+  // tokens below is for a finished hand, so deal past a blackjack rather
+  // than assert against one: about one opening hand in twenty is a natural,
+  // which is exactly the rate this test used to fail at.
+  for (let i = 0; i < 20 && t.seats.p1.done; i++) {
+    t.seats.p1.cards = [t.shoe.pop(), t.shoe.pop()];
+    t.seats.p1.done = isBlackjack(t.seats.p1.cards);
+  }
+  ok("the hand is live", t.phase === "ACTING" && t.seats.p1.cards.length === 2 && !t.seats.p1.done);
   await say({ type: "FLOOR_ARSENAL", action: "peek" });
   ok("the peek names the dealer's hole card", /hole card is/.test(ws.last("FLOOR_NOTE").text));
   const before = t.seats.p1.cards.map((c) => c.rank + c.suit).join();
   await say({ type: "FLOOR_ARSENAL", action: "redeal" });
-  ok("a second deal is two fresh cards", t.seats.p1.cards.length === 2 && t.seats.p1.cards.map((c) => c.rank + c.suit).join() !== before);
+  const why = () => { const e = ws.last("FLOOR_ERROR"); return e ? " — the floor said: " + e.message : ""; };
+  const freshOk = t.seats.p1.cards.length === 2 && t.seats.p1.cards.map((c) => c.rank + c.suit).join() !== before;
+  ok("a second deal is two fresh cards" + (freshOk ? "" : why()), freshOk);
   const one = t.seats.p1.cards[0].rank + t.seats.p1.cards[0].suit;
   await say({ type: "FLOOR_ARSENAL", action: "tip", index: 0 });
-  ok("a tip swaps one card", (t.seats.p1.cards[0].rank + t.seats.p1.cards[0].suit) !== one && t.seats.p1.cards.length === 2);
+  const tipOk = (t.seats.p1.cards[0].rank + t.seats.p1.cards[0].suit) !== one && t.seats.p1.cards.length === 2;
+  ok("a tip swaps one card" + (tipOk ? "" : why()), tipOk);
   await say({ type: "FLOOR_ARSENAL", action: "count" });
   ok("the counter reads the shoe", /tens and \d+ aces left/.test(ws.last("FLOOR_NOTE").text));
   await say({ type: "FLOOR_ARSENAL", action: "shoe" });

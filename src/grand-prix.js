@@ -18,6 +18,7 @@ import {
   allowanceMs, deckFor, shuffled, scramble, distanceFor, raceScore, standings, nearMiss,
   SPIN_COST, ITEMS, itemById, boxMarks, boxesBetween, rollItem, flared,
   SLIPSTREAM_M, COMET_M, SLICK_M, FOG_MS, SCRAMBLE_FOG_MS, FLARE_MS,
+  AI_LEVELS, AI_MAX, AI_NAMES, AI_ALLOWANCE, aiPace, aiShouldFire,
 } from "./prix.js";
 import { recordMatch, readRatings } from "./firestore.js";
 import { moderate } from "./moderation.js";
@@ -31,6 +32,10 @@ const IDLE_SHUTDOWN_MS = 30 * 60_000;
 // hammering the object, not to pace anybody.
 const GUESSES_PER_SECOND = 8;
 const GUESS_BURST = 20;
+// Once the winner is home, the rest of the field has this long to get there.
+// Without it a quick racer waits out the slowest Rookie on the grid, which
+// is a worse way to spend a Saturday than any of this is meant to be.
+const FLAG_GRACE_MS = 60_000;
 
 export class GrandPrix {
   constructor(state, env) {
@@ -117,8 +122,9 @@ export class GrandPrix {
       this.g = {
         code, phase: "LOBBY", hostUid: uid,
         solo: false, circuit: "cinder", length: "gp",
+        aiCount: 3, aiLevel: "medium",
         players: {}, startedAt: null, endsAt: null, round: 0, applied: {},
-        votes: {}, chat: [], slicks: [], marks: [],
+        votes: {}, chat: [], slicks: [], marks: [], flagAt: null,
       };
     }
 
@@ -130,7 +136,7 @@ export class GrandPrix {
     this.announce();
     this.send(ws, "PRIX_WELCOME", {
       you: uid, isHost: this.g.hostUid === uid,
-      circuits: CIRCUITS, lengths: LENGTHS, classes: CLASSES,
+      circuits: CIRCUITS, lengths: LENGTHS, classes: CLASSES, aiLevels: AI_LEVELS, aiMax: AI_MAX,
     });
     for (const m of (this.g.chat || []).slice(-30)) this.send(ws, "PRIX_CHAT", m);
     this.pushState();
@@ -169,6 +175,7 @@ export class GrandPrix {
     return {
       code: this.g.code, phase: this.g.phase, hostUid: this.g.hostUid,
       solo: !!this.g.solo, circuit: this.g.circuit, length: this.g.length,
+      aiCount: this.g.aiCount, aiLevel: this.g.aiLevel, aiLevels: AI_LEVELS, aiMax: AI_MAX,
       circuits: CIRCUITS, lengths: LENGTHS, classes: CLASSES,
       laps: lapsFor(this.g.circuit, this.g.length),
       lapM: circuitById(this.g.circuit).lapM,
@@ -183,6 +190,7 @@ export class GrandPrix {
         watching: !!p.watching, done: !!p.done,
         klass: p.klass, at: Math.round(p.at), lap: p.lap,
         solved: p.solved, spins: p.spins,
+        ai: !!p.ai, aiLevel: p.aiLevel || null,
         holding: p.holding || null, deflector: !!p.deflector,
         fogged: (p.fogUntil || 0) > Date.now(), slowed: (p.slowUntil || 0) > Date.now(),
         place: p.watching ? null : order.indexOf(p.uid) + 1,
@@ -285,6 +293,7 @@ export class GrandPrix {
         case "PING": return this.beat();
         case "PRIX_SOLO": return await this.setSolo(ws, who.uid, msg);
         case "PRIX_VOTE": return await this.vote(ws, who.uid, msg);
+        case "PRIX_AI": return await this.setAi(ws, who.uid, msg);
         case "PRIX_SAY": return await this.say(ws, who.uid, msg);
         case "PRIX_LENGTH": return await this.setLength(ws, who.uid, msg);
         case "PRIX_CLASS": return await this.setClass(ws, who.uid, msg);
@@ -315,6 +324,15 @@ export class GrandPrix {
   async setSolo(ws, uid, msg) {
     if (!this.hostOnly(ws, uid)) return;
     this.g.solo = !!msg.on;
+    await this.persist();
+    this.pushState();
+  }
+
+  /** How many computers line up, and how quick they are. */
+  async setAi(ws, uid, msg) {
+    if (!this.hostOnly(ws, uid)) return;
+    if (Number.isFinite(msg.count)) this.g.aiCount = Math.max(1, Math.min(AI_MAX, Math.round(msg.count)));
+    if (AI_LEVELS.some((l) => l.id === msg.level)) this.g.aiLevel = msg.level;
     await this.persist();
     this.pushState();
   }
@@ -408,8 +426,13 @@ export class GrandPrix {
       p.seed = seeded.indexOf(p.uid) + 1 || null;
     }
 
+    // Last race's computers go; the ones asked for now come.
+    for (const id of Object.keys(this.g.players)) if (this.isAi(id)) delete this.g.players[id];
+    if (this.g.solo) this.seatDrivers();
+
     this.g.marks = boxMarks(this.g.circuit, this.g.length);
     this.g.slicks = [];
+    this.g.flagAt = null;
 
     const now = Date.now();
     this.g.phase = "RACING";
@@ -418,7 +441,7 @@ export class GrandPrix {
     this.g.endsAt = now + capFor(this.g.circuit, this.g.length);
 
     await this.persist();
-    await this.state.storage.setAlarm(this.g.endsAt);
+    await this.armAlarm();
     this.announce();
 
     this.broadcast("PRIX_START", {
@@ -438,6 +461,90 @@ export class GrandPrix {
     }
     await this.persist();
     this.pushState();
+  }
+
+  // ------------------------------------------------------------- the drivers
+  //
+  // A computer driver does not read a clue or unscramble anything. It
+  // answers on a timer, and the room moves it exactly as it moves anybody
+  // else — over the same boxes, through the same oil, under the same flare.
+
+  isAi(uid) { return typeof uid === "string" && /^ai\d+$/.test(uid); }
+
+  seatDrivers() {
+    const level = AI_LEVELS.find((l) => l.id === this.g.aiLevel) || AI_LEVELS[1];
+    const n = Math.max(1, Math.min(AI_MAX, this.g.aiCount || 3));
+    for (let i = 0; i < n; i++) {
+      const uid = `ai${i}`;
+      this.g.players[uid] = {
+        ...this.freshRacer(uid, `${AI_NAMES[i] || "Driver"} (${level.name})`),
+        ai: true, aiLevel: level.id, watching: false,
+        // A driver's first word is due one pace after the lights.
+        nextAt: Date.now() + aiPace(level.id),
+        seed: 2 + i,
+      };
+    }
+  }
+
+  /** When the room next has to wake up for a driver, or nothing. */
+  nextDriverAt() {
+    const due = Object.values(this.g.players)
+      .filter((p) => p.ai && !p.done && !p.watching)
+      .map((p) => Math.max(p.nextAt || 0, (p.fogUntil || 0)));
+    return due.length ? Math.min(...due) : null;
+  }
+
+  /** The alarm is whichever comes first: a driver's next word, or the flag. */
+  async armAlarm() {
+    const when = [this.nextDriverAt(), this.g.endsAt, this.g.flagAt].filter(Boolean);
+    if (when.length) await this.state.storage.setAlarm(Math.max(Math.min(...when), Date.now() + 250));
+  }
+
+  /** One driver taking one word. */
+  async driveOne(p) {
+    const level = p.aiLevel || "medium";
+    const laps = lapsFor(this.g.circuit, this.g.length);
+
+    // Fog and a scrambler cost a driver the same thing they cost a person:
+    // the time it takes to see the word again.
+    const fogged = (p.fogUntil || 0) > Date.now();
+    if (fogged) { p.nextAt = p.fogUntil + 200; return; }
+
+    const took = aiPace(level);
+    const moved = this.advance(null, p, distanceFor(took, AI_ALLOWANCE));
+    p.solved += 1;
+    p.ratioSum += Math.min(1, took / AI_ALLOWANCE);
+    p.nextAt = Date.now() + aiPace(level);
+
+    // What it does with a box it picked up.
+    if (p.holding) {
+      const fire = aiShouldFire({
+        item: p.holding, hasTargetAhead: !!this.ahead(p),
+        lap: p.lap, laps, level,
+      });
+      if (fire) await this.fire(p, p.holding);
+    }
+
+    if (p.at >= metresFor(this.g.circuit, this.g.length)) await this.cross(p);
+    return moved;
+  }
+
+  /** Every driver that is due, then the alarm for the next one. */
+  async driveDue() {
+    if (this.g.phase !== "RACING") return;
+    const now = Date.now();
+    let moved = false;
+    for (const p of Object.values(this.g.players)) {
+      if (!p.ai || p.done || p.watching) continue;
+      let guard = 0;
+      while ((p.nextAt || 0) <= now && !p.done && guard++ < 4) {
+        await this.driveOne(p);
+        moved = true;
+      }
+    }
+    if (this.g.phase !== "RACING") return;   // the flag fell while they drove
+    if (moved) { await this.persist(); this.pushState(); }
+    await this.armAlarm();
   }
 
   // ------------------------------------------------------------------ racing
@@ -586,16 +693,25 @@ export class GrandPrix {
     const p = this.racer(ws, uid);
     if (!p) return;
     if (!p.holding) return this.send(ws, "PRIX_ERROR", { message: "Nothing in your hands." });
-
-    const what = p.holding;
-    const field = Object.values(this.g.players).filter((x) => !x.watching);
-    const place = standings(field).findIndex((x) => x.uid === p.uid) + 1;
-
-    // The flare is the back of the field's weapon, and only theirs.
-    if (what === "flare" && place < 4) {
+    if (!this.mayFire(p, p.holding))
       return this.send(ws, "PRIX_ERROR", { message: "A flare is fired from fourth or worse." });
-    }
+    await this.fire(p, p.holding);
+  }
 
+  /** Whether this racer may fire that. The flare belongs to the back. */
+  mayFire(p, what) {
+    if (what !== "flare") return true;
+    const field = Object.values(this.g.players).filter((x) => !x.watching);
+    return (standings(field).findIndex((x) => x.uid === p.uid) + 1) >= 4;
+  }
+
+  /**
+   * Firing what is held. Every item is spent whether or not it finds
+   * anybody: aiming at an empty road is a decision too. A person arrives
+   * here through use(); a computer driver arrives on its own.
+   */
+  async fire(p, what) {
+    const ws = this.socketFor(p.uid);
     p.holding = null;
     p.fired += 1;
     let note = "";
@@ -683,7 +799,7 @@ export class GrandPrix {
     }
 
     await this.persist();
-    this.send(ws, "PRIX_USED", { item: what, note });
+    if (ws) this.send(ws, "PRIX_USED", { item: what, note });
     this.broadcast("PRIX_FIRED", { uid: p.uid, name: p.name, item: what, note });
     this.pushState();
   }
@@ -706,12 +822,21 @@ export class GrandPrix {
     p.done = true;
     p.item = null;
     p.finishedAt = Date.now() - (this.g.startedAt || Date.now());
+
+    // The winner starts the clock on everybody else.
+    const first = !this.g.flagAt;
+    if (first) this.g.flagAt = Date.now() + FLAG_GRACE_MS;
+
     await this.persist();
-    this.broadcast("PRIX_FLAG", { uid: p.uid, name: p.name, ms: p.finishedAt });
+    this.broadcast("PRIX_FLAG", {
+      uid: p.uid, name: p.name, ms: p.finishedAt,
+      graceMs: first ? FLAG_GRACE_MS : Math.max(0, this.g.flagAt - Date.now()),
+    });
     this.pushState();
 
     const field = Object.values(this.g.players).filter((x) => !x.watching);
-    if (field.every((x) => x.done)) await this.finish();
+    if (field.every((x) => x.done)) { await this.finish(); return; }
+    await this.armAlarm();
   }
 
   // ----------------------------------------------------------------- the flag
@@ -770,19 +895,26 @@ export class GrandPrix {
     this.broadcast("PRIX_OVER", { results, mode, bounty });
     this.pushState();
 
+    const human = results.filter((r) => !this.isAi(r.uid));
+    if (!human.length) return;
     this.state.waitUntil?.(
       recordMatch(this.env, {
         code: this.g.code, roundNo: this.g.round,
         puzzleId: `prix:${this.g.circuit}:${this.g.length}`,
         game: "prix", mode, courseId: this.g.circuit,
-        finishedAt: Date.now(), results,
+        finishedAt: Date.now(), results: human,
       }).then((ok) => { if (!ok) console.error("[prix] results were not saved"); })
         .catch((e) => console.error(`[prix] ${e.message}`))
     );
   }
 
   async alarm() {
-    if (this.g?.phase === "RACING" && Date.now() >= (this.g.endsAt || 0)) { await this.finish(); return; }
+    if (this.g?.phase === "RACING") {
+      if (Date.now() >= (this.g.endsAt || 0)) { await this.finish(); return; }
+      if (this.g.flagAt && Date.now() >= this.g.flagAt) { await this.finish(); return; }
+      await this.driveDue();
+      return;
+    }
     if (this.sockets().length === 0) {
       await this.state.storage.deleteAll();
       this.g = null;

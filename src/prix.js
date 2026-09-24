@@ -11,7 +11,7 @@ import { DICT, isWord } from "./links.js";
 
 // ── the track ────────────────────────────────────────────────────────
 
-export const LAP_M = 1000;
+export const LAP_M = 800;
 
 /**
  * A circuit says how hard it runs whichever engine was chosen, how many
@@ -19,12 +19,12 @@ export const LAP_M = 1000;
  * here but nothing fires yet — that is the next slice.
  */
 export const CIRCUITS = [
-  { id: "reef", name: "Neon Reef", sub: "Wide, bright, forgiving", ico: "\u{1F41A}", hard: "easiest", boxes: 3, lapM: 1000 },
-  { id: "cinder", name: "Cinder Rally", sub: "The one to learn on", ico: "\u{1F5FB}", hard: "middle", boxes: 4, lapM: 1000 },
-  { id: "canyon", name: "The Glass Canyon", sub: "One long straight", ico: "\u{1F3DC}️", hard: "middle", boxes: 2, lapM: 1000 },
-  { id: "orbital", name: "Orbital Ring", sub: "Short laps, constant contact", ico: "\u{1FA90}", hard: "middle", boxes: 4, lapM: 600 },
-  { id: "bramble", name: "Bramble Hollow", sub: "Items everywhere", ico: "\u{1F33F}", hard: "middle", boxes: 8, lapM: 1000 },
-  { id: "midnight", name: "Midnight Circuit", sub: "The hard one", ico: "\u{1F311}", hard: "hardest", boxes: 3, lapM: 1000 },
+  { id: "reef", name: "Neon Reef", sub: "Wide, bright, forgiving", ico: "\u{1F41A}", hard: "easiest", boxes: 3, lapM: 800 },
+  { id: "cinder", name: "Cinder Rally", sub: "The one to learn on", ico: "\u{1F5FB}", hard: "middle", boxes: 4, lapM: 800 },
+  { id: "canyon", name: "The Glass Canyon", sub: "One long straight", ico: "\u{1F3DC}️", hard: "middle", boxes: 2, lapM: 800 },
+  { id: "orbital", name: "Orbital Ring", sub: "Short laps, constant contact", ico: "\u{1FA90}", hard: "middle", boxes: 4, lapM: 500 },
+  { id: "bramble", name: "Bramble Hollow", sub: "Items everywhere", ico: "\u{1F33F}", hard: "middle", boxes: 8, lapM: 800 },
+  { id: "midnight", name: "Midnight Circuit", sub: "The hard one", ico: "\u{1F311}", hard: "hardest", boxes: 3, lapM: 800 },
 ];
 export const circuitById = (id) => CIRCUITS.find((c) => c.id === id) || CIRCUITS[1];
 
@@ -39,8 +39,12 @@ export const lapsFor = (circuit, length) =>
   lengthById(length).laps + (circuitById(circuit).id === "orbital" ? 2 : 0);
 export const metresFor = (circuit, length) => lapsFor(circuit, length) * circuitById(circuit).lapM;
 
-/** A race cannot run for ever: four minutes a lap is far more than anyone needs. */
-export const capFor = (circuit, length) => lapsFor(circuit, length) * 240_000;
+/**
+ * A race cannot run for ever. Five minutes a lap is generous on purpose: the
+ * cap is there to stop a room running all night, not to pace anybody, and a
+ * Rookie driver or a racer having a hard time of it should still see a flag.
+ */
+export const capFor = (circuit, length) => lapsFor(circuit, length) * 300_000;
 
 // ── the words engine ─────────────────────────────────────────────────
 
@@ -113,7 +117,7 @@ export function nearMiss(said, answer) {
 // ── the distance rule ────────────────────────────────────────────────
 
 export const FULL_BOOST = 100;   // metres for an answer inside a third of its allowance
-export const FLOOR_BOOST = 40;   // metres for one that took longer than the allowance
+export const FLOOR_BOOST = 50;   // metres for one that took longer than the allowance
 export const SPIN_COST = 15;     // metres lost to a wrong answer
 
 /**
@@ -219,6 +223,56 @@ export function rollItem(place, field, rnd = Math.random) {
 
 /** What an answer is worth while a flare is overhead. */
 export const flared = (metres) => Math.round(metres * (1 - FLARE_CUT));
+
+// ── computer drivers ─────────────────────────────────────────────────
+//
+// A driver has one number that matters: how long it takes over a word. It
+// does not read a clue or unscramble anything — it answers on a timer, and
+// the timer is drawn fresh each time so it does not run like a metronome.
+//
+// The pace is what a person of that standard would manage, judged against a
+// standard fifteen-second allowance: Rookie mostly takes the floor, Pro is
+// quick enough to be worth beating.
+
+export const AI_PACE = {
+  easy: { name: "Rookie", low: 14_000, high: 20_000 },
+  medium: { name: "Club", low: 7_500, high: 14_000 },
+  hard: { name: "Pro", low: 3_800, high: 8_000 },
+};
+export const AI_LEVELS = Object.entries(AI_PACE).map(([id, p]) => ({
+  id, name: p.name,
+  blurb: `About ${Math.round((p.low + p.high) / 2000)} seconds a word.`,
+}));
+export const AI_MAX = 5;
+export const AI_NAMES = ["Bolt", "Dart", "Scout", "Rook", "Vega"];
+
+/** How long this driver takes over its next word. */
+export function aiPace(level, rnd = Math.random) {
+  const p = AI_PACE[level] || AI_PACE.medium;
+  return Math.round(p.low + rnd() * (p.high - p.low));
+}
+
+/** The allowance a driver is judged against, so it scores like a person. */
+export const AI_ALLOWANCE = 15_000;
+
+/**
+ * What a driver does with the item in its hands.
+ *
+ * Self items go straight away — there is no cleverness in holding a
+ * slipstream. A weapon needs somebody in front, and the better the driver
+ * the more likely it is to hold one back for the last lap, where it hurts.
+ */
+export function aiShouldFire({ item, hasTargetAhead, lap, laps, level }, rnd = Math.random) {
+  if (!item) return false;
+  if (item === "slipstream" || item === "nitro" || item === "deflector" || item === "slick") return true;
+  if (!hasTargetAhead) return false;
+  if (item === "flare") return true;   // the room refuses it above fourth anyway
+  const lastLap = lap >= laps;
+  if (lastLap) return true;
+  // Patience, by standard: a Pro sits on a comet, a Rookie throws it.
+  const hold = { easy: 0.1, medium: 0.35, hard: 0.6 }[level] ?? 0.3;
+  return rnd() > hold;
+}
 
 // ── scoring ──────────────────────────────────────────────────────────
 

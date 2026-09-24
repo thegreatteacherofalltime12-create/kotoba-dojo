@@ -95,7 +95,14 @@ function handle(msg) {
       takeHit(msg);
       break;
     case "PRIX_FLAG":
+      if (msg.uid === P.you) {
+        P.item = null;
+        P.flagAt = Date.now() + (msg.graceMs || 0);
+        clearInterval(P.tick);
+        P.tick = setInterval(drawWaiting, 500);
+      }
       flash(`${msg.name} takes the flag.`);
+      drawWaiting();
       break;
     case "PRIX_OVER":
       P.item = null;
@@ -133,15 +140,48 @@ function draw() {
   $("prix-chat-tag").textContent = open ? "" : "Shut for the race";
 
   if (!racing) {
+    drawDrivers();
     drawCircuits();
     drawLengths();
     drawClasses();
     const here = g.players.filter((p) => p.online).length;
     $("prix-note").textContent = g.solo
-      ? "Solo. Begin whenever you are ready."
+      ? `Solo, against ${g.aiCount} ${g.aiCount === 1 ? "computer" : "computers"}. Begin whenever you are ready.`
       : here < 2 ? "Waiting for at least one more racer." : `${here} on the grid.`;
   }
   drawTrack();
+}
+
+/** How many computers line up, and how quick they are. The host's call. */
+function drawDrivers() {
+  const g = P.game;
+  const box = $("prix-ai");
+  box.hidden = !g.solo;
+  if (!g.solo) return;
+
+  const counts = $("prix-ai-count");
+  counts.textContent = "";
+  for (let n = 1; n <= (g.aiMax || 5); n++) {
+    const b = el("button", "ai-level" + (g.aiCount === n ? " is-on" : ""));
+    b.type = "button";
+    b.disabled = !P.isHost;
+    b.append(el("b", null, String(n)));
+    b.append(el("i", null, n === 1 ? "driver" : "drivers"));
+    b.onclick = () => send({ type: "PRIX_AI", count: n });
+    counts.append(b);
+  }
+
+  const levels = $("prix-ai-level");
+  levels.textContent = "";
+  for (const l of g.aiLevels || []) {
+    const b = el("button", "ai-level" + (g.aiLevel === l.id ? " is-on" : ""));
+    b.type = "button";
+    b.disabled = !P.isHost;
+    b.append(el("b", null, l.name));
+    b.append(el("i", null, l.blurb));
+    b.onclick = () => send({ type: "PRIX_AI", level: l.id });
+    levels.append(b);
+  }
 }
 
 function drawCircuits() {
@@ -265,7 +305,7 @@ function drawTrack() {
       oil.style.left = `${Math.min(100, (m / g.total) * 100)}%`;
       road.append(oil);
     }
-    const kart = el("span", "pl-kart", p.uid === P.you ? "\u{1F3CE}️" : "\u{1F697}");
+    const kart = el("span", "pl-kart", p.uid === P.you ? "\u{1F3CE}️" : p.ai ? "\u{1F916}" : "\u{1F697}");
     // The room moves a kart in steps; the slide between them is here, so it
     // reads as a race rather than a table of numbers.
     kart.style.left = `${Math.min(100, (p.at / g.total) * 100)}%`;
@@ -277,6 +317,28 @@ function drawTrack() {
   const me = field.find((p) => p.uid === P.you);
   if (me && g.phase === "RACING") $("prix-phase").textContent = `Lap ${me.lap} of ${g.laps}`;
   drawHand();
+  drawWaiting();
+}
+
+/**
+ * Your race, once you are home. The word box goes, because answering into
+ * a race you have finished is nonsense, and the rest of the field gets the
+ * minute the room is giving them.
+ */
+function drawWaiting() {
+  const g = P.game;
+  const me = g?.players?.find((p) => p.uid === P.you);
+  const done = !!me?.done && g?.phase === "RACING";
+  const item = $("prix-item");
+  const note = $("prix-waiting");
+  if (item) item.hidden = done;
+  if (!note) return;
+  note.hidden = !done;
+  if (!done) return;
+  const left = Math.max(0, Math.round(((P.flagAt || 0) - Date.now()) / 1000));
+  note.textContent = left
+    ? `You took the flag. The rest of the field has ${left}s.`
+    : "You took the flag. Waiting on the rest.";
 }
 
 // ── the item in your hands ───────────────────────────────────────────

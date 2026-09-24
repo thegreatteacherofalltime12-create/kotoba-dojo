@@ -9,6 +9,7 @@ import {
   distanceFor, raceScore, standings, nearMiss, FULL_BOOST, FLOOR_BOOST, SPIN_COST,
   ITEMS, boxMarks, boxesBetween, itemWeights, rollItem, flared,
   SLIPSTREAM_M, COMET_M, SLICK_M, FLARE_CUT,
+  AI_LEVELS, AI_MAX, AI_ALLOWANCE, aiPace, aiShouldFire, metresFor as raceMetres,
 } from "../src/prix.js";
 import { GrandPrix } from "../src/grand-prix.js";
 
@@ -19,17 +20,17 @@ console.log("\nthe track");
 ok("six circuits, each with a lap and a class", CIRCUITS.length === 6
   && CIRCUITS.every((c) => c.lapM > 0 && ["easiest", "middle", "hardest"].includes(c.hard)));
 ok("three lengths", LENGTHS.length === 3 && LENGTHS.map((l) => l.laps).join() === "2,3,5");
-ok("a grand prix is three laps of a thousand", metresFor("cinder", "gp") === 3000);
-ok("the short-lap circuit adds two", lapsFor("orbital", "gp") === 5 && metresFor("orbital", "gp") === 3000);
+ok("a grand prix is three laps of the circuit", metresFor("cinder", "gp") === 2400);
+ok("the short-lap circuit adds two", lapsFor("orbital", "gp") === 5 && metresFor("orbital", "gp") === 2500);
 ok("an unknown id falls back rather than throwing",
   circuitById("nope").id === "cinder" && lengthById("nope").id === "gp");
-ok("a race cannot run for ever", capFor("cinder", "gp") === 3 * 240_000);
+ok("a race cannot run for ever", capFor("cinder", "gp") === 3 * 300_000);
 
 console.log("\nthe distance rule");
 const A = 15_000;
 ok("inside a third of the allowance is a full boost", distanceFor(0, A) === FULL_BOOST && distanceFor(5_000, A) === FULL_BOOST);
 ok("past the allowance is the floor", distanceFor(A, A) === FLOOR_BOOST && distanceFor(A * 3, A) === FLOOR_BOOST);
-ok("between the two it falls evenly", distanceFor(10_000, A) === 70);
+ok("between the two it falls evenly", distanceFor(10_000, A) === 75);
 ok("it never pays more than full or less than the floor", [0, 1, 4999, 5001, 14999, 99999]
   .every((t) => { const d = distanceFor(t, A); return d >= FLOOR_BOOST && d <= FULL_BOOST; }));
 // The point of the whole design: quick at your level beats slow at a harder one.
@@ -199,12 +200,21 @@ console.log("\na race");
     p.item.dealtAt = Date.now();
     await say("a", { type: "PRIX_GUESS", guess: p.item.answer });
   }
-  ok("the flag falls when the distance is done", room.g.phase === "RESULTS");
+  ok("crossing the line starts the clock on the rest", !!room.g.flagAt && room.g.players.a.done);
+  ok("and the room is told how long they have", seats.a.last("PRIX_FLAG").graceMs > 0);
+  // The grace runs out; the alarm drops the flag on whoever is still out there.
+  room.g.flagAt = Date.now() - 1;
+  await room.alarm();
+  ok("the flag falls when the grace is gone", room.g.phase === "RESULTS");
+
   const over = seats.a.last("PRIX_OVER");
-  ok("one result, finished", over.results.length === 1 && over.results[0].status === "finished");
-  ok("with a score, a placement and MMR", over.results[0].score > 0 && over.results[0].placement === 1
-    && typeof over.results[0].gain === "number");
-  ok("the spin is on the card", over.results[0].spins === 1);
+  const mine = over.results.find((r) => r.uid === "a");
+  ok("the human is first and finished", mine.placement === 1 && mine.status === "finished");
+  ok("with a score and MMR", mine.score > 0 && typeof mine.gain === "number");
+  ok("the spin is on the card", mine.spins === 1);
+  ok("the computers are on the grid but not in the record",
+    over.results.length === 4 && over.results.filter((r) => r.uid.startsWith("ai")).length === 3);
+  ok("and the record keeps only the people", room.isAi("ai0") && !room.isAi("a"));
 }
 
 console.log("\nwhat a race refuses");
@@ -239,7 +249,7 @@ ok("eight items, each with a name and a blurb", ITEMS.length === 8
   ok("they climb", marks.every((m, i) => i === 0 || m > marks[i - 1]));
   ok("bramble hollow is thick with them", boxMarks("bramble", "gp").length === 24);
   ok("crossing is counted by what you passed",
-    boxesBetween(0, 200, marks).join() === "125" && boxesBetween(0, 0, marks).length === 0);
+    boxesBetween(0, 200, marks).join() === "100" && boxesBetween(0, 0, marks).length === 0);
   ok("a big jump can take two at once", boxesBetween(0, 400, marks).length === 2);
 }
 {
@@ -276,7 +286,8 @@ console.log("\nfiring them");
 
   A.holding = "slipstream";
   await say("a", { type: "PRIX_USE" });
-  ok("a slipstream is distance", A.at === SLIPSTREAM_M && !A.holding);
+  // It is spent, though the 120 metres may well have run over another box.
+  ok("a slipstream is distance", A.at === SLIPSTREAM_M && A.fired === 1);
   ok("and the room is told", seats.b.last("PRIX_FIRED").item === "slipstream");
 
   // Ana is ahead now, so Bo's comet has somebody to aim at.
@@ -341,6 +352,86 @@ console.log("\nfiring them");
   A.item.dealtAt = Date.now();
   await say("a", { type: "PRIX_GUESS", guess: A.item.answer });
   ok("holding one means the next box goes by", A.holding === held && A.boxes === 1);
+}
+
+
+console.log("\ncomputer drivers");
+ok("three standards, slowest to quickest", AI_LEVELS.map((l) => l.id).join() === "easy,medium,hard");
+{
+  const pace = (id) => { const p = [...Array(400)].map(() => aiPace(id)); return p.reduce((a, b) => a + b) / p.length; };
+  const speed = (id) => {
+    const p = [...Array(400)].map(() => aiPace(id));
+    const d = p.map((t) => distanceFor(t, AI_ALLOWANCE));
+    return (d.reduce((a, b) => a + b) / d.length) / (p.reduce((a, b) => a + b) / p.length);
+  };
+  ok("a Pro is quicker over a word than a Rookie", pace("hard") < pace("medium") && pace("medium") < pace("easy"));
+  ok("and quicker down the road", speed("hard") > speed("medium") && speed("medium") > speed("easy"));
+  // The point of a cap is to end a room, not to beat the slowest driver.
+  const sprint = raceMetres("cinder", "sprint");
+  ok("every standard can finish a sprint inside the cap",
+    ["easy", "medium", "hard"].every((id) => (sprint / speed(id)) < capFor("cinder", "sprint")));
+  ok("no two words take exactly the same time", new Set([...Array(50)].map(() => aiPace("medium"))).size > 20);
+}
+{
+  const always = () => 0;    // never holds back
+  ok("a self item goes straight away",
+    aiShouldFire({ item: "slipstream", hasTargetAhead: false, lap: 1, laps: 3, level: "hard" }, always));
+  ok("a weapon needs somebody in front",
+    !aiShouldFire({ item: "comet", hasTargetAhead: false, lap: 1, laps: 3, level: "hard" }, always));
+  ok("and goes on the last lap whatever the standard",
+    aiShouldFire({ item: "comet", hasTargetAhead: true, lap: 3, laps: 3, level: "hard" }, () => 0));
+  const patient = { item: "comet", hasTargetAhead: true, lap: 1, laps: 3 };
+  ok("a Pro sits on one early where a Rookie throws it",
+    !aiShouldFire({ ...patient, level: "hard" }, () => 0.2)
+    && aiShouldFire({ ...patient, level: "easy" }, () => 0.2));
+}
+
+console.log("\nthe drivers on the track");
+{
+  const { room, seats, say } = await roomOf(["a", "Ana"]);
+  await say("a", { type: "PRIX_AI", count: 4, level: "hard" });
+  ok("the host says how many and how good", room.g.aiCount === 4 && room.g.aiLevel === "hard");
+  await say("a", { type: "PRIX_AI", count: 99 });
+  ok("and cannot seat more than the grid holds", room.g.aiCount === AI_MAX);
+  await say("a", { type: "PRIX_SOLO", on: true });
+  await say("a", { type: "PRIX_START" });
+  const drivers = Object.values(room.g.players).filter((p) => p.ai);
+  ok("they line up when the lights go out", drivers.length === AI_MAX);
+  ok("each with a name and a standard", drivers.every((d) => d.name.includes("Pro") && d.at === 0));
+  ok("and a first word already due", drivers.every((d) => d.nextAt > Date.now()));
+  ok("the room knows when to wake for them", room.nextDriverAt() > Date.now());
+
+  // Wind every driver's clock forward and let the alarm drive them.
+  for (const d of drivers) d.nextAt = Date.now() - 1;
+  await room.driveDue();
+  ok("a driver that is due takes a word", drivers.every((d) => d.solved >= 1 && d.at > 0));
+  ok("and is not due again straight away", drivers.every((d) => d.nextAt > Date.now()));
+  ok("the grid is pushed to whoever is watching", seats.a.last("PRIX_STATE").game.players.length === 6);
+  ok("a driver is marked as one", seats.a.last("PRIX_STATE").game.players.some((p) => p.ai));
+
+  // Fog costs a driver the time it costs a person.
+  const one = drivers[0];
+  one.fogUntil = Date.now() + 5_000;
+  one.nextAt = Date.now() - 1;
+  const had = one.solved;
+  await room.driveDue();
+  ok("a fogged driver waits it out", one.solved === had && one.nextAt > Date.now() + 4_000);
+}
+{
+  // A driver takes the flag, and the grace period starts for everyone else.
+  const { room, say } = await roomOf(["a", "Ana"]);
+  await say("a", { type: "PRIX_AI", count: 1, level: "hard" });
+  await say("a", { type: "PRIX_SOLO", on: true });
+  await say("a", { type: "PRIX_START" });
+  const d = Object.values(room.g.players).find((p) => p.ai);
+  d.at = raceMetres(room.g.circuit, room.g.length) - 10;
+  d.nextAt = Date.now() - 1;
+  await room.driveDue();
+  ok("a driver can take the flag", d.done === true && !!room.g.flagAt);
+  ok("and the race is still running for the rest", room.g.phase === "RACING");
+  room.g.flagAt = Date.now() - 1;
+  await room.alarm();
+  ok("until the grace runs out", room.g.phase === "RESULTS");
 }
 
 console.log(bad ? `\n${bad} failing\n` : "\nall grand prix checks passed\n");

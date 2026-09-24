@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Omni Multiverse of Madness</title>
-<meta name="build" content="2026-09-24 13:31 UTC">
+<meta name="build" content="2026-09-24 13:46 UTC">
 <meta name="description" content="Omni Multiverse of Madness — competitive arena. Belts, MMR, casino floor and live standings.">
 <meta name="theme-color" content="#F4F1EA">
 <meta name="mobile-web-app-capable" content="yes">
@@ -470,6 +470,12 @@ if (location.protocol === "file:") {
             </button>
           </div>
 
+          <div id="prix-ai" hidden>
+            <h3 class="prix-h">The computers</h3>
+            <div id="prix-ai-count" class="ai-levels"></div>
+            <div id="prix-ai-level" class="ai-levels"></div>
+          </div>
+
           <h3 class="prix-h">Vote for the circuit</h3>
           <p class="panel-sub">Every racer gets a vote, and the most votes wins. Nobody has to be the one who chose.</p>
           <div id="prix-circuits" class="prix-circuits"></div>
@@ -488,7 +494,8 @@ if (location.protocol === "file:") {
 
       <section id="prix-race" class="panel" hidden>
         <div id="prix-track" class="prix-track"></div>
-        <div class="pad prix-item">
+        <p id="prix-waiting" class="prix-waiting" hidden></p>
+        <div class="pad prix-item" id="prix-item">
           <p id="prix-clue" class="prix-clue"></p>
           <div id="prix-letters" class="prix-letters"></div>
           <div id="prix-bar" class="prix-bar"><span id="prix-bar-fill"></span></div>

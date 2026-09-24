@@ -3573,3 +3573,4 @@ a.dtab { text-decoration: none; display: inline-block; }
 .prix-fire .pf-name { font-family: var(--display); font-size: .82rem; letter-spacing: .04em; }
 .prix-fire .pf-blurb { font-size: .72rem; opacity: .8; }
 .prix-marks { margin: 0; font-size: .74rem; letter-spacing: .04em; opacity: .85; }
+.prix-waiting { margin: 0; padding: .9rem 1rem; font-family: var(--display); font-size: .86rem; letter-spacing: .06em; color: var(--accent); }

@@ -1855,7 +1855,7 @@ function tokensRules() {
   return `
     <div class="ruleboxes">
       ${box("\u{1F4CD} Where to find them", [
-        "Open your <b>Profile</b> and pick <b>\u26A1 Token shop</b>. It shows one arsenal per game \u2014 Word-Cross, Battleship, Minesweeper, Golf and Casino \u2014 with how many tokens each sells and how many you hold.",
+        "Open your <b>Profile</b> and pick <b>\u26A1 Token shop</b>. It shows one arsenal per game \u2014 Word-Cross, Battleship, Minesweeper, Golf, Casino and the Grand Prix \u2014 with how many tokens each sells and how many you hold.",
         "Tap a game and its arsenal opens in a window: that game's <b>1.5\u00d7 boost</b> first, then anything else it sells. Buy from there.",
         "Inside a game, the <b>\u26A1 Apply Token</b> button (top bar in every game, header on the golf page) lists that game's tokens you hold.",
       ])}

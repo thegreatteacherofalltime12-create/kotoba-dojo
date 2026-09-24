@@ -18,8 +18,9 @@ import {
   SPIN_COST, ITEMS, itemById, boxMarks, boxesBetween, rollItem, flared,
   SLIPSTREAM_M, COMET_M, SLICK_M, FOG_MS, SCRAMBLE_FOG_MS, FLARE_MS,
   AI_LEVELS, AI_MAX, AI_NAMES, AI_ALLOWANCE, aiPace, aiShouldFire,
+  paceScale,
 } from "./prix.js";
-import { ENGINES, engineById, engineList, defaultLevel, MEM_MAX } from "./prix-engines.js";
+import { ENGINES, engineById, engineList, defaultLevel, MEM_MAX, nominalAllowance } from "./prix-engines.js";
 import { ARSENALS } from "./arsenals.js";
 import { tokensReply, heldTokens } from "./boost.js";
 import { recordMatch, readRatings } from "./firestore.js";
@@ -162,7 +163,7 @@ export class GrandPrix {
       at: 0, lap: 1, item: null, deck: [], seen: 0,
       // What is in your hands, and what somebody put on you. `item` is the
       // word you are answering; `holding` is the item box you picked up.
-      holding: null, holding2: null, deflector: false, fogUntil: 0, slowUntil: 0, boxes: 0, fired: 0,
+      holding: null, holding2: null, deflector: false, fogUntil: 0, slowUntil: 0, boxes: 0, fired: 0, owed: 0,
       ars: { armed: {}, used: {} },
       // What the arsenal turned into for this race.
       fuel: false, warmup: 0, tyres: false, guards: false, visor: false, radio: false,
@@ -466,7 +467,7 @@ export class GrandPrix {
     for (const p of Object.values(this.g.players)) {
       const racing = online.has(p.uid);
       p.watching = !racing;
-      p.at = 0; p.lap = 1; p.item = null; p.deck = [];
+      p.at = 0; p.lap = 1; p.item = null; p.deck = []; p.owed = 0;
       p.holding = null; p.deflector = false; p.fogUntil = 0; p.slowUntil = 0;
       p.memLen = 0;
       p.boxes = 0; p.fired = 0;
@@ -637,7 +638,8 @@ export class GrandPrix {
       const covered = p.spare && p.spareLap !== p.lap;
       if (covered) p.spareLap = p.lap;
       else p.spins += 1;
-      p.at = Math.max(0, p.at - (covered ? 0 : p.tyres ? 5 : SPIN_COST));
+      const cost = covered ? 0 : Math.round((p.tyres ? 5 : SPIN_COST) * this.scaleOf(p));
+      p.at = Math.max(0, p.at - cost);
       // Some engines make you look again: the words shuffle their letters,
       // and a memory sequence shortens so nobody is stuck on one they
       // cannot hold in their head.
@@ -646,7 +648,7 @@ export class GrandPrix {
       await this.persist();
       this.send(ws, "PRIX_RESULT", {
         ok: false, spare: covered,
-        delta: covered ? 0 : -(p.tyres ? 5 : SPIN_COST),
+        delta: -cost,
         at: Math.round(p.at), lap: p.lap,
       });
       this.send(ws, "PRIX_ITEM", this.itemView(p));
@@ -695,7 +697,9 @@ export class GrandPrix {
    */
   advance(ws, p, metres) {
     const slowed = (p.slowUntil || 0) > Date.now();
-    const gained = slowed ? flared(metres) : metres;
+    // Reference metres in, track metres out. Everything that reaches a kart
+    // comes through here, so converting once is enough.
+    const gained = Math.round((slowed ? flared(metres) : metres) * this.scaleOf(p));
     const from = p.at;
     p.at += gained;
 
@@ -712,9 +716,10 @@ export class GrandPrix {
         p.deflector = false;
         this.send(ws, "PRIX_HIT", { item: "slick", deflected: true });
       } else {
-        p.at = Math.max(0, p.at - SLICK_M);
+        const cost = Math.round(SLICK_M * this.scaleOf(p));
+        p.at = Math.max(0, p.at - cost);
         slick = true;
-        this.send(ws, "PRIX_HIT", { item: "slick", metres: SLICK_M });
+        this.send(ws, "PRIX_HIT", { item: "slick", metres: cost });
       }
     }
 
@@ -722,25 +727,56 @@ export class GrandPrix {
     let box = null;
     const crossed = boxesBetween(from, p.at, this.g.marks || []);
     if (crossed.length) {
-      const room = !p.holding || (p.twin && !p.holding2);
-      // A Box Magnet takes one even when both hands are full: the item it
-      // would have replaced is the one you keep.
-      const magnet = !room && p.magnet > 0;
-      if (room || magnet) {
-        const field = Object.values(this.g.players).filter((x) => !x.watching);
-        const place = standings(field).findIndex((x) => x.uid === p.uid) + 1;
-        const got = rollItem(place || 1, field.length);
-        if (!p.holding) p.holding = got;
-        else if (p.twin && !p.holding2) p.holding2 = got;
-        else { p.holding2 = got; p.magnet -= 1; }
-        p.boxes += 1;
-        box = got;
-      }
+      box = this.takeBox(p) || box;
+      // A racer on a slow clock covers more ground for one answer and can
+      // clear several boxes in a single stride. The first behaves as it
+      // always did; the rest wait for a hand rather than being thrown away,
+      // because nobody should collect fewer items for the clock they were
+      // given. A box crossed with full hands is still a box gone by.
+      if (crossed.length > 1) p.owed = Math.min(2, (p.owed || 0) + crossed.length - 1);
+    }
+    while ((p.owed || 0) > 0) {
+      const got = this.takeBox(p);
+      if (!got) break;
+      p.owed -= 1;
+      box = got;
     }
 
     const lapM = circuitById(this.g.circuit).lapM;
     p.lap = Math.min(lapsFor(this.g.circuit, this.g.length), Math.floor(p.at / lapM) + 1);
     return { gained, slowed, box, slick };
+  }
+
+  /**
+   * The rate this racer's metres convert at: the clock their current work
+   * is measured against, over the reference clock. A computer driver is
+   * judged against the reference itself, so it converts at one.
+   */
+  scaleOf(p) {
+    if (!p || p.ai) return 1;
+    const it = p.item;
+    const a = it
+      ? Math.max(1, it.allowance - (it.leadMs || 0))
+      : nominalAllowance(this.g.engine, p.klass);
+    return paceScale(a);
+  }
+
+  /**
+   * One box into a free hand, or nothing. A Box Magnet takes one even when
+   * both hands are full.
+   */
+  takeBox(p) {
+    const room = !p.holding || (p.twin && !p.holding2);
+    const magnet = !room && p.magnet > 0;
+    if (!room && !magnet) return null;
+    const field = Object.values(this.g.players).filter((x) => !x.watching);
+    const place = standings(field).findIndex((x) => x.uid === p.uid) + 1;
+    const got = rollItem(place || 1, field.length);
+    if (!p.holding) p.holding = got;
+    else if (p.twin && !p.holding2) p.holding2 = got;
+    else { p.holding2 = got; p.magnet -= 1; }
+    p.boxes += 1;
+    return got;
   }
 
   /** Whoever is directly ahead of this racer, or nobody. */
@@ -880,7 +916,7 @@ export class GrandPrix {
     if (n("gp_slip")) p.holding = "slipstream";
     if (n("gp_nitro")) { if (p.holding && p.twin) p.holding2 = "nitro"; else p.holding = "nitro"; }
     // The start boost is distance, not an item, so it lands before the flag.
-    if (n("gp_start")) p.at += 200 * n("gp_start");
+    if (n("gp_start")) p.at += Math.round(200 * n("gp_start") * this.scaleOf(p));
   }
 
   /** Whether this racer may fire that. The flare belongs to the back. */
@@ -936,8 +972,9 @@ export class GrandPrix {
       case "comet": {
         const target = this.ahead(p);
         if (!target) { note = "Nobody ahead. The comet goes wide."; break; }
-        if (this.land(target, "comet", { metres: COMET_M })) {
-          target.at = Math.max(0, target.at - COMET_M);
+        const bite = Math.round(COMET_M * this.scaleOf(target));
+        if (this.land(target, "comet", { metres: bite })) {
+          target.at = Math.max(0, target.at - bite);
           this.deal(target);
           const tws = this.socketFor(target.uid);
           if (tws) this.send(tws, "PRIX_ITEM", this.itemView(target));

@@ -6,7 +6,7 @@
 import {
   CIRCUITS, LENGTHS, circuitById, lengthById,
   lapsFor, metresFor, capFor,
-  distanceFor, raceScore, standings, FULL_BOOST, FLOOR_BOOST, SPIN_COST,
+  distanceFor, raceScore, standings, FULL_BOOST, FLOOR_BOOST, SPIN_COST, paceScale,
   ITEMS, boxMarks, boxesBetween, itemWeights, rollItem, flared,
   SLIPSTREAM_M, COMET_M, SLICK_M, FLARE_CUT,
   AI_LEVELS, AI_MAX, AI_ALLOWANCE, aiPace, aiShouldFire, metresFor as raceMetres,
@@ -14,6 +14,7 @@ import {
 import {
   ENGINES, engineById, engineList, defaultLevel,
   wordDeck, scramble, shuffled, nearMiss, mathsProblem, triviaPool, THEMES, MEM_MAX,
+  nominalAllowance,
 } from "../src/prix-engines.js";
 import { GrandPrix } from "../src/grand-prix.js";
 
@@ -193,9 +194,10 @@ console.log("\na race");
 
   const answer = room.g.players.a.item.answer;
   room.g.players.a.item.dealtAt = Date.now();     // answered at once
+  const fullScale = room.scaleOf(room.g.players.a);
   await say("a", { type: "PRIX_GUESS", guess: answer.toLowerCase() });
   const res = seats.a.last("PRIX_RESULT");
-  ok("the right answer, in any case, is a full boost", res.ok === true && res.delta === FULL_BOOST);
+  ok("the right answer, in any case, is a full boost", res.ok === true && res.delta === Math.round(FULL_BOOST * fullScale));
   ok("the room says which word it was", res.word === answer);
   ok("and deals another", room.g.players.a.item.answer !== undefined);
 
@@ -299,16 +301,18 @@ console.log("\nfiring them");
   ok("empty hands fire nothing", /Nothing in your hands/.test(seats.a.last("PRIX_ERROR").message));
 
   A.holding = "slipstream";
+  const slipScale = room.scaleOf(A);
   await say("a", { type: "PRIX_USE" });
-  // It is spent, though the 120 metres may well have run over another box.
-  ok("a slipstream is distance", A.at === SLIPSTREAM_M && A.fired === 1);
+  // It is spent, though the distance may well have run over another box.
+  ok("a slipstream is distance", A.at === Math.round(SLIPSTREAM_M * slipScale) && A.fired === 1);
   ok("and the room is told", seats.b.last("PRIX_FIRED").item === "slipstream");
 
   // Ana is ahead now, so Bo's comet has somebody to aim at.
   B.holding = "comet";
   const was = A.at;
+  const cometScale = room.scaleOf(A);
   await say("b", { type: "PRIX_USE" });
-  ok("a comet takes metres off the racer ahead", A.at === Math.max(0, was - COMET_M));
+  ok("a comet takes metres off the racer ahead", A.at === Math.max(0, was - Math.round(COMET_M * cometScale)));
   ok("and gives them a new word", seats.a.last("PRIX_HIT").item === "comet");
 
   A.at = 500; B.at = 100;
@@ -319,9 +323,10 @@ console.log("\nfiring them");
   B.at = 490;
   B.item.dealtAt = Date.now();
   const bWas = B.at;
+  const bScale = room.scaleOf(B);
   await say("b", { type: "PRIX_GUESS", guess: B.item.answer });
   ok("and the next kart over it loses ground",
-    B.at === Math.max(0, bWas + FULL_BOOST - SLICK_M) && room.g.slicks.length === 0);
+    B.at === Math.max(0, bWas + Math.round(FULL_BOOST * bScale) - Math.round(SLICK_M * bScale)) && room.g.slicks.length === 0);
 
   // A deflector eats the next thing aimed at you, once.
   A.at = 900; B.at = 100;
@@ -346,8 +351,9 @@ console.log("\nfiring them");
   // Slowed, an answer pays less.
   A.slowUntil = Date.now() + 8_000;
   A.at = 0; A.item.dealtAt = Date.now();
+  const flareScale = room.scaleOf(A);
   await say("a", { type: "PRIX_GUESS", guess: A.item.answer });
-  ok("an answer under a flare pays less", A.at === flared(FULL_BOOST));
+  ok("an answer under a flare pays less", A.at === Math.round(flared(FULL_BOOST) * flareScale));
   ok("and the racer is told why", seats.a.last("PRIX_RESULT").slowed === true);
 }
 {
@@ -649,7 +655,8 @@ async function fitted(armed) {
 }
 {
   const { A } = await fitted({ gp_start: 2 });
-  ok("a Start Boost is metres off the line", A.at === 400);
+  const startScale = paceScale(nominalAllowance("words", A.klass));
+  ok("a Start Boost is metres off the line", A.at === Math.round(400 * startScale));
   ok("and it is spent by taking it", A.ars.used.gp_start === 2);
 }
 {
@@ -667,21 +674,27 @@ async function fitted(armed) {
   ok("but only the first", A.spins === 1);
 }
 {
-  const { A, say } = await fitted({ gp_warmup: 1 });
+  const { room, A, say } = await fitted({ gp_warmup: 1 });
   A.item.dealtAt = Date.now() - 60_000;      // slow enough for the floor
+  const warmScale = room.scaleOf(A);
   await say("a", { type: "PRIX_GUESS", guess: A.item.answer });
-  ok("a Warm-Up Lap pays full whatever the clock said", A.at === FULL_BOOST && A.warmup === 2);
+  ok("a Warm-Up Lap pays full whatever the clock said", A.at === Math.round(FULL_BOOST * warmScale) && A.warmup === 2);
 }
 {
-  const { A, say } = await fitted({ gp_tow: 1 });
+  const { room, A, say } = await fitted({ gp_tow: 1 });
   A.item.dealtAt = Date.now();
+  const towScale = room.scaleOf(A);
   await say("a", { type: "PRIX_GUESS", guess: A.item.answer });
-  ok("a Tow Rope adds to the answer", A.at === FULL_BOOST + 20 && A.tow === 4);
+  ok("a Tow Rope adds to the answer", A.at === Math.round((FULL_BOOST + 20) * towScale) && A.tow === 4);
 }
 {
-  const { A } = await fitted({ gp_fuel: 1 });
-  const plain = engineById("words").deal(A.klass, { deck: [] }).allowance;
-  ok("Long Fuel buys time on every item", A.item.allowance > plain);
+  const { room, A } = await fitted({ gp_fuel: 1 });
+  // Deal the same racer an item with the fuel off, then on, from a deck
+  // pinned to one word, so only the fuel differs.
+  const deck = () => ["PLANET A world"];
+  A.fuel = false; A.deck = deck(); const dry = room.deal(A).allowance;
+  A.fuel = true;  A.deck = deck(); const wet = room.deal(A).allowance;
+  ok("Long Fuel buys time on every item", wet === Math.round(dry * 1.2) && wet > dry);
 }
 {
   const { A } = await fitted({ gp_slip: 1, gp_nitro: 1, gp_twin: 1 });
@@ -696,8 +709,9 @@ async function fitted(armed) {
   const { room, A, say } = await fitted({ gp_guards: 1 });
   room.g.slicks = [{ at: 50, by: "someone" }];
   A.at = 0; A.item.dealtAt = Date.now();
+  const guardScale = room.scaleOf(A);
   await say("a", { type: "PRIX_GUESS", guess: A.item.answer });
-  ok("Mudguards shrug the oil off", A.at === FULL_BOOST && room.g.slicks.length === 0);
+  ok("Mudguards shrug the oil off", A.at === Math.round(FULL_BOOST * guardScale) && room.g.slicks.length === 0);
 }
 {
   const { A, say, seats } = await fitted({ gp_spotter: 1 });
@@ -784,8 +798,9 @@ console.log("\nwhat the races taught");
   // Answer the moment the tiles finish: that is as fast as anybody can be,
   // and it has to pay a full boost.
   it.dealtAt = Date.now() - it.leadMs;
+  const memScale = room.scaleOf(A);
   await say("a", { type: "PRIX_GUESS", guess: it.answer });
-  ok("answering the instant the tiles stop pays a full boost", A.at === FULL_BOOST);
+  ok("answering the instant the tiles stop pays a full boost", A.at === Math.round(FULL_BOOST * memScale));
 }
 {
   // The arsenal has to be drawable, or none of the eighteen exist.
@@ -803,6 +818,75 @@ console.log("\nwhat the races taught");
   await say("a", { type: "PRIX_PEEK" });
   ok("a peek sends the face again", seats.a.all("PRIX_ITEM").length === had + 1);
   ok("and does not deal a new one", seats.a.last("PRIX_ITEM").dealtAt === room.g.players.a.item.dealtAt);
+}
+
+
+console.log("\na level is not a speed");
+{
+  // The rule the whole game rests on: answering well pays a full boost at
+  // any level, but a race is run in seconds. Unless an answer is worth what
+  // it cost in time, the easiest level simply wins.
+  const speeds = [];
+  for (const [engine, level] of [
+    ["maths", "g12"], ["maths", "g34"], ["maths", "g56"], ["maths", "g78"],
+    ["maths", "g910"], ["maths", "g1112"], ["words", "junior"], ["words", "pro"],
+    ["memory", "short"], ["memory", "long"], ["trivia", "easy"], ["trivia", "hard"],
+  ]) {
+    const a = nominalAllowance(engine, level);
+    // Answering inside a third of your own clock is the best anyone can do.
+    speeds.push((distanceFor(0, a) * paceScale(a)) / (a / 3000));
+  }
+  const spread = Math.max(...speeds) - Math.min(...speeds);
+  ok(`twelve levels across four engines move at one speed (${speeds[0].toFixed(1)} m/s, spread ${spread.toFixed(4)})`, spread < 0.01);
+}
+{
+  // The same thing in a room, with two people racing side by side.
+  const { room, say } = await roomOf(["a", "Ana"], ["b", "Bo"]);
+  await say("a", { type: "PRIX_ENGINE", engine: "maths" });
+  await say("a", { type: "PRIX_CLASS", klass: "g12" });
+  await say("b", { type: "PRIX_CLASS", klass: "g1112" });
+  await say("a", { type: "PRIX_START" });
+  const A = room.g.players.a, B = room.g.players.b;
+  ok("each racer keeps their own level", A.klass === "g12" && B.klass === "g1112");
+  const sa = room.scaleOf(A), sb = room.scaleOf(B);
+  const now = Date.now();
+  A.item.dealtAt = now; B.item.dealtAt = now;
+  await say("a", { type: "PRIX_GUESS", guess: A.item.answer });
+  await say("b", { type: "PRIX_GUESS", guess: B.item.answer });
+  ok("an infant sum carries an infant distance", A.at === Math.round(FULL_BOOST * sa));
+  ok("an eleventh-grade one carries much further", B.at === Math.round(FULL_BOOST * sb));
+  // Both answered as well as anyone can. Over a second of racing they must
+  // have covered the same ground.
+  const aSpeed = A.at / (sa * 5);
+  const bSpeed = B.at / (sb * 5);
+  ok(`and both move at the same speed (${aSpeed.toFixed(1)} vs ${bSpeed.toFixed(1)} m/s)`, Math.abs(aSpeed - bSpeed) < 0.6);
+}
+{
+  // A long stride can clear several boxes at once. Those are not thrown
+  // away, or a racer would collect fewer items for the clock they were on.
+  const { room, say } = await roomOf(["a", "Ana"]);
+  await say("a", { type: "PRIX_SOLO", on: true });
+  await say("a", { type: "PRIX_START" });
+  const A = room.g.players.a;
+  A.holding = null; A.owed = 0;
+  const marks = room.g.marks || [];
+  const far = marks[2] + 1;
+  room.advance(null, A, (far - A.at) / room.scaleOf(A));
+  ok("a stride over three boxes takes one and banks the rest", !!A.holding && A.owed > 0);
+  const banked = A.owed;
+  A.holding = null;
+  room.advance(null, A, 0);
+  ok("and the next free hand collects one", !!A.holding && A.owed === banked - 1);
+}
+{
+  // A computer driver is judged against the reference clock, so it converts
+  // at one whatever the people around it are doing.
+  const { room, say } = await roomOf(["a", "Ana"]);
+  await say("a", { type: "PRIX_SOLO", on: true });
+  await say("a", { type: "PRIX_AI", count: 1, level: "medium" });
+  await say("a", { type: "PRIX_START" });
+  const bot = Object.values(room.g.players).find((x) => x.ai);
+  ok("a driver converts at the reference clock", room.scaleOf(bot) === 1);
 }
 
 console.log(bad ? `\n${bad} failing\n` : "\nall grand prix checks passed\n");

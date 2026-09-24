@@ -114,6 +114,13 @@ const words = {
     const held = item.hideClueMs || 0;
     return dealtAt ? Math.max(0, held - (Date.now() - dealtAt)) : held;
   },
+  /** The clock this level works to, before any item has been dealt. */
+  pace(levelId) {
+    const shape = WORD_SHAPE[levelId] || WORD_SHAPE.standard;
+    const bases = shape.lens.map((n) => ({ 4: 12_000, 5: 15_000, 6: 18_000 }[n] || 15_000));
+    const mean = bases.reduce((a, b) => a + b, 0) / bases.length;
+    return shape.hideClueMs ? Math.min(20_000, mean + 2_000) : mean;
+  },
   check(item, said) {
     const up = String(said || "").trim().toUpperCase();
     if (up === item.answer) return "right";
@@ -220,8 +227,9 @@ const maths = {
       text: q.text,
     };
   },
-  face(item) { return { text: item.text, len: item.answer.length }; },
+  face(item) { return { text: item.text }; },
   hideFor() { return 0; },
+  pace(levelId) { return (MATHS_LEVELS.find((l) => l.id === levelId) || MATHS_LEVELS[1]).allowance; },
   check(item, said) {
     const got = String(said || "").trim().replace(/\s+/g, "").replace(/^\+/, "").replace(/−/g, "-");
     if (!got) return "wrong";
@@ -272,6 +280,10 @@ const memory = {
   },
   face(item) { return { seq: item.seq, tiles: item.tiles, flashMs: item.flashMs, len: item.seq.length }; },
   hideFor() { return 0; },
+  pace(levelId) {
+    const level = MEM_LEVELS.find((l) => l.id === levelId) || MEM_LEVELS[1];
+    return level.start * 1_200 + 2_000;
+  },
   check(item, said) {
     const got = String(said || "").trim().replace(/\s+/g, "");
     return got === item.answer ? "right" : "wrong";
@@ -333,6 +345,7 @@ const trivia = {
   },
   face(item) { return { question: item.question, options: item.options, themeName: item.themeName }; },
   hideFor() { return 0; },
+  pace() { return 15_000; },
   check(item, said) { return String(said).trim() === item.answer ? "right" : "wrong"; },
   onWrong() { /* the question stands */ },
 };
@@ -347,6 +360,16 @@ export const engineList = () => ENGINES.map((e) => ({
   levels: e.levels.map((l) => ({ id: l.id, name: l.name, sub: l.sub, mult: l.mult })),
   ...(e.themes ? { themes: e.themes } : {}),
 }));
+/**
+ * The clock a racer on this level works to, for the moments before their
+ * first item exists — the lights, and anything that moves a kart that has
+ * not been dealt to yet.
+ */
+export const nominalAllowance = (engineId, levelId) => {
+  const e = engineById(engineId);
+  return (e.pace ? e.pace(levelId) : 15_000) || 15_000;
+};
+
 /** The level an engine starts everyone on. */
 export const defaultLevel = (engineId) => {
   const e = engineById(engineId);

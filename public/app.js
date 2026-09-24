@@ -1991,8 +1991,9 @@ const GAME_RULES = [
       "The <b>paddock chat</b> is open in the lobby and shuts when the lights go out. A race ends one minute after the winner is home.",
     ],
     score: [
-      "Every item carries an <b>allowance</b> \u2014 the time it ought to take. Answer inside a third of it for a full 100 metres, falling evenly to a 50 metre floor at the allowance and never below.",
-      "That is why every level can share a track: you are measured against your own clock, so being quick at your level is what moves you. A wrong answer is a spin and costs 15 metres.",
+      "Every item carries an <b>allowance</b> \u2014 the time it ought to take. Answer inside a third of it for a <b>full boost</b>, falling evenly to a half boost at the allowance and never below. A wrong answer is a spin and costs you a little ground.",
+      "<b>A boost is worth what it cost you in time.</b> A sum you were given fifty-five seconds for carries nearly seven times the ground of one you were given eight \u2014 so two racers answering equally well travel at exactly the same speed, whatever level each of them picked. Your level sets what you are asked to do and what it pays, never how fast the kart goes.",
+      "Everything on the track works that way: a spin, an oil slick, a comet, a Start Boost. The metre counts written on the items and in the \u26A1 Tokens tab are quoted at the standard clock, and on a slower level they all grow together \u2014 so a metre is the same slice of an answer to everybody on the grid.",
       "Where you finish is most of the score, how quick you were is the rest, and spins cost a little. Your level multiplies it, and the whole thing is capped at 100 like every game.",
     ],
   },

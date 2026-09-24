@@ -17,6 +17,18 @@ export const KEEP_DAYS = 7;
 
 export const UPDATES = [
   {
+    at: "2026-09-24T23:30:00Z",
+    where: "Grand Prix",
+    title: "A level is no longer a speed",
+    text: "Answering well paid a full hundred metres whatever level you were on — but a race "
+      + "is run in seconds, not in answers, so a racer on eight-second sums was covering ground "
+      + "seven times faster than one on fifty-five-second ones, both playing perfectly. A boost is "
+      + "now worth what it cost you in time, and every distance on the track scales with it: "
+      + "spins, oil, comets, a Start Boost. Two racers answering equally well now travel at the "
+      + "same speed whatever level each of them picked, which is what \"your level is yours alone\" "
+      + "was always supposed to mean. Your level still pays more MMR, and that is all it changes.",
+  },
+  {
     at: "2026-09-24T21:00:00Z",
     where: "Grand Prix",
     title: "A sixth game: Multiverse Grand Prix",

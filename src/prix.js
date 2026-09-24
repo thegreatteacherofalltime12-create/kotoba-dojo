@@ -58,9 +58,37 @@ export const levelMult = (engineId, levelId) =>
 
 // ── the distance rule ────────────────────────────────────────────────
 
+/**
+ * The clock every distance in this file is quoted against. A racer whose
+ * items are expected to take longer than this covers proportionally more
+ * ground for the same answer, so the level a racer picks sets what they are
+ * asked to do and never how fast the kart goes.
+ */
+export const REF_ALLOWANCE = 15_000;
+
 export const FULL_BOOST = 100;   // metres for an answer inside a third of its allowance
 export const FLOOR_BOOST = 50;   // metres for one that took longer than the allowance
 export const SPIN_COST = 15;     // metres lost to a wrong answer
+
+/**
+ * A racer's own clock, as a multiplier on every metre they gain or lose.
+ *
+ * Answering well pays a full boost whatever your level, but a race is run
+ * in seconds, not in answers: a seven-year-old with eight seconds a sum
+ * would answer seven times as often as an eleventh-grader with fifty-five,
+ * and walk away from them. Converting at the rate below makes an answer
+ * worth what it cost in time, so both karts travel at the same speed when
+ * both racers are playing equally well — and the harder level still pays
+ * more MMR, which is the only thing it was ever supposed to change.
+ *
+ * Everything scales together: spins, oil, comets, a Start Boost. A metre
+ * means the same fraction of an answer to everybody on the grid.
+ */
+export function paceScale(allowanceMs) {
+  const a = Number(allowanceMs);
+  if (!Number.isFinite(a) || a <= 0) return 1;
+  return Math.max(0.25, Math.min(6, a / REF_ALLOWANCE));
+}
 
 /**
  * What an answer is worth. Measured against the item's own allowance, which

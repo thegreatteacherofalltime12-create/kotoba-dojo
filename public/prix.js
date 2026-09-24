@@ -376,7 +376,15 @@ function drawTrack() {
   for (const p of order) {
     const row = el("div", "prix-lane" + (p.uid === P.you ? " mine" : ""));
     row.append(el("span", "pl-place", p.place ? `${p.place}` : "-"));
-    row.append(el("span", "pl-name", p.name));
+    const who = el("span", "pl-name", p.name);
+    // Everyone drives a kart now, so the robot that used to mark a computer
+    // driver has to say it here instead.
+    if (p.ai) {
+      const bot = el("span", "pl-bot", "\u{1F916}");
+      bot.title = "Computer driver";
+      who.prepend(bot);
+    }
+    row.append(who);
     const road = el("div", "pl-road");
     // The boxes, and any oil lying about, drawn where they sit.
     for (const m of g.marks || []) {
@@ -404,6 +412,7 @@ function drawTrack() {
       if (p.deflector) bits.push(p.deflector > 1 ? `🛡️\u00d7${p.deflector}` : "🛡️");
       const strip = el("span", "pl-hand", bits.join(" "));
       strip.title = carried.length ? carried.map(itemName).join(", ") : "Empty hands";
+      row.classList.add("has-hand");
       row.append(strip);
     }
     row.append(el("span", "pl-lap", p.done ? "FLAG" : `L${p.lap}/${g.laps}`));

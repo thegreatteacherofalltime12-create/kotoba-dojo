@@ -3479,6 +3479,28 @@ a.dtab { text-decoration: none; display: inline-block; }
 /* ── Multiverse Grand Prix ───────────────────────────────────────── */
 .prix-layout { display: grid; grid-template-columns: 1fr 300px; gap: .9rem; align-items: start; }
 .prix-main { min-width: 0; display: grid; gap: .8rem; }
+
+/*
+ * On a desktop the race used to sit in the top third of the window with a
+ * field of empty background under it. Give the layout the height it has and
+ * let the item — the thing you are actually reading — take the slack, so a
+ * sum or a row of tiles is big enough to read from across a room.
+ */
+@media (min-width: 860px) {
+  .prix-layout { align-items: stretch; min-height: calc(100vh - 8.5rem); }
+  .prix-main { grid-template-rows: auto 1fr; align-content: stretch; }
+  #prix-race { display: grid; grid-template-rows: auto auto 1fr; }
+  #prix-race .prix-item { display: grid; grid-template-rows: auto 1fr auto auto auto; align-content: start; gap: .7rem; }
+  #prix-race .prix-letters { display: grid; place-content: center; min-height: 6rem; }
+  .prix-side > .panel { height: 100%; display: grid; grid-template-rows: auto 1fr auto; }
+  #prix-chat { min-height: 0; }
+  /* Room to read: the sum, the letters and the tiles all grow with it. */
+  .psum { font-size: 2.9rem; }
+  .ptile { font-size: 1.5rem; }
+  .ptile-pad { width: 4rem; height: 4rem; }
+  .prix-lane { font-size: .86rem; }
+  .pl-road { height: 1.5rem; }
+}
 .prix-h { font-family: var(--display); font-size: .78rem; letter-spacing: .12em; text-transform: uppercase; margin: .9rem 0 .3rem; color: var(--accent); }
 
 .prix-circuits { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: .5rem; }
@@ -3495,6 +3517,9 @@ a.dtab { text-decoration: none; display: inline-block; }
 
 .prix-track { display: grid; gap: .3rem; padding: .7rem; }
 .prix-lane { display: grid; grid-template-columns: 1.4rem 7rem 1fr 3.2rem; gap: .5rem; align-items: center; font-size: .8rem; }
+/* The gallery gets a column for what each kart is carrying. Without this the
+   strip is a fifth child in a four-column grid and wraps onto its own row. */
+.prix-lane.has-hand { grid-template-columns: 1.4rem 7rem 1fr auto 3.2rem; }
 .prix-lane.mine { background: color-mix(in srgb, var(--a1) 12%, transparent); border-radius: 6px; }
 .prix-lane .pl-place { font-family: var(--display); color: var(--accent); text-align: center; }
 .prix-lane .pl-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -3583,6 +3608,7 @@ a.dtab { text-decoration: none; display: inline-block; }
 .cos-kart-needs div { display: flex; gap: .4rem; align-items: baseline; opacity: .75; }
 .cos-kart-needs div.is-done { opacity: 1; color: #86efac; }
 .cos-kart-needs span { margin-left: auto; opacity: .8; }
+.pl-bot { opacity: .75; font-size: .9em; margin-right: .3rem; }
 .pl-hand { min-width: 3.2rem; text-align: right; font-size: .85rem; letter-spacing: .05em; opacity: .9; }
 .prix-fire.is-stuck { opacity: .55; cursor: not-allowed; }
 .prix-drop { margin-top: .4rem; }
@@ -3594,26 +3620,100 @@ a.dtab { text-decoration: none; display: inline-block; }
   width: 100%; padding: .45rem .6rem; border-radius: 8px;
   background: var(--surface); color: inherit; border: 1px solid var(--edge); font: inherit;
 }
-.prix-tiles { display: flex; flex-wrap: wrap; gap: .5rem; }
+/* ---------------------------------------------------------------------------
+   Memory tiles. Six pads, and the racer has to tell them apart cold.
+
+   Colour cannot carry this on its own: under protanopia a green pad and an
+   orange pad land 5.5 dE apart, which is the same colour. So every pad wears
+   a shape, and the shapes are the cue that never fails - circle, heart, star,
+   triangle, moon, cross, the six a five-year-old already knows by name.
+   Colour is the second, redundant cue.
+
+   The fills are opaque, not a hue washed over var(--surface), because the
+   arena has fifteen themes and the old alpha fills went murky on the dark
+   papers and ghostly on Newsprint. An opaque pad looks the same on all of them.
+--------------------------------------------------------------------------- */
+.prix-tiles { display: flex; flex-wrap: wrap; gap: .6rem; }
+
 .ptile-pad {
-  width: 3.2rem; height: 3.2rem; border-radius: 12px; cursor: pointer;
-  border: 1px solid var(--edge); background: rgba(255,255,255,.07);
-  transition: transform .1s ease, box-shadow .12s ease, background .12s ease;
+  --pad: #2A2F3A;
+  --pad-lit: #FFFFFF;
+  --pad-ink: #0B1017;
+  position: relative;
+  width: 3.2rem; height: 3.2rem;
+  border: 0; border-radius: 14px; padding: 0;
+  background: var(--pad);
+  /* A dark rim, so the pad has an edge on the light themes too. */
+  box-shadow: inset 0 0 0 2px rgba(11,16,23,.42);
+  cursor: pointer;
+  transition: background .1s ease, transform .1s ease, box-shadow .12s ease;
 }
-.ptile-pad:disabled { cursor: default; opacity: .75; }
-.ptile-pad.t0 { background: rgba(244,206,90,.18); }
-.ptile-pad.t1 { background: rgba(127,180,37,.18); }
-.ptile-pad.t2 { background: rgba(96,165,250,.18); }
-.ptile-pad.t3 { background: rgba(244,114,182,.18); }
-.ptile-pad.t4 { background: rgba(167,139,250,.18); }
-.ptile-pad.t5 { background: rgba(251,146,60,.18); }
-.ptile-pad.lit { transform: scale(1.06); box-shadow: 0 0 16px rgba(255,255,255,.5); }
-.ptile-pad.t0.lit { background: #F4CE5A; }
-.ptile-pad.t1.lit { background: #7FB425; }
-.ptile-pad.t2.lit { background: #60A5FA; }
-.ptile-pad.t3.lit { background: #F472B6; }
-.ptile-pad.t4.lit { background: #A78BFA; }
-.ptile-pad.t5.lit { background: #FB923C; }
+
+/* The shape. It keeps the same dark ink lit and unlit, so the silhouette
+   never washes out mid-flash - only the pad behind it surges to near-white. */
+.ptile-pad::before {
+  content: ""; position: absolute; inset: 19%;
+  background: var(--pad-ink);
+  -webkit-mask: var(--glyph) center / contain no-repeat;
+          mask: var(--glyph) center / contain no-repeat;
+}
+
+/* Pads are disabled while the sequence plays, which is exactly when they
+   must be easiest to read - so disabled looks no different. */
+.ptile-pad:disabled { cursor: default; }
+
+.ptile-pad.t0 {            /* CIRCLE - gold */
+  --pad: #C1941F; --pad-lit: #FFF6D0;
+  --glyph: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3C/svg%3E");
+}
+.ptile-pad.t1 {            /* HEART - green */
+  --pad: #55932F; --pad-lit: #DAF7B4;
+  --glyph: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z'/%3E%3C/svg%3E");
+}
+.ptile-pad.t2 {            /* STAR - blue */
+  --pad: #2F6FD0; --pad-lit: #D2E6FF;
+  --glyph: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z'/%3E%3C/svg%3E");
+}
+.ptile-pad.t3 {            /* TRIANGLE - pink */
+  --pad: #D24B92; --pad-lit: #FFD6EA;
+  --glyph: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2.5L22.5 20.5H1.5z'/%3E%3C/svg%3E");
+}
+.ptile-pad.t4 {            /* MOON - violet */
+  --pad: #8A3FD1; --pad-lit: #E6DAFF;
+  --glyph: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M9.37 5.51c-.18.64-.27 1.31-.27 1.99 0 4.08 3.32 7.4 7.4 7.4.68 0 1.35-.09 1.99-.27C17.45 17.19 14.93 19 12 19c-3.86 0-7-3.14-7-7 0-2.93 1.81-5.45 4.37-6.49z'/%3E%3C/svg%3E");
+}
+.ptile-pad.t5 {            /* CROSS - orange */
+  --pad: #B4560F; --pad-lit: #FFE2BE;
+  --glyph: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M10 2h4v8h8v4h-8v8h-4v-8H2v-4h8z'/%3E%3C/svg%3E");
+}
+
+/* The flash. It has to land in under 400ms, so it does not rely on hue at
+   all: the fill jumps 2.6-4.2x in luminance, the pad grows, and a white ring
+   inside a dark ring appears around it - a pair that shows up on a black
+   paper and on a cream one alike. */
+.ptile-pad.lit {
+  background: var(--pad-lit);
+  transform: scale(1.12);
+  box-shadow:
+    inset 0 0 0 2px rgba(11,16,23,.35),
+    0 0 0 3px #FFFFFF,
+    0 0 0 6px rgba(11,16,23,.6),
+    0 0 20px 5px var(--pad);
+  z-index: 1;
+}
+
+.ptile-pad:not(:disabled):hover {
+  box-shadow: inset 0 0 0 2px rgba(11,16,23,.42), 0 0 0 2px rgba(255,255,255,.6);
+}
+.ptile-pad:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px rgba(11,16,23,.42), 0 0 0 3px #FFFFFF, 0 0 0 6px #0B1017;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ptile-pad { transition: background .1s ease, box-shadow .1s ease; }
+  .ptile-pad.lit { transform: none; }
+}
 .prix-choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .5rem; }
 .pchoice {
   padding: .6rem .8rem; border-radius: 10px; cursor: pointer; text-align: left; color: inherit;

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Omni Multiverse of Madness</title>
-<meta name="build" content="2026-09-24 19:11 UTC">
+<meta name="build" content="2026-09-24 22:24 UTC">
 <meta name="description" content="Omni Multiverse of Madness — competitive arena. Belts, MMR, casino floor and live standings.">
 <meta name="theme-color" content="#F4F1EA">
 <meta name="mobile-web-app-capable" content="yes">
@@ -473,11 +473,6 @@ if (location.protocol === "file:") {
 
           <div id="prix-setup" class="prix-setup"></div>
 
-          <div id="prix-ai" hidden>
-            <h3 class="prix-h">The computers</h3>
-            <div id="prix-ai-count" class="ai-levels"></div>
-            <div id="prix-ai-level" class="ai-levels"></div>
-          </div>
 
           <h3 class="prix-h">Vote for the circuit</h3>
           <p class="panel-sub">Every racer gets a vote, and the most votes wins. Nobody has to be the one who chose.</p>
@@ -692,6 +687,14 @@ if (location.protocol === "file:") {
         <button class="modal-close" data-pick-close aria-label="Close">&times;</button>
       </div>
       <div class="modal-body">
+        <section data-pick="drivers" hidden>
+          <p class="panel-sub">Up to five of them line up with you. They answer on their own clock and score exactly as a person does, so beating them is a win.</p>
+          <div id="prix-ai-count" class="ai-levels"></div>
+        </section>
+        <section data-pick="pace" hidden>
+          <p class="panel-sub">How hard they will make you work for it.</p>
+          <div id="prix-ai-level" class="ai-levels"></div>
+        </section>
         <section data-pick="length" hidden>
           <p class="panel-sub">Two laps, three or five. The host's call.</p>
           <div id="prix-lengths" class="ai-levels"></div>

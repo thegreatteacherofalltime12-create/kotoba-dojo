@@ -3595,9 +3595,12 @@ a.dtab { text-decoration: none; display: inline-block; }
    this they run together as "Sprint2 laps". Scoped so the AI-level buttons
    the other games use are untouched. */
 #prix-lengths, #prix-classes { display: flex; flex-wrap: wrap; gap: .5rem; }
-#prix-lengths .ai-level, #prix-classes .ai-level { display: grid; gap: .15rem; text-align: left; padding: .5rem .7rem; }
-#prix-lengths .ai-level b, #prix-classes .ai-level b { font-family: var(--display); font-size: .82rem; letter-spacing: .04em; }
-#prix-lengths .ai-level i, #prix-classes .ai-level i { font-style: normal; font-size: .7rem; opacity: .75; }
+#prix-lengths .ai-level, #prix-classes .ai-level,
+#prix-ai-count .ai-level, #prix-ai-level .ai-level { display: grid; gap: .15rem; text-align: left; padding: .5rem .7rem; }
+#prix-lengths .ai-level b, #prix-classes .ai-level b,
+#prix-ai-count .ai-level b, #prix-ai-level .ai-level b { font-family: var(--display); font-size: .82rem; letter-spacing: .04em; }
+#prix-lengths .ai-level i, #prix-classes .ai-level i,
+#prix-ai-count .ai-level i, #prix-ai-level .ai-level i { font-style: normal; font-size: .7rem; opacity: .75; }
 
 /* The boxes on the road, and the item in your hands. */
 .pl-box {

@@ -217,8 +217,8 @@ function drawEngines() {
 /** How many computers line up, and how quick they are. The host's call. */
 function drawDrivers() {
   const g = P.game;
-  const box = $("prix-ai");
-  box.hidden = !g.solo;
+  // These live in a window now, and the tabs that open it only appear for
+  // a solo race, so there is nothing left to show or hide here.
   if (!g.solo) return;
 
   const counts = $("prix-ai-count");
@@ -258,11 +258,19 @@ function drawSetup() {
   const me = g.players.find((p) => p.uid === P.you);
   const engine = (g.engines || []).find((e) => e.id === g.engine);
   const level = (engine?.levels || []).find((l) => l.id === me?.klass);
+  const count = g.aiCount || 3;
   const tabs = [
     { key: "length", name: "How long", now: (g.lengths || []).find((l) => l.id === g.length)?.name, host: true },
     { key: "engine", name: "What you'll be doing", now: engine?.name, host: true },
     { key: "level", name: "Your level", now: level?.name, host: false },
   ];
+  // The computer drivers are only a question when you are racing alone.
+  if (g.solo) {
+    tabs.push(
+      { key: "drivers", name: "How many computers", now: `${count} ${count === 1 ? "driver" : "drivers"}`, host: true },
+      { key: "pace", name: "How quick they are", now: (g.aiLevels || []).find((l) => l.id === g.aiLevel)?.name, host: true },
+    );
+  }
   host.textContent = "";
   for (const t of tabs) {
     const b = el("button", "prix-tab");

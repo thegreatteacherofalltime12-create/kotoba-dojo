@@ -56,6 +56,15 @@ export const GAME_MODES = [
     available: true,
   },
   {
+    id: "grand-prix",
+    name: "Multiverse Grand Prix",
+    players: "1 or more",
+    blurb: "A kart race where your vocabulary is the engine. Unscramble a word to move; the quicker you are for your own level, the further you go.",
+    kind: "match",
+    game: "prix",
+    available: true,
+  },
+  {
     id: "minesweeper",
     name: "Minesweeper",
     players: "1 or more",

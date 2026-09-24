@@ -17,6 +17,7 @@ import {
 } from "./cosmetics.js";
 import { enterBattle, closeBattle, bindBattleControls } from "./battle.js";
 import { enterMines, closeMines, bindMineControls } from "./mines.js";
+import { enterPrix, closePrix } from "./prix.js";
 import { THEMES, applyTheme, savedTheme, themeById, THEME_EPOCH, DEFAULT_THEME, isStale } from "./theme.js";
 import { enterCasino, leaveCasino, bindCasino } from "./casino.js";
 import { casinoRulesHtml } from "./game-modes.js";
@@ -154,7 +155,7 @@ const S = {
 // ───────────────────────────────────────────────────────────── screens
 
 function show(name) {
-  for (const s of ["gate", "home", "forge", "dojo", "battle", "mines", "casino"]) $(`screen-${s}`).hidden = s !== name;
+  for (const s of ["gate", "home", "forge", "dojo", "battle", "mines", "casino", "prix"]) $(`screen-${s}`).hidden = s !== name;
   // The doorway belongs to the sign-in page; everything past it is the forest.
   document.body.classList.toggle("at-gate", name === "gate");
   if (typeof watchDojos === "function" && name !== "home") watchDojos(false);
@@ -3194,6 +3195,7 @@ const ROOMS = {
   crossword: (code) => enterDojo(code),
   battleship: (code, back) => { show("battle"); enterBattle(code, idToken, back); },
   minesweeper: (code, back) => { show("mines"); enterMines(code, idToken, back); },
+  prix: (code, back) => { show("prix"); enterPrix(code, idToken, back); },
   // Multiverse Golf runs on its own page: a full-screen course doesn't fit
   // inside a panel, and the round is long enough to want the whole window.
   // A room being created lands on the lobby with its code, to choose a course

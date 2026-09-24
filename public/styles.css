@@ -3475,3 +3475,76 @@ a.dtab { text-decoration: none; display: inline-block; }
 .rec-asst { margin-left: .35rem; letter-spacing: 0; font-size: .72rem; color: #F4CE5A; vertical-align: .05em; }
 .rec-legend { margin-top: -.45rem; opacity: .8; }
 .hs-legend { grid-column: 1 / -1; font-size: .78rem; letter-spacing: .04em; opacity: .75; }
+
+/* ── Multiverse Grand Prix ───────────────────────────────────────── */
+.prix-layout { display: grid; grid-template-columns: 1fr 300px; gap: .9rem; align-items: start; }
+.prix-main { min-width: 0; display: grid; gap: .8rem; }
+.prix-h { font-family: var(--display); font-size: .78rem; letter-spacing: .12em; text-transform: uppercase; margin: .9rem 0 .3rem; color: var(--accent); }
+
+.prix-circuits { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: .5rem; }
+.prix-circuit {
+  display: grid; gap: .1rem; padding: .55rem .6rem; text-align: left; cursor: pointer;
+  background: var(--surface); border: 1px solid var(--edge); border-radius: 10px; color: inherit;
+}
+.prix-circuit.is-on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.prix-circuit.mine { background: color-mix(in srgb, var(--a1) 14%, var(--surface)); }
+.prix-circuit .pc-ico { font-size: 1.2rem; }
+.prix-circuit .pc-name { font-family: var(--display); font-size: .82rem; letter-spacing: .04em; }
+.prix-circuit .pc-sub { font-size: .7rem; opacity: .72; }
+.prix-circuit .pc-votes { font-size: .68rem; color: var(--accent); letter-spacing: .06em; }
+
+.prix-track { display: grid; gap: .3rem; padding: .7rem; }
+.prix-lane { display: grid; grid-template-columns: 1.4rem 7rem 1fr 3.2rem; gap: .5rem; align-items: center; font-size: .8rem; }
+.prix-lane.mine { background: color-mix(in srgb, var(--a1) 12%, transparent); border-radius: 6px; }
+.prix-lane .pl-place { font-family: var(--display); color: var(--accent); text-align: center; }
+.prix-lane .pl-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.prix-lane .pl-lap { font-family: var(--display); font-size: .7rem; letter-spacing: .06em; opacity: .8; text-align: right; }
+.pl-road {
+  position: relative; height: 18px; border-radius: 9px; overflow: hidden;
+  background: repeating-linear-gradient(90deg, rgba(255,255,255,.06) 0 14px, transparent 14px 28px), rgba(0,0,0,.35);
+  box-shadow: inset 0 0 0 1px var(--edge);
+}
+.pl-kart { position: absolute; top: 50%; transform: translate(-50%, -50%); transition: left .6s cubic-bezier(.22,.7,.3,1); font-size: .95rem; }
+
+.prix-item { display: grid; gap: .6rem; }
+.prix-clue { font-size: 1rem; margin: 0; }
+.prix-clue.held { opacity: .6; font-style: italic; }
+.prix-letters { display: flex; flex-wrap: wrap; gap: .35rem; align-items: center; }
+.ptile {
+  width: 2.4rem; height: 2.8rem; display: grid; place-items: center; border-radius: 8px;
+  font-family: var(--display); font-size: 1.3rem; letter-spacing: 0;
+  background: rgba(255,255,255,.08); box-shadow: inset 0 0 0 1px var(--edge);
+}
+.prix-hint { width: 100%; margin: .2rem 0 0; font-size: .74rem; opacity: .75; }
+.prix-bar { height: 6px; border-radius: 3px; background: rgba(255,255,255,.08); overflow: hidden; }
+.prix-bar span { display: block; height: 100%; transition: width .1s linear; }
+.prix-bar span.full { background: #7FB425; }
+.prix-bar span.fading { background: #F4CE5A; }
+.prix-bar span.spent { background: var(--danger, #b3332e); }
+.prix-answer { display: flex; gap: .4rem; }
+.prix-answer input { flex: 1; text-transform: uppercase; letter-spacing: .18em; font-family: var(--display); }
+.prix-flash { min-height: 1.2rem; margin: 0; font-family: var(--display); font-size: .82rem; letter-spacing: .06em; }
+.prix-flash.good { color: var(--ok, #7FB425); }
+.prix-flash.bad { color: var(--danger-hi, #ff6b6b); }
+
+.prix-chat { height: 320px; overflow-y: auto; display: grid; gap: .25rem; align-content: start; padding: .6rem; font-size: .8rem; }
+.pc-line { display: grid; grid-template-columns: auto 1fr; gap: .4rem; }
+.pc-line b { font-family: var(--display); font-size: .72rem; letter-spacing: .06em; color: var(--accent); }
+.pc-line.mine b { color: var(--a1, #baff00); }
+.prix-say { padding: 0 .6rem .6rem; }
+.prix-say input { flex: 1; }
+.prix-lane .pl-stat { font-size: .72rem; opacity: .75; }
+
+@media (max-width: 860px) {
+  .prix-layout { grid-template-columns: 1fr; }
+  .prix-chat { height: 180px; }
+  .prix-lane { grid-template-columns: 1.2rem 5rem 1fr 2.8rem; font-size: .74rem; }
+}
+
+/* The length and level buttons carry a name and a line about it; without
+   this they run together as "Sprint2 laps". Scoped so the AI-level buttons
+   the other games use are untouched. */
+#prix-lengths, #prix-classes { display: flex; flex-wrap: wrap; gap: .5rem; }
+#prix-lengths .ai-level, #prix-classes .ai-level { display: grid; gap: .15rem; text-align: left; padding: .5rem .7rem; }
+#prix-lengths .ai-level b, #prix-classes .ai-level b { font-family: var(--display); font-size: .82rem; letter-spacing: .04em; }
+#prix-lengths .ai-level i, #prix-classes .ai-level i { font-style: normal; font-size: .7rem; opacity: .75; }

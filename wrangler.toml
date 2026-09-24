@@ -81,6 +81,16 @@ class_name = "Commons"
 tag = "v8"
 new_sqlite_classes = ["Commons"]
 
+# One instance per Grand Prix race. Holds the circuit, every racer's
+# distance and the word in their hands — the answers never leave it.
+[[durable_objects.bindings]]
+name = "PRIX"
+class_name = "GrandPrix"
+
+[[migrations]]
+tag = "v9"
+new_sqlite_classes = ["GrandPrix"]
+
 # Curated puzzle bank. Game content, not user data — the DO reads answers
 # from here at round start.
 [[kv_namespaces]]

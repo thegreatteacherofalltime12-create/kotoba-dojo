@@ -1,0 +1,621 @@
+/**
+ * Multiverse Grand Prix — one Durable Object per race.
+ *
+ * Everyone runs the same circuit at the same time and moves by answering
+ * items. This first slice is the track itself: distance, laps, the live
+ * order and the flag, on the words engine. Item boxes and computer drivers
+ * come next, and the arsenal after that.
+ *
+ * Distance is a step, not a drift: a kart moves when its racer answers. The
+ * design has karts coasting between answers, which would mean waking the
+ * object several times a second for every race — not worth the burn until
+ * the rest of it is proven. The browser slides the karts between positions,
+ * so it reads as movement either way.
+ */
+import {
+  CIRCUITS, LENGTHS, CLASSES, circuitById, lengthById, classById,
+  CLASS_FOR_CIRCUIT, lapsFor, metresFor, capFor,
+  allowanceMs, deckFor, shuffled, scramble, distanceFor, raceScore, standings, nearMiss,
+  SPIN_COST,
+} from "./prix.js";
+import { recordMatch, readRatings } from "./firestore.js";
+import { moderate } from "./moderation.js";
+import { strikePlayer } from "./firestore.js";
+import { announceRoom } from "./rooms.js";
+import { applyBounty } from "./report-bounty.js";
+import { sessionGain, fieldMmrFor, beltFor, boosted } from "./mmr.js";
+
+const IDLE_SHUTDOWN_MS = 30 * 60_000;
+// Typing an answer is a handful of events; this is here to stop a script
+// hammering the object, not to pace anybody.
+const GUESSES_PER_SECOND = 8;
+const GUESS_BURST = 20;
+
+export class GrandPrix {
+  constructor(state, env) {
+    this.state = state;
+    this.env = env;
+    this.buckets = new Map();
+    state.blockConcurrencyWhile(async () => {
+      this.g = (await state.storage.get("game")) || null;
+    });
+  }
+
+  persist() { return this.state.storage.put({ game: this.g }); }
+  sockets() { return this.state.getWebSockets(); }
+
+  send(ws, type, payload = {}) {
+    try { ws.send(JSON.stringify({ type, ...payload })); } catch { /* gone */ }
+  }
+
+  broadcast(type, payload = {}) {
+    const msg = JSON.stringify({ type, ...payload });
+    for (const ws of this.sockets()) { try { ws.send(msg); } catch { /* gone */ } }
+  }
+
+  /** A guess budget per racer, refilled steadily. */
+  allow(uid) {
+    const now = Date.now();
+    const b = this.buckets.get(uid) || { tokens: GUESS_BURST, at: now };
+    b.tokens = Math.min(GUESS_BURST, b.tokens + ((now - b.at) / 1000) * GUESSES_PER_SECOND);
+    b.at = now;
+    if (b.tokens < 1) { this.buckets.set(uid, b); return false; }
+    b.tokens -= 1;
+    this.buckets.set(uid, b);
+    return true;
+  }
+
+  beat() {
+    const now = Date.now();
+    if (now - (this.lastBeat || 0) < 20_000) return;
+    this.lastBeat = now;
+    this.announce();
+  }
+
+  announce() {
+    if (!this.g) return;
+    announceRoom(this.env, this.state, {
+      game: "prix",
+      code: this.g.code,
+      host: this.g.players[this.g.hostUid]?.name || "Someone",
+      players: this.connected().size,
+      phase: this.g.phase,
+      label: this.g.solo ? "Solo" : circuitById(this.g.circuit).name,
+      round: this.g.round,
+    });
+  }
+
+  connected() {
+    const out = new Set();
+    for (const ws of this.sockets()) {
+      try { const a = ws.deserializeAttachment(); if (a?.uid) out.add(a.uid); } catch { /* gone */ }
+    }
+    return out;
+  }
+
+  // ------------------------------------------------------------- connections
+
+  async fetch(request) {
+    if (request.headers.get("Upgrade") !== "websocket")
+      return new Response("This endpoint speaks WebSocket only.", { status: 426 });
+
+    const uid = request.headers.get("X-Dojo-Uid");
+    const name = request.headers.get("X-Dojo-Name") || "Racer";
+    const code = request.headers.get("X-Dojo-Code") || "prix";
+    if (!uid) return new Response("Unauthenticated.", { status: 401 });
+
+    const pair = new WebSocketPair();
+    this.state.acceptWebSocket(pair[1]);
+    pair[1].serializeAttachment({ uid, name });
+    await this.onJoin(uid, name, code, pair[1]);
+    return new Response(null, { status: 101, webSocket: pair[0] });
+  }
+
+  async onJoin(uid, name, code, ws) {
+    if (!this.g) {
+      this.g = {
+        code, phase: "LOBBY", hostUid: uid,
+        solo: false, circuit: "cinder", length: "gp",
+        players: {}, startedAt: null, endsAt: null, round: 0, applied: {},
+        votes: {}, chat: [],
+      };
+    }
+
+    const p = this.g.players[uid];
+    if (p) p.name = name;
+    else this.g.players[uid] = this.freshRacer(uid, name);
+
+    await this.persist();
+    this.announce();
+    this.send(ws, "PRIX_WELCOME", {
+      you: uid, isHost: this.g.hostUid === uid,
+      circuits: CIRCUITS, lengths: LENGTHS, classes: CLASSES,
+    });
+    for (const m of (this.g.chat || []).slice(-30)) this.send(ws, "PRIX_CHAT", m);
+    this.pushState();
+
+    // Back mid-race: the item in hand comes with it, minus the answer.
+    const me = this.g.players[uid];
+    if (this.g.phase === "RACING" && !me.watching && !me.done && me.item) {
+      this.send(ws, "PRIX_ITEM", this.itemView(me));
+    }
+
+    await this.state.storage.deleteAlarm().catch(() => {});
+    if (this.g.phase === "RACING" && this.g.endsAt) await this.state.storage.setAlarm(this.g.endsAt);
+  }
+
+  freshRacer(uid, name) {
+    return {
+      uid, name, joinedAt: Date.now(),
+      watching: this.g.phase === "RACING",
+      klass: CLASS_FOR_CIRCUIT[circuitById(this.g.circuit).hard] || "standard",
+      at: 0, lap: 1, item: null, deck: [], seen: 0,
+      solved: 0, spins: 0, ratioSum: 0,
+      done: false, finishedAt: null, score: 0, mmrAtStart: 0, seed: null,
+    };
+  }
+
+  // ------------------------------------------------------------------ state
+
+  publicState() {
+    const online = this.connected();
+    const total = metresFor(this.g.circuit, this.g.length);
+    const field = Object.values(this.g.players).filter((p) => !p.watching);
+    const order = standings(field).map((p) => p.uid);
+    return {
+      code: this.g.code, phase: this.g.phase, hostUid: this.g.hostUid,
+      solo: !!this.g.solo, circuit: this.g.circuit, length: this.g.length,
+      circuits: CIRCUITS, lengths: LENGTHS, classes: CLASSES,
+      laps: lapsFor(this.g.circuit, this.g.length),
+      lapM: circuitById(this.g.circuit).lapM,
+      total, endsAt: this.g.endsAt, round: this.g.round,
+      votes: this.tally(),
+      myVotes: this.g.votes || {},
+      chatOpen: this.g.phase !== "RACING",
+      players: Object.values(this.g.players).map((p) => ({
+        uid: p.uid, name: p.name, online: online.has(p.uid),
+        watching: !!p.watching, done: !!p.done,
+        klass: p.klass, at: Math.round(p.at), lap: p.lap,
+        solved: p.solved, spins: p.spins,
+        place: p.watching ? null : order.indexOf(p.uid) + 1,
+        finishedAt: p.finishedAt,
+      })),
+    };
+  }
+
+  pushState() { this.broadcast("PRIX_STATE", { game: this.publicState() }); }
+
+  /**
+   * What the grid voted for. Every circuit with a vote, most first.
+   *
+   * Only racers who are actually here count: a vote left behind by someone
+   * who has gone home should not keep choosing the track.
+   */
+  tally() {
+    const online = this.connected();
+    const counts = {};
+    for (const [uid, id] of Object.entries(this.g.votes || {})) {
+      if (!online.has(uid)) continue;
+      if (!CIRCUITS.some((c) => c.id === id)) continue;
+      counts[id] = (counts[id] || 0) + 1;
+    }
+    return counts;
+  }
+
+  /**
+   * The circuit the vote settles on. Most votes wins; a tie is broken by
+   * whichever of the leaders is already selected, so the track does not
+   * flicker while people are still voting, and otherwise by track order.
+   * No votes at all leaves whatever stands.
+   */
+  votedCircuit() {
+    const counts = this.tally();
+    const top = Math.max(0, ...Object.values(counts));
+    if (!top) return this.g.circuit;
+    const leaders = Object.keys(counts).filter((id) => counts[id] === top);
+    if (leaders.includes(this.g.circuit)) return this.g.circuit;
+    return CIRCUITS.find((c) => leaders.includes(c.id))?.id || this.g.circuit;
+  }
+
+  /** Settles the vote and says so, if it moved the track. */
+  async settleVote() {
+    const won = this.votedCircuit();
+    if (won !== this.g.circuit) {
+      this.g.circuit = won;
+      const suggested = CLASS_FOR_CIRCUIT[circuitById(won).hard];
+      for (const p of Object.values(this.g.players)) if (!p.chose) p.klass = suggested;
+    }
+    await this.persist();
+    this.pushState();
+  }
+
+  /** What a racer may see of the item in their hands. Never the answer. */
+  itemView(p) {
+    const cls = classById(p.klass);
+    const it = p.item;
+    const hideFor = cls.hideClueMs ? Math.max(0, (it.dealtAt + cls.hideClueMs) - Date.now()) : 0;
+    return {
+      scrambled: it.scrambled,
+      len: it.answer.length,
+      clue: hideFor > 0 ? null : it.clue,
+      clueInMs: hideFor,
+      hint: cls.firstLetter ? it.answer[0] : null,
+      allowanceMs: it.allowance,
+      dealtAt: it.dealtAt,
+      serverNow: Date.now(),
+      klass: p.klass,
+    };
+  }
+
+  /** The next word for a racer, from their own shuffled deck. */
+  deal(p) {
+    const cls = classById(p.klass);
+    if (!p.deck?.length) p.deck = shuffled(deckFor(cls)).map((w) => `${w.word}\u0000${w.clue}`);
+    const [word, clue] = String(p.deck.pop()).split("\u0000");
+    p.item = {
+      answer: word,
+      clue,
+      scrambled: scramble(word),
+      allowance: allowanceMs(word, cls),
+      dealtAt: Date.now(),
+    };
+    return p.item;
+  }
+
+  // ---------------------------------------------------------------- messages
+
+  async webSocketMessage(ws, raw) {
+    let msg;
+    try { msg = JSON.parse(raw); } catch { return; }
+    const who = ws.deserializeAttachment();
+    if (!who?.uid || !this.g) return;
+
+    try {
+      switch (msg.type) {
+        case "PING": return this.beat();
+        case "PRIX_SOLO": return await this.setSolo(ws, who.uid, msg);
+        case "PRIX_VOTE": return await this.vote(ws, who.uid, msg);
+        case "PRIX_SAY": return await this.say(ws, who.uid, msg);
+        case "PRIX_LENGTH": return await this.setLength(ws, who.uid, msg);
+        case "PRIX_CLASS": return await this.setClass(ws, who.uid, msg);
+        case "PRIX_START": return await this.start(ws, who.uid);
+        case "PRIX_GUESS": return await this.guess(ws, who.uid, msg);
+        case "PRIX_SKIP": return await this.skip(ws, who.uid);
+        case "PRIX_END_MATCH": {
+          if (who.uid !== this.g.hostUid)
+            return this.send(ws, "PRIX_ERROR", { message: "Only the host can end the race." });
+          if (this.g.phase !== "RACING")
+            return this.send(ws, "PRIX_ERROR", { message: "No race is running." });
+          return await this.finish();
+        }
+        default: return this.send(ws, "PRIX_ERROR", { message: "Unrecognised message." });
+      }
+    } catch (err) {
+      this.send(ws, "PRIX_ERROR", { message: String(err?.message || err) });
+    }
+  }
+
+  hostOnly(ws, uid) {
+    if (uid !== this.g.hostUid) { this.send(ws, "PRIX_ERROR", { message: "Only the host sets this." }); return false; }
+    if (this.g.phase === "RACING") { this.send(ws, "PRIX_ERROR", { message: "A race is already running." }); return false; }
+    return true;
+  }
+
+  async setSolo(ws, uid, msg) {
+    if (!this.hostOnly(ws, uid)) return;
+    this.g.solo = !!msg.on;
+    await this.persist();
+    this.pushState();
+  }
+
+  /**
+   * A racer's vote for the track. Anyone may vote, one each, changeable
+   * until the lights go out — and the tally decides, so nobody has to be
+   * the one who chose.
+   */
+  async vote(ws, uid, msg) {
+    if (this.g.phase === "RACING")
+      return this.send(ws, "PRIX_ERROR", { message: "The track is set." });
+    if (!CIRCUITS.some((c) => c.id === msg.circuit))
+      return this.send(ws, "PRIX_ERROR", { message: "No such circuit." });
+    this.g.votes = this.g.votes || {};
+    // Voting for what you already voted for takes it back.
+    if (this.g.votes[uid] === msg.circuit) delete this.g.votes[uid];
+    else this.g.votes[uid] = msg.circuit;
+    await this.settleVote();
+  }
+
+  /**
+   * The lobby's chat. It closes when the race starts: nobody is typing to
+   * their friends while a clock is running, and a chat box in the middle of
+   * a race is one more thing to read when you have no time to read it.
+   */
+  async say(ws, uid, msg) {
+    if (this.g.phase === "RACING")
+      return this.send(ws, "PRIX_ERROR", { message: "Chat is shut while the race is on." });
+    const p = this.g.players[uid];
+    const text = String(msg.text || "").trim().slice(0, 200);
+    if (!text) return;
+    // The same screen as the arena chat; a refused line is a strike.
+    const verdict = await moderate(this.env, text);
+    if (!verdict.ok) {
+      const strikes = await strikePlayer(this.env, uid, p?.name || "Racer", { text, reason: verdict.reason, where: "grand prix chat" });
+      return this.send(ws, "PRIX_ERROR", { message: `That doesn't belong here (${verdict.reason}). Strike ${strikes ?? "?"} of 3.` });
+    }
+    const entry = { uid, name: p?.name || "Racer", text, at: Date.now() };
+    this.g.chat = [...(this.g.chat || []), entry].slice(-60);
+    await this.persist();
+    this.broadcast("PRIX_CHAT", entry);
+  }
+
+  async setLength(ws, uid, msg) {
+    if (!this.hostOnly(ws, uid)) return;
+    if (!LENGTHS.some((l) => l.id === msg.length)) return;
+    this.g.length = msg.length;
+    await this.persist();
+    this.pushState();
+  }
+
+  /** A racer's own level. Theirs to set, not the host's. */
+  async setClass(ws, uid, msg) {
+    if (this.g.phase === "RACING")
+      return this.send(ws, "PRIX_ERROR", { message: "Not once the lights are out." });
+    const p = this.g.players[uid];
+    if (!p || !CLASSES.some((c) => c.id === msg.klass)) return;
+    p.klass = msg.klass;
+    p.chose = true;
+    await this.persist();
+    this.pushState();
+  }
+
+  async start(ws, uid) {
+    if (uid !== this.g.hostUid)
+      return this.send(ws, "PRIX_ERROR", { message: "Only the host starts the race." });
+    if (this.g.phase === "RACING")
+      return this.send(ws, "PRIX_ERROR", { message: "A race is already running." });
+
+    const online = this.connected();
+    if (!this.g.solo && online.size < 2)
+      return this.send(ws, "PRIX_ERROR", { message: "Wait for at least one more racer." });
+    if (!online.size)
+      return this.send(ws, "PRIX_ERROR", { message: "Nobody is here." });
+
+    const uids = [...online];
+    let ratings = Object.fromEntries(uids.map((u) => [u, 0]));
+    try { ratings = await readRatings(this.env, uids); } catch { /* unranked */ }
+    const seeded = [...uids].sort((a, b) => (ratings[b] || 0) - (ratings[a] || 0));
+
+    for (const p of Object.values(this.g.players)) {
+      const racing = online.has(p.uid);
+      p.watching = !racing;
+      p.at = 0; p.lap = 1; p.item = null; p.deck = [];
+      p.solved = 0; p.spins = 0; p.ratioSum = 0;
+      p.done = false; p.finishedAt = null; p.score = 0;
+      p.mmrAtStart = ratings[p.uid] || 0;
+      p.seed = seeded.indexOf(p.uid) + 1 || null;
+    }
+
+    const now = Date.now();
+    this.g.phase = "RACING";
+    this.g.round += 1;
+    this.g.startedAt = now;
+    this.g.endsAt = now + capFor(this.g.circuit, this.g.length);
+
+    await this.persist();
+    await this.state.storage.setAlarm(this.g.endsAt);
+    this.announce();
+
+    this.broadcast("PRIX_START", {
+      circuit: circuitById(this.g.circuit),
+      laps: lapsFor(this.g.circuit, this.g.length),
+      total: metresFor(this.g.circuit, this.g.length),
+      endsAt: this.g.endsAt, serverNow: now, round: this.g.round,
+      chatOpen: false,
+    });
+
+    // Everyone gets their first item at the same moment.
+    for (const ws2 of this.sockets()) {
+      let u = null;
+      try { u = ws2.deserializeAttachment()?.uid; } catch { /* gone */ }
+      const p = u && this.g.players[u];
+      if (p && !p.watching) { this.deal(p); this.send(ws2, "PRIX_ITEM", this.itemView(p)); }
+    }
+    await this.persist();
+    this.pushState();
+  }
+
+  // ------------------------------------------------------------------ racing
+
+  racer(ws, uid) {
+    if (this.g.phase !== "RACING") { this.send(ws, "PRIX_ERROR", { message: "No race is running." }); return null; }
+    const p = this.g.players[uid];
+    if (!p || p.watching) { this.send(ws, "PRIX_ERROR", { message: "You are in the stands." }); return null; }
+    if (p.done) { this.send(ws, "PRIX_ERROR", { message: "Your race is over." }); return null; }
+    if (!p.item) { this.deal(p); this.send(ws, "PRIX_ITEM", this.itemView(p)); return null; }
+    return p;
+  }
+
+  async guess(ws, uid, msg) {
+    const p = this.racer(ws, uid);
+    if (!p) return;
+    if (!this.allow(uid)) return this.send(ws, "PRIX_ERROR", { message: "Slow down." });
+
+    const said = String(msg.guess || "").trim().toUpperCase();
+    if (!said) return;
+    const it = p.item;
+
+    if (nearMiss(said, it.answer)) {
+      // The other word from the same letters. No spin, no reshuffle: the
+      // clue is what separates them, and the racer has not done anything
+      // wrong.
+      return this.send(ws, "PRIX_RESULT", { ok: false, near: true, delta: 0, at: Math.round(p.at), lap: p.lap });
+    }
+
+    if (said !== it.answer) {
+      p.spins += 1;
+      p.at = Math.max(0, p.at - SPIN_COST);
+      // The word stays; the letters move, so a wrong answer costs a moment
+      // as well as the metres.
+      it.scrambled = scramble(it.answer);
+      await this.persist();
+      this.send(ws, "PRIX_RESULT", { ok: false, delta: -SPIN_COST, at: Math.round(p.at), lap: p.lap });
+      this.send(ws, "PRIX_ITEM", this.itemView(p));
+      this.pushState();
+      return;
+    }
+
+    const took = Date.now() - it.dealtAt;
+    const gained = distanceFor(took, it.allowance);
+    p.at += gained;
+    p.solved += 1;
+    p.ratioSum += Math.min(1, took / it.allowance);
+
+    const lapM = circuitById(this.g.circuit).lapM;
+    p.lap = Math.min(lapsFor(this.g.circuit, this.g.length), Math.floor(p.at / lapM) + 1);
+
+    this.send(ws, "PRIX_RESULT", {
+      ok: true, delta: gained, at: Math.round(p.at), lap: p.lap,
+      word: it.answer, tookMs: took, allowanceMs: it.allowance,
+    });
+
+    if (p.at >= metresFor(this.g.circuit, this.g.length)) {
+      await this.cross(p);
+      return;
+    }
+
+    this.deal(p);
+    await this.persist();
+    this.send(ws, "PRIX_ITEM", this.itemView(p));
+    this.pushState();
+  }
+
+  /** Nothing is lost by moving on, but nothing is gained either. */
+  async skip(ws, uid) {
+    const p = this.racer(ws, uid);
+    if (!p) return;
+    const it = p.item;
+    if (Date.now() - it.dealtAt < it.allowance)
+      return this.send(ws, "PRIX_ERROR", { message: "Not until the allowance is gone." });
+    p.ratioSum += 1;
+    this.deal(p);
+    await this.persist();
+    this.send(ws, "PRIX_ITEM", this.itemView(p));
+    this.pushState();
+  }
+
+  async cross(p) {
+    p.done = true;
+    p.item = null;
+    p.finishedAt = Date.now() - (this.g.startedAt || Date.now());
+    await this.persist();
+    this.broadcast("PRIX_FLAG", { uid: p.uid, name: p.name, ms: p.finishedAt });
+    this.pushState();
+
+    const field = Object.values(this.g.players).filter((x) => !x.watching);
+    if (field.every((x) => x.done)) await this.finish();
+  }
+
+  // ----------------------------------------------------------------- the flag
+
+  async finish() {
+    if (this.g.phase !== "RACING") return;
+    this.g.phase = "RESULTS";
+    await this.state.storage.deleteAlarm().catch(() => {});
+
+    const field = Object.values(this.g.players).filter((p) => !p.watching);
+    for (const p of field) { p.item = null; if (!p.done) p.done = true; }
+
+    const ordered = standings(field);
+    const ratings = Object.fromEntries(field.map((p) => [p.uid, p.mmrAtStart || 0]));
+    const mode = field.length >= 3 ? "rumble" : "match";
+    const total = metresFor(this.g.circuit, this.g.length);
+
+    const results = ordered.map((p, i) => {
+      const placement = i + 1;
+      const answered = p.solved + p.spins;
+      const avgRatio = p.solved > 0 ? p.ratioSum / Math.max(1, p.solved) : 1;
+      const finished = p.at >= total;
+      p.score = Math.round(raceScore({
+        placement, field: field.length, avgRatio, spins: p.spins, finished,
+      }) * classById(p.klass).mult);
+      p.score = Math.min(100, p.score);
+
+      const gain = sessionGain({
+        score: p.score, completed: finished,
+        playerMmr: p.mmrAtStart || 0, fieldMmr: fieldMmrFor(p.uid, ratings),
+        mode, seed: p.seed, placement,
+      });
+      p.boost = !!this.g.applied?.[p.uid];
+      if (p.boost) gain.total = boosted(gain.total);
+      const after = (p.mmrAtStart || 0) + gain.total;
+
+      return {
+        uid: p.uid, name: p.name, score: p.score, placement, seed: p.seed || null,
+        status: finished ? "finished" : "flagged",
+        elapsedMs: p.finishedAt, metres: Math.round(p.at), laps: p.lap,
+        solved: p.solved, spins: p.spins, klass: p.klass, answered,
+        mmrBefore: p.mmrAtStart || 0, gain: gain.total, boost: !!p.boost,
+        breakdown: { base: gain.base, challenge: gain.challenge, completion: gain.completion, seed: gain.seed },
+        mmrAfter: after, belt: beltFor(after).name,
+        promoted: beltFor(after).name !== beltFor(p.mmrAtStart || 0).name,
+      };
+    });
+
+    this.g.applied = {};
+    const bounty = await applyBounty(this.env, this.state, {
+      mode, durationMs: Date.now() - (this.g.startedAt || Date.now() - 60_000), results,
+    });
+
+    await this.persist();
+    this.broadcast("PRIX_OVER", { results, mode, bounty });
+    this.pushState();
+
+    this.state.waitUntil?.(
+      recordMatch(this.env, {
+        code: this.g.code, roundNo: this.g.round,
+        puzzleId: `prix:${this.g.circuit}:${this.g.length}`,
+        game: "prix", mode, courseId: this.g.circuit,
+        finishedAt: Date.now(), results,
+      }).then((ok) => { if (!ok) console.error("[prix] results were not saved"); })
+        .catch((e) => console.error(`[prix] ${e.message}`))
+    );
+  }
+
+  async alarm() {
+    if (this.g?.phase === "RACING" && Date.now() >= (this.g.endsAt || 0)) { await this.finish(); return; }
+    if (this.sockets().length === 0) {
+      await this.state.storage.deleteAll();
+      this.g = null;
+    }
+  }
+
+  async webSocketClose(ws) { await this.onGone(ws); }
+  async webSocketError(ws) { await this.onGone(ws); }
+
+  async onGone(ws) {
+    if (!this.g) return;
+    let who = null;
+    try { who = ws.deserializeAttachment(); } catch { /* gone */ }
+
+    const online = this.connected();
+    if (who?.uid) online.delete(who.uid);
+
+    if (who?.uid === this.g.hostUid && online.size > 0) {
+      const heir = Object.values(this.g.players)
+        .filter((p) => online.has(p.uid))
+        .sort((a, b) => a.joinedAt - b.joinedAt)[0];
+      if (heir) this.g.hostUid = heir.uid;
+    }
+
+    if (who?.uid && this.g.phase !== "RACING" && this.g.votes?.[who.uid]) {
+      delete this.g.votes[who.uid];
+      this.g.circuit = this.votedCircuit();
+    }
+    if (online.size === 0 && this.g.phase !== "RACING") {
+      await this.state.storage.setAlarm(Date.now() + IDLE_SHUTDOWN_MS);
+    }
+    await this.persist();
+    this.announce();
+    this.pushState();
+  }
+}

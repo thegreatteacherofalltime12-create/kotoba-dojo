@@ -332,11 +332,11 @@ console.log("\nfiring them");
   A.at = 900; B.at = 100;
   A.holding = "deflector";
   await say("a", { type: "PRIX_USE" });
-  ok("a deflector goes up", A.deflector === true);
+  ok("a deflector goes up", A.deflector === 1);
   B.holding = "comet";
   const kept = A.at;
   await say("b", { type: "PRIX_USE" });
-  ok("and eats the comet", A.at === kept && A.deflector === false);
+  ok("and eats the comet", A.at === kept && A.deflector === 0);
   ok("the target is told it was deflected", seats.a.last("PRIX_HIT").deflected === true);
 
   // Fog and flare sweep everyone in front.
@@ -621,7 +621,7 @@ console.log("\nthe Grand Prix arsenal");
     await say("a", { type: "PRIX_START" });
     const B = room.g.players.b;
     ok("not one of them touches another racer",
-      B.at === 0 && !B.holding && !B.fogUntil && !B.slowUntil && B.deflector === false && B.spins === 0);
+      B.at === 0 && !B.holding && !B.fogUntil && !B.slowUntil && !B.deflector && B.spins === 0);
   }
   ok("they are priced like the other arsenals",
     Object.values(kit).every((t) => t.price >= 300 && t.price <= 5_000));
@@ -703,7 +703,7 @@ async function fitted(armed) {
 }
 {
   const { A } = await fitted({ gp_seal: 1 });
-  ok("a Scrutineer's Seal is a Deflector at the lights", A.deflector === true);
+  ok("a Scrutineer's Seal is a Deflector at the lights", A.deflector === 1);
 }
 {
   const { room, A, say } = await fitted({ gp_guards: 1 });
@@ -887,6 +887,86 @@ console.log("\na level is not a speed");
   await say("a", { type: "PRIX_START" });
   const bot = Object.values(room.g.players).find((x) => x.ai);
   ok("a driver converts at the reference clock", room.scaleOf(bot) === 1);
+}
+
+
+console.log("\nspent only by working");
+{
+  // The limits have to be what a car can actually use, or the tab invites
+  // a player to buy something that does nothing.
+  const { ARSENALS } = await import("../src/arsenals.js");
+  const kit = ARSENALS.prix;
+  const stacks = ["gp_start", "gp_tow", "gp_slip", "gp_nitro", "gp_warmup",
+    "gp_seal", "gp_spotter", "gp_spare", "gp_magnet", "gp_polish"];
+  const wrong = Object.entries(kit)
+    .filter(([k, t]) => !stacks.includes(k) && t.max !== 1)
+    .map(([k]) => k);
+  ok("a token that cannot stack has a limit of one" + (wrong.length ? " \u2014 " + wrong.join(", ") : ""), wrong.length === 0);
+  ok("and the shop says the same", (await import("../public/boost.js")).PRIX_ARSENAL_ITEMS
+    .every((t) => t.max === kit[t.key].max));
+}
+{
+  // A second canister has nowhere to go without a Twin Box, so it is not
+  // taken. This was costing 1,500 for nothing.
+  const { A } = await fitted({ gp_slip: 1, gp_nitro: 1 });
+  ok("one hand holds one canister", !!A.holding && !A.holding2);
+  ok("and only the one that landed is spent",
+    (A.ars.used.gp_slip || 0) + (A.ars.used.gp_nitro || 0) === 1);
+}
+{
+  const { A } = await fitted({ gp_slip: 2 });
+  ok("a second canister of the same kind is left alone too", A.ars.used.gp_slip === 1);
+}
+{
+  const { A } = await fitted({ gp_slip: 1, gp_nitro: 1, gp_twin: 1 });
+  ok("a Twin Box gives the second one a hand", !!A.holding && !!A.holding2);
+  ok("and then both are spent", A.ars.used.gp_slip === 1 && A.ars.used.gp_nitro === 1);
+}
+{
+  // Nothing armed beyond what a car can use is charged for.
+  const { A } = await fitted({ gp_tyres: 4, gp_guards: 3, gp_radio: 4 });
+  ok("a second of something that cannot stack is not taken",
+    A.ars.used.gp_tyres === 1 && A.ars.used.gp_guards === 1 && A.ars.used.gp_radio === 1);
+  ok("and the one that was taken still works", A.tyres === true && A.guards === true && A.radio === true);
+}
+{
+  // The ones that do stack, stack.
+  const { A } = await fitted({ gp_warmup: 2, gp_spotter: 2, gp_polish: 2, gp_magnet: 2 });
+  ok("two Warm-Up Laps are six answers", A.warmup === 6);
+  ok("two Spotters are six skips", A.skips === 6);
+  ok("two Podium Polishes are sixteen points", A.polish === 16);
+  ok("two Box Magnets are six boxes", A.magnet === 6);
+  ok("and every one of them is spent", A.ars.used.gp_warmup === 2 && A.ars.used.gp_spotter === 2
+    && A.ars.used.gp_polish === 2 && A.ars.used.gp_magnet === 2);
+}
+{
+  const { room, A } = await fitted({ gp_seal: 2 });
+  ok("two Seals are two shields", A.deflector === 2);
+  room.land(A, "comet", { metres: 10 });
+  room.land(A, "comet", { metres: 10 });
+  ok("each eats one thing aimed at you", A.deflector === 0);
+  ok("and the third gets through", room.land(A, "comet", { metres: 10 }) === true);
+}
+{
+  const { A, say } = await fitted({ gp_spare: 2 });
+  ok("two Spare Words cover two mistakes a lap", A.spares === 2);
+  await say("a", { type: "PRIX_GUESS", guess: "definitely wrong" });
+  await say("a", { type: "PRIX_GUESS", guess: "definitely wrong" });
+  ok("neither costs a spin", A.spins === 0 && A.at === 0);
+  await say("a", { type: "PRIX_GUESS", guess: "definitely wrong" });
+  ok("the third does", A.spins === 1);
+  // A new lap refills them.
+  A.lap = 2;
+  await say("a", { type: "PRIX_GUESS", guess: "definitely wrong" });
+  ok("and the next lap brings them back", A.spins === 1);
+}
+{
+  // What was not taken stays in the bag: the card must not claim it.
+  const { room, seats } = await fitted({ gp_slip: 1, gp_nitro: 1, gp_tyres: 3 });
+  await room.finish();
+  const mine = seats.a.last("PRIX_OVER").results.find((r) => r.uid === "a");
+  const total = Object.values(mine.spent || {}).reduce((n, v) => n + v, 0);
+  ok(`the card charges for two of the five armed (${JSON.stringify(mine.spent)})`, total === 2);
 }
 
 console.log(bad ? `\n${bad} failing\n` : "\nall grand prix checks passed\n");

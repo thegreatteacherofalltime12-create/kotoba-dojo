@@ -310,7 +310,7 @@ function drawHand() {
   // to a racer who paid for it.
   const ahead = P.item?.ahead;
   if (ahead !== undefined) marks.push(ahead ? `\u{1F4E1} Ahead: ${itemName(ahead)}` : "\u{1F4E1} Ahead: empty hands");
-  if (me?.deflector) marks.push("🛡️ Deflector up");
+  if (me?.deflector) marks.push(me.deflector > 1 ? `🛡️ Deflector up ×${me.deflector}` : "🛡️ Deflector up");
   if (me?.fogged) marks.push("🌫️ Fogged");
   if (me?.slowed) marks.push("🌞 Slowed");
 

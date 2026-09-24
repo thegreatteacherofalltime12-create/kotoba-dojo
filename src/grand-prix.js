@@ -163,11 +163,11 @@ export class GrandPrix {
       at: 0, lap: 1, item: null, deck: [], seen: 0,
       // What is in your hands, and what somebody put on you. `item` is the
       // word you are answering; `holding` is the item box you picked up.
-      holding: null, holding2: null, deflector: false, fogUntil: 0, slowUntil: 0, boxes: 0, fired: 0, owed: 0,
+      holding: null, holding2: null, deflector: 0, fogUntil: 0, slowUntil: 0, boxes: 0, fired: 0, owed: 0,
       ars: { armed: {}, used: {} },
       // What the arsenal turned into for this race.
       fuel: false, warmup: 0, tyres: false, guards: false, visor: false, radio: false,
-      skips: 0, spare: false, spareLap: 0, tele: false, twin: false, magnet: 0,
+      skips: 0, spares: 0, spareLeft: 0, spareLap: 0, tele: false, twin: false, magnet: 0,
       polish: 0, pointsFinish: false, tow: 0,
       solved: 0, spins: 0, ratioSum: 0,
       done: false, finishedAt: null, score: 0, mmrAtStart: 0, seed: null,
@@ -201,7 +201,7 @@ export class GrandPrix {
         klass: p.klass, at: Math.round(p.at), lap: p.lap,
         solved: p.solved, spins: p.spins,
         ai: !!p.ai, aiLevel: p.aiLevel || null,
-        holding: p.holding || null, holding2: p.holding2 || null, deflector: !!p.deflector,
+        holding: p.holding || null, holding2: p.holding2 || null, deflector: p.deflector || 0,
         fogged: (p.fogUntil || 0) > Date.now(), slowed: (p.slowUntil || 0) > Date.now(),
         place: p.watching ? null : order.indexOf(p.uid) + 1,
         finishedAt: p.finishedAt,
@@ -468,7 +468,7 @@ export class GrandPrix {
       const racing = online.has(p.uid);
       p.watching = !racing;
       p.at = 0; p.lap = 1; p.item = null; p.deck = []; p.owed = 0;
-      p.holding = null; p.deflector = false; p.fogUntil = 0; p.slowUntil = 0;
+      p.holding = null; p.deflector = 0; p.fogUntil = 0; p.slowUntil = 0;
       p.memLen = 0;
       p.boxes = 0; p.fired = 0;
       p.solved = 0; p.spins = 0; p.ratioSum = 0;
@@ -477,7 +477,7 @@ export class GrandPrix {
       p.seed = seeded.indexOf(p.uid) + 1 || null;
       // Last race's fit-out goes before this one's is bolted on.
       p.fuel = false; p.warmup = 0; p.tyres = false; p.guards = false; p.visor = false;
-      p.radio = false; p.skips = 0; p.spare = false; p.spareLap = 0; p.tele = false;
+      p.radio = false; p.skips = 0; p.spares = 0; p.spareLeft = 0; p.spareLap = 0; p.tele = false;
       p.twin = false; p.magnet = 0; p.polish = 0; p.pointsFinish = false; p.tow = 0;
       p.holding2 = null;
       if (racing && !p.ai) this.fitCar(p);
@@ -634,9 +634,11 @@ export class GrandPrix {
     }
 
     if (verdict !== "right") {
-      // A Spare Word covers the first mistake of each lap, once per lap.
-      const covered = p.spare && p.spareLap !== p.lap;
-      if (covered) p.spareLap = p.lap;
+      // A Spare Word covers a mistake, and each one armed covers another
+      // on the same lap. The lap's allowance is refilled when it turns.
+      if (p.spareLap !== p.lap) { p.spareLap = p.lap; p.spareLeft = p.spares || 0; }
+      const covered = (p.spareLeft || 0) > 0;
+      if (covered) p.spareLeft -= 1;
       else p.spins += 1;
       const cost = covered ? 0 : Math.round((p.tyres ? 5 : SPIN_COST) * this.scaleOf(p));
       p.at = Math.max(0, p.at - cost);
@@ -712,8 +714,8 @@ export class GrandPrix {
       if (p.guards) {
         // Mudguards: the oil goes under the car and nothing else.
         this.send(ws, "PRIX_HIT", { item: "slick", shrugged: true });
-      } else if (p.deflector) {
-        p.deflector = false;
+      } else if (p.deflector > 0) {
+        p.deflector -= 1;
         this.send(ws, "PRIX_HIT", { item: "slick", deflected: true });
       } else {
         const cost = Math.round(SLICK_M * this.scaleOf(p));
@@ -805,8 +807,8 @@ export class GrandPrix {
     const ws = this.socketFor(target.uid);
     // A Sun Visor does not stop fog or a flare, it shortens them.
     if (target.visor && (what === "fog" || what === "flare" || what === "scrambler")) extra = { ...extra, ms: Math.round((extra.ms || 0) / 2) };
-    if (target.deflector) {
-      target.deflector = false;
+    if (target.deflector > 0) {
+      target.deflector -= 1;
       if (ws) this.send(ws, "PRIX_HIT", { item: what, deflected: true });
       return false;
     }
@@ -890,33 +892,64 @@ export class GrandPrix {
    * The lights, for one racer's arsenal. Every token bites here, which is
    * why every token armed is a token spent.
    */
+  /**
+   * The lights, where every armed token takes hold.
+   *
+   * What is written down as used is built here, one effect at a time,
+   * rather than copied wholesale from what was armed: a token that cannot
+   * take hold must not be charged for. A second Mudguard has nothing left
+   * to do, and a second canister needs a second hand to sit in. Anything
+   * that does not fit stays in the bag, because it is only spent by
+   * working.
+   */
   fitCar(p) {
     const a = this.arsOf(p);
-    a.used = { ...a.armed };
+    a.used = {};
     const n = (k) => a.armed[k] || 0;
+    /** Take up to that many of a token, and write down what was taken. */
+    const spend = (k, count = 1) => {
+      const got = Math.max(0, Math.min(count, n(k)));
+      if (got > 0) a.used[k] = got;
+      return got;
+    };
+    /** Take every one armed, for the tokens that stack. */
+    const take = (k) => spend(k, n(k));
 
-    if (n("gp_fuel")) p.fuel = true;
-    if (n("gp_tyres")) p.tyres = true;
-    if (n("gp_guards")) p.guards = true;
-    if (n("gp_visor")) p.visor = true;
-    if (n("gp_radio")) p.radio = true;
-    if (n("gp_spare")) p.spare = true;
-    if (n("gp_tele")) p.tele = true;
-    if (n("gp_twin")) p.twin = true;
-    if (n("gp_points")) p.pointsFinish = true;
-    if (n("gp_seal")) p.deflector = true;
+    // One of each is all a car can carry: a second changes nothing, so a
+    // second is never taken.
+    if (spend("gp_fuel")) p.fuel = true;
+    if (spend("gp_tyres")) p.tyres = true;
+    if (spend("gp_guards")) p.guards = true;
+    if (spend("gp_visor")) p.visor = true;
+    if (spend("gp_radio")) p.radio = true;
+    if (spend("gp_tele")) p.tele = true;
+    if (spend("gp_twin")) p.twin = true;
+    if (spend("gp_points")) p.pointsFinish = true;
 
-    p.warmup = n("gp_warmup") ? 3 : 0;
-    p.skips = n("gp_spotter") * 3;
-    p.magnet = n("gp_magnet") * 3;
-    p.polish = n("gp_polish") * 8;
-    p.tow = n("gp_tow") * 5;
+    // These count, so every one armed is another of the thing.
+    p.deflector = (p.deflector || 0) + take("gp_seal");
+    p.spares = take("gp_spare");
+    p.warmup = take("gp_warmup") * 3;
+    p.skips = take("gp_spotter") * 3;
+    p.magnet = take("gp_magnet") * 3;
+    p.polish = take("gp_polish") * 8;
+    p.tow = take("gp_tow") * 5;
 
-    // Two canisters and a Twin Box means both are in your hands at the off.
-    if (n("gp_slip")) p.holding = "slipstream";
-    if (n("gp_nitro")) { if (p.holding && p.twin) p.holding2 = "nitro"; else p.holding = "nitro"; }
+    // A canister needs a hand to start in, and a Twin Box is the only way
+    // to have a second one. Whatever there is no hand for is left alone.
+    const hands = p.twin ? 2 : 1;
+    for (const [key, item] of [["gp_slip", "slipstream"], ["gp_nitro", "nitro"]]) {
+      const free = hands - (p.holding ? 1 : 0) - (p.holding2 ? 1 : 0);
+      const got = spend(key, Math.min(n(key), free));
+      for (let i = 0; i < got; i++) {
+        if (!p.holding) p.holding = item;
+        else p.holding2 = item;
+      }
+    }
+
     // The start boost is distance, not an item, so it lands before the flag.
-    if (n("gp_start")) p.at += Math.round(200 * n("gp_start") * this.scaleOf(p));
+    const starts = take("gp_start");
+    if (starts) p.at += Math.round(200 * starts * this.scaleOf(p));
   }
 
   /** Whether this racer may fire that. The flare belongs to the back. */
@@ -961,7 +994,7 @@ export class GrandPrix {
         break;
       }
       case "deflector":
-        p.deflector = true;
+        p.deflector = (p.deflector || 0) + 1;
         note = "Deflector up";
         break;
       case "slick":

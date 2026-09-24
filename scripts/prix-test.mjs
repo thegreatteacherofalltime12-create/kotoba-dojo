@@ -503,7 +503,7 @@ console.log("\nthe maths engine");
       // Every answer is a whole number: nobody loses a race to a rounding
       // convention, and a number pad can type all of them.
       if (!Number.isFinite(q.answer)) bad2 = lv.id + " not a number";
-      else if (lv.id !== "g56" && !Number.isInteger(q.answer)) bad2 = lv.id + " not whole: " + q.answer;
+      else if (!Number.isInteger(q.answer)) bad2 = lv.id + " not whole: " + q.answer;
       else if (!q.text || q.text.length < 3) bad2 = lv.id + " no question";
     }
   }
@@ -725,6 +725,84 @@ async function fitted(armed) {
   const mine = over.results.find((r) => r.uid === "a");
   ok("what was armed is on the card as spent", mine.spent.gp_start === 1);
   ok("and nothing stays armed for the next race", Object.keys(room.g.players.a.ars.armed).length === 0);
+}
+
+
+console.log("\nwhat the races taught");
+{
+  // A stated answer that is not the true one teaches a child the wrong
+  // arithmetic and spins them for being right. This is the check that was
+  // missing: not "is it whole" but "is it true".
+  const { mathsProblem } = await import("../src/prix-engines.js");
+  const truth = (text) => {
+    let m;
+    if ((m = /^(\d+)% of (\d+)$/.exec(text))) return (+m[2] * +m[1]) / 100;
+    if ((m = /^(\d+)\/(\d+) of (\d+)$/.exec(text))) return (+m[3] / +m[2]) * +m[1];
+    if ((m = /^([\d.]+) \u00d7 ([\d.]+)$/.exec(text))) return +m[1] * +m[2];
+    if ((m = /^(\d+) \u00f7 (\d+)$/.exec(text))) return +m[1] / +m[2];
+    if ((m = /^(\d+) \+ (\d+) \u00d7 (\d+)$/.exec(text))) return +m[1] + +m[2] * +m[3];
+    if ((m = /^(\d+) \+ (\d+)$/.exec(text))) return +m[1] + +m[2];
+    if ((m = /^(\d+) \u2212 (\d+)$/.exec(text))) return +m[1] - +m[2];
+    if ((m = /^\u2212(\d+) \+ (\d+)$/.exec(text))) return +m[2] - +m[1];
+    if ((m = /^(\d+)\^(\d+)$/.exec(text))) return Math.pow(+m[1], +m[2]);
+    return null;
+  };
+  let lied = null, checked = 0, whole = null;
+  for (const lv of ["g12", "g34", "g56", "g78", "g910", "g1112"]) {
+    for (let i = 0; i < 3_000; i++) {
+      const q = mathsProblem(lv);
+      if (!Number.isInteger(q.answer)) whole ??= lv + ": " + q.text + " = " + q.answer;
+      const t = truth(q.text);
+      if (t === null) continue;
+      checked += 1;
+      if (t !== q.answer) lied ??= lv + ": " + q.text + " says " + q.answer + ", truth " + t;
+    }
+  }
+  ok("every band's answer is a whole number" + (whole ? " — " + whole : ""), whole === null);
+  ok(`every sum that can be read back is true (${checked} checked)` + (lied ? " \u2014 " + lied : ""), lied === null);
+}
+{
+  // The Pro class promises the clue after eight seconds. Held for ever is
+  // not the same promise.
+  const words = (await import("../src/prix-engines.js")).ENGINES.find((e) => e.id === "words");
+  const item = { answer: "PLANET", clue: "A world", scrambled: "TENALP", hideClueMs: 8_000 };
+  ok("the clue is held at the deal", words.hideFor(item, Date.now()) > 7_000);
+  ok("and given up once the hold is gone", words.hideFor(item, Date.now() - 9_000) === 0);
+  ok("with the face following it", words.face(item, 0).clue === "A world"
+    && words.face(item, 8_000).clue === null);
+}
+{
+  // Watching the tiles is not answering them.
+  const { room, seats, say } = await roomOf(["a", "Ana"]);
+  await say("a", { type: "PRIX_ENGINE", engine: "memory" });
+  await say("a", { type: "PRIX_SOLO", on: true });
+  await say("a", { type: "PRIX_START" });
+  const A = room.g.players.a;
+  const it = A.item;
+  ok("a memory item says how much of it is the flashing", it.leadMs > 0 && it.leadMs < it.allowance);
+  ok("the browser is told, so the bar agrees", seats.a.last("PRIX_ITEM").leadMs === it.leadMs);
+  // Answer the moment the tiles finish: that is as fast as anybody can be,
+  // and it has to pay a full boost.
+  it.dealtAt = Date.now() - it.leadMs;
+  await say("a", { type: "PRIX_GUESS", guess: it.answer });
+  ok("answering the instant the tiles stop pays a full boost", A.at === FULL_BOOST);
+}
+{
+  // The arsenal has to be drawable, or none of the eighteen exist.
+  const { room } = await roomOf(["a", "Ana"]);
+  const view = room.arsenalView(room.g.players.a);
+  ok("the arsenal is switched on", view.on === true);
+  ok("and carries the room's own limits", Object.keys(view.max || {}).length === 18);
+}
+{
+  // The face, asked for again.
+  const { room, seats, say } = await roomOf(["a", "Ana"]);
+  await say("a", { type: "PRIX_SOLO", on: true });
+  await say("a", { type: "PRIX_START" });
+  const had = seats.a.all("PRIX_ITEM").length;
+  await say("a", { type: "PRIX_PEEK" });
+  ok("a peek sends the face again", seats.a.all("PRIX_ITEM").length === had + 1);
+  ok("and does not deal a new one", seats.a.last("PRIX_ITEM").dealtAt === room.g.players.a.item.dealtAt);
 }
 
 console.log(bad ? `\n${bad} failing\n` : "\nall grand prix checks passed\n");

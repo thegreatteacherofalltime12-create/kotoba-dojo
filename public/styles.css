@@ -3577,6 +3577,10 @@ a.dtab { text-decoration: none; display: inline-block; }
 
 /* The other three engines' faces. */
 .psum { font-family: var(--display); font-size: 2rem; letter-spacing: .04em; color: #EAF2FF; }
+.psign { margin-left: .6rem; vertical-align: middle; font: inherit; font-size: 1.1rem; line-height: 1;
+  background: rgba(255,255,255,.08); color: #EAF2FF; border: 1px solid rgba(255,255,255,.22);
+  border-radius: 8px; padding: .3rem .6rem; cursor: pointer; }
+.psign:hover { background: rgba(255,255,255,.16); }
 .prix-select {
   width: 100%; padding: .45rem .6rem; border-radius: 8px;
   background: var(--surface); color: inherit; border: 1px solid var(--edge); font: inherit;

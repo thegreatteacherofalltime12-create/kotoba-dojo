@@ -479,7 +479,10 @@ export function applyTokenTab({ game, send, button, host, label, arsenal = false
         </div>
       </div>`;
     }).join("");
-    return head + rows + `<p class="tok-sub">Armed tokens are fired from the Arsenal strip on the game screen. Only what you use is spent; the rest stays armed.</p>`;
+    const foot = game === "prix"
+      ? "Everything armed takes hold at the lights, so what you arm is what you spend."
+      : "Armed tokens are fired from the Arsenal strip on the game screen. Only what you use is spent; the rest stays armed.";
+    return head + rows + `<p class="tok-sub">${foot}</p>`;
   }
 
   if (button) button.onclick = open;

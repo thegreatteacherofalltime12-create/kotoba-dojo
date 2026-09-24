@@ -263,10 +263,27 @@ export class GrandPrix {
       engine: engine.id,
       kind: engine.kind,
       allowanceMs: it.allowance,
+      // How much of the allowance goes on showing the item rather than
+      // answering it, so the bar on screen agrees with the measurement.
+      leadMs: it.leadMs || 0,
+      // A Spotter's skips, because the only moment they are worth having
+      // is before the allowance runs out.
+      skips: p.skips || 0,
       dealtAt: it.dealtAt,
       serverNow: Date.now(),
       klass: p.klass,
     };
+  }
+
+  /**
+   * The face again. The browser asks when the clock passes something the
+   * deal promised for later — the Pro class's clue — because the room is
+   * the only thing that knows whether it is time.
+   */
+  peek(ws, uid) {
+    const p = this.g?.players?.[uid];
+    if (!p?.item || this.g.phase !== "RACING" || p.done) return;
+    this.send(ws, "PRIX_ITEM", this.itemView(p));
   }
 
   /** The next item for a racer, from whichever engine is running. */
@@ -292,6 +309,7 @@ export class GrandPrix {
     try {
       switch (msg.type) {
         case "PING": return this.beat();
+        case "PRIX_PEEK": return this.peek(ws, who.uid);
         case "PRIX_SOLO": return await this.setSolo(ws, who.uid, msg);
         case "PRIX_VOTE": return await this.vote(ws, who.uid, msg);
         case "PRIX_AI": return await this.setAi(ws, who.uid, msg);
@@ -636,15 +654,19 @@ export class GrandPrix {
       return;
     }
 
-    const took = Date.now() - it.dealtAt;
+    // Time spent watching is not time spent answering, so it comes off
+    // both the clock and the allowance before either is measured.
+    const lead = it.leadMs || 0;
+    const took = Math.max(0, Date.now() - it.dealtAt - lead);
+    const allowance = Math.max(1, it.allowance - lead);
     // A sequence you can hold gets one longer, up to the point where
     // nobody can.
     if (engine.id === "memory") p.memLen = Math.min(MEM_MAX, (p.memLen || 4) + 1);
     p.solved += 1;
-    p.ratioSum += Math.min(1, took / it.allowance);
+    p.ratioSum += Math.min(1, took / allowance);
     // A Warm-Up Lap pays a full boost for the first three whatever the
     // clock said; a Tow Rope adds to every answer while it lasts.
-    let metres = p.warmup > 0 ? distanceFor(0, it.allowance) : distanceFor(took, it.allowance);
+    let metres = p.warmup > 0 ? distanceFor(0, allowance) : distanceFor(took, allowance);
     if (p.warmup > 0) p.warmup -= 1;
     if (p.tow > 0) { metres += 20; p.tow -= 1; }
     const moved = this.advance(ws, p, metres);
@@ -774,7 +796,9 @@ export class GrandPrix {
   arsenalView(p) {
     const a = this.arsOf(p);
     return {
+      on: true,
       armed: { ...a.armed }, used: { ...a.used },
+      max: Object.fromEntries(Object.entries(ARSENALS.prix).map(([k, v]) => [k, v.max || 99])),
       locked: this.g.phase === "RACING",
     };
   }

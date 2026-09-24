@@ -138,6 +138,7 @@ function draw() {
   $("prix-phase").textContent = racing ? `Lap 1 of ${g.laps}` : g.phase === "RESULTS" ? "Race over" : "Waiting";
   $("prix-lobby").hidden = racing;
   $("prix-race").hidden = !racing;
+  $("prix-results").hidden = g.phase !== "RESULTS";
   $("prix-host-tag").hidden = !P.isHost;
   $("btn-prix-start").hidden = !P.isHost;
   $("btn-prix-solo").hidden = !P.isHost;
@@ -301,6 +302,10 @@ function drawHand() {
   const held = me?.holding;
   const spare = me?.holding2;
   const marks = [];
+  // Telemetry: what the car in front is carrying. The room only sends this
+  // to a racer who paid for it.
+  const ahead = P.item?.ahead;
+  if (ahead !== undefined) marks.push(ahead ? `\u{1F4E1} Ahead: ${itemName(ahead)}` : "\u{1F4E1} Ahead: empty hands");
   if (me?.deflector) marks.push("🛡️ Deflector up");
   if (me?.fogged) marks.push("🌫️ Fogged");
   if (me?.slowed) marks.push("🌞 Slowed");
@@ -323,6 +328,7 @@ function drawHand() {
 /** Something landed on you. */
 function takeHit(msg) {
   if (msg.deflected) return flash(`${itemName(msg.item)} deflected.`);
+  if (msg.shrugged) return flash(`${itemName(msg.item)} — the mudguards shrug it off.`);
   const said = {
     comet: `Comet. -${msg.metres} m`,
     slick: `Oil slick. -${msg.metres} m`,
@@ -400,6 +406,12 @@ function drawItem() {
   const it = P.item;
   if (!it) return;
   const kind = it.kind || "type";
+  // The room sends the same item again when something it promised for
+  // later arrives, or when a weapon lands. That is not a new deal: it must
+  // not wipe what is already typed, and it must not play a memory sequence
+  // over again, which would be handing the answer back.
+  P.fresh = P.lastDeal !== it.dealtAt;
+  P.lastDeal = it.dealtAt;
 
   // Everything that is not this engine's face goes away first.
   $("prix-letters").hidden = kind !== "type";
@@ -420,12 +432,12 @@ function drawItem() {
   if (kind === "choice") drawChoices(it);
 
   if (typed) {
-    box.value = "";
+    if (P.fresh) box.value = "";
     box.maxLength = kind === "number" ? 12 : it.len;
-    box.inputMode = kind === "number" ? "numeric" : "text";
+    box.inputMode = kind === "number" ? "decimal" : "text";
     box.placeholder = kind === "number" ? "The answer" : "The word";
     box.disabled = false;
-    box.focus();
+    if (P.fresh) box.focus();
   }
 
   clearInterval(P.tick);
@@ -454,6 +466,17 @@ function drawSum(it) {
   host.hidden = false;
   host.textContent = "";
   host.append(el("span", "psum", it.text || ""));
+  // Grades 7-8 is half made of negatives and no phone's number pad carries
+  // a minus sign, so the answer would be untypeable without this.
+  const sign = el("button", "psign", "\u00b1");
+  sign.type = "button";
+  sign.title = "Make the answer negative";
+  sign.onclick = () => {
+    const box = $("prix-guess");
+    box.value = box.value.startsWith("-") ? box.value.slice(1) : "-" + box.value;
+    box.focus();
+  };
+  host.append(sign);
 }
 
 /**
@@ -483,7 +506,13 @@ function drawTiles(it) {
     host.append(b);
   }
 
-  // Play it back, then hand the tiles over.
+  // Play it back, then hand the tiles over. An item that has been seen
+  // before is redrawn without the playback: a fog bank or a scrambler
+  // landing on a memory racer must not show them the sequence twice.
+  if (!P.fresh) {
+    for (const b of pads) b.disabled = false;
+    return;
+  }
   const flash = it.flashMs || 600;
   (it.seq || []).forEach((tile, n) => {
     setTimeout(() => { pads[tile]?.classList.add("lit"); }, n * flash);
@@ -513,16 +542,26 @@ function runClock() {
   const it = P.item;
   if (!it) { clearInterval(P.tick); P.tick = null; return; }
   const now = Date.now() - P.clockSkew;
-  const gone = now - it.dealtAt;
-  const left = Math.max(0, it.allowanceMs - gone);
+  // Showing an item is not answering it, so the bar starts when the racer
+  // is allowed to move and runs over what is left of the allowance.
+  const lead = it.leadMs || 0;
+  const gone = Math.max(0, now - it.dealtAt - lead);
+  const span = Math.max(1, it.allowanceMs - lead);
+  const left = Math.max(0, span - gone);
   const fill = $("prix-bar-fill");
-  fill.style.width = `${Math.max(0, Math.min(100, (left / it.allowanceMs) * 100))}%`;
-  fill.className = gone <= it.allowanceMs / 3 ? "full" : left > 0 ? "fading" : "spent";
-  $("btn-prix-skip").hidden = left > 0;
-  // The clue arrives partway through on the hardest class.
-  if (!it.clue && it.clueInMs > 0 && gone >= it.clueInMs) {
-    it.clue = "—";
-    send({ type: "PING" });
+  fill.style.width = `${Math.max(0, Math.min(100, (left / span) * 100))}%`;
+  fill.className = gone <= span / 3 ? "full" : left > 0 ? "fading" : "spent";
+  // A Spotter's skips do not wait for the allowance, which is the only
+  // thing they are for.
+  const spare = it.skips || 0;
+  const skip = $("btn-prix-skip");
+  skip.hidden = left > 0 && spare < 1;
+  skip.textContent = left > 0 ? `Skip (${spare} left)` : "Skip";
+  // The clue arrives partway through on the hardest class. The room is the
+  // only thing that knows it is time, so ask it for the face again.
+  if (!it.clue && it.clueInMs > 0 && now - it.dealtAt >= it.clueInMs && P.askedFor !== it.dealtAt) {
+    P.askedFor = it.dealtAt;
+    send({ type: "PRIX_PEEK" });
   }
 }
 
@@ -534,6 +573,12 @@ function showResult(msg) {
     if (msg.slowed) bits.push("(flared)");
     if (msg.box) bits.push(`🎁 ${itemName(msg.box)}`);
     flash(bits.join(" "));
+  } else if (msg.spare) {
+    // The one moment the token is visible. It read as a bug before.
+    flash("Not that — your spare word covers it. Nothing lost.");
+    const box = $("prix-guess");
+    box.value = "";
+    box.focus();
   } else if (msg.near) {
     // A real word from the same letters. Nothing lost; the clue is what
     // tells the two apart.
@@ -564,6 +609,8 @@ function drawResults(msg) {
   host.hidden = false;
   $("prix-race").hidden = true;
   const rows = msg.results || [];
+  // Only one of the four engines deals words.
+  const noun = { words: "words", maths: "sums", memory: "sequences", trivia: "answers" }[P.game?.engine] || "answers";
   host.innerHTML = `
     <div class="panel-head"><h2>The flag</h2></div>
     <div class="pad">
@@ -572,7 +619,7 @@ function drawResults(msg) {
           <div class="belt-row ${r.uid === P.you ? "is-mine" : ""}">
             <span class="rec-rank">${r.placement}</span>
             <span class="bn">${escapeHtml(r.name)}</span>
-            <span class="pl-stat">${r.solved} words · ${r.spins} spin${r.spins === 1 ? "" : "s"}${r.fired ? ` · ${r.fired} fired` : ""}</span>
+            <span class="pl-stat">${r.solved} ${noun} · ${r.spins} spin${r.spins === 1 ? "" : "s"}${r.fired ? ` · ${r.fired} fired` : ""}</span>
             <span class="bt">${r.score} · ${r.gain >= 0 ? "+" : ""}${r.gain} MMR</span>
           </div>`).join("")}
       </div>

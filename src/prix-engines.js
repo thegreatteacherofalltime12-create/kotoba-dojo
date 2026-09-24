@@ -105,7 +105,15 @@ const words = {
       hint: item.hint,
     };
   },
-  hideFor(item) { return item.hideClueMs || 0; },
+  /**
+   * What is left of the hold. The room passes the time the item was dealt,
+   * so a face asked for again after the eight seconds gives the clue up —
+   * which is the whole of what the Pro class promises.
+   */
+  hideFor(item, dealtAt) {
+    const held = item.hideClueMs || 0;
+    return dealtAt ? Math.max(0, held - (Date.now() - dealtAt)) : held;
+  },
   check(item, said) {
     const up = String(said || "").trim().toUpperCase();
     if (up === item.answer) return "right";
@@ -153,10 +161,10 @@ export function mathsProblem(levelId, rnd = Math.random) {
     case "g56": {
       const kind = between(1, 4, r);
       if (kind === 1) { const d = pick([2, 4, 5, 10], r), n = between(1, d - 1, r), whole = d * between(2, 12, r); return { text: `${n}/${d} of ${whole}`, answer: (whole / d) * n }; }
-      if (kind === 2) { const pc = pick([10, 20, 25, 50, 75], r), of = between(2, 20, r) * 4; return { text: `${pc}% of ${of}`, answer: Math.round((of * pc) / 100) }; }
+      if (kind === 2) { const pc = pick([10, 20, 25, 50, 75], r), of = between(1, 10, r) * 20; return { text: `${pc}% of ${of}`, answer: (of * pc) / 100 }; }
       if (kind === 3) { const a = between(2, 9, r), b = between(2, 9, r), c = between(2, 9, r); return { text: `${a} + ${b} × ${c}`, answer: a + b * c }; }
-      const a = between(11, 99, r) / 10, b = between(2, 9, r);
-      return { text: `${a.toFixed(1)} × ${b}`, answer: Math.round(a * b * 10) / 10 };
+      const a = (between(1, 9, r) * 2 + 1) / 2, b = between(1, 5, r) * 2;
+      return { text: `${a.toFixed(1)} × ${b}`, answer: a * b };
     }
     case "g78": {
       const kind = between(1, 4, r);
@@ -251,6 +259,12 @@ const memory = {
       // Watching it costs time before answering can start, so the allowance
       // carries the flashing as well as the tapping.
       allowance: len * MEM_FLASH_MS + len * 1_200 + 2_000,
+      // How much of that allowance was the flashing. Nobody can be judged
+      // on time they were not allowed to move in, so the room takes this
+      // off the clock and off the allowance before it measures anything —
+      // without it a full boost needs the whole sequence tapped inside
+      // four hundred milliseconds, and gets harder the better you do.
+      leadMs: len * MEM_FLASH_MS + 150,
       seq,
       tiles: MEM_TILES,
       flashMs: MEM_FLASH_MS,

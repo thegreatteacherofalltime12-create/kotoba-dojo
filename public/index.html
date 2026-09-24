@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Omni Multiverse of Madness</title>
-<meta name="build" content="2026-09-24 19:04 UTC">
+<meta name="build" content="2026-09-24 19:11 UTC">
 <meta name="description" content="Omni Multiverse of Madness — competitive arena. Belts, MMR, casino floor and live standings.">
 <meta name="theme-color" content="#F4F1EA">
 <meta name="mobile-web-app-capable" content="yes">
@@ -471,6 +471,8 @@ if (location.protocol === "file:") {
             </button>
           </div>
 
+          <div id="prix-setup" class="prix-setup"></div>
+
           <div id="prix-ai" hidden>
             <h3 class="prix-h">The computers</h3>
             <div id="prix-ai-count" class="ai-levels"></div>
@@ -481,21 +483,6 @@ if (location.protocol === "file:") {
           <p class="panel-sub">Every racer gets a vote, and the most votes wins. Nobody has to be the one who chose.</p>
           <div id="prix-circuits" class="prix-circuits"></div>
 
-          <h3 class="prix-h">How long</h3>
-          <div id="prix-lengths" class="ai-levels"></div>
-
-          <div id="prix-engines-box">
-            <h3 class="prix-h">What you will be doing</h3>
-            <div id="prix-engines" class="ai-levels"></div>
-            <div id="prix-theme-box" hidden>
-              <h3 class="prix-h">Which theme</h3>
-              <select id="prix-theme" class="prix-select"></select>
-            </div>
-          </div>
-
-          <h3 class="prix-h">Your level</h3>
-          <p class="panel-sub">Yours alone. Every answer is scored against its own clock, so being quick at your level is what moves you — a harder level pays more MMR, not more speed.</p>
-          <div id="prix-classes" class="ai-levels"></div>
 
           <p id="prix-note" class="panel-sub"></p>
           <button id="btn-prix-start" class="btn btn-primary btn-wide" hidden>Lights out</button>
@@ -697,5 +684,32 @@ if (location.protocol === "file:") {
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script type="module" src="./app.js" onerror="window.__faulted() || window.__fault('The app script did not load', 'app.js could not be fetched. Check that the address bar reads http://localhost:8787 and that wrangler dev is still running.')"></script>
+  <div class="modal" id="prix-pick" role="dialog" aria-modal="true" aria-label="Race setting" hidden>
+    <div class="modal-back" data-pick-close></div>
+    <div class="modal-card">
+      <div class="modal-head">
+        <h2 id="prix-pick-title">Setting</h2>
+        <button class="modal-close" data-pick-close aria-label="Close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <section data-pick="length" hidden>
+          <p class="panel-sub">Two laps, three or five. The host's call.</p>
+          <div id="prix-lengths" class="ai-levels"></div>
+        </section>
+        <section data-pick="engine" hidden>
+          <p class="panel-sub">What everyone on the grid will be doing to move their kart. The host's call.</p>
+          <div id="prix-engines" class="ai-levels"></div>
+          <div id="prix-theme-box" hidden>
+            <h3 class="prix-h">Which theme</h3>
+            <select id="prix-theme" class="prix-select"></select>
+          </div>
+        </section>
+        <section data-pick="level" hidden>
+          <p class="panel-sub">Yours alone. Every answer is scored against its own clock, so being quick at your level is what moves you &mdash; a harder level pays more MMR, not more speed.</p>
+          <div id="prix-classes" class="ai-levels"></div>
+        </section>
+      </div>
+    </div>
+  </div>
 </body>
 </html>

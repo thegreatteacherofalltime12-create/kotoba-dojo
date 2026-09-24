@@ -788,6 +788,22 @@ button.bcell:hover:not(:disabled) { background: color-mix(in srgb, var(--a1) 16%
 .toggle-btn.on .sw { background: linear-gradient(135deg, var(--accent), var(--accent-2)); border-color: transparent; }
 .toggle-btn.on .sw::after { transform: translateX(14px); background: #fff; }
 
+/* The lobby's three settings, as tabs. Each says what it is set to. */
+.prix-setup { display: flex; flex-wrap: wrap; gap: .5rem; margin: .8rem 0; }
+.prix-tab {
+  flex: 1 1 11rem; display: grid; gap: .15rem; text-align: left; cursor: pointer;
+  padding: .6rem .8rem; border-radius: var(--r-sm);
+  background: rgba(255,255,255,.04); border: 1px solid var(--edge); color: var(--text);
+  transition: var(--t);
+}
+.prix-tab:hover:not(:disabled) { border-color: var(--accent-dim); }
+.prix-tab:disabled { opacity: .5; cursor: not-allowed; }
+.prix-tab .pt-name {
+  font-family: var(--display); font-size: .68rem; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--accent-dim);
+}
+.prix-tab .pt-now { font-family: var(--display); font-size: .95rem; color: var(--accent); }
+
 .ai-levels {
   display: flex; gap: .5rem; align-items: stretch; flex-wrap: wrap;
   padding: .7rem .9rem; border-bottom: 1px solid var(--edge); background: rgba(255,255,255,.02);

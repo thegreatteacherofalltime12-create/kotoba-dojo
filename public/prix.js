@@ -153,7 +153,7 @@ function draw() {
   $("btn-prix-start").hidden = !P.isHost;
   $("btn-prix-solo").hidden = !P.isHost;
   $("btn-prix-solo").setAttribute("aria-checked", g.solo ? "true" : "false");
-  $("btn-prix-solo").classList.toggle("is-on", !!g.solo);
+  $("btn-prix-solo").classList.toggle("on", !!g.solo);
 
   // Chat is a lobby thing. Once the lights are out there is no time to read it.
   const open = g.chatOpen !== false;
@@ -167,6 +167,7 @@ function draw() {
     drawCircuits();
     drawLengths();
     drawClasses();
+    drawSetup();
     const here = g.players.filter((p) => p.online).length;
     $("prix-note").textContent = g.solo
       ? `Solo, against ${g.aiCount} ${g.aiCount === 1 ? "computer" : "computers"}. Begin whenever you are ready.`
@@ -243,6 +244,49 @@ function drawDrivers() {
     b.onclick = () => send({ type: "PRIX_AI", level: l.id });
     levels.append(b);
   }
+}
+
+/**
+ * The three settings, as tabs under the switch rather than three long
+ * lists down the page. Each one says what it is set to and opens a window
+ * with the choices; picking one closes it again.
+ */
+function drawSetup() {
+  const g = P.game;
+  const host = $("prix-setup");
+  if (!host) return;
+  const me = g.players.find((p) => p.uid === P.you);
+  const engine = (g.engines || []).find((e) => e.id === g.engine);
+  const level = (engine?.levels || []).find((l) => l.id === me?.klass);
+  const tabs = [
+    { key: "length", name: "How long", now: (g.lengths || []).find((l) => l.id === g.length)?.name, host: true },
+    { key: "engine", name: "What you'll be doing", now: engine?.name, host: true },
+    { key: "level", name: "Your level", now: level?.name, host: false },
+  ];
+  host.textContent = "";
+  for (const t of tabs) {
+    const b = el("button", "prix-tab");
+    b.type = "button";
+    // Only the host sets the race up; your own level is always yours.
+    b.disabled = t.host && !P.isHost;
+    b.append(el("span", "pt-name", t.name));
+    b.append(el("span", "pt-now", t.now || "\u2014"));
+    b.onclick = () => openPick(t.key, t.name);
+    host.append(b);
+  }
+}
+
+function openPick(which, title) {
+  const box = $("prix-pick");
+  if (!box) return;
+  $("prix-pick-title").textContent = title;
+  for (const s of box.querySelectorAll("[data-pick]")) s.hidden = s.dataset.pick !== which;
+  box.hidden = false;
+}
+
+function closePick() {
+  const box = $("prix-pick");
+  if (box) box.hidden = true;
 }
 
 function drawCircuits() {
@@ -694,9 +738,16 @@ function wire() {
   $("btn-prix-skip").onclick = () => send({ type: "PRIX_SKIP" });
   $("btn-prix-guess").onclick = submit;
   $("prix-guess").addEventListener("keydown", (e) => { if (e.key === "Enter") submit(); });
+  $("prix-pick")?.addEventListener("click", (e) => {
+    if (e.target.closest("[data-pick-close]")) { closePick(); return; }
+    // Any choice inside the window is the choice; the room replies with a
+    // fresh state and the tab underneath will be showing it.
+    if (e.target.closest(".ai-level")) setTimeout(closePick, 120);
+  });
   $("btn-prix-send").onclick = sayLine;
   $("prix-text").addEventListener("keydown", (e) => { if (e.key === "Enter") sayLine(); });
   $("btn-prix-leave").onclick = () => {
+    closePick();
     if (P.isHost && P.game?.phase === "RACING") send({ type: "PRIX_END_MATCH" });
     const go = P.onLeave;
     closePrix();

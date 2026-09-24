@@ -33,6 +33,10 @@ export async function enterPrix(code, getToken, onLeave) {
   $("prix-results").hidden = true;
   $("prix-race").hidden = true;
   $("prix-chat").textContent = "";
+  // Build the token tab now. It is what puts the click handler on the
+  // Apply Token button, and nothing else ever asks the room for tokens, so
+  // leaving it until a PRIX_TOKENS arrives means it is never built at all.
+  tokenTab();
   await connect(getToken);
 }
 

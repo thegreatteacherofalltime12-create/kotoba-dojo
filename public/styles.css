@@ -3548,3 +3548,28 @@ a.dtab { text-decoration: none; display: inline-block; }
 #prix-lengths .ai-level, #prix-classes .ai-level { display: grid; gap: .15rem; text-align: left; padding: .5rem .7rem; }
 #prix-lengths .ai-level b, #prix-classes .ai-level b { font-family: var(--display); font-size: .82rem; letter-spacing: .04em; }
 #prix-lengths .ai-level i, #prix-classes .ai-level i { font-style: normal; font-size: .7rem; opacity: .75; }
+
+/* The boxes on the road, and the item in your hands. */
+.pl-box {
+  position: absolute; top: 50%; width: 7px; height: 7px; margin-left: -3px;
+  transform: translateY(-50%) rotate(45deg); border-radius: 2px;
+  background: #F4CE5A; box-shadow: 0 0 5px rgba(244,206,90,.7);
+}
+.pl-box.gone { background: rgba(255,255,255,.18); box-shadow: none; }
+.pl-slick {
+  position: absolute; top: 50%; width: 12px; height: 8px; margin-left: -6px;
+  transform: translateY(-50%); border-radius: 50%; background: rgba(20,16,30,.95);
+  box-shadow: 0 0 0 1px rgba(160,140,255,.55);
+}
+.prix-hand { display: grid; gap: .35rem; }
+.prix-fire {
+  display: grid; grid-template-columns: auto auto 1fr; gap: .5rem; align-items: center;
+  padding: .5rem .7rem; text-align: left; cursor: pointer; color: inherit;
+  background: color-mix(in srgb, #F4CE5A 12%, var(--surface));
+  border: 1px solid #F4CE5A; border-radius: 10px;
+}
+.prix-fire:hover { background: color-mix(in srgb, #F4CE5A 20%, var(--surface)); }
+.prix-fire .pf-ico { font-size: 1.2rem; }
+.prix-fire .pf-name { font-family: var(--display); font-size: .82rem; letter-spacing: .04em; }
+.prix-fire .pf-blurb { font-size: .72rem; opacity: .8; }
+.prix-marks { margin: 0; font-size: .74rem; letter-spacing: .04em; opacity: .85; }

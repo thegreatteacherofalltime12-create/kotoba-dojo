@@ -7,6 +7,8 @@ import {
   CIRCUITS, LENGTHS, CLASSES, circuitById, lengthById, classById,
   lapsFor, metresFor, capFor, allowanceMs, deckFor, shuffled, scramble,
   distanceFor, raceScore, standings, nearMiss, FULL_BOOST, FLOOR_BOOST, SPIN_COST,
+  ITEMS, boxMarks, boxesBetween, itemWeights, rollItem, flared,
+  SLIPSTREAM_M, COMET_M, SLICK_M, FLARE_CUT,
 } from "../src/prix.js";
 import { GrandPrix } from "../src/grand-prix.js";
 
@@ -224,6 +226,121 @@ console.log("\nwhat a race refuses");
   ok("a level cannot be changed mid-race", /Not once the lights/.test(seats.a.last("PRIX_ERROR").message));
   await say("a", { type: "PRIX_VOTE", circuit: "reef" });
   ok("and neither can the track", /The track is set/.test(seats.a.last("PRIX_ERROR").message));
+}
+
+
+console.log("\nitem boxes");
+ok("eight items, each with a name and a blurb", ITEMS.length === 8
+  && ITEMS.every((i) => i.name && i.blurb.length > 10 && ["self", "ahead", "field", "drop"].includes(i.aim)));
+{
+  const marks = boxMarks("cinder", "gp");
+  ok("four boxes a lap, three laps", marks.length === 12);
+  ok("none of them on the start line", marks.every((m) => m > 0));
+  ok("they climb", marks.every((m, i) => i === 0 || m > marks[i - 1]));
+  ok("bramble hollow is thick with them", boxMarks("bramble", "gp").length === 24);
+  ok("crossing is counted by what you passed",
+    boxesBetween(0, 200, marks).join() === "125" && boxesBetween(0, 0, marks).length === 0);
+  ok("a big jump can take two at once", boxesBetween(0, 400, marks).length === 2);
+}
+{
+  const leader = itemWeights(1, 6);
+  const back = itemWeights(6, 6);
+  ok("the leader gets things to defend with", leader.slick > 0 && leader.deflector > 0 && !leader.comet);
+  ok("the back of the field gets the artillery", back.nitro > 0 && back.flare > 0);
+  ok("and the leader never gets a flare", !leader.flare && !itemWeights(2, 6).flare);
+  ok("a small field has no flare in it at all", !itemWeights(3, 3).flare);
+  ok("alone on the track every box is your own",
+    Object.keys(itemWeights(1, 1)).every((k) => ["slipstream", "nitro"].includes(k)));
+}
+{
+  // The roll is weighted, not random: a thousand rolls should only ever
+  // return things the band actually carries.
+  const seen = new Set();
+  for (let i = 0; i < 1000; i++) seen.add(rollItem(1, 6));
+  ok("a leader rolls only a leader's items",
+    [...seen].every((id) => Object.keys(itemWeights(1, 6)).includes(id)) && seen.size > 1);
+  const solo = new Set();
+  for (let i = 0; i < 400; i++) solo.add(rollItem(1, 1));
+  ok("and a lone racer never rolls a weapon", [...solo].every((id) => ["slipstream", "nitro"].includes(id)));
+}
+ok("a flare takes its cut", flared(100) === Math.round(100 * (1 - FLARE_CUT)));
+
+console.log("\nfiring them");
+{
+  const { room, seats, say } = await roomOf(["a", "Ana"], ["b", "Bo"]);
+  await say("a", { type: "PRIX_START" });
+  const A = room.g.players.a, B = room.g.players.b;
+
+  await say("a", { type: "PRIX_USE" });
+  ok("empty hands fire nothing", /Nothing in your hands/.test(seats.a.last("PRIX_ERROR").message));
+
+  A.holding = "slipstream";
+  await say("a", { type: "PRIX_USE" });
+  ok("a slipstream is distance", A.at === SLIPSTREAM_M && !A.holding);
+  ok("and the room is told", seats.b.last("PRIX_FIRED").item === "slipstream");
+
+  // Ana is ahead now, so Bo's comet has somebody to aim at.
+  B.holding = "comet";
+  const was = A.at;
+  await say("b", { type: "PRIX_USE" });
+  ok("a comet takes metres off the racer ahead", A.at === Math.max(0, was - COMET_M));
+  ok("and gives them a new word", seats.a.last("PRIX_HIT").item === "comet");
+
+  A.at = 500; B.at = 100;
+  A.holding = "slick";
+  await say("a", { type: "PRIX_USE" });
+  ok("a slick lies behind whoever dropped it", room.g.slicks.length === 1 && room.g.slicks[0].at === 495);
+  // Bo needs to be within one answer of it, or the slick is just scenery.
+  B.at = 490;
+  B.item.dealtAt = Date.now();
+  const bWas = B.at;
+  await say("b", { type: "PRIX_GUESS", guess: B.item.answer });
+  ok("and the next kart over it loses ground",
+    B.at === Math.max(0, bWas + FULL_BOOST - SLICK_M) && room.g.slicks.length === 0);
+
+  // A deflector eats the next thing aimed at you, once.
+  A.at = 900; B.at = 100;
+  A.holding = "deflector";
+  await say("a", { type: "PRIX_USE" });
+  ok("a deflector goes up", A.deflector === true);
+  B.holding = "comet";
+  const kept = A.at;
+  await say("b", { type: "PRIX_USE" });
+  ok("and eats the comet", A.at === kept && A.deflector === false);
+  ok("the target is told it was deflected", seats.a.last("PRIX_HIT").deflected === true);
+
+  // Fog and flare sweep everyone in front.
+  B.holding = "fog";
+  await say("b", { type: "PRIX_USE" });
+  ok("fog hides the clue from everyone ahead", A.fogUntil > Date.now());
+  ok("and a fogged racer is not sent one", room.itemView(A).clue === null);
+  B.holding = "flare";
+  await say("b", { type: "PRIX_USE" });
+  ok("a flare needs fourth or worse", /fourth or worse/.test(seats.b.last("PRIX_ERROR").message) && B.holding === "flare");
+
+  // Slowed, an answer pays less.
+  A.slowUntil = Date.now() + 8_000;
+  A.at = 0; A.item.dealtAt = Date.now();
+  await say("a", { type: "PRIX_GUESS", guess: A.item.answer });
+  ok("an answer under a flare pays less", A.at === flared(FULL_BOOST));
+  ok("and the racer is told why", seats.a.last("PRIX_RESULT").slowed === true);
+}
+{
+  // Boxes are picked up by driving over them, one at a time.
+  const { room, seats, say } = await roomOf(["a", "Ana"]);
+  await say("a", { type: "PRIX_SOLO", on: true });
+  await say("a", { type: "PRIX_START" });
+  const A = room.g.players.a;
+  ok("the track has its boxes laid", room.g.marks.length > 0);
+  A.at = room.g.marks[0] - 10;
+  A.item.dealtAt = Date.now();
+  await say("a", { type: "PRIX_GUESS", guess: A.item.answer });
+  ok("driving over one puts an item in your hands", !!A.holding && A.boxes === 1);
+  const held = A.holding;
+  A.at = room.g.marks[1] - 10;
+  A.item.dealtAt = Date.now();
+  await say("a", { type: "PRIX_GUESS", guess: A.item.answer });
+  ok("holding one means the next box goes by", A.holding === held && A.boxes === 1);
 }
 
 console.log(bad ? `\n${bad} failing\n` : "\nall grand prix checks passed\n");

@@ -130,6 +130,96 @@ export function distanceFor(elapsedMs, allowance) {
   return Math.round(FULL_BOOST - (FULL_BOOST - FLOOR_BOOST) * through);
 }
 
+// ── item boxes ───────────────────────────────────────────────────────
+//
+// Boxes sit at fixed marks on the track. Cross one and you get an item, and
+// you hold one at a time: no hoarding, no stacking, and every box is a
+// decision rather than a collection.
+
+export const SLIPSTREAM_M = 120;   // straight into your distance
+export const COMET_M = 60;         // off whoever is directly ahead
+export const SLICK_M = 80;         // off whoever drives over it
+export const NITRO_FULL = true;    // a nitro word pays a full boost
+export const FOG_MS = 5_000;       // the clue, hidden from everyone ahead
+export const SCRAMBLE_FOG_MS = 6_000;
+export const FLARE_MS = 8_000;     // how long a flare holds everyone ahead
+export const FLARE_CUT = 0.4;      // and how much of each answer it takes
+export const FLARE_FROM = 4;       // nobody in the top three gets to fire one
+
+export const ITEMS = [
+  { id: "slipstream", name: "Slipstream", ico: "\u{1F4A8}", aim: "self",
+    blurb: `Straight to ${SLIPSTREAM_M} metres of distance.` },
+  { id: "nitro", name: "Nitro Word", ico: "\u26A1", aim: "self",
+    blurb: "Your word solves itself, at a full boost." },
+  { id: "deflector", name: "Deflector", ico: "\u{1F6E1}\uFE0F", aim: "self",
+    blurb: "Eats the next item aimed at you." },
+  { id: "slick", name: "Oil Slick", ico: "\u{1FAB6}", aim: "drop",
+    blurb: `Dropped behind you. The next kart across it loses ${SLICK_M} metres.` },
+  { id: "comet", name: "Comet", ico: "\u2604\uFE0F", aim: "ahead",
+    blurb: `The racer directly ahead loses their word and ${COMET_M} metres.` },
+  { id: "scrambler", name: "Scrambler", ico: "\u{1F300}", aim: "ahead",
+    blurb: "Reshuffles the letters of the racer ahead and hides their clue." },
+  { id: "fog", name: "Fog Bank", ico: "\u{1F32B}\uFE0F", aim: "field",
+    blurb: "Hides the clue from everyone ahead of you." },
+  { id: "flare", name: "Solar Flare", ico: "\u{1F31E}", aim: "field",
+    blurb: "Everyone ahead answers for less for eight seconds. From 4th or worse." },
+];
+export const itemById = (id) => ITEMS.find((i) => i.id === id) || null;
+
+/** Where the boxes sit: evenly along every lap, never on the start line. */
+export function boxMarks(circuit, length) {
+  const c = circuitById(circuit);
+  const laps = lapsFor(circuit, length);
+  const out = [];
+  for (let lap = 0; lap < laps; lap++) {
+    for (let i = 0; i < c.boxes; i++) {
+      out.push(Math.round(lap * c.lapM + (c.lapM * (i + 0.5)) / c.boxes));
+    }
+  }
+  return out;
+}
+
+/** Every box crossed by moving from one distance to another. */
+export function boxesBetween(from, to, marks) {
+  return marks.filter((m) => m > from && m <= to);
+}
+
+/**
+ * What the box holds, weighted by where you are running.
+ *
+ * This is the part that makes kart racing work: the leader gets things to
+ * defend with, the back of the field gets the artillery. Nothing here is
+ * anybody's property — it is the oldest idea in the genre.
+ */
+export function itemWeights(place, field) {
+  // Alone on the track there is nobody to aim at, so every box is your own.
+  if (field < 2) return { slipstream: 3, nitro: 2 };
+
+  const back = Math.max(2, Math.ceil(field * (2 / 3)));
+  if (place === 1) return { slick: 4, deflector: 4, slipstream: 1, fog: 1 };
+  if (place >= back) {
+    const w = { slipstream: 3, nitro: 3, comet: 2, scrambler: 1 };
+    if (place >= FLARE_FROM && field >= FLARE_FROM) w.flare = 3;
+    return w;
+  }
+  return { comet: 3, scrambler: 3, fog: 2, slipstream: 2, deflector: 1 };
+}
+
+/** One item, rolled against those weights. */
+export function rollItem(place, field, rnd = Math.random) {
+  const w = itemWeights(place, field);
+  const total = Object.values(w).reduce((a, b) => a + b, 0);
+  let n = rnd() * total;
+  for (const [id, weight] of Object.entries(w)) {
+    n -= weight;
+    if (n <= 0) return id;
+  }
+  return Object.keys(w)[0];
+}
+
+/** What an answer is worth while a flare is overhead. */
+export const flared = (metres) => Math.round(metres * (1 - FLARE_CUT));
+
 // ── scoring ──────────────────────────────────────────────────────────
 
 /**

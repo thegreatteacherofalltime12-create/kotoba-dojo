@@ -16,7 +16,8 @@ import {
   CIRCUITS, LENGTHS, CLASSES, circuitById, lengthById, classById,
   CLASS_FOR_CIRCUIT, lapsFor, metresFor, capFor,
   allowanceMs, deckFor, shuffled, scramble, distanceFor, raceScore, standings, nearMiss,
-  SPIN_COST,
+  SPIN_COST, ITEMS, itemById, boxMarks, boxesBetween, rollItem, flared,
+  SLIPSTREAM_M, COMET_M, SLICK_M, FOG_MS, SCRAMBLE_FOG_MS, FLARE_MS,
 } from "./prix.js";
 import { recordMatch, readRatings } from "./firestore.js";
 import { moderate } from "./moderation.js";
@@ -117,7 +118,7 @@ export class GrandPrix {
         code, phase: "LOBBY", hostUid: uid,
         solo: false, circuit: "cinder", length: "gp",
         players: {}, startedAt: null, endsAt: null, round: 0, applied: {},
-        votes: {}, chat: [],
+        votes: {}, chat: [], slicks: [], marks: [],
       };
     }
 
@@ -150,6 +151,9 @@ export class GrandPrix {
       watching: this.g.phase === "RACING",
       klass: CLASS_FOR_CIRCUIT[circuitById(this.g.circuit).hard] || "standard",
       at: 0, lap: 1, item: null, deck: [], seen: 0,
+      // What is in your hands, and what somebody put on you. `item` is the
+      // word you are answering; `holding` is the item box you picked up.
+      holding: null, deflector: false, fogUntil: 0, slowUntil: 0, boxes: 0, fired: 0,
       solved: 0, spins: 0, ratioSum: 0,
       done: false, finishedAt: null, score: 0, mmrAtStart: 0, seed: null,
     };
@@ -169,6 +173,8 @@ export class GrandPrix {
       laps: lapsFor(this.g.circuit, this.g.length),
       lapM: circuitById(this.g.circuit).lapM,
       total, endsAt: this.g.endsAt, round: this.g.round,
+      items: ITEMS, marks: this.g.marks || [],
+      slicks: (this.g.slicks || []).map((sl) => sl.at),
       votes: this.tally(),
       myVotes: this.g.votes || {},
       chatOpen: this.g.phase !== "RACING",
@@ -177,6 +183,8 @@ export class GrandPrix {
         watching: !!p.watching, done: !!p.done,
         klass: p.klass, at: Math.round(p.at), lap: p.lap,
         solved: p.solved, spins: p.spins,
+        holding: p.holding || null, deflector: !!p.deflector,
+        fogged: (p.fogUntil || 0) > Date.now(), slowed: (p.slowUntil || 0) > Date.now(),
         place: p.watching ? null : order.indexOf(p.uid) + 1,
         finishedAt: p.finishedAt,
       })),
@@ -233,7 +241,9 @@ export class GrandPrix {
   itemView(p) {
     const cls = classById(p.klass);
     const it = p.item;
-    const hideFor = cls.hideClueMs ? Math.max(0, (it.dealtAt + cls.hideClueMs) - Date.now()) : 0;
+    const own = cls.hideClueMs ? Math.max(0, (it.dealtAt + cls.hideClueMs) - Date.now()) : 0;
+    // Somebody else's fog counts the same as the class's own held clue.
+    const hideFor = Math.max(own, Math.max(0, (p.fogUntil || 0) - Date.now()));
     return {
       scrambled: it.scrambled,
       len: it.answer.length,
@@ -281,6 +291,7 @@ export class GrandPrix {
         case "PRIX_START": return await this.start(ws, who.uid);
         case "PRIX_GUESS": return await this.guess(ws, who.uid, msg);
         case "PRIX_SKIP": return await this.skip(ws, who.uid);
+        case "PRIX_USE": return await this.use(ws, who.uid);
         case "PRIX_END_MATCH": {
           if (who.uid !== this.g.hostUid)
             return this.send(ws, "PRIX_ERROR", { message: "Only the host can end the race." });
@@ -389,11 +400,16 @@ export class GrandPrix {
       const racing = online.has(p.uid);
       p.watching = !racing;
       p.at = 0; p.lap = 1; p.item = null; p.deck = [];
+      p.holding = null; p.deflector = false; p.fogUntil = 0; p.slowUntil = 0;
+      p.boxes = 0; p.fired = 0;
       p.solved = 0; p.spins = 0; p.ratioSum = 0;
       p.done = false; p.finishedAt = null; p.score = 0;
       p.mmrAtStart = ratings[p.uid] || 0;
       p.seed = seeded.indexOf(p.uid) + 1 || null;
     }
+
+    this.g.marks = boxMarks(this.g.circuit, this.g.length);
+    this.g.slicks = [];
 
     const now = Date.now();
     this.g.phase = "RACING";
@@ -465,17 +481,14 @@ export class GrandPrix {
     }
 
     const took = Date.now() - it.dealtAt;
-    const gained = distanceFor(took, it.allowance);
-    p.at += gained;
     p.solved += 1;
     p.ratioSum += Math.min(1, took / it.allowance);
-
-    const lapM = circuitById(this.g.circuit).lapM;
-    p.lap = Math.min(lapsFor(this.g.circuit, this.g.length), Math.floor(p.at / lapM) + 1);
+    const moved = this.advance(ws, p, distanceFor(took, it.allowance));
 
     this.send(ws, "PRIX_RESULT", {
-      ok: true, delta: gained, at: Math.round(p.at), lap: p.lap,
+      ok: true, delta: moved.gained, at: Math.round(p.at), lap: p.lap,
       word: it.answer, tookMs: took, allowanceMs: it.allowance,
+      slowed: moved.slowed, box: moved.box || null, slick: moved.slick || false,
     });
 
     if (p.at >= metresFor(this.g.circuit, this.g.length)) {
@@ -486,6 +499,192 @@ export class GrandPrix {
     this.deal(p);
     await this.persist();
     this.send(ws, "PRIX_ITEM", this.itemView(p));
+    this.pushState();
+  }
+
+  /**
+   * A kart moving forward. Everything that happens along the way happens
+   * here — a flare overhead taking its cut, an oil slick underneath, a box
+   * picked up — so no route into the track can skip any of it.
+   */
+  advance(ws, p, metres) {
+    const slowed = (p.slowUntil || 0) > Date.now();
+    const gained = slowed ? flared(metres) : metres;
+    const from = p.at;
+    p.at += gained;
+
+    // Somebody's oil slick, driven over. The dropper is already past it.
+    let slick = false;
+    const lying = this.g.slicks || [];
+    const hit = lying.find((sl) => sl.by !== p.uid && sl.at > from && sl.at <= p.at);
+    if (hit) {
+      this.g.slicks = lying.filter((sl) => sl !== hit);
+      if (p.deflector) {
+        p.deflector = false;
+        this.send(ws, "PRIX_HIT", { item: "slick", deflected: true });
+      } else {
+        p.at = Math.max(0, p.at - SLICK_M);
+        slick = true;
+        this.send(ws, "PRIX_HIT", { item: "slick", metres: SLICK_M });
+      }
+    }
+
+    // A box, if your hands are empty. Holding one means the next goes by.
+    let box = null;
+    const crossed = boxesBetween(from, p.at, this.g.marks || []);
+    if (crossed.length && !p.holding) {
+      const field = Object.values(this.g.players).filter((x) => !x.watching);
+      const place = standings(field).findIndex((x) => x.uid === p.uid) + 1;
+      p.holding = rollItem(place || 1, field.length);
+      p.boxes += 1;
+      box = p.holding;
+    }
+
+    const lapM = circuitById(this.g.circuit).lapM;
+    p.lap = Math.min(lapsFor(this.g.circuit, this.g.length), Math.floor(p.at / lapM) + 1);
+    return { gained, slowed, box, slick };
+  }
+
+  /** Whoever is directly ahead of this racer, or nobody. */
+  ahead(p) {
+    const field = Object.values(this.g.players).filter((x) => !x.watching && !x.done);
+    const order = standings(field);
+    const i = order.findIndex((x) => x.uid === p.uid);
+    return i > 0 ? order[i - 1] : null;
+  }
+
+  /** Everyone in front, for the items that sweep the road. */
+  allAhead(p) {
+    const field = Object.values(this.g.players).filter((x) => !x.watching && !x.done);
+    return standings(field).filter((x) => (x.at || 0) > (p.at || 0) && x.uid !== p.uid);
+  }
+
+  socketFor(uid) {
+    for (const ws of this.sockets()) {
+      try { if (ws.deserializeAttachment()?.uid === uid) return ws; } catch { /* gone */ }
+    }
+    return null;
+  }
+
+  /** An item landing on somebody. A deflector eats it and says so. */
+  land(target, what, extra = {}) {
+    const ws = this.socketFor(target.uid);
+    if (target.deflector) {
+      target.deflector = false;
+      if (ws) this.send(ws, "PRIX_HIT", { item: what, deflected: true });
+      return false;
+    }
+    if (ws) this.send(ws, "PRIX_HIT", { item: what, ...extra });
+    return true;
+  }
+
+  /**
+   * Firing what you hold. Every item is spent whether or not it finds
+   * anybody: aiming at an empty road is a decision too.
+   */
+  async use(ws, uid) {
+    const p = this.racer(ws, uid);
+    if (!p) return;
+    if (!p.holding) return this.send(ws, "PRIX_ERROR", { message: "Nothing in your hands." });
+
+    const what = p.holding;
+    const field = Object.values(this.g.players).filter((x) => !x.watching);
+    const place = standings(field).findIndex((x) => x.uid === p.uid) + 1;
+
+    // The flare is the back of the field's weapon, and only theirs.
+    if (what === "flare" && place < 4) {
+      return this.send(ws, "PRIX_ERROR", { message: "A flare is fired from fourth or worse." });
+    }
+
+    p.holding = null;
+    p.fired += 1;
+    let note = "";
+
+    switch (what) {
+      case "slipstream": {
+        const moved = this.advance(ws, p, SLIPSTREAM_M);
+        note = `Slipstream: +${moved.gained} m`;
+        break;
+      }
+      case "nitro": {
+        // The word answers itself, at the boost a quick answer would have paid.
+        const answer = p.item?.answer;
+        p.solved += 1;
+        p.ratioSum += 1 / 3;
+        const moved = this.advance(ws, p, distanceFor(0, p.item?.allowance || 15_000));
+        note = `Nitro: ${answer} \u00b7 +${moved.gained} m`;
+        if (p.at >= metresFor(this.g.circuit, this.g.length)) {
+          await this.cross(p);
+          return;
+        }
+        this.deal(p);
+        this.send(ws, "PRIX_ITEM", this.itemView(p));
+        break;
+      }
+      case "deflector":
+        p.deflector = true;
+        note = "Deflector up";
+        break;
+      case "slick":
+        // Dropped a little behind, so you cannot drive over your own.
+        this.g.slicks = [...(this.g.slicks || []), { at: Math.max(0, p.at - 5), by: p.uid }].slice(-24);
+        note = "Oil slick down";
+        break;
+      case "comet": {
+        const target = this.ahead(p);
+        if (!target) { note = "Nobody ahead. The comet goes wide."; break; }
+        if (this.land(target, "comet", { metres: COMET_M })) {
+          target.at = Math.max(0, target.at - COMET_M);
+          this.deal(target);
+          const tws = this.socketFor(target.uid);
+          if (tws) this.send(tws, "PRIX_ITEM", this.itemView(target));
+          note = `Comet away at ${target.name}`;
+        } else note = `${target.name} deflected it`;
+        break;
+      }
+      case "scrambler": {
+        const target = this.ahead(p);
+        if (!target) { note = "Nobody ahead to scramble."; break; }
+        if (this.land(target, "scrambler", { ms: SCRAMBLE_FOG_MS })) {
+          if (target.item) target.item.scrambled = scramble(target.item.answer);
+          target.fogUntil = Date.now() + SCRAMBLE_FOG_MS;
+          const tws = this.socketFor(target.uid);
+          if (tws) this.send(tws, "PRIX_ITEM", this.itemView(target));
+          note = `Scrambled ${target.name}`;
+        } else note = `${target.name} deflected it`;
+        break;
+      }
+      case "fog": {
+        const targets = this.allAhead(p);
+        let hit = 0;
+        for (const t of targets) {
+          if (!this.land(t, "fog", { ms: FOG_MS })) continue;
+          t.fogUntil = Math.max(t.fogUntil || 0, Date.now() + FOG_MS);
+          const tws = this.socketFor(t.uid);
+          if (tws) this.send(tws, "PRIX_ITEM", this.itemView(t));
+          hit += 1;
+        }
+        note = hit ? `Fog over ${hit} ahead` : "Clear road ahead. The fog drifts.";
+        break;
+      }
+      case "flare": {
+        const targets = this.allAhead(p);
+        let hit = 0;
+        for (const t of targets) {
+          if (!this.land(t, "flare", { ms: FLARE_MS })) continue;
+          t.slowUntil = Math.max(t.slowUntil || 0, Date.now() + FLARE_MS);
+          hit += 1;
+        }
+        note = hit ? `Flare over ${hit} ahead` : "Nobody ahead to blind.";
+        break;
+      }
+      default:
+        note = "That item is not in the boot.";
+    }
+
+    await this.persist();
+    this.send(ws, "PRIX_USED", { item: what, note });
+    this.broadcast("PRIX_FIRED", { uid: p.uid, name: p.name, item: what, note });
     this.pushState();
   }
 
@@ -554,6 +753,7 @@ export class GrandPrix {
         status: finished ? "finished" : "flagged",
         elapsedMs: p.finishedAt, metres: Math.round(p.at), laps: p.lap,
         solved: p.solved, spins: p.spins, klass: p.klass, answered,
+        boxes: p.boxes || 0, fired: p.fired || 0,
         mmrBefore: p.mmrAtStart || 0, gain: gain.total, boost: !!p.boost,
         breakdown: { base: gain.base, challenge: gain.challenge, completion: gain.completion, seed: gain.seed },
         mmrAfter: after, belt: beltFor(after).name,

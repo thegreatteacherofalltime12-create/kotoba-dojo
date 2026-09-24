@@ -85,6 +85,15 @@ function handle(msg) {
     case "PRIX_RESULT":
       showResult(msg);
       break;
+    case "PRIX_USED":
+      flash(msg.note || "Fired.");
+      break;
+    case "PRIX_FIRED":
+      if (msg.uid !== P.you) flash(`${msg.name}: ${itemName(msg.item)}`);
+      break;
+    case "PRIX_HIT":
+      takeHit(msg);
+      break;
     case "PRIX_FLAG":
       flash(`${msg.name} takes the flag.`);
       break;
@@ -185,6 +194,52 @@ function drawClasses() {
 
 // ── the track ────────────────────────────────────────────────────────
 
+const ITEM_ICONS = {
+  slipstream: "💨", nitro: "⚡", deflector: "🛡️", slick: "🪶",
+  comet: "☄️", scrambler: "🌀", fog: "🌫️", flare: "🌞",
+};
+const itemName = (id) => P.game?.items?.find((i) => i.id === id)?.name || id;
+const itemBlurb = (id) => P.game?.items?.find((i) => i.id === id)?.blurb || "";
+
+/** The item in your hands, with what it does written on it. */
+function drawHand() {
+  const g = P.game;
+  const host = $("prix-hand");
+  if (!g) return;
+  const me = g.players.find((p) => p.uid === P.you);
+  const held = me?.holding;
+  const marks = [];
+  if (me?.deflector) marks.push("🛡️ Deflector up");
+  if (me?.fogged) marks.push("🌫️ Fogged");
+  if (me?.slowed) marks.push("🌞 Slowed");
+
+  host.hidden = !held && !marks.length;
+  host.textContent = "";
+  if (held) {
+    const b = el("button", "prix-fire");
+    b.type = "button";
+    b.append(el("span", "pf-ico", ITEM_ICONS[held] || "🎁"));
+    b.append(el("span", "pf-name", itemName(held)));
+    b.append(el("span", "pf-blurb", itemBlurb(held)));
+    b.onclick = () => send({ type: "PRIX_USE" });
+    host.append(b);
+  }
+  if (marks.length) host.append(el("p", "prix-marks", marks.join("   ")));
+}
+
+/** Something landed on you. */
+function takeHit(msg) {
+  if (msg.deflected) return flash(`${itemName(msg.item)} deflected.`);
+  const said = {
+    comet: `Comet. -${msg.metres} m`,
+    slick: `Oil slick. -${msg.metres} m`,
+    scrambler: "Scrambled.",
+    fog: "Fogged.",
+    flare: "Solar flare. Answers pay less.",
+  }[msg.item] || "Hit.";
+  flash(said, true);
+}
+
 function drawTrack() {
   const g = P.game;
   const host = $("prix-track");
@@ -198,6 +253,18 @@ function drawTrack() {
     row.append(el("span", "pl-place", p.place ? `${p.place}` : "-"));
     row.append(el("span", "pl-name", p.name));
     const road = el("div", "pl-road");
+    // The boxes, and any oil lying about, drawn where they sit.
+    for (const m of g.marks || []) {
+      const dot = el("span", "pl-box");
+      dot.style.left = `${Math.min(100, (m / g.total) * 100)}%`;
+      if ((p.at || 0) >= m) dot.classList.add("gone");
+      road.append(dot);
+    }
+    for (const m of g.slicks || []) {
+      const oil = el("span", "pl-slick");
+      oil.style.left = `${Math.min(100, (m / g.total) * 100)}%`;
+      road.append(oil);
+    }
     const kart = el("span", "pl-kart", p.uid === P.you ? "\u{1F3CE}️" : "\u{1F697}");
     // The room moves a kart in steps; the slide between them is here, so it
     // reads as a race rather than a table of numbers.
@@ -209,6 +276,7 @@ function drawTrack() {
   }
   const me = field.find((p) => p.uid === P.you);
   if (me && g.phase === "RACING") $("prix-phase").textContent = `Lap ${me.lap} of ${g.laps}`;
+  drawHand();
 }
 
 // ── the item in your hands ───────────────────────────────────────────
@@ -232,7 +300,9 @@ function drawItem() {
   box.maxLength = it.len;
   box.disabled = false;
   box.focus();
-  $("prix-flash").textContent = "";
+  // The flash is not cleared here on purpose: firing an item deals the next
+  // word at once, and wiping it would mean nobody ever reads what their own
+  // item just did.
 
   clearInterval(P.tick);
   P.tick = setInterval(runClock, 100);
@@ -259,7 +329,10 @@ function runClock() {
 
 function showResult(msg) {
   if (msg.ok) {
-    flash(`${msg.word} · +${msg.delta} m`);
+    const bits = [`${msg.word} · +${msg.delta} m`];
+    if (msg.slowed) bits.push("(flared)");
+    if (msg.box) bits.push(`🎁 ${itemName(msg.box)}`);
+    flash(bits.join(" "));
   } else if (msg.near) {
     // A real word from the same letters. Nothing lost; the clue is what
     // tells the two apart.
@@ -298,7 +371,7 @@ function drawResults(msg) {
           <div class="belt-row ${r.uid === P.you ? "is-mine" : ""}">
             <span class="rec-rank">${r.placement}</span>
             <span class="bn">${escapeHtml(r.name)}</span>
-            <span class="pl-stat">${r.solved} words · ${r.spins} spin${r.spins === 1 ? "" : "s"}</span>
+            <span class="pl-stat">${r.solved} words · ${r.spins} spin${r.spins === 1 ? "" : "s"}${r.fired ? ` · ${r.fired} fired` : ""}</span>
             <span class="bt">${r.score} · ${r.gain >= 0 ? "+" : ""}${r.gain} MMR</span>
           </div>`).join("")}
       </div>

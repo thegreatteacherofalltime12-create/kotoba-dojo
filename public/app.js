@@ -401,6 +401,10 @@ function enterHome() {
   $("locked")?.remove();
   show("home");
   window.__ready = true;
+  // Straight back into whatever was interrupted. The home screen is drawn
+  // first so there is something to come back to if the room has since gone.
+  const back = roomInUrl();
+  if (back) setTimeout(() => openRoom(back.game, back.code), 0);
   drawRuleBelts();
   // Firestore is optional — the game runs on the built-in puzzles without
   // it. None of these may block the screen from drawing: if no database has
@@ -3284,6 +3288,37 @@ async function joinByCode(code) {
   openRoom(game, code);
 }
 
+/**
+ * The room you are in, written where a refresh cannot lose it.
+ *
+ * The room itself is a Durable Object and outlives any browser — it waits
+ * half an hour after the last person leaves, and hands the host's job to
+ * whoever has been there longest if the host drops. So a refresh never
+ * destroyed anything; the page just came back not knowing where it had
+ * been. Golf has always survived one because its code is in the URL. Now
+ * the rest do too.
+ *
+ * Casino is solo and has no room to return to, and golf runs on its own
+ * page and keeps its own hash, so neither is written here.
+ */
+const REJOINABLE = new Set(["crossword", "battleship", "minesweeper", "prix"]);
+
+function rememberRoom(game, code) {
+  if (!REJOINABLE.has(game) || !code) return;
+  try { history.replaceState(null, "", `#${game}:${code}`); } catch { /* fine */ }
+}
+
+function forgetRoom() {
+  try { history.replaceState(null, "", location.pathname + location.search); } catch { /* fine */ }
+}
+
+/** The room a refreshed page should walk back into, if there is one. */
+function roomInUrl() {
+  const m = /^#([a-z]+):([A-Za-z0-9-]{1,12})$/.exec(location.hash || "");
+  if (!m || !REJOINABLE.has(m[1])) return null;
+  return { game: m[1], code: m[2].toUpperCase() };
+}
+
 function openRoom(game, code, fresh = false) {
   const open = ROOMS[game];
   if (!open) {
@@ -3291,7 +3326,8 @@ function openRoom(game, code, fresh = false) {
     // exactly what a silent fallback to the crossword used to do.
     return say("rooms-error", `That room is a game this version doesn't know (${game}). Update the app.`);
   }
-  open(code, () => { show("home"); loadDojos(); }, fresh);
+  rememberRoom(game, code);
+  open(code, () => { forgetRoom(); show("home"); loadDojos(); }, fresh);
 }
 
 $("btn-join").onclick = () => {

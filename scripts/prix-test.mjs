@@ -969,5 +969,83 @@ console.log("\nspent only by working");
   ok(`the card charges for two of the five armed (${JSON.stringify(mine.spent)})`, total === 2);
 }
 
+
+console.log("\nthe magnet keeps what you carry, and a dead hand is not for ever");
+{
+  // Both hands full and a magnet: the box is saved, not swapped for what
+  // is already in them.
+  const { room, A } = await fitted({ gp_twin: 1, gp_magnet: 1 });
+  A.holding = "deflector"; A.holding2 = "nitro"; A.owed = 0;
+  const marks = room.g.marks || [];
+  A.at = marks[0] - 1;
+  room.advance(null, A, 2 / room.scaleOf(A));
+  ok("nothing you are carrying is thrown away", A.holding === "deflector" && A.holding2 === "nitro");
+  ok("a magnet charge saves the box instead", A.owed === 1 && A.magnet === 2);
+  // Fire one, and the saved box arrives.
+  A.holding = A.holding2; A.holding2 = null;
+  room.advance(null, A, 0);
+  ok("and it arrives as soon as there is a hand", !!A.holding2 && A.owed === 0);
+}
+{
+  // Without a Twin Box a magnet is not a second hand.
+  const { room, A } = await fitted({ gp_magnet: 1 });
+  A.holding = "deflector"; A.holding2 = null; A.owed = 0;
+  const marks = room.g.marks || [];
+  A.at = marks[0] - 1;
+  room.advance(null, A, 2 / room.scaleOf(A));
+  ok("a magnet never invents a hand you did not buy", A.holding2 === null);
+  ok("it saves the box for later instead", A.owed === 1 && A.holding === "deflector");
+}
+{
+  // No magnet, hands full: the box goes by, exactly as before.
+  const { room, A } = await fitted({});
+  A.holding = "deflector"; A.holding2 = null; A.owed = 0; A.magnet = 0;
+  const marks = room.g.marks || [];
+  A.at = marks[0] - 1;
+  room.advance(null, A, 2 / room.scaleOf(A));
+  ok("without one, a box crossed with full hands is still gone", A.owed === 0 && A.holding === "deflector");
+}
+{
+  // A charge is only spent when it saves something.
+  const { room, A } = await fitted({ gp_magnet: 1 });
+  A.holding = null; A.owed = 0;
+  const marks = room.g.marks || [];
+  A.at = marks[0] - 1;
+  room.advance(null, A, 2 / room.scaleOf(A));
+  ok("an empty hand takes the box without spending a charge", !!A.holding && A.magnet === 3);
+}
+{
+  // The flare you climbed above.
+  const { room, seats, say } = await roomOf(["a", "Ana"], ["b", "Bo"], ["c", "Cy"], ["d", "Di"]);
+  await say("a", { type: "PRIX_START" });
+  const A = room.g.players.a;
+  A.at = 900; room.g.players.b.at = 100; room.g.players.c.at = 50; room.g.players.d.at = 10;
+  A.holding = "flare";
+  await say("a", { type: "PRIX_USE" });
+  ok("a flare will not fire from the front", /fourth or worse/.test(seats.a.last("PRIX_ERROR").message) && A.holding === "flare");
+  ok("and the room says so in the state", room.publicState().players.find((x) => x.uid === "a").canFire === false);
+  await say("a", { type: "PRIX_DROP" });
+  ok("but it can be thrown away", A.holding === null);
+  ok("and the racer is told what went", /thrown away/.test(seats.a.last("PRIX_USED").note));
+  // With empty hands the next box is collected again, which is the whole
+  // point: a dead item used to wave every box past for the rest of the race.
+  A.owed = 0; A.at = (room.g.marks || [])[0] - 1;
+  room.advance(null, A, 2 / room.scaleOf(A));
+  ok("and boxes are collected once more", !!A.holding);
+}
+{
+  // What you can fire, you keep: a discard is not a re-roll.
+  const { room, seats, say } = await roomOf(["a", "Ana"], ["b", "Bo"]);
+  await say("a", { type: "PRIX_START" });
+  const A = room.g.players.a;
+  A.holding = "slick";
+  await say("a", { type: "PRIX_DROP" });
+  ok("an item you could fire cannot be discarded", A.holding === "slick"
+    && /you can fire/.test(seats.a.last("PRIX_ERROR").message));
+  A.holding = null;
+  await say("a", { type: "PRIX_DROP" });
+  ok("and empty hands drop nothing", /Nothing in your hands/.test(seats.a.last("PRIX_ERROR").message));
+}
+
 console.log(bad ? `\n${bad} failing\n` : "\nall grand prix checks passed\n");
 process.exit(bad ? 1 : 0);

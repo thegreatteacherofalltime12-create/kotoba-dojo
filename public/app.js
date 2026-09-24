@@ -1855,7 +1855,7 @@ function tokensRules() {
         "<b>Long Fuel</b> ($1,800, 1): every allowance is a fifth longer. <b>Slick Tyres</b> ($700, 1): a spin costs 5 metres instead of 15. <b>Spare Word</b> ($500, 5): one wrong answer a lap costs nothing, and one more a lap for each one armed.",
         "<b>Scrutineer's Seal</b> ($1,100, 3): start with a Deflector up, one for each armed. <b>Mudguards</b> ($800, 1): oil slicks do nothing to you. <b>Sun Visor</b> ($1,000, 1): fog and flares last half as long on you.",
         "<b>Pit Radio</b> ($600, 1): a clue that would be withheld never is. <b>Spotter</b> ($900, 3): three skips that need no waiting, three more each. <b>Telemetry</b> ($1,300, 1): you can see what the racer ahead is holding.",
-        "<b>Twin Box</b> ($2,000, 1): hold two items at once. <b>Box Magnet</b> ($1,400, 3): three boxes are collected even with full hands, three more each.",
+        "<b>Twin Box</b> ($2,000, 1): hold two items at once. <b>Box Magnet</b> ($1,400, 3): three boxes your hands had no room for are collected anyway and wait for a hand, three more each. It never swaps out what you are carrying.",
         "<b>Podium Polish</b> ($2,500, 2): eight points on the race score. <b>Points Finish</b> ($3,000, 1): a race you do not finish is scored as though you had.",
         "The last two change what a race is worth, so they lift MMR and are marked on the record books like every other token that does.",
       ])}
@@ -1989,6 +1989,7 @@ const GAME_RULES = [
       "<b>Your level is yours alone.</b> Junior or Pro, 2nd grade or 11th \u2014 each racer sets their own, so a family can share one track. A harder level pays more MMR; it does not make you faster.",
       "Six circuits and three lengths: <b>Sprint</b> (2 laps), <b>Grand Prix</b> (3) and <b>Endurance</b> (5). Orbital Ring runs short laps and adds two.",
       "<b>Item boxes</b> sit on every lap. Drive over one with empty hands and you get an item \u2014 a slipstream, a comet, an oil slick, fog \u2014 and you hold one at a time. The further back you are, the better the item.",
+      "A solar flare is fired from fourth or worse, so it belongs to the back of the field. Climb past fourth while holding one and you can throw it away rather than carry a dead hand to the flag \u2014 full hands wave every later box straight past.",
       "The <b>paddock chat</b> is open in the lobby and shuts when the lights go out. A race ends one minute after the winner is home.",
     ],
     score: [

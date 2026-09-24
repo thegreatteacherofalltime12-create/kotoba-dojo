@@ -17,6 +17,20 @@ export const KEEP_DAYS = 7;
 
 export const UPDATES = [
   {
+    at: "2026-09-25T00:30:00Z",
+    where: "Grand Prix",
+    title: "The arsenal charges for what it delivers",
+    text: "Four things the arsenal was getting wrong. Every token armed was charged for at the "
+      + "lights whether or not it could take hold, so a second canister with no hand to sit in "
+      + "cost you and gave you nothing — now only what lands is spent, and the rest stays in your "
+      + "bag. Nine tokens were read as yes-or-no while the shop invited you to arm up to five; the "
+      + "ones that can stack now do (a Warm-Up Lap is three answers each, a Seal is a Deflector "
+      + "each), and the ones that cannot are limited to one. A Box Magnet used to throw away "
+      + "whatever was in your second hand — it now saves the box and hands it over when a hand is "
+      + "free. And a solar flare you have climbed above can be thrown away instead of blocking "
+      + "every item box for the rest of the race.",
+  },
+  {
     at: "2026-09-24T23:30:00Z",
     where: "Grand Prix",
     title: "A level is no longer a speed",

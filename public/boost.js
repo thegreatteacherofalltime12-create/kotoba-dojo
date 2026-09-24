@@ -262,7 +262,7 @@ export const PRIX_ARSENAL_ITEMS = [
   { key: "gp_twin", name: "Twin Box", icon: "\u{1F381}", price: 2000, max: 1,
     blurb: "Hold two items at once instead of one." },
   { key: "gp_magnet", name: "Box Magnet", icon: "\u{1F9F2}", price: 1400, max: 3,
-    blurb: "Three boxes are collected even when your hands are full." },
+    blurb: "Three boxes your hands had no room for are collected anyway, and wait for a hand. Nothing you are carrying is ever swapped out for one." },
   { key: "gp_polish", name: "Podium Polish", icon: "\u{1F3C6}", price: 2500, max: 2,
     blurb: "Eight points on the race score when it is counted." },
   { key: "gp_points", name: "Points Finish", icon: "\u{1F3C1}", price: 3000, max: 1,

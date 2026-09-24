@@ -202,6 +202,9 @@ export class GrandPrix {
         solved: p.solved, spins: p.spins,
         ai: !!p.ai, aiLevel: p.aiLevel || null,
         holding: p.holding || null, holding2: p.holding2 || null, deflector: p.deflector || 0,
+        // Whether what is in hand can be fired from where they are: the
+        // rule about flares lives here, so the browser never has to know it.
+        canFire: !!p.holding && this.mayFire(p, p.holding),
         fogged: (p.fogUntil || 0) > Date.now(), slowed: (p.slowUntil || 0) > Date.now(),
         place: p.watching ? null : order.indexOf(p.uid) + 1,
         finishedAt: p.finishedAt,
@@ -311,6 +314,7 @@ export class GrandPrix {
       switch (msg.type) {
         case "PING": return this.beat();
         case "PRIX_PEEK": return this.peek(ws, who.uid);
+        case "PRIX_DROP": return await this.drop(ws, who.uid);
         case "PRIX_SOLO": return await this.setSolo(ws, who.uid, msg);
         case "PRIX_VOTE": return await this.vote(ws, who.uid, msg);
         case "PRIX_AI": return await this.setAi(ws, who.uid, msg);
@@ -729,12 +733,21 @@ export class GrandPrix {
     let box = null;
     const crossed = boxesBetween(from, p.at, this.g.marks || []);
     if (crossed.length) {
-      box = this.takeBox(p) || box;
+      box = this.takeBox(p);
+      // Hands full. A Box Magnet does not throw away what you are carrying
+      // to make room for a box: it saves the box, and the box waits for a
+      // hand. That is what "collected even when your hands are full" means,
+      // and it is never a second hand — only a Twin Box is that.
+      if (!box && p.magnet > 0) {
+        p.magnet -= 1;
+        p.owed = Math.min(2, (p.owed || 0) + 1);
+      }
       // A racer on a slow clock covers more ground for one answer and can
       // clear several boxes in a single stride. The first behaves as it
       // always did; the rest wait for a hand rather than being thrown away,
       // because nobody should collect fewer items for the clock they were
-      // given. A box crossed with full hands is still a box gone by.
+      // given. A box crossed with full hands and no magnet is still a box
+      // gone by.
       if (crossed.length > 1) p.owed = Math.min(2, (p.owed || 0) + crossed.length - 1);
     }
     while ((p.owed || 0) > 0) {
@@ -764,21 +777,20 @@ export class GrandPrix {
   }
 
   /**
-   * One box into a free hand, or nothing. A Box Magnet takes one even when
-   * both hands are full.
+   * One box into a free hand, or nothing.
+   *
+   * Nothing you are already carrying is thrown away to make room, and a
+   * hand you do not have is never invented — a Twin Box is the only thing
+   * that gives you a second one.
    */
   takeBox(p) {
-    const room = !p.holding || (p.twin && !p.holding2);
-    const magnet = !room && p.magnet > 0;
-    if (!room && !magnet) return null;
+    const hand = !p.holding ? "holding" : (p.twin && !p.holding2) ? "holding2" : null;
+    if (!hand) return null;
     const field = Object.values(this.g.players).filter((x) => !x.watching);
     const place = standings(field).findIndex((x) => x.uid === p.uid) + 1;
-    const got = rollItem(place || 1, field.length);
-    if (!p.holding) p.holding = got;
-    else if (p.twin && !p.holding2) p.holding2 = got;
-    else { p.holding2 = got; p.magnet -= 1; }
+    p[hand] = rollItem(place || 1, field.length);
     p.boxes += 1;
-    return got;
+    return p[hand];
   }
 
   /** Whoever is directly ahead of this racer, or nobody. */
@@ -820,6 +832,29 @@ export class GrandPrix {
    * Firing what you hold. Every item is spent whether or not it finds
    * anybody: aiming at an empty road is a decision too.
    */
+  /**
+   * Throwing away an item you are not allowed to fire.
+   *
+   * Only that one. An item you could fire is a decision, and letting anyone
+   * discard any roll would turn every box into a re-roll. But a flare you
+   * climbed above is a dead hand: you cannot fire it, and full hands wave
+   * every later box straight past, so without this the rest of the race is
+   * spent carrying a brick.
+   */
+  async drop(ws, uid) {
+    const p = this.racer(ws, uid);
+    if (!p) return;
+    if (!p.holding) return this.send(ws, "PRIX_ERROR", { message: "Nothing in your hands." });
+    if (this.mayFire(p, p.holding))
+      return this.send(ws, "PRIX_ERROR", { message: "That one you can fire." });
+    const gone = p.holding;
+    p.holding = p.holding2 || null;
+    p.holding2 = null;
+    this.send(ws, "PRIX_USED", { note: `${itemById(gone)?.name || gone} thrown away.` });
+    await this.persist();
+    this.pushState();
+  }
+
   async use(ws, uid) {
     const p = this.racer(ws, uid);
     if (!p) return;

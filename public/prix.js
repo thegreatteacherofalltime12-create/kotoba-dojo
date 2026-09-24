@@ -64,10 +64,15 @@ export function closePrix(forget = true) {
 }
 
 const send = (o) => { try { P.socket?.send(JSON.stringify(o)); } catch { /* closed */ } };
+let sayTimer = null;
 const say = (text) => {
   const n = $("prix-error");
   n.textContent = text || "";
   n.hidden = !text;
+  clearTimeout(sayTimer);
+  // A refusal is about a moment. Left up, it reads as though the race is
+  // still broken long after the thing it was about has passed.
+  if (text) sayTimer = setTimeout(() => { n.textContent = ""; n.hidden = true; }, 6_000);
 };
 
 // ── what the room says ───────────────────────────────────────────────
@@ -317,13 +322,25 @@ function drawHand() {
   host.hidden = !held && !marks.length;
   host.textContent = "";
   if (held) {
-    const b = el("button", "prix-fire");
+    // The room says whether this can be fired from where you are. Only the
+    // flare is ever refused, and only from the top three.
+    const stuck = me?.canFire === false;
+    const b = el("button", "prix-fire" + (stuck ? " is-stuck" : ""));
     b.type = "button";
+    b.disabled = stuck;
     b.append(el("span", "pf-ico", ITEM_ICONS[held] || "🎁"));
     b.append(el("span", "pf-name", itemName(held)));
-    b.append(el("span", "pf-blurb", itemBlurb(held)));
+    b.append(el("span", "pf-blurb", stuck ? "Not from up here — a flare is fired from fourth or worse." : itemBlurb(held)));
     b.onclick = () => send({ type: "PRIX_USE" });
     host.append(b);
+    if (stuck) {
+      // Otherwise full hands wave every later box past for the rest of the
+      // race, and there is nothing the racer can do about it.
+      const d = el("button", "btn btn-tiny prix-drop", "Throw it away");
+      d.type = "button";
+      d.onclick = () => send({ type: "PRIX_DROP" });
+      host.append(d);
+    }
   }
   if (spare) marks.unshift(`🎁 ${itemName(spare)} in the other hand`);
   if (marks.length) host.append(el("p", "prix-marks", marks.join("   ")));

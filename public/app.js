@@ -14,6 +14,7 @@ import {
   AVATARS, LEAGUES, FRAMES, FRAME_TIERS, TITLES, GAME_NAMES, BANNERS,
   avatarHtml, framedHtml, titleById, meets, needText,
   bannerById, bannerEarned, bannerNeedText, bannerHtml, achievementsFor, lifetime,
+  KARTS, DEFAULT_KART, kartById,
 } from "./cosmetics.js";
 import { enterBattle, closeBattle, bindBattleControls } from "./battle.js";
 import { enterMines, closeMines, bindMineControls } from "./mines.js";
@@ -143,6 +144,7 @@ const S = {
   frame: "none",
   title: "",
   banner: "",
+  kart: DEFAULT_KART,
   open: false,      // whether the record is public
   // The banked wallet, plus a short history of what has gone into it.
   purse: { wallet: 100, tokens: 0, log: [] },
@@ -494,6 +496,7 @@ async function loadAvatar() {
     if (v?.frame) S.frame = v.frame;
     if (typeof v?.title === "string") S.title = v.title;
     if (typeof v?.banner === "string") S.banner = v.banner;
+    if (typeof v?.kart === "string") S.kart = v.kart;
     if (typeof v?.open === "boolean") S.open = v.open;
     let write = !snap.exists() || (v.displayName || "") !== (S.user?.displayName || "");
     // The theme follows the player between the desktop and the phone.
@@ -524,7 +527,8 @@ async function saveProfile() {
       doc(db, "users", u.uid),
       {
         uid: u.uid, displayName: u.displayName || "Student", avatar: S.avatar,
-        frame: S.frame || "none", title: S.title || "", banner: S.banner || "", open: !!S.open,
+        frame: S.frame || "none", title: S.title || "", banner: S.banner || "",
+        kart: S.kart || DEFAULT_KART, open: !!S.open,
         theme: document.documentElement.dataset.theme || savedTheme(),
         themeEpoch: THEME_EPOCH,
       },
@@ -856,11 +860,11 @@ function myStanding() {
 
 function drawAvatarPicker() {
   const host = $("avatar-modal");
-  const pick = { avatar: S.avatar, frame: S.frame || "none", title: S.title || "", banner: S.banner || "" };
+  const pick = { avatar: S.avatar, frame: S.frame || "none", title: S.title || "", banner: S.banner || "", kart: S.kart || DEFAULT_KART };
   const standing = myStanding();
   host.hidden = false;
 
-  const tabs = [["robes", "OG Robes"], ["avatars", "Avatars"], ["frames", "Frames"], ["titles", "Titles"], ["banners", "Banners"]];
+  const tabs = [["robes", "OG Robes"], ["avatars", "Avatars"], ["frames", "Frames"], ["titles", "Titles"], ["banners", "Banners"], ["karts", "Race Kart"]];
   const av = (id, size) => avatarHtml(id, size, giSvg);
 
   const body = () => {
@@ -872,6 +876,14 @@ function drawAvatarPicker() {
             ${giSvg(g.id, 52)}<span>${g.name}</span>
           </button>`).join("")}
       </div>`;
+
+    if (cosTab === "karts") return `
+      <div class="cos-label">Choose your kart</div>
+      <p class="panel-sub">What you line up in for the Multiverse Grand Prix, and what the rest of the grid sees coming. Every kart is the same car \u2014 the only thing that moves it is answering.</p>
+      <div class="cos-box">
+        ${KARTS.map((k) => `<button class="cos-cell ${k.id === pick.kart ? "is-on" : ""}" data-kart="${k.id}" title="${k.name}">${k.ico}</button>`).join("")}
+      </div>
+      <div class="cos-label">${kartById(pick.kart).name}</div>`;
 
     if (cosTab === "avatars") return `
       <div class="cos-label">Choose avatar</div>
@@ -947,6 +959,7 @@ function drawAvatarPicker() {
           <div class="cos-preview-txt">
             <div class="cos-preview-name">${escapeHtml(S.user?.displayName || "Student")}</div>
             <div class="cos-preview-title">${pick.title ? escapeHtml(titleById(pick.title)?.name || "") : "—"}</div>
+            <div class="cos-preview-kart" title="Race kart: ${kartById(pick.kart).name}">${kartById(pick.kart).ico} ${kartById(pick.kart).name}</div>
           </div>
         </div>
         <div class="subtabs cos-tabs">
@@ -965,8 +978,10 @@ function drawAvatarPicker() {
     host.querySelectorAll("[data-frame]").forEach((b) => { b.onclick = () => { pick.frame = b.dataset.frame; render(); }; });
     host.querySelectorAll("[data-title]").forEach((b) => { b.onclick = () => { pick.title = b.dataset.title; render(); }; });
     host.querySelectorAll("[data-banner]").forEach((b) => { b.onclick = () => { pick.banner = b.dataset.banner; render(); }; });
+    host.querySelectorAll("[data-kart]").forEach((b) => { b.onclick = () => { pick.kart = b.dataset.kart; render(); }; });
     host.querySelector("[data-save]").onclick = async () => {
-      const changed = pick.avatar !== S.avatar || pick.frame !== (S.frame || "none") || pick.title !== (S.title || "") || pick.banner !== (S.banner || "");
+      const changed = pick.avatar !== S.avatar || pick.frame !== (S.frame || "none") || pick.title !== (S.title || "")
+        || pick.banner !== (S.banner || "") || pick.kart !== (S.kart || DEFAULT_KART);
       close();
       if (!changed) return;
       Object.assign(S, pick);
@@ -2978,7 +2993,7 @@ function profileSummary() {
         <span class="pb-label">MMR</span>
         <div class="pb-amount">${mmr.toLocaleString()}</div>
         <span class="pb-label">Prestige</span>
-        <div class="pf-star">${p ? "\u2605".repeat(Math.min(p, 5)) : "\u2014"}</div>
+        <div class="pf-star">${p ? "\u2605".repeat(Math.min(p, 5)) : "—"}</div>
       </div>
     </div>
     <div class="pf-actions">
@@ -3229,7 +3244,7 @@ const ROOMS = {
   crossword: (code) => enterDojo(code),
   battleship: (code, back) => { show("battle"); enterBattle(code, idToken, back); },
   minesweeper: (code, back) => { show("mines"); enterMines(code, idToken, back); },
-  prix: (code, back) => { show("prix"); enterPrix(code, idToken, back); },
+  prix: (code, back) => { show("prix"); enterPrix(code, idToken, back, S.kart || DEFAULT_KART); },
   // Multiverse Golf runs on its own page: a full-screen course doesn't fit
   // inside a panel, and the round is long enough to want the whole window.
   // A room being created lands on the lobby with its code, to choose a course

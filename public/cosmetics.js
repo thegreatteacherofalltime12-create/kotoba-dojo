@@ -397,12 +397,60 @@ export const titleEarned = (id, standing) => { const t = titleById(id); return !
  * or unearned falls back — the server calls this before writing, so an
  * unearned title never reaches the board.
  */
+/**
+ * The kart you race in.
+ *
+ * Cosmetic and nothing else: every kart on the grid is the same car, and
+ * the only thing that moves it is answering. Free to choose, like the
+ * avatars — nothing here is earned, so nothing here needs a standing to
+ * check against.
+ */
+export const KARTS = [
+  { id: "f1", name: "Formula", ico: "\u{1F3CE}\uFE0F" },
+  { id: "saloon", name: "Saloon", ico: "\u{1F697}" },
+  { id: "estate", name: "Estate", ico: "\u{1F699}" },
+  { id: "pickup", name: "Pickup", ico: "\u{1F6FB}" },
+  { id: "taxi", name: "Taxi", ico: "\u{1F695}" },
+  { id: "camper", name: "Camper", ico: "\u{1F690}" },
+  { id: "squad", name: "Squad Car", ico: "\u{1F693}" },
+  { id: "ambulance", name: "Ambulance", ico: "\u{1F691}" },
+  { id: "engine", name: "Fire Engine", ico: "\u{1F692}" },
+  { id: "tractor", name: "Tractor", ico: "\u{1F69C}" },
+  { id: "rickshaw", name: "Rickshaw", ico: "\u{1F6FA}" },
+  { id: "moto", name: "Motorcycle", ico: "\u{1F3CD}\uFE0F" },
+  { id: "scooter", name: "Scooter", ico: "\u{1F6F5}" },
+  { id: "bicycle", name: "Bicycle", ico: "\u{1F6B2}" },
+  { id: "skateboard", name: "Skateboard", ico: "\u{1F6F9}" },
+  { id: "skates", name: "Roller Skates", ico: "\u{1F6FC}" },
+  { id: "sled", name: "Sled", ico: "\u{1F6F7}" },
+  { id: "bus", name: "Bus", ico: "\u{1F68C}" },
+  { id: "truck", name: "Truck", ico: "\u{1F69A}" },
+  { id: "lorry", name: "Lorry", ico: "\u{1F69B}" },
+  { id: "loco", name: "Locomotive", ico: "\u{1F682}" },
+  { id: "tram", name: "Tram", ico: "\u{1F68B}" },
+  { id: "chopper", name: "Helicopter", ico: "\u{1F681}" },
+  { id: "saucer", name: "Flying Saucer", ico: "\u{1F6F8}" },
+  { id: "rocket", name: "Rocket", ico: "\u{1F680}" },
+  { id: "sailboat", name: "Sailboat", ico: "\u26F5" },
+  { id: "horse", name: "Racehorse", ico: "\u{1F40E}" },
+  { id: "dino", name: "Tyrannosaur", ico: "\u{1F996}" },
+  { id: "duck", name: "Duck", ico: "\u{1F986}" },
+  { id: "snail", name: "Snail", ico: "\u{1F40C}" },
+  { id: "tortoise", name: "Tortoise", ico: "\u{1F422}" },
+  { id: "unicorn", name: "Unicorn", ico: "\u{1F984}" },
+];
+export const DEFAULT_KART = "f1";
+export const kartById = (id) => KARTS.find((k) => k.id === id) || KARTS[0];
+export const knownKart = (id) => KARTS.some((k) => k.id === id);
+
 export function allowed(cos, standing, giIds) {
   const out = {};
   out.avatar = knownAvatar(cos?.avatar, giIds) ? cos.avatar : giIds[0];
   out.frame = frameEarned(cos?.frame, standing) ? frameById(cos?.frame).id : "none";
   out.title = titleEarned(cos?.title, standing) ? cos.title : "";
   out.banner = bannerEarned(cos?.banner, standing) ? cos.banner : "";
+  // Every kart is free, so the only question is whether it exists.
+  out.kart = knownKart(cos?.kart) ? cos.kart : DEFAULT_KART;
   out.open = cos?.open === true || cos?.open === "1";
   return out;
 }

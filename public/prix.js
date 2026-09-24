@@ -5,6 +5,7 @@
 // sends guesses. Nothing here knows an answer before the room says so.
 
 import { applyTokenTab, PRIX_ARSENAL_ITEMS } from "./boost.js";
+import { kartById, DEFAULT_KART } from "./cosmetics.js";
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, cls, text) => {
@@ -25,8 +26,9 @@ const tokenTab = () => (boostTab ||= applyTokenTab({
   game: "prix", send, button: $("btn-prix-boost"), label: "race", arsenal: PRIX_ARSENAL_ITEMS,
 }));
 
-export async function enterPrix(code, getToken, onLeave) {
+export async function enterPrix(code, getToken, onLeave, kart) {
   P.code = code;
+  P.kart = kart || DEFAULT_KART;
   P.onLeave = onLeave;
   P.item = null;
   $("prix-code").textContent = code;
@@ -82,6 +84,9 @@ function handle(msg) {
     case "PRIX_WELCOME":
       P.you = msg.you;
       P.isHost = !!msg.isHost;
+      // Tell the room what we are driving. Sent on every welcome, so a
+      // reconnection puts the right kart back on the grid.
+      send({ type: "PRIX_KART", kart: P.kart || DEFAULT_KART });
       break;
     case "PRIX_TOKENS":
       tokenTab().receive(msg);
@@ -389,7 +394,9 @@ function drawTrack() {
       oil.style.left = `${Math.min(100, (m / g.total) * 100)}%`;
       road.append(oil);
     }
-    const kart = el("span", "pl-kart", p.uid === P.you ? "\u{1F3CE}️" : p.ai ? "\u{1F916}" : "\u{1F697}");
+    // Everybody drives what they picked in their profile.
+    const kart = el("span", "pl-kart", kartById(p.kart).ico);
+    kart.title = `${p.name} \u2014 ${kartById(p.kart).name}`;
     // The room moves a kart in steps; the slide between them is here, so it
     // reads as a race rather than a table of numbers.
     kart.style.left = `${Math.min(100, (p.at / g.total) * 100)}%`;

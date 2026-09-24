@@ -22,6 +22,7 @@ import {
 } from "./prix.js";
 import { ENGINES, engineById, engineList, defaultLevel, MEM_MAX, nominalAllowance } from "./prix-engines.js";
 import { ARSENALS } from "./arsenals.js";
+import { KARTS, knownKart, DEFAULT_KART } from "../public/cosmetics.js";
 import { tokensReply, heldTokens } from "./boost.js";
 import { recordMatch, readRatings } from "./firestore.js";
 import { moderate } from "./moderation.js";
@@ -160,6 +161,7 @@ export class GrandPrix {
       uid, name, joinedAt: Date.now(),
       watching: this.g.phase === "RACING",
       klass: defaultLevel(this.g.engine),
+      kart: DEFAULT_KART,
       at: 0, lap: 1, item: null, deck: [], seen: 0,
       // What is in your hands, and what somebody put on you. `item` is the
       // word you are answering; `holding` is the item box you picked up.
@@ -207,6 +209,7 @@ export class GrandPrix {
         ai: !!p.ai, aiLevel: p.aiLevel || null,
         // Fog and a flare are public: they land with an announcement and
         // you can see them on the road. What is in somebody's hands is not.
+        kart: p.kart || DEFAULT_KART,
         fogged: (p.fogUntil || 0) > Date.now(), slowed: (p.slowUntil || 0) > Date.now(),
         place: p.watching ? null : order.indexOf(p.uid) + 1,
         finishedAt: p.finishedAt,
@@ -327,6 +330,23 @@ export class GrandPrix {
   }
 
   /**
+   * The kart somebody races in. Cosmetic and free, so the only thing worth
+   * checking is that it is one of ours: whatever arrives here is drawn on
+   * every other racer's screen. If karts are ever something you earn, this
+   * has to read the profile instead of taking the browser's word.
+   */
+  async setKart(ws, uid, msg) {
+    const p = this.g.players[uid];
+    if (!p) return;
+    const want = String(msg?.kart || "");
+    const kart = knownKart(want) ? want : DEFAULT_KART;
+    if (p.kart === kart) return;
+    p.kart = kart;
+    await this.persist();
+    this.pushState();
+  }
+
+  /**
    * The face again. The browser asks when the clock passes something the
    * deal promised for later — the Pro class's clue — because the room is
    * the only thing that knows whether it is time.
@@ -361,6 +381,7 @@ export class GrandPrix {
       switch (msg.type) {
         case "PING": return this.beat();
         case "PRIX_PEEK": return this.peek(ws, who.uid);
+        case "PRIX_KART": return await this.setKart(ws, who.uid, msg);
         case "PRIX_DROP": return await this.drop(ws, who.uid);
         case "PRIX_SOLO": return await this.setSolo(ws, who.uid, msg);
         case "PRIX_VOTE": return await this.vote(ws, who.uid, msg);
@@ -587,6 +608,7 @@ export class GrandPrix {
       this.g.players[uid] = {
         ...this.freshRacer(uid, `${AI_NAMES[i] || "Driver"} (${level.name})`),
         ai: true, aiLevel: level.id, watching: false,
+        kart: KARTS[(i * 5 + 2) % KARTS.length].id,
         // A driver's first word is due one pace after the lights.
         nextAt: Date.now() + aiPace(level.id),
         seed: 2 + i,

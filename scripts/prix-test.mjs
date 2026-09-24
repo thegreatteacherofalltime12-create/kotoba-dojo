@@ -1110,5 +1110,46 @@ console.log("\nwhat is in your hands is yours");
   ok("and one who did not is told nothing", seats.a.last("PRIX_ITEM").ahead === undefined);
 }
 
+
+console.log("\nthe kart you race in");
+{
+  const { KARTS, kartById, knownKart, DEFAULT_KART, allowed } = await import("../public/cosmetics.js");
+  ok("there is a grid full of karts to pick from", KARTS.length >= 20);
+  ok("each has an id, a name and something to draw",
+    KARTS.every((k) => k.id && k.name && k.ico) && new Set(KARTS.map((k) => k.id)).size === KARTS.length);
+  ok("the default is one of them", knownKart(DEFAULT_KART));
+  ok("anything else falls back rather than drawing nothing", kartById("nonsense").id === DEFAULT_KART);
+  // Karts are free, so the only question allowed() asks is whether it exists.
+  const standing = { mmr: 0, feats: {} };
+  ok("a real kart is worn", allowed({ kart: "dino" }, standing, ["white"]).kart === "dino");
+  ok("and anything made up is not", allowed({ kart: "<img src=x>" }, standing, ["white"]).kart === DEFAULT_KART);
+}
+{
+  const { DEFAULT_KART } = await import("../public/cosmetics.js");
+  const { room, seats, say } = await roomOf(["a", "Ana"], ["b", "Bo"]);
+  const kartOf = (uid) => room.publicState().players.find((x) => x.uid === uid).kart;
+  ok("everybody starts in the default kart", kartOf("a") === DEFAULT_KART);
+  await say("a", { type: "PRIX_KART", kart: "tractor" });
+  ok("a racer can change what they drive", room.g.players.a.kart === "tractor");
+  ok("and the grid is told, because a kart is for other people to see", kartOf("a") === "tractor");
+  ok("the other kart is untouched", kartOf("b") === DEFAULT_KART);
+  await say("a", { type: "PRIX_KART", kart: "not-a-kart" });
+  ok("a kart that does not exist falls back", room.g.players.a.kart === DEFAULT_KART);
+  // It is drawn on everyone else's screen, so it must not be free text.
+  await say("a", { type: "PRIX_KART", kart: "<script>alert(1)</script>" });
+  ok("and nothing arbitrary is ever stored", room.g.players.a.kart === DEFAULT_KART);
+}
+{
+  // A solo grid should not be four of the same shape.
+  const { room, say } = await roomOf(["a", "Ana"]);
+  await say("a", { type: "PRIX_SOLO", on: true });
+  await say("a", { type: "PRIX_AI", count: 3, level: "medium" });
+  await say("a", { type: "PRIX_START" });
+  const bots = Object.values(room.g.players).filter((x) => x.ai);
+  ok("three drivers, three different karts", bots.length === 3 && new Set(bots.map((x) => x.kart)).size === 3);
+  const { knownKart } = await import("../public/cosmetics.js");
+  ok("and every one of them is a real kart", bots.every((x) => knownKart(x.kart)));
+}
+
 console.log(bad ? `\n${bad} failing\n` : "\nall grand prix checks passed\n");
 process.exit(bad ? 1 : 0);

@@ -204,6 +204,7 @@ export async function saveCosmetics(env, uid, name, cos) {
             uid: S(uid), name: S(name || "Unknown"),
             cosmetics: { mapValue: { fields: {
               avatar: S(wear.avatar), frame: S(wear.frame), title: S(wear.title), banner: S(wear.banner),
+              kart: S(wear.kart),
               open: { booleanValue: !!wear.open },
             } } },
           },

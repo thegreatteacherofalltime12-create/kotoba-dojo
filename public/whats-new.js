@@ -17,6 +17,19 @@ export const KEEP_DAYS = 7;
 
 export const UPDATES = [
   {
+    at: "2026-09-24T21:00:00Z",
+    where: "Grand Prix",
+    title: "A sixth game: Multiverse Grand Prix",
+    text: "A kart race where answering is the engine. Everyone runs the same circuit; every "
+      + "item you answer moves your kart, and the quicker you are for your own level the "
+      + "further you go. Four engines to race on — words, maths from 1st grade to 12th, a "
+      + "memory sequence, or trivia from the arena’s own themes — and every racer sets their "
+      + "own level, so a family can share one track. The grid votes for the circuit, item "
+      + "boxes hand the back of the field the good stuff, and you can race one to five "
+      + "computer drivers on your own. Eighteen tokens in its arsenal, and not one of them "
+      + "can be aimed at anybody.",
+  },
+  {
     at: "2026-09-23T01:00:00Z",
     where: "Records",
     title: "The record books mark a token",

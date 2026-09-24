@@ -1846,6 +1846,18 @@ function tokensRules() {
         "The Casino boost is spent the moment it's applied and boosts <b>every casino win for the rest of the day</b> (UTC). The daily cap still stands.",
         "The feed marks a boosted win with \u26A1.",
       ])}
+      ${box("\u{1F3CE}\uFE0F The Grand Prix Arsenal", [
+        "Eighteen tokens for the race, priced in casino money. Armed under <b>\u26A1 Apply Token</b> before the lights; every one of them takes hold at the start, so what you arm is what you spend.",
+        "<b>Not one of them can be aimed at another racer.</b> The items in the track's boxes are the weapons, and those are free and earned on the road. Money buys you a better car, never a gun.",
+        "<b>Start Boost</b> ($600, 3): 200 metres off the line. <b>Tow Rope</b> ($900, 3): your next five answers each pay 20 metres more. <b>Warm-Up Lap</b> ($700, 3): your first three answers pay full whatever the clock said.",
+        "<b>Slipstream Canister</b> ($1,200, 2) and <b>Nitro Canister</b> ($1,500, 2): start the race already holding one. <b>Long Fuel</b> ($1,800, 2): every allowance is a fifth longer.",
+        "<b>Slick Tyres</b> ($700, 4): a spin costs 5 metres instead of 15. <b>Spare Word</b> ($500, 5): your first wrong answer each lap costs nothing. <b>Scrutineer's Seal</b> ($1,100, 3): start with a Deflector up.",
+        "<b>Mudguards</b> ($800, 3): oil slicks do nothing to you. <b>Sun Visor</b> ($1,000, 3): fog and flares last half as long on you.",
+        "<b>Pit Radio</b> ($600, 4): a clue that would be withheld never is. <b>Spotter</b> ($900, 3): three skips that need no waiting. <b>Telemetry</b> ($1,300, 2): you can see what the racer ahead is holding.",
+        "<b>Twin Box</b> ($2,000, 2): hold two items at once. <b>Box Magnet</b> ($1,400, 3): three boxes are collected even with full hands.",
+        "<b>Podium Polish</b> ($2,500, 2): eight points on the race score. <b>Points Finish</b> ($3,000, 1): a race you do not finish is scored as though you had.",
+        "The last two change what a race is worth, so they lift MMR and are marked on the record books like every other token that does.",
+      ])}
       ${box("\u26A1 Tokens and the record books", [
         "A round that fires a token is a <b>token-assisted</b> round, and the record books mark it with \u26A1. Nothing is kept off a board for using one \u2014 the figure stands, and the mark only says how it was set.",
         "<b>Fastest Clears</b> (Minesweeper, per level) marks the time. <b>Course records</b> (Golf) keep two marks for each player \u2014 the best card played clean and the best played with tokens \u2014 and show the lower of the two, marked if it took a token.",
@@ -1964,6 +1976,24 @@ const GAME_RULES = [
       "Hits and ships sunk, weighted by the chart, times an <b>accuracy bonus</b>: half your shots landing is par, sharper shooting pays up to 1.75\u00d7, spraying the water costs up to a quarter.",
       "Placement adds up to 30, surviving adds 20. Capped at 100, then into MMR like every game.",
       "Blast hits from the arsenal count for score and sinkings, not for accuracy.",
+    ],
+  },
+  {
+    id: "prix", icon: "\u{1F3CE}\uFE0F", name: "Multiverse Grand Prix", players: "1 or more \u00b7 a race", solo: "\u2713 SOLO VS 1\u20135 COMPUTERS",
+    play: [
+      "<b>Solo \u2014 yes, you can race this alone.</b> One to five computer drivers at Rookie, Club or Pro, and it scores and pays MMR exactly as a race against people does.",
+      "A kart race where answering is the engine. Everyone runs the same circuit at once; every item you answer moves your kart, and the quicker you are the further you go.",
+      "<b>The grid votes for the circuit.</b> Every racer gets a vote and the most votes wins, changeable until the lights go out \u2014 nobody has to be the one who chose. The host sets the length and starts the race.",
+      "<b>Four engines.</b> The host picks what everyone will be doing: <b>Word Cross</b> (letters dealt scrambled with a clue), <b>Maths</b> (1st grade to 12th, six bands), <b>Memory</b> (a row of tiles lights up and you tap it back) or <b>Trivia</b> (a question and four answers, from any of the arena's twenty-six themes).",
+      "<b>Your level is yours alone.</b> Junior or Pro, 2nd grade or 11th \u2014 each racer sets their own, so a family can share one track. A harder level pays more MMR; it does not make you faster.",
+      "Six circuits and three lengths: <b>Sprint</b> (2 laps), <b>Grand Prix</b> (3) and <b>Endurance</b> (5). Orbital Ring runs short laps and adds two.",
+      "<b>Item boxes</b> sit on every lap. Drive over one with empty hands and you get an item \u2014 a slipstream, a comet, an oil slick, fog \u2014 and you hold one at a time. The further back you are, the better the item.",
+      "The <b>paddock chat</b> is open in the lobby and shuts when the lights go out. A race ends one minute after the winner is home.",
+    ],
+    score: [
+      "Every item carries an <b>allowance</b> \u2014 the time it ought to take. Answer inside a third of it for a full 100 metres, falling evenly to a 50 metre floor at the allowance and never below.",
+      "That is why every level can share a track: you are measured against your own clock, so being quick at your level is what moves you. A wrong answer is a spin and costs 15 metres.",
+      "Where you finish is most of the score, how quick you were is the rest, and spins cost a little. Your level multiplies it, and the whole thing is capped at 100 like every game.",
     ],
   },
   {

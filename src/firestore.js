@@ -264,7 +264,7 @@ function tokensOf(field) {
 }
 
 export const TOKEN_PRICE = 200;
-export const TOKEN_GAMES = ["crossword", "battleship", "minesweeper", "links", "casino"];
+export const TOKEN_GAMES = ["crossword", "battleship", "minesweeper", "links", "casino", "prix"];
 // The Battleship arsenal sells alongside the boosts, each at its own price.
 export const TOKEN_PRICES = Object.fromEntries([
   ...TOKEN_GAMES.map((g) => [g, TOKEN_PRICE]),

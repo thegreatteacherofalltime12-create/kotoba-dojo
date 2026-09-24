@@ -283,6 +283,9 @@ export function newBerth(board, ship, size) {
     const col = Math.floor(Math.random() * (dir === "across" ? size - ship.len + 1 : size));
     const cells = cellsFor(row, col, dir, ship.len);
     if (cells.some((x) => taken.has(x))) continue;
+    // Her own water is free, but slipping away to exactly where she already
+    // lies is not slipping away: it would spend the token for nothing.
+    if (cells.join() === (ship.cells || []).join()) continue;
     return { row, col, dir, cells };
   }
   return null;

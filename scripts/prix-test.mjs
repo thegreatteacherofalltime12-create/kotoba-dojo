@@ -599,5 +599,133 @@ console.log("\nswitching engines");
   ok("and never says which is right", !("answer" in item));
 }
 
+
+console.log("\nthe Grand Prix arsenal");
+{
+  const { ARSENALS } = await import("../src/arsenals.js");
+  const kit = ARSENALS.prix;
+  ok("eighteen tokens, each with a price and a limit", Object.keys(kit).length === 18
+    && Object.values(kit).every((t) => t.price > 0 && t.max > 0 && t.name));
+  // The claim is not about names — Slick Tyres are tyres. It is that money
+  // buys you a better car and never a gun, so a racer who arms the lot can
+  // do nothing whatever to anybody else.
+  {
+    const { room, say } = await roomOf(["a", "Ana"], ["b", "Bo"]);
+    room.g.players.a.ars = { armed: Object.fromEntries(Object.keys(kit).map((k) => [k, 1])), used: {} };
+    await say("a", { type: "PRIX_START" });
+    const B = room.g.players.b;
+    ok("not one of them touches another racer",
+      B.at === 0 && !B.holding && !B.fogUntil && !B.slowUntil && B.deflector === false && B.spins === 0);
+  }
+  ok("they are priced like the other arsenals",
+    Object.values(kit).every((t) => t.price >= 300 && t.price <= 5_000));
+}
+
+/** A room with one racer, and a named token armed n times. */
+async function fitted(armed) {
+  const { room, seats, say } = await roomOf(["a", "Ana"]);
+  await say("a", { type: "PRIX_SOLO", on: true });
+  await say("a", { type: "PRIX_AI", count: 1, level: "easy" });
+  room.g.players.a.ars = { armed: { ...armed }, used: {} };
+  await say("a", { type: "PRIX_START" });
+  return { room, seats, say, A: room.g.players.a };
+}
+
+{
+  const { room, seats, say } = await roomOf(["a", "Ana"]);
+  await say("a", { type: "ARM_TOKEN", key: "gp_nope" });
+  ok("an unknown token is refused", /No such token/.test(seats.a.last("PRIX_TOKENS").error));
+  await say("a", { type: "ARM_TOKEN", key: "gp_start" });
+  ok("holding none means arming none", /hold no more/.test(seats.a.last("PRIX_TOKENS").error));
+  room.g.players.a.ars = { armed: { gp_start: 3 }, used: {} };
+  await say("a", { type: "ARM_TOKEN", key: "gp_start" });
+  ok("three Start Boosts is the limit", /limit for one race/.test(seats.a.last("PRIX_TOKENS").error));
+  await say("a", { type: "DISARM_TOKEN", key: "gp_start" });
+  ok("an armed token can be put back", room.g.players.a.ars.armed.gp_start === 2);
+  await say("a", { type: "PRIX_SOLO", on: true });
+  await say("a", { type: "PRIX_START" });
+  await say("a", { type: "ARM_TOKEN", key: "gp_start" });
+  ok("and nothing is armed once the lights are out", /Not once the lights/.test(seats.a.last("PRIX_TOKENS").error));
+}
+{
+  const { A } = await fitted({ gp_start: 2 });
+  ok("a Start Boost is metres off the line", A.at === 400);
+  ok("and it is spent by taking it", A.ars.used.gp_start === 2);
+}
+{
+  const { A, say } = await fitted({ gp_tyres: 1 });
+  const was = A.at;
+  await say("a", { type: "PRIX_GUESS", guess: "definitely wrong" });
+  ok("Slick Tyres soften a spin", A.at === Math.max(0, was - 5) && A.spins === 1);
+}
+{
+  const { A, say, seats } = await fitted({ gp_spare: 1 });
+  await say("a", { type: "PRIX_GUESS", guess: "definitely wrong" });
+  ok("a Spare Word covers the first mistake of a lap", A.spins === 0 && A.at === 0);
+  ok("and says so", seats.a.last("PRIX_RESULT").spare === true);
+  await say("a", { type: "PRIX_GUESS", guess: "wrong again" });
+  ok("but only the first", A.spins === 1);
+}
+{
+  const { A, say } = await fitted({ gp_warmup: 1 });
+  A.item.dealtAt = Date.now() - 60_000;      // slow enough for the floor
+  await say("a", { type: "PRIX_GUESS", guess: A.item.answer });
+  ok("a Warm-Up Lap pays full whatever the clock said", A.at === FULL_BOOST && A.warmup === 2);
+}
+{
+  const { A, say } = await fitted({ gp_tow: 1 });
+  A.item.dealtAt = Date.now();
+  await say("a", { type: "PRIX_GUESS", guess: A.item.answer });
+  ok("a Tow Rope adds to the answer", A.at === FULL_BOOST + 20 && A.tow === 4);
+}
+{
+  const { A } = await fitted({ gp_fuel: 1 });
+  const plain = engineById("words").deal(A.klass, { deck: [] }).allowance;
+  ok("Long Fuel buys time on every item", A.item.allowance > plain);
+}
+{
+  const { A } = await fitted({ gp_slip: 1, gp_nitro: 1, gp_twin: 1 });
+  ok("two canisters and a Twin Box fill both hands",
+    [A.holding, A.holding2].sort().join() === "nitro,slipstream");
+}
+{
+  const { A } = await fitted({ gp_seal: 1 });
+  ok("a Scrutineer's Seal is a Deflector at the lights", A.deflector === true);
+}
+{
+  const { room, A, say } = await fitted({ gp_guards: 1 });
+  room.g.slicks = [{ at: 50, by: "someone" }];
+  A.at = 0; A.item.dealtAt = Date.now();
+  await say("a", { type: "PRIX_GUESS", guess: A.item.answer });
+  ok("Mudguards shrug the oil off", A.at === FULL_BOOST && room.g.slicks.length === 0);
+}
+{
+  const { A, say, seats } = await fitted({ gp_spotter: 1 });
+  ok("a Spotter carries three skips", A.skips === 3);
+  const had = A.item.answer;
+  await say("a", { type: "PRIX_SKIP" });
+  ok("and does not wait for the allowance", A.item.answer !== had && A.skips === 2);
+}
+{
+  const { A } = await fitted({ gp_polish: 1, gp_points: 1 });
+  ok("Podium Polish and a Points Finish are fitted", A.polish === 8 && A.pointsFinish === true);
+}
+{
+  // A race nobody finished still scores, because of the Points Finish.
+  const { room, A } = await fitted({ gp_points: 1 });
+  A.at = 10;
+  await room.finish();
+  const card = room.g.players.a;
+  ok("a Points Finish is scored as a finish", card.score > 30);
+}
+{
+  const { room, A, seats } = await fitted({ gp_start: 1 });
+  await room.finish();
+  const over = seats.a.last("PRIX_OVER");
+  const mine = over.results.find((r) => r.uid === "a");
+  ok("what was armed is on the card as spent", mine.spent.gp_start === 1);
+  ok("and nothing stays armed for the next race", Object.keys(room.g.players.a.ars.armed).length === 0);
+}
+
 console.log(bad ? `\n${bad} failing\n` : "\nall grand prix checks passed\n");
 process.exit(bad ? 1 : 0);

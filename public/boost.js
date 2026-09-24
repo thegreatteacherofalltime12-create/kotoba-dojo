@@ -16,6 +16,7 @@ export const TOKEN_ITEMS = [
   { game: "minesweeper", name: "Minesweeper boost", icon: "\u{1F4A3}", where: "Minesweeper", blurb: "1.5× MMR on one Minesweeper board" },
   { game: "links", name: "Golf boost", icon: "⛳", where: "Multiverse Golf", blurb: "1.5× MMR on one round of Multiverse Golf" },
   { game: "casino", name: "Casino boost", icon: "\u{1F3B0}", where: "the Casino", blurb: "1.5× on every casino win for a day" },
+  { game: "prix", name: "Grand Prix boost", icon: "\u{1F3CE}\uFE0F", where: "the Grand Prix", blurb: "1.5× MMR on one Multiverse Grand Prix" },
 ];
 
 export const tokenItem = (game) => TOKEN_ITEMS.find((t) => t.game === game) || TOKEN_ITEMS[0];
@@ -226,7 +227,50 @@ export const CASINO_ARSENAL_ITEMS = [
   { key: "cs_deposit", name: "Night Deposit", icon: "\u{1F3E6}", price: 2000, max: 2, act: "deposit",
     blurb: "Banks what is on your table without ending your session. Two a session." },
 ];
+// The Grand Prix arsenal. Mirrors src/arsenals.js. Nothing here is a
+// weapon: the free items in the boxes are the weapons, and money should
+// never buy one.
+export const PRIX_ARSENAL_ITEMS = [
+  { key: "gp_start", name: "Start Boost", icon: "\u{1F6A6}", price: 600, max: 3,
+    blurb: "Two hundred metres off the line, the moment the lights go out." },
+  { key: "gp_tow", name: "Tow Rope", icon: "\u{1FA9D}", price: 900, max: 3,
+    blurb: "Your next five answers each pay twenty metres more." },
+  { key: "gp_slip", name: "Slipstream Canister", icon: "\u{1F4A8}", price: 1200, max: 2,
+    blurb: "Start the race already holding a Slipstream." },
+  { key: "gp_nitro", name: "Nitro Canister", icon: "\u26A1", price: 1500, max: 2,
+    blurb: "Start the race already holding a Nitro Word." },
+  { key: "gp_fuel", name: "Long Fuel", icon: "\u26FD", price: 1800, max: 2,
+    blurb: "Every allowance is a fifth longer, all race." },
+  { key: "gp_warmup", name: "Warm-Up Lap", icon: "\u{1F321}\uFE0F", price: 700, max: 3,
+    blurb: "Your first three answers pay a full boost whatever the clock said." },
+  { key: "gp_tyres", name: "Slick Tyres", icon: "\u{1F6DE}", price: 700, max: 4,
+    blurb: "A spin costs five metres instead of fifteen." },
+  { key: "gp_seal", name: "Scrutineer's Seal", icon: "\u{1F6E1}\uFE0F", price: 1100, max: 3,
+    blurb: "Start the race with a Deflector already up." },
+  { key: "gp_guards", name: "Mudguards", icon: "\u{1F6E2}\uFE0F", price: 800, max: 3,
+    blurb: "Oil slicks do nothing to you." },
+  { key: "gp_visor", name: "Sun Visor", icon: "\u{1F576}\uFE0F", price: 1000, max: 3,
+    blurb: "Fog and flares last half as long on you." },
+  { key: "gp_radio", name: "Pit Radio", icon: "\u{1F4FB}", price: 600, max: 4,
+    blurb: "A clue that would be withheld is never withheld from you." },
+  { key: "gp_spotter", name: "Spotter", icon: "\u{1F52D}", price: 900, max: 3,
+    blurb: "Three skips that need no waiting." },
+  { key: "gp_spare", name: "Spare Word", icon: "\u{1F9F0}", price: 500, max: 5,
+    blurb: "Your first wrong answer of each lap costs nothing." },
+  { key: "gp_tele", name: "Telemetry", icon: "\u{1F4E1}", price: 1300, max: 2,
+    blurb: "You can see what the racer ahead is holding." },
+  { key: "gp_twin", name: "Twin Box", icon: "\u{1F381}", price: 2000, max: 2,
+    blurb: "Hold two items at once instead of one." },
+  { key: "gp_magnet", name: "Box Magnet", icon: "\u{1F9F2}", price: 1400, max: 3,
+    blurb: "Three boxes are collected even when your hands are full." },
+  { key: "gp_polish", name: "Podium Polish", icon: "\u{1F3C6}", price: 2500, max: 2,
+    blurb: "Eight points on the race score when it is counted." },
+  { key: "gp_points", name: "Points Finish", icon: "\u{1F3C1}", price: 3000, max: 1,
+    blurb: "A race you do not finish is scored as though you had." },
+];
+
 export const GAME_ARSENAL_ITEMS = {
+  prix: PRIX_ARSENAL_ITEMS,
   casino: CASINO_ARSENAL_ITEMS,
   crossword: WORD_ARSENAL_ITEMS, battleship: ARSENAL_ITEMS, minesweeper: MINE_ARSENAL_ITEMS, links: LINKS_ARSENAL_ITEMS };
 

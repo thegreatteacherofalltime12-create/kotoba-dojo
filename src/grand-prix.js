@@ -20,6 +20,8 @@ import {
   AI_LEVELS, AI_MAX, AI_NAMES, AI_ALLOWANCE, aiPace, aiShouldFire,
 } from "./prix.js";
 import { ENGINES, engineById, engineList, defaultLevel, MEM_MAX } from "./prix-engines.js";
+import { ARSENALS } from "./arsenals.js";
+import { tokensReply, heldTokens } from "./boost.js";
 import { recordMatch, readRatings } from "./firestore.js";
 import { moderate } from "./moderation.js";
 import { strikePlayer } from "./firestore.js";
@@ -160,7 +162,12 @@ export class GrandPrix {
       at: 0, lap: 1, item: null, deck: [], seen: 0,
       // What is in your hands, and what somebody put on you. `item` is the
       // word you are answering; `holding` is the item box you picked up.
-      holding: null, deflector: false, fogUntil: 0, slowUntil: 0, boxes: 0, fired: 0,
+      holding: null, holding2: null, deflector: false, fogUntil: 0, slowUntil: 0, boxes: 0, fired: 0,
+      ars: { armed: {}, used: {} },
+      // What the arsenal turned into for this race.
+      fuel: false, warmup: 0, tyres: false, guards: false, visor: false, radio: false,
+      skips: 0, spare: false, spareLap: 0, tele: false, twin: false, magnet: 0,
+      polish: 0, pointsFinish: false, tow: 0,
       solved: 0, spins: 0, ratioSum: 0,
       done: false, finishedAt: null, score: 0, mmrAtStart: 0, seed: null,
     };
@@ -193,7 +200,7 @@ export class GrandPrix {
         klass: p.klass, at: Math.round(p.at), lap: p.lap,
         solved: p.solved, spins: p.spins,
         ai: !!p.ai, aiLevel: p.aiLevel || null,
-        holding: p.holding || null, deflector: !!p.deflector,
+        holding: p.holding || null, holding2: p.holding2 || null, deflector: !!p.deflector,
         fogged: (p.fogUntil || 0) > Date.now(), slowed: (p.slowUntil || 0) > Date.now(),
         place: p.watching ? null : order.indexOf(p.uid) + 1,
         finishedAt: p.finishedAt,
@@ -251,6 +258,8 @@ export class GrandPrix {
     const hideFor = Math.max(engine.hideFor(it, it.dealtAt), Math.max(0, (p.fogUntil || 0) - Date.now()));
     return {
       ...engine.face(it, hideFor),
+      // Telemetry: you can see what the car in front is carrying.
+      ahead: p.tele ? (this.ahead(p)?.holding || null) : undefined,
       engine: engine.id,
       kind: engine.kind,
       allowanceMs: it.allowance,
@@ -263,10 +272,12 @@ export class GrandPrix {
   /** The next item for a racer, from whichever engine is running. */
   deal(p) {
     const engine = engineById(this.g.engine);
-    p.item = {
-      ...engine.deal(p.klass, p, Math.random, this.g.theme),
-      dealtAt: Date.now(),
-    };
+    const item = engine.deal(p.klass, p, Math.random, this.g.theme);
+    // Long Fuel buys time on every item; Pit Radio means a clue that would
+    // be withheld never is.
+    if (p.fuel) item.allowance = Math.round(item.allowance * 1.2);
+    if (p.radio) item.hideClueMs = 0;
+    p.item = { ...item, dealtAt: Date.now() };
     return p.item;
   }
 
@@ -285,6 +296,10 @@ export class GrandPrix {
         case "PRIX_VOTE": return await this.vote(ws, who.uid, msg);
         case "PRIX_AI": return await this.setAi(ws, who.uid, msg);
         case "PRIX_ENGINE": return await this.setEngine(ws, who.uid, msg);
+        case "TOKENS":
+        case "APPLY_TOKEN": return await this.sendTokens(ws, who.uid, msg.type === "APPLY_TOKEN");
+        case "ARM_TOKEN": return await this.arm(ws, who.uid, msg);
+        case "DISARM_TOKEN": return await this.disarm(ws, who.uid, msg);
         case "PRIX_THEME": return await this.setTheme(ws, who.uid, msg);
         case "PRIX_SAY": return await this.say(ws, who.uid, msg);
         case "PRIX_LENGTH": return await this.setLength(ws, who.uid, msg);
@@ -441,6 +456,12 @@ export class GrandPrix {
       p.done = false; p.finishedAt = null; p.score = 0;
       p.mmrAtStart = ratings[p.uid] || 0;
       p.seed = seeded.indexOf(p.uid) + 1 || null;
+      // Last race's fit-out goes before this one's is bolted on.
+      p.fuel = false; p.warmup = 0; p.tyres = false; p.guards = false; p.visor = false;
+      p.radio = false; p.skips = 0; p.spare = false; p.spareLap = 0; p.tele = false;
+      p.twin = false; p.magnet = 0; p.polish = 0; p.pointsFinish = false; p.tow = 0;
+      p.holding2 = null;
+      if (racing && !p.ai) this.fitCar(p);
     }
 
     // Last race's computers go; the ones asked for now come.
@@ -594,15 +615,22 @@ export class GrandPrix {
     }
 
     if (verdict !== "right") {
-      p.spins += 1;
-      p.at = Math.max(0, p.at - SPIN_COST);
+      // A Spare Word covers the first mistake of each lap, once per lap.
+      const covered = p.spare && p.spareLap !== p.lap;
+      if (covered) p.spareLap = p.lap;
+      else p.spins += 1;
+      p.at = Math.max(0, p.at - (covered ? 0 : p.tyres ? 5 : SPIN_COST));
       // Some engines make you look again: the words shuffle their letters,
       // and a memory sequence shortens so nobody is stuck on one they
       // cannot hold in their head.
       engine.onWrong(it);
       if (engine.id === "memory") { p.memLen = Math.max(3, (p.memLen || 4) - 1); this.deal(p); }
       await this.persist();
-      this.send(ws, "PRIX_RESULT", { ok: false, delta: -SPIN_COST, at: Math.round(p.at), lap: p.lap });
+      this.send(ws, "PRIX_RESULT", {
+        ok: false, spare: covered,
+        delta: covered ? 0 : -(p.tyres ? 5 : SPIN_COST),
+        at: Math.round(p.at), lap: p.lap,
+      });
       this.send(ws, "PRIX_ITEM", this.itemView(p));
       this.pushState();
       return;
@@ -614,7 +642,12 @@ export class GrandPrix {
     if (engine.id === "memory") p.memLen = Math.min(MEM_MAX, (p.memLen || 4) + 1);
     p.solved += 1;
     p.ratioSum += Math.min(1, took / it.allowance);
-    const moved = this.advance(ws, p, distanceFor(took, it.allowance));
+    // A Warm-Up Lap pays a full boost for the first three whatever the
+    // clock said; a Tow Rope adds to every answer while it lasts.
+    let metres = p.warmup > 0 ? distanceFor(0, it.allowance) : distanceFor(took, it.allowance);
+    if (p.warmup > 0) p.warmup -= 1;
+    if (p.tow > 0) { metres += 20; p.tow -= 1; }
+    const moved = this.advance(ws, p, metres);
 
     this.send(ws, "PRIX_RESULT", {
       ok: true, delta: moved.gained, at: Math.round(p.at), lap: p.lap,
@@ -650,7 +683,10 @@ export class GrandPrix {
     const hit = lying.find((sl) => sl.by !== p.uid && sl.at > from && sl.at <= p.at);
     if (hit) {
       this.g.slicks = lying.filter((sl) => sl !== hit);
-      if (p.deflector) {
+      if (p.guards) {
+        // Mudguards: the oil goes under the car and nothing else.
+        this.send(ws, "PRIX_HIT", { item: "slick", shrugged: true });
+      } else if (p.deflector) {
         p.deflector = false;
         this.send(ws, "PRIX_HIT", { item: "slick", deflected: true });
       } else {
@@ -663,12 +699,21 @@ export class GrandPrix {
     // A box, if your hands are empty. Holding one means the next goes by.
     let box = null;
     const crossed = boxesBetween(from, p.at, this.g.marks || []);
-    if (crossed.length && !p.holding) {
-      const field = Object.values(this.g.players).filter((x) => !x.watching);
-      const place = standings(field).findIndex((x) => x.uid === p.uid) + 1;
-      p.holding = rollItem(place || 1, field.length);
-      p.boxes += 1;
-      box = p.holding;
+    if (crossed.length) {
+      const room = !p.holding || (p.twin && !p.holding2);
+      // A Box Magnet takes one even when both hands are full: the item it
+      // would have replaced is the one you keep.
+      const magnet = !room && p.magnet > 0;
+      if (room || magnet) {
+        const field = Object.values(this.g.players).filter((x) => !x.watching);
+        const place = standings(field).findIndex((x) => x.uid === p.uid) + 1;
+        const got = rollItem(place || 1, field.length);
+        if (!p.holding) p.holding = got;
+        else if (p.twin && !p.holding2) p.holding2 = got;
+        else { p.holding2 = got; p.magnet -= 1; }
+        p.boxes += 1;
+        box = got;
+      }
     }
 
     const lapM = circuitById(this.g.circuit).lapM;
@@ -700,6 +745,8 @@ export class GrandPrix {
   /** An item landing on somebody. A deflector eats it and says so. */
   land(target, what, extra = {}) {
     const ws = this.socketFor(target.uid);
+    // A Sun Visor does not stop fog or a flare, it shortens them.
+    if (target.visor && (what === "fog" || what === "flare" || what === "scrambler")) extra = { ...extra, ms: Math.round((extra.ms || 0) / 2) };
     if (target.deflector) {
       target.deflector = false;
       if (ws) this.send(ws, "PRIX_HIT", { item: what, deflected: true });
@@ -722,6 +769,96 @@ export class GrandPrix {
     await this.fire(p, p.holding);
   }
 
+  arsOf(p) { p.ars = p.ars || { armed: {}, used: {} }; return p.ars; }
+
+  arsenalView(p) {
+    const a = this.arsOf(p);
+    return {
+      armed: { ...a.armed }, used: { ...a.used },
+      locked: this.g.phase === "RACING",
+    };
+  }
+
+  async sendTokens(ws, uid, apply, error = null) {
+    this.g.applied = this.g.applied || {};
+    const reply = await tokensReply(this.env, uid, "prix", {
+      applied: this.g.applied, over: this.g.phase === "RESULTS", apply,
+    });
+    if (reply.changed) await this.persist();
+    const p = this.g.players[uid];
+    this.send(ws, "PRIX_TOKENS", { ...reply, error: error || reply.error, arsenal: p ? this.arsenalView(p) : null });
+  }
+
+  /**
+   * Arming one. Everything here takes hold at the lights, so nothing can be
+   * armed once a race is running.
+   */
+  async arm(ws, uid, msg) {
+    const p = this.g.players[uid];
+    if (!p) return;
+    if (this.g.phase === "RACING") return this.sendTokens(ws, uid, false, "Not once the lights are out.");
+    const key = String(msg.key || "");
+    const spec = ARSENALS.prix[key];
+    if (!spec) return this.sendTokens(ws, uid, false, "No such token.");
+    const a = this.arsOf(p);
+    if (spec.max && (a.armed[key] || 0) >= spec.max)
+      return this.sendTokens(ws, uid, false, `${spec.max} ${spec.name} is the limit for one race.`);
+    const held = (await heldTokens(this.env, uid))[key] || 0;
+    if (held <= (a.armed[key] || 0))
+      return this.sendTokens(ws, uid, false, `You hold no more ${spec.name} tokens. The Token shop sells them.`);
+    a.armed[key] = (a.armed[key] || 0) + 1;
+    await this.persist();
+    await this.sendTokens(ws, uid, false);
+    this.pushState();
+  }
+
+  async disarm(ws, uid, msg) {
+    const p = this.g.players[uid];
+    if (!p) return;
+    if (this.g.phase === "RACING") return this.sendTokens(ws, uid, false, "Not once the lights are out.");
+    const a = this.arsOf(p);
+    const key = String(msg.key || "");
+    if (!a.armed[key]) return this.sendTokens(ws, uid, false, "That is not armed.");
+    a.armed[key] -= 1;
+    if (!a.armed[key]) delete a.armed[key];
+    await this.persist();
+    await this.sendTokens(ws, uid, false);
+    this.pushState();
+  }
+
+  /**
+   * The lights, for one racer's arsenal. Every token bites here, which is
+   * why every token armed is a token spent.
+   */
+  fitCar(p) {
+    const a = this.arsOf(p);
+    a.used = { ...a.armed };
+    const n = (k) => a.armed[k] || 0;
+
+    if (n("gp_fuel")) p.fuel = true;
+    if (n("gp_tyres")) p.tyres = true;
+    if (n("gp_guards")) p.guards = true;
+    if (n("gp_visor")) p.visor = true;
+    if (n("gp_radio")) p.radio = true;
+    if (n("gp_spare")) p.spare = true;
+    if (n("gp_tele")) p.tele = true;
+    if (n("gp_twin")) p.twin = true;
+    if (n("gp_points")) p.pointsFinish = true;
+    if (n("gp_seal")) p.deflector = true;
+
+    p.warmup = n("gp_warmup") ? 3 : 0;
+    p.skips = n("gp_spotter") * 3;
+    p.magnet = n("gp_magnet") * 3;
+    p.polish = n("gp_polish") * 8;
+    p.tow = n("gp_tow") * 5;
+
+    // Two canisters and a Twin Box means both are in your hands at the off.
+    if (n("gp_slip")) p.holding = "slipstream";
+    if (n("gp_nitro")) { if (p.holding && p.twin) p.holding2 = "nitro"; else p.holding = "nitro"; }
+    // The start boost is distance, not an item, so it lands before the flag.
+    if (n("gp_start")) p.at += 200 * n("gp_start");
+  }
+
   /** Whether this racer may fire that. The flare belongs to the back. */
   mayFire(p, what) {
     if (what !== "flare") return true;
@@ -736,7 +873,9 @@ export class GrandPrix {
    */
   async fire(p, what) {
     const ws = this.socketFor(p.uid);
-    p.holding = null;
+    // Twin Box: whatever was in the other hand moves across.
+    p.holding = p.holding2 || null;
+    p.holding2 = null;
     p.fired += 1;
     let note = "";
 
@@ -787,7 +926,7 @@ export class GrandPrix {
         if (!target) { note = "Nobody ahead to scramble."; break; }
         if (this.land(target, "scrambler", { ms: SCRAMBLE_FOG_MS })) {
           if (target.item) engineById(this.g.engine).onWrong(target.item);
-          target.fogUntil = Date.now() + SCRAMBLE_FOG_MS;
+          target.fogUntil = Date.now() + (target.visor ? SCRAMBLE_FOG_MS / 2 : SCRAMBLE_FOG_MS);
           const tws = this.socketFor(target.uid);
           if (tws) this.send(tws, "PRIX_ITEM", this.itemView(target));
           note = `Scrambled ${target.name}`;
@@ -799,7 +938,7 @@ export class GrandPrix {
         let hit = 0;
         for (const t of targets) {
           if (!this.land(t, "fog", { ms: FOG_MS })) continue;
-          t.fogUntil = Math.max(t.fogUntil || 0, Date.now() + FOG_MS);
+          t.fogUntil = Math.max(t.fogUntil || 0, Date.now() + (t.visor ? FOG_MS / 2 : FOG_MS));
           const tws = this.socketFor(t.uid);
           if (tws) this.send(tws, "PRIX_ITEM", this.itemView(t));
           hit += 1;
@@ -812,7 +951,7 @@ export class GrandPrix {
         let hit = 0;
         for (const t of targets) {
           if (!this.land(t, "flare", { ms: FLARE_MS })) continue;
-          t.slowUntil = Math.max(t.slowUntil || 0, Date.now() + FLARE_MS);
+          t.slowUntil = Math.max(t.slowUntil || 0, Date.now() + (t.visor ? FLARE_MS / 2 : FLARE_MS));
           hit += 1;
         }
         note = hit ? `Flare over ${hit} ahead` : "Nobody ahead to blind.";
@@ -833,8 +972,10 @@ export class GrandPrix {
     const p = this.racer(ws, uid);
     if (!p) return;
     const it = p.item;
-    if (Date.now() - it.dealtAt < it.allowance)
+    const spotted = p.skips > 0;
+    if (!spotted && Date.now() - it.dealtAt < it.allowance)
       return this.send(ws, "PRIX_ERROR", { message: "Not until the allowance is gone." });
+    if (spotted && Date.now() - it.dealtAt < it.allowance) p.skips -= 1;
     p.ratioSum += 1;
     this.deal(p);
     await this.persist();
@@ -882,10 +1023,11 @@ export class GrandPrix {
       const placement = i + 1;
       const answered = p.solved + p.spins;
       const avgRatio = p.solved > 0 ? p.ratioSum / Math.max(1, p.solved) : 1;
-      const finished = p.at >= total;
-      p.score = Math.round(raceScore({
+      // A Points Finish is scored as though the flag had been taken.
+      const finished = p.at >= total || !!p.pointsFinish;
+      p.score = Math.round((raceScore({
         placement, field: field.length, avgRatio, spins: p.spins, finished,
-      }) * levelMult(this.g.engine, p.klass));
+      }) + (p.polish || 0)) * levelMult(this.g.engine, p.klass));
       p.score = Math.min(100, p.score);
 
       const gain = sessionGain({
@@ -903,6 +1045,7 @@ export class GrandPrix {
         elapsedMs: p.finishedAt, metres: Math.round(p.at), laps: p.lap,
         solved: p.solved, spins: p.spins, klass: p.klass, answered,
         boxes: p.boxes || 0, fired: p.fired || 0,
+        spent: p.ars?.used && Object.keys(p.ars.used).length ? { ...p.ars.used } : undefined,
         mmrBefore: p.mmrAtStart || 0, gain: gain.total, boost: !!p.boost,
         breakdown: { base: gain.base, challenge: gain.challenge, completion: gain.completion, seed: gain.seed },
         mmrAfter: after, belt: beltFor(after).name,
@@ -911,6 +1054,9 @@ export class GrandPrix {
     });
 
     this.g.applied = {};
+    // Every token bit at the lights, so every token armed is gone. Nothing
+    // is left armed for a race that has not been set up yet.
+    for (const p of field) { const a = this.arsOf(p); a.armed = {}; a.used = {}; }
     const bounty = await applyBounty(this.env, this.state, {
       mode, durationMs: Date.now() - (this.g.startedAt || Date.now() - 60_000), results,
     });

@@ -4,6 +4,8 @@
 // grid, the word in your hands and the clock it is measured against, and
 // sends guesses. Nothing here knows an answer before the room says so.
 
+import { applyTokenTab, PRIX_ARSENAL_ITEMS } from "./boost.js";
+
 const $ = (id) => document.getElementById(id);
 const el = (tag, cls, text) => {
   const n = document.createElement(tag);
@@ -17,6 +19,11 @@ export const P = {
   game: null, item: null, tick: null, beat: null,
   onLeave: null, clockSkew: 0,
 };
+
+let boostTab = null;
+const tokenTab = () => (boostTab ||= applyTokenTab({
+  game: "prix", send, button: $("btn-prix-boost"), label: "race", arsenal: PRIX_ARSENAL_ITEMS,
+}));
 
 export async function enterPrix(code, getToken, onLeave) {
   P.code = code;
@@ -66,6 +73,10 @@ function handle(msg) {
     case "PRIX_WELCOME":
       P.you = msg.you;
       P.isHost = !!msg.isHost;
+      break;
+    case "PRIX_TOKENS":
+      tokenTab().receive(msg);
+      if (msg.arsenal) tokenTab().arsenalState(msg.arsenal);
       break;
     case "PRIX_STATE":
       P.game = msg.game;
@@ -288,6 +299,7 @@ function drawHand() {
   if (!g) return;
   const me = g.players.find((p) => p.uid === P.you);
   const held = me?.holding;
+  const spare = me?.holding2;
   const marks = [];
   if (me?.deflector) marks.push("🛡️ Deflector up");
   if (me?.fogged) marks.push("🌫️ Fogged");
@@ -304,6 +316,7 @@ function drawHand() {
     b.onclick = () => send({ type: "PRIX_USE" });
     host.append(b);
   }
+  if (spare) marks.unshift(`🎁 ${itemName(spare)} in the other hand`);
   if (marks.length) host.append(el("p", "prix-marks", marks.join("   ")));
 }
 

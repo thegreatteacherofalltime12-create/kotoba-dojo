@@ -3488,12 +3488,21 @@ a.dtab { text-decoration: none; display: inline-block; }
  */
 @media (min-width: 860px) {
   .prix-layout { align-items: stretch; min-height: calc(100vh - 8.5rem); }
-  .prix-main { grid-template-rows: auto 1fr; align-content: stretch; }
-  #prix-race { display: grid; grid-template-rows: auto auto 1fr; }
-  #prix-race .prix-item { display: grid; grid-template-rows: auto 1fr auto auto auto; align-content: start; gap: .7rem; }
-  #prix-race .prix-letters { display: grid; place-content: center; min-height: 6rem; }
-  .prix-side > .panel { height: 100%; display: grid; grid-template-rows: auto 1fr auto; }
-  #prix-chat { min-height: 0; }
+  /* Flex, not grid rows: the lobby, the race and the results panels are
+     hidden by attribute, so a row template counts slots that are not there
+     and the one visible panel lands in an auto row and never grows. */
+  .prix-main { display: flex; flex-direction: column; }
+  #prix-lobby, #prix-race, #prix-results { flex: 1 1 auto; }
+  #prix-race { display: flex; flex-direction: column; }
+  #prix-race .prix-item { flex: 1 1 auto; display: flex; flex-direction: column; gap: .7rem; }
+  /* Whichever face this engine is showing is the one that takes the slack,
+     so the thing you are reading sits in the middle of the panel rather than
+     clinging to the top of an empty one. */
+  #prix-race .prix-letters:not([hidden]) { flex: 1 1 auto; align-content: center; justify-content: center; min-height: 6rem; }
+  #prix-race .prix-tiles:not([hidden]) { flex: 1 1 auto; align-content: center; }
+  #prix-race .prix-choices:not([hidden]) { flex: 1 1 auto; align-content: center; }
+  .prix-side > .panel { height: 100%; display: flex; flex-direction: column; }
+  #prix-chat { flex: 1 1 auto; min-height: 0; }
   /* Room to read: the sum, the letters and the tiles all grow with it. */
   .psum { font-size: 2.9rem; }
   .ptile { font-size: 1.5rem; }
@@ -3663,19 +3672,19 @@ a.dtab { text-decoration: none; display: inline-block; }
 .ptile-pad:disabled { cursor: default; }
 
 .ptile-pad.t0 {            /* CIRCLE - gold */
-  --pad: #C1941F; --pad-lit: #FFF6D0;
+  --pad: #C68A08; --pad-lit: #FFF0C4;
   --glyph: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3C/svg%3E");
 }
 .ptile-pad.t1 {            /* HEART - green */
-  --pad: #55932F; --pad-lit: #DAF7B4;
+  --pad: #1F8732; --pad-lit: #CFF0D4;
   --glyph: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z'/%3E%3C/svg%3E");
 }
 .ptile-pad.t2 {            /* STAR - blue */
-  --pad: #2F6FD0; --pad-lit: #D2E6FF;
+  --pad: #1B8DF9; --pad-lit: #D2E9FF;
   --glyph: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z'/%3E%3C/svg%3E");
 }
 .ptile-pad.t3 {            /* TRIANGLE - pink */
-  --pad: #D24B92; --pad-lit: #FFD6EA;
+  --pad: #E24DC4; --pad-lit: #FBDAF4;
   --glyph: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2.5L22.5 20.5H1.5z'/%3E%3C/svg%3E");
 }
 .ptile-pad.t4 {            /* MOON - violet */

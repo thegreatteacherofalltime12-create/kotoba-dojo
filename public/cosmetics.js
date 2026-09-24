@@ -266,7 +266,10 @@ export const assistedRound = (r) =>
 
 export function featsFor(match, r) {
   const game = match.game || "crossword";
-  const field = match.results.length;
+  // A room that fields computer opponents reports how many actually lined
+  // up, because its results rows only carry the people. Without it, beating
+  // five drivers would count as having raced alone.
+  const field = Number(match.field) || match.results.length;
   const done = DONE.has(r.status);
   const won = field > 1 && r.placement === 1;
   const out = { played_any: 1, [`played_${game}`]: 1 };
@@ -368,6 +371,7 @@ export const FEAT_TEXT = {
   fast_minesweeper: "boards cleared in under a minute", solo_minesweeper: "solo clears",
   aces_links: "holes in one", holes_links: "holes played", bigbank: "cash-outs of $500 or more",
   played_crossword: "Word-Cross", played_battleship: "Battleship", played_minesweeper: "Minesweeper", played_links: "Golf",
+  won_prix: "Grand Prix wins", played_prix: "races started", solo_prix: "solo races finished",
   casino_wins: "casino wins worth MMR",
 };
 
@@ -429,19 +433,43 @@ export const KARTS = [
   { id: "loco", name: "Locomotive", ico: "\u{1F682}" },
   { id: "tram", name: "Tram", ico: "\u{1F68B}" },
   { id: "chopper", name: "Helicopter", ico: "\u{1F681}" },
-  { id: "saucer", name: "Flying Saucer", ico: "\u{1F6F8}" },
-  { id: "rocket", name: "Rocket", ico: "\u{1F680}" },
   { id: "sailboat", name: "Sailboat", ico: "\u26F5" },
-  { id: "horse", name: "Racehorse", ico: "\u{1F40E}" },
-  { id: "dino", name: "Tyrannosaur", ico: "\u{1F996}" },
   { id: "duck", name: "Duck", ico: "\u{1F986}" },
-  { id: "snail", name: "Snail", ico: "\u{1F40C}" },
-  { id: "tortoise", name: "Tortoise", ico: "\u{1F422}" },
-  { id: "unicorn", name: "Unicorn", ico: "\u{1F984}" },
+  // Earned on the track. A race against computer drivers counts: the arena
+  // already pays it MMR like any other, so it would be strange to call it a
+  // win for the belt and not for the kart.
+  { id: "flag", name: "Chequered", ico: "\u{1F3C1}", need: { feat: "won_prix", count: 1 } },
+  { id: "rocket", name: "Rocket", ico: "\u{1F680}", need: { feat: "won_prix", count: 3 } },
+  { id: "dino", name: "Tyrannosaur", ico: "\u{1F996}", need: { feat: "won_prix", count: 5 } },
+  { id: "unicorn", name: "Unicorn", ico: "\u{1F984}", need: { feat: "won_prix", count: 10 } },
+  { id: "saucer", name: "Flying Saucer", ico: "\u{1F6F8}", need: { feat: "won_prix", count: 25 } },
+  // For turning up and for going round alone, so a player with nobody to
+  // race still has something to chase.
+  { id: "snail", name: "Snail", ico: "\u{1F40C}", need: { feat: "played_prix", count: 10 } },
+  { id: "horse", name: "Racehorse", ico: "\u{1F40E}", need: { feat: "solo_prix", count: 10 } },
+  { id: "tortoise", name: "Tortoise", ico: "\u{1F422}", need: { feat: "solo_prix", count: 25 } },
 ];
 export const DEFAULT_KART = "f1";
 export const kartById = (id) => KARTS.find((k) => k.id === id) || KARTS[0];
 export const knownKart = (id) => KARTS.some((k) => k.id === id);
+
+/**
+ * Whether a kart is this player's to drive. Most are free; the ones with a
+ * need are won on the track, counted from the same feats the banners use.
+ */
+export const kartEarned = (id, standing) => {
+  const k = KARTS.find((x) => x.id === id);
+  if (!k) return false;
+  if (!k.need) return true;
+  return (standing?.feats?.[k.need.feat] || 0) >= k.need.count;
+};
+
+/** How a locked kart reads, with how far along the player is. */
+export function kartNeedText(k, standing) {
+  if (!k?.need) return "Free";
+  const have = standing?.feats?.[k.need.feat] || 0;
+  return `${Math.min(have, k.need.count).toLocaleString()} / ${k.need.count.toLocaleString()} ${FEAT_TEXT[k.need.feat] || k.need.feat}`;
+}
 
 export function allowed(cos, standing, giIds) {
   const out = {};
@@ -449,8 +477,7 @@ export function allowed(cos, standing, giIds) {
   out.frame = frameEarned(cos?.frame, standing) ? frameById(cos?.frame).id : "none";
   out.title = titleEarned(cos?.title, standing) ? cos.title : "";
   out.banner = bannerEarned(cos?.banner, standing) ? cos.banner : "";
-  // Every kart is free, so the only question is whether it exists.
-  out.kart = knownKart(cos?.kart) ? cos.kart : DEFAULT_KART;
+  out.kart = kartEarned(cos?.kart, standing) ? cos.kart : DEFAULT_KART;
   out.open = cos?.open === true || cos?.open === "1";
   return out;
 }

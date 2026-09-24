@@ -3578,6 +3578,11 @@ a.dtab { text-decoration: none; display: inline-block; }
 /* The other three engines' faces. */
 .psum { font-family: var(--display); font-size: 2rem; letter-spacing: .04em; color: #EAF2FF; }
 .cos-preview-kart { font-size: .78rem; opacity: .85; margin-top: .15rem; }
+.cos-cell.locked { opacity: .32; filter: grayscale(1); cursor: not-allowed; }
+.cos-kart-needs { display: grid; gap: .25rem; margin-top: .5rem; font-size: .76rem; }
+.cos-kart-needs div { display: flex; gap: .4rem; align-items: baseline; opacity: .75; }
+.cos-kart-needs div.is-done { opacity: 1; color: #86efac; }
+.cos-kart-needs span { margin-left: auto; opacity: .8; }
 .pl-hand { min-width: 3.2rem; text-align: right; font-size: .85rem; letter-spacing: .05em; opacity: .9; }
 .prix-fire.is-stuck { opacity: .55; cursor: not-allowed; }
 .prix-drop { margin-top: .4rem; }

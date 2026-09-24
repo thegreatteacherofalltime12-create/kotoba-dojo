@@ -14,7 +14,7 @@ import {
   AVATARS, LEAGUES, FRAMES, FRAME_TIERS, TITLES, GAME_NAMES, BANNERS,
   avatarHtml, framedHtml, titleById, meets, needText,
   bannerById, bannerEarned, bannerNeedText, bannerHtml, achievementsFor, lifetime,
-  KARTS, DEFAULT_KART, kartById,
+  KARTS, DEFAULT_KART, kartById, kartEarned, kartNeedText,
 } from "./cosmetics.js";
 import { enterBattle, closeBattle, bindBattleControls } from "./battle.js";
 import { enterMines, closeMines, bindMineControls } from "./mines.js";
@@ -877,13 +877,23 @@ function drawAvatarPicker() {
           </button>`).join("")}
       </div>`;
 
-    if (cosTab === "karts") return `
+    if (cosTab === "karts") {
+      const free = KARTS.filter((k) => !k.need);
+      const won = KARTS.filter((k) => k.need);
+      const cell = (k) => {
+        const has = kartEarned(k.id, standing);
+        return `<button class="cos-cell ${k.id === pick.kart ? "is-on" : ""} ${has ? "" : "locked"}" data-kart="${k.id}" ${has ? "" : "disabled"} title="${k.name}${has ? "" : " — " + kartNeedText(k, standing)}">${k.ico}</button>`;
+      };
+      return `
       <div class="cos-label">Choose your kart</div>
-      <p class="panel-sub">What you line up in for the Multiverse Grand Prix, and what the rest of the grid sees coming. Every kart is the same car \u2014 the only thing that moves it is answering.</p>
-      <div class="cos-box">
-        ${KARTS.map((k) => `<button class="cos-cell ${k.id === pick.kart ? "is-on" : ""}" data-kart="${k.id}" title="${k.name}">${k.ico}</button>`).join("")}
-      </div>
+      <p class="panel-sub">What you line up in for the Multiverse Grand Prix, and what the rest of the grid sees coming. Every kart is the same car — the only thing that moves it is answering.</p>
+      <div class="cos-box">${free.map(cell).join("")}</div>
+      <div class="cos-label">Won on the track</div>
+      <p class="panel-sub">A race against computer drivers counts: the arena pays it like any other.</p>
+      <div class="cos-box">${won.map(cell).join("")}</div>
+      <div class="cos-kart-needs">${won.map((k) => `<div class="${kartEarned(k.id, standing) ? "is-done" : ""}">${k.ico} <b>${k.name}</b> <span>${kartEarned(k.id, standing) ? "won" : kartNeedText(k, standing)}</span></div>`).join("")}</div>
       <div class="cos-label">${kartById(pick.kart).name}</div>`;
+    }
 
     if (cosTab === "avatars") return `
       <div class="cos-label">Choose avatar</div>
@@ -2006,6 +2016,7 @@ const GAME_RULES = [
       "<b>Item boxes</b> sit on every lap. Drive over one with empty hands and you get an item \u2014 a slipstream, a comet, an oil slick, fog \u2014 and you hold one at a time. The further back you are, the better the item.",
       "A solar flare is fired from fourth or worse, so it belongs to the back of the field. Climb past fourth while holding one and you can throw it away rather than carry a dead hand to the flag \u2014 full hands wave every later box straight past.",
       "The <b>paddock chat</b> is open in the lobby and shuts when the lights go out. A race ends one minute after the winner is home.",
+      "<b>The kart you line up in</b> is yours to pick, under your avatar in the profile. Most are free; eight are won on this track — a chequered kart for your first win, and on up to a flying saucer for twenty-five. A race against computer drivers counts, because the arena already pays it like any other.",
       "<b>Anyone arriving once the lights are out watches instead of racing</b>, and the gallery is shown what every kart is carrying. On the road you see only your own hands \u2014 which is what makes an item a decision, and what Telemetry is for.",
     ],
     score: [
@@ -3244,7 +3255,7 @@ const ROOMS = {
   crossword: (code) => enterDojo(code),
   battleship: (code, back) => { show("battle"); enterBattle(code, idToken, back); },
   minesweeper: (code, back) => { show("mines"); enterMines(code, idToken, back); },
-  prix: (code, back) => { show("prix"); enterPrix(code, idToken, back, S.kart || DEFAULT_KART); },
+  prix: (code, back) => { show("prix"); enterPrix(code, idToken, back); },
   // Multiverse Golf runs on its own page: a full-screen course doesn't fit
   // inside a panel, and the round is long enough to want the whole window.
   // A room being created lands on the lobby with its code, to choose a course

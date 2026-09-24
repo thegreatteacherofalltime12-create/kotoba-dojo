@@ -5,7 +5,7 @@
 // sends guesses. Nothing here knows an answer before the room says so.
 
 import { applyTokenTab, PRIX_ARSENAL_ITEMS } from "./boost.js";
-import { kartById, DEFAULT_KART } from "./cosmetics.js";
+import { kartById } from "./cosmetics.js";
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, cls, text) => {
@@ -26,9 +26,8 @@ const tokenTab = () => (boostTab ||= applyTokenTab({
   game: "prix", send, button: $("btn-prix-boost"), label: "race", arsenal: PRIX_ARSENAL_ITEMS,
 }));
 
-export async function enterPrix(code, getToken, onLeave, kart) {
+export async function enterPrix(code, getToken, onLeave) {
   P.code = code;
-  P.kart = kart || DEFAULT_KART;
   P.onLeave = onLeave;
   P.item = null;
   $("prix-code").textContent = code;
@@ -84,9 +83,6 @@ function handle(msg) {
     case "PRIX_WELCOME":
       P.you = msg.you;
       P.isHost = !!msg.isHost;
-      // Tell the room what we are driving. Sent on every welcome, so a
-      // reconnection puts the right kart back on the grid.
-      send({ type: "PRIX_KART", kart: P.kart || DEFAULT_KART });
       break;
     case "PRIX_TOKENS":
       tokenTab().receive(msg);

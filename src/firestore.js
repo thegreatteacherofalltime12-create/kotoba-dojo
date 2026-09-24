@@ -242,16 +242,47 @@ export async function readRatings(env, uids) {
   if (!res.ok) { fail(`Firestore refused the ratings read (${res.status})`); return out; }
 
   // The boost tokens ride along, off to the side so the callers that count
-  // the ratings as a plain map never see them.
+  // the ratings as a plain map never see them. So does the kart each player
+  // wears, which is read rather than asked for: it can be something they
+  // won, and a browser should not be the thing that says so.
   const boosts = {};
+  const karts = {};
   for (const row of await res.json()) {
     if (!row.found) continue;
     const uid = row.found.name.split("/").pop();
     out[uid] = Number(row.found.fields?.totalPoints?.integerValue || 0);
     const t = tokensOf(row.found.fields?.tokens);
     if (t) boosts[uid] = t;
+    const k = row.found.fields?.cosmetics?.mapValue?.fields?.kart?.stringValue;
+    if (k) karts[uid] = k;
   }
   Object.defineProperty(out, "boosts", { value: boosts, enumerable: false });
+  Object.defineProperty(out, "karts", { value: karts, enumerable: false });
+  return out;
+}
+
+/**
+ * The kart each of these players wears, straight off their board row.
+ *
+ * Whatever is stored there was checked against their standing when they
+ * saved it, and feats only ever go up — so a stored kart is one they had
+ * earned, and there is nothing to re-check here.
+ */
+export async function readKarts(env, uids) {
+  const out = {};
+  const token = await accessToken(env);
+  if (!token || !uids.length) return out;
+  const res = await fetch(`https://firestore.googleapis.com/v1/${base(env)}:batchGet`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ documents: uids.map((u) => `${base(env)}/leaderboard/${u}`) }),
+  });
+  if (!res.ok) return out;
+  for (const row of await res.json()) {
+    if (!row.found) continue;
+    const k = row.found.fields?.cosmetics?.mapValue?.fields?.kart?.stringValue;
+    if (k) out[row.found.name.split("/").pop()] = k;
+  }
   return out;
 }
 

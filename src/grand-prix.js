@@ -24,7 +24,7 @@ import { ENGINES, engineById, engineList, defaultLevel, MEM_MAX, nominalAllowanc
 import { ARSENALS } from "./arsenals.js";
 import { KARTS, knownKart, DEFAULT_KART } from "../public/cosmetics.js";
 import { tokensReply, heldTokens } from "./boost.js";
-import { recordMatch, readRatings } from "./firestore.js";
+import { recordMatch, readRatings, readKarts } from "./firestore.js";
 import { moderate } from "./moderation.js";
 import { strikePlayer } from "./firestore.js";
 import { announceRoom } from "./rooms.js";
@@ -138,6 +138,9 @@ export class GrandPrix {
     else this.g.players[uid] = this.freshRacer(uid, name);
 
     await this.persist();
+    // Their kart, from their board row. Off to the side: a slow board must
+    // not hold up the door.
+    this.state.waitUntil?.(this.loadKart(uid).catch(() => {}));
     this.announce();
     this.send(ws, "PRIX_WELCOME", {
       you: uid, isHost: this.g.hostUid === uid,
@@ -330,18 +333,22 @@ export class GrandPrix {
   }
 
   /**
-   * The kart somebody races in. Cosmetic and free, so the only thing worth
-   * checking is that it is one of ours: whatever arrives here is drawn on
-   * every other racer's screen. If karts are ever something you earn, this
-   * has to read the profile instead of taking the browser's word.
+   * Which kart somebody is wearing, read from their own board row.
+   *
+   * Some karts are won on the track now, so this is no longer the
+   * browser's to tell us. What is stored was checked against their standing
+   * when they saved it and feats only go up, so the stored value needs no
+   * second look — but it does have to come from there and not from a
+   * message anybody could send.
    */
-  async setKart(ws, uid, msg) {
-    const p = this.g.players[uid];
+  async loadKart(uid) {
+    const p = this.g?.players?.[uid];
     if (!p) return;
-    const want = String(msg?.kart || "");
-    const kart = knownKart(want) ? want : DEFAULT_KART;
-    if (p.kart === kart) return;
-    p.kart = kart;
+    let kart = null;
+    try { kart = (await readKarts(this.env, [uid]))[uid] || null; } catch { /* board unreachable */ }
+    const want = knownKart(kart) ? kart : DEFAULT_KART;
+    if (p.kart === want) return;
+    p.kart = want;
     await this.persist();
     this.pushState();
   }
@@ -381,7 +388,6 @@ export class GrandPrix {
       switch (msg.type) {
         case "PING": return this.beat();
         case "PRIX_PEEK": return this.peek(ws, who.uid);
-        case "PRIX_KART": return await this.setKart(ws, who.uid, msg);
         case "PRIX_DROP": return await this.drop(ws, who.uid);
         case "PRIX_SOLO": return await this.setSolo(ws, who.uid, msg);
         case "PRIX_VOTE": return await this.vote(ws, who.uid, msg);
@@ -546,6 +552,8 @@ export class GrandPrix {
       p.solved = 0; p.spins = 0; p.ratioSum = 0;
       p.done = false; p.finishedAt = null; p.score = 0;
       p.mmrAtStart = ratings[p.uid] || 0;
+      // A kart changed while the grid was forming lands here at the latest.
+      if (!p.ai && knownKart(ratings.karts?.[p.uid])) p.kart = ratings.karts[p.uid];
       p.seed = seeded.indexOf(p.uid) + 1 || null;
       // Last race's fit-out goes before this one's is bolted on.
       p.fuel = false; p.warmup = 0; p.tyres = false; p.guards = false; p.visor = false;
@@ -1270,6 +1278,9 @@ export class GrandPrix {
         code: this.g.code, roundNo: this.g.round,
         puzzleId: `prix:${this.g.engine}:${this.g.circuit}`,
         game: "prix", mode, courseId: this.g.circuit,
+        // The people are the rows, but the computers were on the grid and
+        // the placements already count them, so the field is the field.
+        field: results.length,
         finishedAt: Date.now(), results: human,
       }).then((ok) => { if (!ok) console.error("[prix] results were not saved"); })
         .catch((e) => console.error(`[prix] ${e.message}`))

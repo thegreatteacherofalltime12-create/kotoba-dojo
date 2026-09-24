@@ -1121,7 +1121,8 @@ console.log("\nthe kart you race in");
   ok("anything else falls back rather than drawing nothing", kartById("nonsense").id === DEFAULT_KART);
   // Karts are free, so the only question allowed() asks is whether it exists.
   const standing = { mmr: 0, feats: {} };
-  ok("a real kart is worn", allowed({ kart: "dino" }, standing, ["white"]).kart === "dino");
+  ok("a free kart is worn", allowed({ kart: "tractor" }, standing, ["white"]).kart === "tractor");
+  ok("one you have not won is not", allowed({ kart: "dino" }, standing, ["white"]).kart === DEFAULT_KART);
   ok("and anything made up is not", allowed({ kart: "<img src=x>" }, standing, ["white"]).kart === DEFAULT_KART);
 }
 {
@@ -1129,15 +1130,54 @@ console.log("\nthe kart you race in");
   const { room, seats, say } = await roomOf(["a", "Ana"], ["b", "Bo"]);
   const kartOf = (uid) => room.publicState().players.find((x) => x.uid === uid).kart;
   ok("everybody starts in the default kart", kartOf("a") === DEFAULT_KART);
-  await say("a", { type: "PRIX_KART", kart: "tractor" });
-  ok("a racer can change what they drive", room.g.players.a.kart === "tractor");
-  ok("and the grid is told, because a kart is for other people to see", kartOf("a") === "tractor");
-  ok("the other kart is untouched", kartOf("b") === DEFAULT_KART);
-  await say("a", { type: "PRIX_KART", kart: "not-a-kart" });
-  ok("a kart that does not exist falls back", room.g.players.a.kart === DEFAULT_KART);
-  // It is drawn on everyone else's screen, so it must not be free text.
+
+  // Some karts are won now, so the browser does not get to pick. Asking
+  // for one has to do nothing at all.
+  await say("a", { type: "PRIX_KART", kart: "saucer" });
+  ok("a racer cannot tell the room what they drive", room.g.players.a.kart === DEFAULT_KART);
   await say("a", { type: "PRIX_KART", kart: "<script>alert(1)</script>" });
-  ok("and nothing arbitrary is ever stored", room.g.players.a.kart === DEFAULT_KART);
+  ok("and nothing arbitrary can be posted at it", room.g.players.a.kart === DEFAULT_KART);
+
+  // What the board says is what shows, and it shows to everybody.
+  room.g.players.a.kart = "tractor";
+  ok("the kart from the board is what the grid draws", kartOf("a") === "tractor");
+  ok("and the other kart is untouched", kartOf("b") === DEFAULT_KART);
+
+  // With no board to read, a racer still gets a kart rather than nothing.
+  await room.loadKart("a");
+  ok("an unreachable board falls back rather than breaking", room.g.players.a.kart === DEFAULT_KART);
+}
+{
+  // Beating computer drivers is a win. The arena already pays it MMR as
+  // one, so the kart ladder counts it as one.
+  const { featsFor } = await import("../public/cosmetics.js");
+  const row = { uid: "a", placement: 1, status: "finished" };
+  const beat = featsFor({ game: "prix", field: 4, results: [row] }, row);
+  ok("first past the flag in a field of four is a Grand Prix win", beat.won_prix === 1 && beat.won_any === 1);
+  const alone = featsFor({ game: "prix", field: 1, results: [row] }, row);
+  ok("going round on your own is not a win", !alone.won_prix);
+  ok("but it is a solo finish", alone.solo_prix === 1);
+  const second = { uid: "a", placement: 3, status: "finished" };
+  ok("and neither is coming third", !featsFor({ game: "prix", field: 4, results: [second] }, second).won_prix);
+  // Every other game is unchanged: no field, so the rows are the field.
+  const cw = { uid: "a", placement: 1, status: "solved" };
+  ok("a game that sends no field counts its rows as before",
+    featsFor({ game: "crossword", results: [cw, { uid: "b", placement: 2 }] }, cw).won_crossword === 1);
+}
+{
+  // The ladder itself.
+  const { KARTS, kartEarned, kartNeedText } = await import("../public/cosmetics.js");
+  const won = KARTS.filter((k) => k.need);
+  ok("there are karts to win", won.length >= 5);
+  ok("every one of them is won on this track",
+    won.every((k) => ["won_prix", "played_prix", "solo_prix"].includes(k.need.feat)));
+  ok("and every one of them reads as a target", won.every((k) => /\d+ \/ \d+ /.test(kartNeedText(k, { feats: {} }))));
+  const novice = { feats: {} };
+  ok("a novice has none of them", won.every((k) => !kartEarned(k.id, novice)));
+  ok("but every free kart is theirs", KARTS.filter((k) => !k.need).every((k) => kartEarned(k.id, novice)));
+  const champion = { feats: { won_prix: 25, played_prix: 50, solo_prix: 25 } };
+  ok("a champion has the lot", won.every((k) => kartEarned(k.id, champion)));
+  ok("the first one is a single win away", kartEarned("flag", { feats: { won_prix: 1 } }));
 }
 {
   // A solo grid should not be four of the same shape.

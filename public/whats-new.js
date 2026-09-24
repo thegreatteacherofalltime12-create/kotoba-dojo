@@ -17,6 +17,19 @@ export const KEEP_DAYS = 7;
 
 export const UPDATES = [
   {
+    at: "2026-09-25T02:00:00Z",
+    where: "Grand Prix",
+    title: "Pick your kart, and win a few",
+    text: "A Race Kart tab in your profile, beside the avatars and banners: thirty-three of them, "
+      + "from a formula car to a tractor, a rocket, a tortoise. Twenty-five are free. Eight are won "
+      + "on the track — a chequered kart for your first Grand Prix win, then a rocket at three, a "
+      + "tyrannosaur at five, a unicorn at ten and a flying saucer at twenty-five, with a snail and "
+      + "two more for turning up and for going round on your own. Beating computer drivers counts as "
+      + "a win: the arena has always paid a solo race MMR like any other, so it would be strange to "
+      + "count it for the belt and not for the kart. Whatever you pick is what the rest of the grid "
+      + "sees coming.",
+  },
+  {
     at: "2026-09-25T00:30:00Z",
     where: "Grand Prix",
     title: "The arsenal charges for what it delivers",

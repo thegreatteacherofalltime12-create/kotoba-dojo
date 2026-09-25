@@ -542,7 +542,11 @@ export class CasinoFloor {
       round: this.f.round,
       race: {
         at: this.f.race.at,
-        favourite: this.f.race.favourite,
+        // Which horse is fancied is the table's business, not the player's.
+        // It decides the running here and is never sent: a name nobody can
+        // read on screen but anybody can read in the console is worse than
+        // one printed honestly. When it turns over is fair to know, so that
+        // goes out on its own.
         favouriteEndsAt: favouriteEndsAt(),
         // Face-down traps go out as blanks. Sending the rank of a card nobody
         // has turned yet would hand the table the rest of the race.

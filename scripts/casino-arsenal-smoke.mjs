@@ -207,5 +207,18 @@ console.log("\nthe arcade and the ceiling");
   ok("and the new one still holds", (await floor.reward("p1", p)) === 0);
 }
 
+
+// Which horse is fancied decides the running, and it is the table’s to
+// know. It used to ride out with the state and get drawn as a ribbon; a
+// name nobody can see on screen but anybody can read in the console is
+// worse than one printed honestly, so it is not sent at all now.
+{
+  const { floor, ws } = await floorWith({});
+  const race = ws.last("FLOOR_STATE")?.floor?.race;
+  ok("the table still picks a favourite", !!floor.f.race.favourite);
+  ok("but it never reaches the player", race && race.favourite === undefined);
+  ok("while when it turns over still does", race && typeof race.favouriteEndsAt === "number");
+}
+
 console.log(bad ? `\n${bad} failing\n` : "\nall casino arsenal checks passed\n");
 process.exit(bad ? 1 : 0);

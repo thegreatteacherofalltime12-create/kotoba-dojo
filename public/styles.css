@@ -2747,17 +2747,10 @@ body.panel-open { overflow: hidden; }
 
 /* The ribbon sits over the card, so the day's favourite reads at a glance. */
 .fcard { position: relative; }
-.fribbon {
-  position: absolute; top: -.55rem; left: 50%; transform: translateX(-50%);
-  font-size: .82rem; line-height: 1; filter: hue-rotate(190deg) saturate(1.6);
-  text-shadow: 0 1px 3px rgba(0,0,0,.6); pointer-events: none;
-}
-.fcard.ribboned { box-shadow: 0 0 0 2px #3B82F6, 0 0 10px rgba(59,130,246,.6); }
-.flane.favourite .frail { background: rgba(59,130,246,.08); }
+
 
 .fpick { position: relative; }
 .fpick-r { font-size: .7rem; font-weight: 700; }
-.fpick.favourite { box-shadow: 0 0 0 2px #3B82F6; }
 
 /* Who is fancied today, in words. */
 .ftoday {

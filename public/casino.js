@@ -311,34 +311,27 @@ function drawBanner(f) {
 function drawTrack(f) {
   const host = $("floor-track");
   host.textContent = "";
-  const fav = f.race.favourite;
-
-  // Which horse is fancied is not said aloud any more — the ribbon on the
-  // card is the only tell. The clock to the next favourite stays.
-  if (fav) {
+  // Which horse is fancied is not shown at all. What is worth knowing is
+  // that one is in play and when it turns over, so that is all the bar says.
+  if (f.race.favouriteEndsAt) {
+    const left = Math.max(0, f.race.favouriteEndsAt - Date.now());
+    const hrs = Math.floor(left / 3600_000);
+    const mins = Math.floor((left % 3600_000) / 60_000);
     const bar = el("p", "ftoday");
     bar.append(el("span", "ftoday-r", "\u23F3"));
-    if (f.race.favouriteEndsAt) {
-      const left = Math.max(0, f.race.favouriteEndsAt - Date.now());
-      const hrs = Math.floor(left / 3600_000);
-      const mins = Math.floor((left % 3600_000) / 60_000);
-      bar.append(el("span", "ftoday-t", hrs
-        ? `new favourite in ${hrs}h ${mins}m`
-        : `new favourite in ${mins}m`));
-    }
+    bar.append(el("span", "ftoday-t", hrs
+      ? `a new favourite in ${hrs}h ${mins}m`
+      : `a new favourite in ${mins}m`));
     host.append(bar);
   }
 
   for (const h of (K.horses || [])) {
-    const lane = el("div", `flane${h.id === fav ? " favourite" : ""}`);
+    const lane = el("div", "flane");
 
-    const card = el("div", `fcard${h.red ? " red" : ""}${h.id === fav ? " ribboned" : ""}`);
-    // The ribbon sits over the card, so the day's favourite is obvious from
-    // across the room without reading anything.
-    if (h.id === fav) card.append(el("span", "fribbon", "\u{1F397}\uFE0F"));
+    const card = el("div", `fcard${h.red ? " red" : ""}`);
     card.append(el("span", "fc-r", h.rank));
     card.append(el("span", "fc-s", h.pip));
-    card.title = h.id === fav ? `${h.name} \u2014 today's favourite` : h.name;
+    card.title = h.name;
     lane.append(card);
 
     const rail = el("div", "frail");
@@ -466,7 +459,6 @@ export function openBetSlip(type) {
   host.querySelectorAll("[data-close]").forEach((n) => { n.onclick = closeBetSlip; });
 
   const render = () => {
-    const fav = K.floor?.race?.favourite;
     $("bs-blurb").textContent = bet.picks === 1
       ? `${bet.blurb} Choose a runner.`
       : `${bet.blurb} Choose ${bet.picks}, in finishing order.`;
@@ -476,11 +468,10 @@ export function openBetSlip(type) {
     for (const h of (K.horses || [])) {
       const at = K.slip.picks.indexOf(h.id);
       const btn = el("button",
-        `fpick${at !== -1 ? " on" : ""}${h.red ? " red" : ""}${h.id === fav ? " favourite" : ""}`);
-      if (h.id === fav) btn.append(el("span", "fribbon", "\u{1F397}\uFE0F"));
+        `fpick${at !== -1 ? " on" : ""}${h.red ? " red" : ""}`);
       btn.append(el("span", "fpick-r", h.rank));
       btn.append(el("span", "", h.pip));
-      btn.title = h.id === fav ? `${h.name} \u2014 this week's favourite` : h.name;
+      btn.title = h.name;
       if (at !== -1 && bet.picks > 1) btn.append(el("span", "fpick-n", String(at + 1)));
       btn.onclick = () => {
         const list = K.slip.picks;

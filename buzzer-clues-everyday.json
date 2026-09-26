@@ -1,0 +1,118 @@
+[
+ {
+  "id": "yourmove",
+  "name": "YOUR MOVE",
+  "section": "everyday",
+  "scope": "Every answer is a board game, a card game or a piece from one.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The German trading game of roads, settlements and a very stubborn robber",
+    "a": "Catan",
+    "wrong": [
+     "Carcassonne",
+     "Ticket to Ride",
+     "Pandemic"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The role-playing game Gary Gygax and Dave Arneson put out in 1974",
+    "a": "Dungeons & Dragons",
+    "wrong": [
+     "Warhammer",
+     "Pathfinder",
+     "Shadowrun"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The co-operative game in which everybody loses together to four diseases",
+    "a": "Pandemic",
+    "wrong": [
+     "Forbidden Island",
+     "Arkham Horror",
+     "Spirit Island"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The game of hidden fleets and called-out coordinates",
+    "a": "Battleship",
+    "wrong": [
+     "Risk",
+     "Stratego",
+     "Cluedo"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The tile-laying game named for a walled city in southern France",
+    "a": "Carcassonne",
+    "wrong": [
+     "Alhambra",
+     "Tigris & Euphrates",
+     "Kingdomino"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "hood",
+  "name": "WHAT'S ON THE HOOD",
+  "section": "everyday",
+  "scope": "Every answer is a car marque, a model, a car part or a racing series.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The Ford sports car with a galloping horse on the grille",
+    "a": "Mustang",
+    "wrong": [
+     "Corvette",
+     "Camaro",
+     "Charger"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The open-wheel world championship the FIA runs",
+    "a": "Formula One",
+    "wrong": [
+     "IndyCar",
+     "NASCAR",
+     "World Rally Championship"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The Maranello marque with a prancing horse on its badge",
+    "a": "Ferrari",
+    "wrong": [
+     "Lamborghini",
+     "Maserati",
+     "Porsche"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The electric-car maker named after a Serbian-American inventor",
+    "a": "Tesla",
+    "wrong": [
+     "Rivian",
+     "Lucid",
+     "Polestar"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The endurance race run through a day and a night in western France since 1923",
+    "a": "24 Hours of Le Mans",
+    "wrong": [
+     "Daytona 500",
+     "Indianapolis 500",
+     "Monaco Grand Prix"
+    ]
+   }
+  ]
+ }
+]

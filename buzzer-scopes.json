@@ -728,5 +728,96 @@
   "section": "everyday",
   "scope": "Every answer is a holiday, a month or a day of note.",
   "decoys": "Other holidays in the same season, or the neighbouring months."
+ },
+ {
+  "id": "ocean",
+  "name": "DEEP BLUE SEA",
+  "section": "lifestyle",
+  "scope": "Every answer is an ocean, a sea zone, a current or a creature that lives in one.",
+  "decoys": "Other members of the same family named in the scope."
+ },
+ {
+  "id": "food",
+  "name": "IN THE KITCHEN",
+  "section": "lifestyle",
+  "scope": "Every answer is a dish, a technique, an ingredient or a chef.",
+  "decoys": "Other members of the same family named in the scope."
+ },
+ {
+  "id": "wine",
+  "name": "A DECENT BOTTLE",
+  "section": "lifestyle",
+  "scope": "Every answer is a wine grape, region or style.",
+  "decoys": "Other members of the same family named in the scope."
+ },
+ {
+  "id": "beer",
+  "name": "MINE'S A PINT",
+  "section": "lifestyle",
+  "scope": "Every answer is a beer style, a brewing ingredient or a brewing term.",
+  "decoys": "Other members of the same family named in the scope."
+ },
+ {
+  "id": "coffee",
+  "name": "COFFEE BREAK",
+  "section": "lifestyle",
+  "scope": "Every answer is a coffee drink, bean, brewing method or term.",
+  "decoys": "Other members of the same family named in the scope."
+ },
+ {
+  "id": "pets",
+  "name": "OUR ANIMAL FRIENDS",
+  "section": "lifestyle",
+  "scope": "Every answer is a pet breed or a domestic species.",
+  "decoys": "Other members of the same family named in the scope."
+ },
+ {
+  "id": "fashion",
+  "name": "HIGH FASHION",
+  "section": "lifestyle",
+  "scope": "Every answer is a fashion house, a designer or a garment.",
+  "decoys": "Other members of the same family named in the scope."
+ },
+ {
+  "id": "folklore",
+  "name": "THINGS IN THE WOODS",
+  "section": "lifestyle",
+  "scope": "Every answer is a cryptid, a ghost or a creature of folklore.",
+  "decoys": "Other members of the same family named in the scope."
+ },
+ {
+  "id": "hobbies",
+  "name": "AFTER HOURS",
+  "section": "lifestyle",
+  "scope": "Every answer is a craft, a hobby or a pastime.",
+  "decoys": "Other members of the same family named in the scope."
+ },
+ {
+  "id": "gardening",
+  "name": "GREEN THUMBS",
+  "section": "lifestyle",
+  "scope": "Every answer is a gardening technique or a botanical term.",
+  "decoys": "Other members of the same family named in the scope."
+ },
+ {
+  "id": "fitness",
+  "name": "GETTING PHYSICAL",
+  "section": "lifestyle",
+  "scope": "Every answer is an exercise, a piece of gym equipment or a fitness term.",
+  "decoys": "Other members of the same family named in the scope."
+ },
+ {
+  "id": "astrology",
+  "name": "STARS ALIGNED",
+  "section": "lifestyle",
+  "scope": "Every answer is a zodiac sign or a term from astrology.",
+  "decoys": "Other members of the same family named in the scope."
+ },
+ {
+  "id": "crypto",
+  "name": "BLOCKS & CHAINS",
+  "section": "lifestyle",
+  "scope": "Every answer is a cryptocurrency or a term from blockchain technology.",
+  "decoys": "Other members of the same family named in the scope."
  }
 ]

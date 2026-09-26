@@ -578,5 +578,63 @@
     ]
    }
   ]
+ },
+ {
+  "id": "doctor",
+  "name": "DOCTOR, DOCTOR",
+  "section": "science",
+  "scope": "Every answer is a disease, a treatment, a medical term or a pioneer.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The mould that Alexander Fleming found killing his bacteria in 1928",
+    "a": "Penicillin",
+    "wrong": [
+     "Streptomycin",
+     "Tetracycline",
+     "Erythromycin"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The vitamin your own skin makes out of sunlight",
+    "a": "Vitamin D",
+    "wrong": [
+     "Vitamin C",
+     "Vitamin B12",
+     "Vitamin A"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The word a doctor uses for high blood pressure",
+    "a": "Hypertension",
+    "wrong": [
+     "Hypotension",
+     "Tachycardia",
+     "Bradycardia"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The disorder whose sign is a sudden seizure out of nowhere",
+    "a": "Epilepsy",
+    "wrong": [
+     "Parkinson's disease",
+     "Alzheimer's disease",
+     "Multiple sclerosis"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The only human disease vaccination has wiped off the earth, declared gone in 1980",
+    "a": "Smallpox",
+    "wrong": [
+     "Polio",
+     "Measles",
+     "Yellow fever"
+    ]
+   }
+  ]
  }
 ]

@@ -15,7 +15,7 @@ for (const f of FILES) {
 }
 
 const esc = (s) => JSON.stringify(String(s));
-const SECTION_ORDER = ["arena", "staples", "wordplay", "geography", "history", "science", "culture", "everyday"];
+const SECTION_ORDER = ["arena", "staples", "wordplay", "geography", "history", "science", "culture", "everyday", "lifestyle"];
 cats.sort((a, b) => {
   const sa = specOf.get(a.id)?.section || a.section, sb = specOf.get(b.id)?.section || b.section;
   return SECTION_ORDER.indexOf(sa) - SECTION_ORDER.indexOf(sb) || a.name.localeCompare(b.name);
@@ -50,6 +50,7 @@ export const SECTIONS = [
   { id: "science", name: "Science and nature" },
   { id: "culture", name: "Culture" },
   { id: "everyday", name: "Everyday life" },
+  { id: "lifestyle", name: "Life and leisure" },
 ];
 
 export const CATEGORIES = [

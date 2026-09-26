@@ -1,0 +1,524 @@
+[
+ {
+  "id": "movies",
+  "name": "AT THE MOVIES",
+  "section": "culture",
+  "scope": "Every answer is a film, a director or an actor.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The 1942 romance with Bogart and Bergman, set in Morocco",
+    "a": "Casablanca",
+    "wrong": [
+     "The Maltese Falcon",
+     "Gone with the Wind",
+     "The Wizard of Oz"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The director of Jaws and Schindler's List",
+    "a": "Steven Spielberg",
+    "wrong": [
+     "Martin Scorsese",
+     "Francis Ford Coppola",
+     "Stanley Kubrick"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The Coppola mafia picture with Brando as Don Vito Corleone",
+    "a": "The Godfather",
+    "wrong": [
+     "Goodfellas",
+     "Scarface",
+     "The Departed"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The Kubrick film whose villain is a calm-voiced computer called HAL 9000",
+    "a": "2001: A Space Odyssey",
+    "wrong": [
+     "Blade Runner",
+     "Star Wars",
+     "Interstellar"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The 1941 Orson Welles debut that opens on a dying man whispering Rosebud",
+    "a": "Citizen Kane",
+    "wrong": [
+     "Vertigo",
+     "Sunset Boulevard",
+     "The Searchers"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "tv",
+  "name": "MUST-SEE TV",
+  "section": "culture",
+  "scope": "Every answer is a television show or a character in one.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The animated family of Homer, Marge, Bart, Lisa and Maggie",
+    "a": "The Simpsons",
+    "wrong": [
+     "Family Guy",
+     "South Park",
+     "Futurama"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The chemistry teacher who turns to cooking methamphetamine in Breaking Bad",
+    "a": "Walter White",
+    "wrong": [
+     "Jesse Pinkman",
+     "Gustavo Fring",
+     "Saul Goodman"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The HBO epic made from George R. R. Martin's A Song of Ice and Fire",
+    "a": "Game of Thrones",
+    "wrong": [
+     "The Witcher",
+     "The Rings of Power",
+     "The Wheel of Time"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The HBO war miniseries Spielberg and Hanks produced, about Easy Company",
+    "a": "Band of Brothers",
+    "wrong": [
+     "The Pacific",
+     "Generation Kill",
+     "Boardwalk Empire"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The 1960s anthology Rod Serling created and introduced himself",
+    "a": "The Twilight Zone",
+    "wrong": [
+     "The Outer Limits",
+     "Star Trek",
+     "Alfred Hitchcock Presents"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "brush",
+  "name": "BRUSH WITH GREATNESS",
+  "section": "culture",
+  "scope": "Every answer is a painter, a painting or a movement.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The Dutchman who painted The Starry Night",
+    "a": "Vincent van Gogh",
+    "wrong": [
+     "Claude Monet",
+     "Paul Cézanne",
+     "Edvard Munch"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The Spaniard whose clocks melt in The Persistence of Memory",
+    "a": "Salvador Dalí",
+    "wrong": [
+     "Joan Miró",
+     "René Magritte",
+     "Max Ernst"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The co-founder of Cubism who painted Guernica",
+    "a": "Pablo Picasso",
+    "wrong": [
+     "Henri Matisse",
+     "Georges Braque",
+     "Juan Gris"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The man who spent four years on his back painting the Sistine ceiling",
+    "a": "Michelangelo",
+    "wrong": [
+     "Raphael",
+     "Leonardo da Vinci",
+     "Sandro Botticelli"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The Impressionist who painted his own water lilies for thirty years",
+    "a": "Claude Monet",
+    "wrong": [
+     "Pierre-Auguste Renoir",
+     "Edgar Degas",
+     "Édouard Manet"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "building",
+  "name": "BUILDING BLOCKS",
+  "section": "culture",
+  "scope": "Every answer is a building, an architect or an architectural style.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The Roman amphitheatre where the gladiators fought",
+    "a": "The Colosseum",
+    "wrong": [
+     "The Pantheon",
+     "The Roman Forum",
+     "Circus Maximus"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The Gothic cathedral on the Île de la Cité that burned in 2019",
+    "a": "Notre-Dame",
+    "wrong": [
+     "Sainte-Chapelle",
+     "Sacré-Cœur",
+     "Chartres Cathedral"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The American who built a house over a waterfall and a spiral museum in New York",
+    "a": "Frank Lloyd Wright",
+    "wrong": [
+     "Le Corbusier",
+     "Mies van der Rohe",
+     "I. M. Pei"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The twelfth-century Khmer temple complex in Cambodia",
+    "a": "Angkor Wat",
+    "wrong": [
+     "Borobudur",
+     "Prambanan",
+     "Ayutthaya"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The Catalan whose Sagrada Família is still going up a century after his death",
+    "a": "Antoni Gaudí",
+    "wrong": [
+     "Santiago Calatrava",
+     "Oscar Niemeyer",
+     "Walter Gropius"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "broadway",
+  "name": "BROADWAY BABY",
+  "section": "culture",
+  "scope": "Every answer is a musical, a song from one or its writer.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "Lin-Manuel Miranda's hip-hop life of a founding father",
+    "a": "Hamilton",
+    "wrong": [
+     "In the Heights",
+     "Dear Evan Hansen",
+     "Rent"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The Lloyd Webber musical about a masked man beneath the Paris Opera",
+    "a": "The Phantom of the Opera",
+    "wrong": [
+     "Cats",
+     "Evita",
+     "Starlight Express"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The playwright of Death of a Salesman and The Crucible",
+    "a": "Arthur Miller",
+    "wrong": [
+     "Tennessee Williams",
+     "Eugene O'Neill",
+     "Edward Albee"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The musical made from Victor Hugo's novel, with One Day More in it",
+    "a": "Les Misérables",
+    "wrong": [
+     "Miss Saigon",
+     "Chess",
+     "Martin Guerre"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The musical that moves Romeo and Juliet to New York, Bernstein's music and Sondheim's words",
+    "a": "West Side Story",
+    "wrong": [
+     "On the Town",
+     "Wonderful Town",
+     "Gypsy"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "classical",
+  "name": "CLASSICAL GAS",
+  "section": "culture",
+  "scope": "Every answer is a classical composer or one of their works.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The German who went on writing masterpieces after he had gone deaf",
+    "a": "Ludwig van Beethoven",
+    "wrong": [
+     "Wolfgang Amadeus Mozart",
+     "Johann Sebastian Bach",
+     "Franz Schubert"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The Salzburg prodigy who wrote six hundred works and died at thirty-five",
+    "a": "Wolfgang Amadeus Mozart",
+    "wrong": [
+     "Joseph Haydn",
+     "Antonio Vivaldi",
+     "Frédéric Chopin"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The Baroque master of the Brandenburg Concertos",
+    "a": "Johann Sebastian Bach",
+    "wrong": [
+     "George Frideric Handel",
+     "Claudio Monteverdi",
+     "Arcangelo Corelli"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The Venetian priest whose violin concertos run through the four seasons",
+    "a": "Antonio Vivaldi",
+    "wrong": [
+     "Niccolò Paganini",
+     "Giuseppe Verdi",
+     "Giacomo Puccini"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The last complete symphony, whose final movement breaks into the Ode to Joy",
+    "a": "Symphony No. 9",
+    "wrong": [
+     "Symphony No. 5",
+     "Symphony No. 3",
+     "Symphony No. 7"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "popquiz",
+  "name": "POP QUIZ",
+  "section": "culture",
+  "scope": "Every answer is a pop act, a song or an album.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The Liverpool four of John, Paul, George and Ringo",
+    "a": "The Beatles",
+    "wrong": [
+     "The Rolling Stones",
+     "Led Zeppelin",
+     "The Who"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The singer the world settled on calling the King of Pop",
+    "a": "Michael Jackson",
+    "wrong": [
+     "Elvis Presley",
+     "Prince",
+     "David Bowie"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The 1977 Fleetwood Mac record made while the band was falling apart",
+    "a": "Rumours",
+    "wrong": [
+     "Hotel California",
+     "The Dark Side of the Moon",
+     "Abbey Road"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The Queen frontman with four octaves in him",
+    "a": "Freddie Mercury",
+    "wrong": [
+     "Elton John",
+     "Mick Jagger",
+     "Robert Plant"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The 1982 album that is still the best-selling one ever made",
+    "a": "Thriller",
+    "wrong": [
+     "Bad",
+     "Off the Wall",
+     "Dangerous"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "gods",
+  "name": "GODS & MONSTERS",
+  "section": "culture",
+  "scope": "Every answer is a god, hero or monster of myth. The three wrong options always come from the same pantheon as the answer.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The Olympian who rules the rest and throws the lightning",
+    "a": "Zeus",
+    "wrong": [
+     "Poseidon",
+     "Hades",
+     "Ares"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The Greek hero set twelve labours, the first of them a lion",
+    "a": "Heracles",
+    "wrong": [
+     "Achilles",
+     "Perseus",
+     "Odysseus"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The Norse god of thunder, who carries the hammer Mjölnir",
+    "a": "Thor",
+    "wrong": [
+     "Odin",
+     "Loki",
+     "Heimdall"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The lion-bodied riddler who blocked the road to Thebes",
+    "a": "Sphinx",
+    "wrong": [
+     "Minotaur",
+     "Chimera",
+     "Hydra"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The ibis-headed Egyptian god of writing and reckoning",
+    "a": "Thoth",
+    "wrong": [
+     "Osiris",
+     "Horus",
+     "Anubis"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "pressstart",
+  "name": "PRESS START",
+  "section": "culture",
+  "scope": "Every answer is a video game, a console or a character.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "Nintendo's plumber, forever fetching Princess Peach back from Bowser",
+    "a": "Mario",
+    "wrong": [
+     "Luigi",
+     "Donkey Kong",
+     "Link"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The best-selling game ever made, all blocks and digging",
+    "a": "Minecraft",
+    "wrong": [
+     "Terraria",
+     "Roblox",
+     "Lego Worlds"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "Miyamoto's fantasy series, in which the boy is not the one the title names",
+    "a": "The Legend of Zelda",
+    "wrong": [
+     "Metroid",
+     "Fire Emblem",
+     "Xenoblade"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The role-playing series set in a retro-futurist American wasteland",
+    "a": "Fallout",
+    "wrong": [
+     "The Elder Scrolls",
+     "BioShock",
+     "Borderlands"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The 1993 id Software shooter that put deathmatch on office networks",
+    "a": "Doom",
+    "wrong": [
+     "Quake",
+     "Wolfenstein 3D",
+     "Duke Nukem 3D"
+    ]
+   }
+  ]
+ }
+]

@@ -1,0 +1,756 @@
+[
+ {
+  "id": "ocean",
+  "name": "DEEP BLUE SEA",
+  "section": "lifestyle",
+  "scope": "Every answer is an ocean, a sea zone, a current or a creature that lives in one.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The largest and deepest of the oceans",
+    "a": "Pacific Ocean",
+    "wrong": [
+     "Atlantic Ocean",
+     "Indian Ocean",
+     "Arctic Ocean"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The layer below a thousand metres, where no daylight reaches at all",
+    "a": "Midnight zone",
+    "wrong": [
+     "Twilight zone",
+     "Sunlight zone",
+     "Abyssal zone"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The warm current that leaves the Gulf of Mexico and keeps Europe mild",
+    "a": "Gulf Stream",
+    "wrong": [
+     "Labrador Current",
+     "Canary Current",
+     "California Current"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The deepest water on earth, out in the western Pacific",
+    "a": "Mariana Trench",
+    "wrong": [
+     "Puerto Rico Trench",
+     "Java Trench",
+     "Peru-Chile Trench"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The slow, grazing marine mammal sailors took for a mermaid",
+    "a": "Manatee",
+    "wrong": [
+     "Walrus",
+     "Narwhal",
+     "Beluga whale"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "food",
+  "name": "IN THE KITCHEN",
+  "section": "lifestyle",
+  "scope": "Every answer is a dish, a technique, an ingredient or a chef.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The Neapolitan flatbread that went round the world",
+    "a": "Pizza",
+    "wrong": [
+     "Focaccia",
+     "Calzone",
+     "Piadina"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The technique of sealing food in a bag and cooking it slowly in warm water",
+    "a": "Sous-vide",
+    "wrong": [
+     "Flambé",
+     "Braising",
+     "Poaching"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The Japanese word meaning Japanese cow, used for its heavily marbled beef",
+    "a": "Wagyu",
+    "wrong": [
+     "Kobe",
+     "Angus",
+     "Hereford"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The dearest spice by weight, three red threads to a crocus flower",
+    "a": "Saffron",
+    "wrong": [
+     "Vanilla",
+     "Cardamom",
+     "Mace"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The Provençal stew of summer vegetables cooked down in olive oil",
+    "a": "Ratatouille",
+    "wrong": [
+     "Bouillabaisse",
+     "Cassoulet",
+     "Pistou"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "wine",
+  "name": "A DECENT BOTTLE",
+  "section": "lifestyle",
+  "scope": "Every answer is a wine grape, region or style.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The big Bordeaux red grape now grown on every continent that will have it",
+    "a": "Cabernet Sauvignon",
+    "wrong": [
+     "Merlot",
+     "Pinot Noir",
+     "Syrah"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The sparkling wine that may only be called that in one French region",
+    "a": "Champagne",
+    "wrong": [
+     "Prosecco",
+     "Cava",
+     "Crémant"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The white grape that can taste of green apple in Chablis and of butter in California",
+    "a": "Chardonnay",
+    "wrong": [
+     "Sauvignon Blanc",
+     "Riesling",
+     "Pinot Grigio"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The sweet fortified wine of the Douro valley",
+    "a": "Port",
+    "wrong": [
+     "Sherry",
+     "Madeira",
+     "Marsala"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The French region that makes its great whites and reds from one grape each, never a blend",
+    "a": "Burgundy",
+    "wrong": [
+     "Bordeaux",
+     "Rhône Valley",
+     "Loire Valley"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "beer",
+  "name": "MINE'S A PINT",
+  "section": "lifestyle",
+  "scope": "Every answer is a beer style, a brewing ingredient or a brewing term.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The bitter green cones thrown into the boil for flavour and aroma",
+    "a": "Hops",
+    "wrong": [
+     "Barley",
+     "Malt",
+     "Yeast"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The black Irish ale that Guinness made the whole world drink",
+    "a": "Stout",
+    "wrong": [
+     "Bitter",
+     "Mild",
+     "Bock"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The pale crisp lager first brewed in the Czech town of Plzeň",
+    "a": "Pilsner",
+    "wrong": [
+     "Kölsch",
+     "Helles",
+     "Dunkel"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The style whose initials promise a great deal of hop and very little mercy",
+    "a": "IPA",
+    "wrong": [
+     "Sour",
+     "Porter",
+     "Saison"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The German wheat beer that tastes faintly of banana and clove",
+    "a": "Hefeweizen",
+    "wrong": [
+     "Dunkel",
+     "Märzen",
+     "Schwarzbier"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "coffee",
+  "name": "COFFEE BREAK",
+  "section": "lifestyle",
+  "scope": "Every answer is a coffee drink, bean, brewing method or term.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The short strong shot pushed through fine grounds under pressure",
+    "a": "Espresso",
+    "wrong": [
+     "Americano",
+     "Cappuccino",
+     "Latte"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The bean species that nearly all speciality coffee comes from",
+    "a": "Arabica",
+    "wrong": [
+     "Robusta",
+     "Liberica",
+     "Excelsa"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "Equal thirds of coffee, steamed milk and foam",
+    "a": "Cappuccino",
+    "wrong": [
+     "Latte",
+     "Macchiato",
+     "Flat white"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The hourglass of glass and wood that takes its own thick paper filter",
+    "a": "Chemex",
+    "wrong": [
+     "V60",
+     "Aeropress",
+     "French press"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The long-handled pot the Turks boil very fine grounds in",
+    "a": "Ibrik",
+    "wrong": [
+     "Moka pot",
+     "Siphon",
+     "Percolator"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "pets",
+  "name": "OUR ANIMAL FRIENDS",
+  "section": "lifestyle",
+  "scope": "Every answer is a pet breed or a domestic species.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The dog that works for the police and leads the blind",
+    "a": "German Shepherd",
+    "wrong": [
+     "Golden Retriever",
+     "Labrador",
+     "Rottweiler"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The hairless cat, all wrinkles and enormous ears",
+    "a": "Sphynx",
+    "wrong": [
+     "Siamese",
+     "Persian",
+     "Devon Rex"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The huge gentle dog with webbed feet, bred to pull people out of the water",
+    "a": "Newfoundland",
+    "wrong": [
+     "Saint Bernard",
+     "Mastiff",
+     "Great Dane"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The little green-and-yellow parrot that half the world keeps in a cage",
+    "a": "Budgerigar",
+    "wrong": [
+     "Cockatiel",
+     "African grey",
+     "Lovebird"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The big shaggy American cat with tufts on its ears",
+    "a": "Maine Coon",
+    "wrong": [
+     "Ragdoll",
+     "Norwegian Forest Cat",
+     "Siberian"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "fashion",
+  "name": "HIGH FASHION",
+  "section": "lifestyle",
+  "scope": "Every answer is a fashion house, a designer or a garment.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The French house whose founder went by the nickname Coco",
+    "a": "Chanel",
+    "wrong": [
+     "Dior",
+     "Hermès",
+     "Louis Vuitton"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The Italian house Gianni founded in 1978, with a Medusa for a badge",
+    "a": "Versace",
+    "wrong": [
+     "Gucci",
+     "Prada",
+     "Armani"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The belted coat Thomas Burberry designed for officers in the mud",
+    "a": "Trench coat",
+    "wrong": [
+     "Pea coat",
+     "Duffel coat",
+     "Ulster"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The Florentine house of the bamboo handle and the doubled G",
+    "a": "Gucci",
+    "wrong": [
+     "Fendi",
+     "Prada",
+     "Bottega Veneta"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The designer whose New Look put the waist back in, in 1947",
+    "a": "Christian Dior",
+    "wrong": [
+     "Yves Saint Laurent",
+     "Hubert de Givenchy",
+     "Cristóbal Balenciaga"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "folklore",
+  "name": "THINGS IN THE WOODS",
+  "section": "lifestyle",
+  "scope": "Every answer is a cryptid, a ghost or a creature of folklore.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The tall hairy thing said to walk the forests of the Pacific Northwest",
+    "a": "Bigfoot",
+    "wrong": [
+     "Yeti",
+     "Chupacabra",
+     "Mothman"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The long-necked shape people keep almost photographing in a Scottish loch",
+    "a": "Loch Ness Monster",
+    "wrong": [
+     "Kraken",
+     "Ogopogo",
+     "Champ"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The Himalayan snow-walker the newspapers called Abominable",
+    "a": "Yeti",
+    "wrong": [
+     "Wendigo",
+     "Jersey Devil",
+     "Almas"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The Algonquian spirit of winter, famine and a hunger that cannot be fed",
+    "a": "Wendigo",
+    "wrong": [
+     "Skinwalker",
+     "Banshee",
+     "Kelpie"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The winged red-eyed figure seen over Point Pleasant, West Virginia",
+    "a": "Mothman",
+    "wrong": [
+     "Chupacabra",
+     "Jersey Devil",
+     "Spring-heeled Jack"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "hobbies",
+  "name": "AFTER HOURS",
+  "section": "lifestyle",
+  "scope": "Every answer is a craft, a hobby or a pastime.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The craft of looping yarn into cloth on two long needles",
+    "a": "Knitting",
+    "wrong": [
+     "Crochet",
+     "Embroidery",
+     "Cross-stitch"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The patient business of building and painting small plastic aircraft",
+    "a": "Scale modelling",
+    "wrong": [
+     "Woodworking",
+     "Marquetry",
+     "Scrapbooking"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "Keeping bees in boxes and taking a share of what they make",
+    "a": "Beekeeping",
+    "wrong": [
+     "Birdwatching",
+     "Horticulture",
+     "Aquascaping"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The Japanese craft of folding paper with no cuts and no glue",
+    "a": "Origami",
+    "wrong": [
+     "Kirigami",
+     "Papermaking",
+     "Decoupage"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The art of arranging cut flowers as the Japanese do it",
+    "a": "Ikebana",
+    "wrong": [
+     "Bonsai",
+     "Topiary",
+     "Kokedama"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "gardening",
+  "name": "GREEN THUMBS",
+  "section": "lifestyle",
+  "scope": "Every answer is a gardening technique or a botanical term.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "Rotting down kitchen and garden waste into something worth digging in",
+    "a": "Composting",
+    "wrong": [
+     "Mulching",
+     "Pruning",
+     "Tilling"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "Growing plants in nutrient solution, with no soil at all",
+    "a": "Hydroponics",
+    "wrong": [
+     "Aeroponics",
+     "Aquaponics",
+     "Geoponics"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The Japanese art of keeping a tree tiny in a shallow dish",
+    "a": "Bonsai",
+    "wrong": [
+     "Penjing",
+     "Terrarium",
+     "Kokedama"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "Binding two plants together so they grow on as one",
+    "a": "Grafting",
+    "wrong": [
+     "Layering",
+     "Division",
+     "Pollination"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "Clipping living shrubs into birds, spirals and hedges with corners",
+    "a": "Topiary",
+    "wrong": [
+     "Espalier",
+     "Coppicing",
+     "Pollarding"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "fitness",
+  "name": "GETTING PHYSICAL",
+  "section": "lifestyle",
+  "scope": "Every answer is an exercise, a piece of gym equipment or a fitness term.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "Lowering and pushing your own weight back up off the floor",
+    "a": "Push-up",
+    "wrong": [
+     "Pull-up",
+     "Squat",
+     "Plank"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The cast-iron ball with a handle, swung rather than lifted",
+    "a": "Kettlebell",
+    "wrong": [
+     "Dumbbell",
+     "Barbell",
+     "Medicine ball"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "Twenty seconds hard, ten seconds off, eight times over",
+    "a": "Tabata",
+    "wrong": [
+     "CrossFit",
+     "Pilates",
+     "Fartlek"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "A front squat and an overhead press run together into one movement",
+    "a": "Thruster",
+    "wrong": [
+     "Clean and jerk",
+     "Snatch",
+     "Deadlift"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The measure of how much oxygen a body can actually use at full stretch",
+    "a": "VO2 max",
+    "wrong": [
+     "Lactate threshold",
+     "Heart rate reserve",
+     "Anaerobic capacity"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "astrology",
+  "name": "STARS ALIGNED",
+  "section": "lifestyle",
+  "scope": "Every answer is a zodiac sign or a term from astrology.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The first sign of the zodiac, and its ram",
+    "a": "Aries",
+    "wrong": [
+     "Taurus",
+     "Gemini",
+     "Leo"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The sign of the scales",
+    "a": "Libra",
+    "wrong": [
+     "Virgo",
+     "Scorpio",
+     "Sagittarius"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "What a planet is said to be doing when it appears to run backwards",
+    "a": "Retrograde",
+    "wrong": [
+     "Conjunction",
+     "Opposition",
+     "Station"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The sign drawn as a goat with the tail of a fish",
+    "a": "Capricorn",
+    "wrong": [
+     "Aquarius",
+     "Pisces",
+     "Scorpio"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The point of a chart that was rising in the east at the moment of birth",
+    "a": "Ascendant",
+    "wrong": [
+     "Midheaven",
+     "Nadir",
+     "Descendant"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "crypto",
+  "name": "BLOCKS & CHAINS",
+  "section": "lifestyle",
+  "scope": "Every answer is a cryptocurrency or a term from blockchain technology.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The first of them, put out by somebody calling themselves Satoshi Nakamoto",
+    "a": "Bitcoin",
+    "wrong": [
+     "Ethereum",
+     "Ripple",
+     "Litecoin"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The shared ledger that every machine on the network keeps a copy of",
+    "a": "Blockchain",
+    "wrong": [
+     "Smart contract",
+     "Mining pool",
+     "Tokenomics"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The platform that brought in programmable contracts, with Ether for fuel",
+    "a": "Ethereum",
+    "wrong": [
+     "Solana",
+     "Cardano",
+     "Polkadot"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The three letters for a token that says you own one particular digital thing",
+    "a": "NFT",
+    "wrong": [
+     "DAO",
+     "DeFi",
+     "ICO"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The scheme where machines burn electricity on puzzles to keep the ledger honest",
+    "a": "Proof of work",
+    "wrong": [
+     "Proof of stake",
+     "Proof of history",
+     "Proof of authority"
+    ]
+   }
+  ]
+ }
+]

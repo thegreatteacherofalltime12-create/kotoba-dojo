@@ -172,5 +172,295 @@
     ]
    }
   ]
+ },
+ {
+  "id": "wethepeople",
+  "name": "WE THE PEOPLE",
+  "section": "staples",
+  "scope": "Every answer is an amendment, a clause, a branch or an office of the US Constitution.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The branch of government tasked with making the laws",
+    "a": "Legislative",
+    "wrong": [
+     "Executive",
+     "Judicial",
+     "Administrative"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The amendment guaranteeing freedom of speech, religion, and the press",
+    "a": "First Amendment",
+    "wrong": [
+     "Second Amendment",
+     "Fifth Amendment",
+     "Tenth Amendment"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The article of the Constitution that establishes the executive branch and the presidency",
+    "a": "Article II",
+    "wrong": [
+     "Article I",
+     "Article III",
+     "Article IV"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The clause that establishes the Constitution and federal laws as the highest law of the land",
+    "a": "Supremacy Clause",
+    "wrong": [
+     "Commerce Clause",
+     "Elastic Clause",
+     "Take Care Clause"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The number of state ratifications required for the original Constitution to take effect",
+    "a": "Nine",
+    "wrong": [
+     "Seven",
+     "Eleven",
+     "Thirteen"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "worldhistory",
+  "name": "WORLD HISTORY",
+  "section": "staples",
+  "scope": "Every answer is an empire, a treaty, a revolution or a ruler from world history.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The empire Augustus founded out of a republic, which later split in two",
+    "a": "Roman Empire",
+    "wrong": [
+     "Ottoman Empire",
+     "Mongol Empire",
+     "Persian Empire"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The royal document King John of England was forced to seal at Runnymede in 1215",
+    "a": "Magna Carta",
+    "wrong": [
+     "Treaty of Versailles",
+     "Edict of Nantes",
+     "Code of Hammurabi"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The French monarch overthrown and executed during the 1789 revolution",
+    "a": "Louis XVI",
+    "wrong": [
+     "Louis XIV",
+     "Henry IV",
+     "Charles X"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The devastating European conflict that ended with the Peace of Westphalia in 1648",
+    "a": "Thirty Years' War",
+    "wrong": [
+     "Seven Years' War",
+     "Hundred Years' War",
+     "War of the Roses"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The final imperial dynasty of China, which fell to a republic in 1912",
+    "a": "Qing",
+    "wrong": [
+     "Ming",
+     "Tang",
+     "Song"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "literature",
+  "name": "LITERATURE",
+  "section": "staples",
+  "scope": "Every answer is a work of literature, its author, or a character or place from one.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The English playwright and poet who wrote Romeo and Juliet and Hamlet",
+    "a": "William Shakespeare",
+    "wrong": [
+     "Charles Dickens",
+     "Mark Twain",
+     "Jane Austen"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The whaling captain obsessed with hunting down the white whale in Moby-Dick",
+    "a": "Captain Ahab",
+    "wrong": [
+     "Captain Nemo",
+     "Captain Hook",
+     "Captain Bligh"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The dystopian novel by George Orwell featuring the watchful eyes of Big Brother",
+    "a": "Nineteen Eighty-Four",
+    "wrong": [
+     "Brave New World",
+     "Fahrenheit 451",
+     "The Handmaid's Tale"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The author of the 19th-century Russian psychological masterpiece Crime and Punishment",
+    "a": "Fyodor Dostoevsky",
+    "wrong": [
+     "Leo Tolstoy",
+     "Anton Chekhov",
+     "Ivan Turgenev"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The fictional town at the heart of Gabriel Garcia Marquez's One Hundred Years of Solitude",
+    "a": "Macondo",
+    "wrong": [
+     "Yoknapatawpha",
+     "Narnia",
+     "Middle-earth"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "sports",
+  "name": "SPORTS",
+  "section": "staples",
+  "scope": "Every answer is a sport, a rule of one, a trophy or a position.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The sport where professional teams compete annually for the Super Bowl",
+    "a": "American football",
+    "wrong": [
+     "Baseball",
+     "Basketball",
+     "Ice hockey"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The international tennis tournament played on red clay courts in Paris",
+    "a": "French Open",
+    "wrong": [
+     "Wimbledon",
+     "US Open",
+     "Australian Open"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The most clubs a golfer may carry in the bag during a round",
+    "a": "Fourteen",
+    "wrong": [
+     "Ten",
+     "Twelve",
+     "Sixteen"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The large silver trophy awarded annually to the National Hockey League champion",
+    "a": "Stanley Cup",
+    "wrong": [
+     "Calder Cup",
+     "Memorial Cup",
+     "Presidents' Trophy"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The Olympic event that runs fencing, swimming, equestrian, shooting and running together",
+    "a": "Modern pentathlon",
+    "wrong": [
+     "Decathlon",
+     "Heptathlon",
+     "Triathlon"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "presidents",
+  "name": "U.S. PRESIDENTS",
+  "section": "staples",
+  "scope": "Every answer is a US president or something one of them did.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The first president of the United States and commander of the Continental Army",
+    "a": "George Washington",
+    "wrong": [
+     "John Adams",
+     "Thomas Jefferson",
+     "James Madison"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The president who delivered the Gettysburg Address during the American Civil War",
+    "a": "Abraham Lincoln",
+    "wrong": [
+     "Andrew Johnson",
+     "Ulysses S. Grant",
+     "James Buchanan"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The only US president to resign the office",
+    "a": "Richard Nixon",
+    "wrong": [
+     "Andrew Johnson",
+     "Bill Clinton",
+     "Herbert Hoover"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The president who signed the Federal Reserve Act into law in 1913",
+    "a": "Woodrow Wilson",
+    "wrong": [
+     "Theodore Roosevelt",
+     "William Howard Taft",
+     "Warren G. Harding"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The first president to serve two terms that did not run back to back",
+    "a": "Grover Cleveland",
+    "wrong": [
+     "Benjamin Harrison",
+     "William McKinley",
+     "Chester A. Arthur"
+    ]
+   }
+  ]
  }
 ]

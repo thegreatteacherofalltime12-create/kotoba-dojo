@@ -92,6 +92,15 @@ export const GAME_MODES = [
     available: true,
   },
   {
+    id: "the-buzzer",
+    name: "The Buzzer",
+    players: "1 or more",
+    blurb: "Six categories, five rows, one buzzer. The clue is read to everyone at once and the quickest reaction takes it \u2014 then four options, ten seconds, and a wrong answer costs what a right one pays.",
+    kind: "match",
+    game: "buzzer",
+    available: true,
+  },
+  {
     id: "gauntlet",
     name: "Gauntlet",
     players: "1 player",

@@ -91,6 +91,18 @@ class_name = "GrandPrix"
 tag = "v9"
 new_sqlite_classes = ["GrandPrix"]
 
+# One instance per board. Holds the six categories, every player's money and
+# the answer to the clue on screen — the options reach one player only, and
+# the answer never leaves until the cell closes.
+[[durable_objects.bindings]]
+name = "BUZZER"
+class_name = "BuzzerRoom"
+
+[[migrations]]
+tag = "v10"
+new_sqlite_classes = ["BuzzerRoom"]
+
+
 # Curated puzzle bank. Game content, not user data — the DO reads answers
 # from here at round start.
 [[kv_namespaces]]

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Omni Multiverse of Madness</title>
-<meta name="build" content="2026-09-25 02:19 UTC">
+<meta name="build" content="2026-09-26 22:05 UTC">
 <meta name="description" content="Omni Multiverse of Madness — competitive arena. Belts, MMR, casino floor and live standings.">
 <meta name="theme-color" content="#F4F1EA">
 <meta name="mobile-web-app-capable" content="yes">
@@ -447,6 +447,18 @@ if (location.protocol === "file:") {
 
 <div id="points-modal" class="modal" role="dialog" aria-modal="true" aria-label="How points work" hidden></div>
 
+<div id="bz-pick" class="modal" role="dialog" aria-modal="true" aria-label="Choose categories" hidden>
+  <div class="modal-back" data-close></div>
+  <div class="modal-card">
+    <div class="modal-head">
+      <h2 id="bz-pick-title">Choose six categories</h2>
+      <button class="modal-close" data-close aria-label="Close">&times;</button>
+    </div>
+    <div id="bz-pick-body" class="modal-body bz-pick-body"></div>
+  </div>
+</div>
+
+
 <!-- minesweeper -->
 <section id="screen-prix" class="screen" hidden>
   <header class="topbar">
@@ -569,6 +581,78 @@ if (location.protocol === "file:") {
       <section class="panel">
         <div class="panel-head"><h2>Field</h2></div>
         <ul id="mine-standings" class="mine-standings"></ul>
+      </section>
+    </aside>
+  </div>
+</section>
+
+<!-- the buzzer -->
+<section id="screen-buzzer" class="screen" hidden>
+  <header class="topbar">
+    <button id="btn-bz-leave" class="btn btn-tiny btn-end">End Match</button>
+    <button id="btn-bz-mute" class="btn btn-tiny" aria-pressed="false">&#128266; Sound on</button>
+    <span class="topbar-spacer"></span>
+    <span class="dojo-code">Board <b id="bz-code"></b></span>
+    <span id="bz-phase" class="topbar-mark"></span>
+  </header>
+
+  <div class="wrap bz-layout">
+    <main class="bz-main">
+      <p id="bz-error" class="notice notice-bad" hidden></p>
+
+      <section id="bz-lobby" class="panel" hidden>
+        <div class="panel-head"><h2>The podiums</h2><span id="bz-host-tag" class="host-tag" hidden>You run this board</span></div>
+        <div class="pad">
+          <div class="host-opts">
+            <button id="btn-bz-solo" class="opt toggle-btn" role="switch" aria-checked="false" hidden>
+              <span class="sw"></span>
+              <span class="opt-text"><b>Solo board</b><i>Play the computers. It scores and pays exactly as a board against people does &mdash; beating five Pros is a win.</i></span>
+            </button>
+          </div>
+
+          <div id="bz-setup" class="bz-setup"></div>
+          <div id="bz-chosen" class="bz-chosen"></div>
+
+          <p id="bz-note" class="panel-sub"></p>
+          <button id="btn-bz-start" class="btn btn-primary btn-wide" hidden>Start the board</button>
+        </div>
+      </section>
+
+      <div id="bz-board-wrap" hidden>
+        <div id="bz-board" class="bz-board"></div>
+
+        <section id="bz-clue-panel" class="panel bz-clue-panel" hidden>
+          <p id="bz-clue-head" class="bz-clue-head"></p>
+          <p id="bz-clue" class="bz-clue"></p>
+          <div class="bz-bar"><span id="bz-bar-fill"></span></div>
+          <p id="bz-secs" class="bz-secs" aria-live="off"></p>
+          <button id="bz-buzzer" class="btn bz-buzzer">Wait&hellip;</button>
+          <div id="bz-options" class="bz-options" hidden></div>
+          <p id="bz-flash" class="bz-flash" aria-live="polite"></p>
+        </section>
+      </div>
+
+      <section id="bz-results" class="panel bz-results" hidden></section>
+    </main>
+
+    <aside class="bz-side">
+      <section class="panel bz-deck">
+        <div class="bz-tabs" role="tablist">
+          <button id="bz-t-podiums" class="bz-tab on" role="tab" aria-selected="true">Podiums</button>
+          <button id="bz-t-feed" class="bz-tab" role="tab" aria-selected="false">Feed</button>
+          <button id="bz-t-chat" class="bz-tab" role="tab" aria-selected="false">Chat</button>
+        </div>
+        <div class="bz-deck-body">
+          <div id="bz-pane-podiums"><div id="bz-podiums" class="bz-podiums"></div></div>
+          <div id="bz-pane-feed" hidden><div id="bz-feed" class="bz-feed"></div></div>
+          <div id="bz-pane-chat" hidden>
+            <div id="bz-chat" class="bz-chat"></div>
+            <div class="chat-composer">
+              <input id="bz-say" maxlength="200" placeholder="Talk to the table" aria-label="Message the table">
+              <button id="btn-bz-send" class="btn btn-small">Send</button>
+            </div>
+          </div>
+        </div>
       </section>
     </aside>
   </div>

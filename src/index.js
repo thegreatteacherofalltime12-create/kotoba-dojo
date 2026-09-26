@@ -19,6 +19,7 @@ export { BountyOffice } from "./bounty-office.js";
 export { CasinoFloor } from "./casino-floor.js";
 export { Commons } from "./commons.js";
 export { GrandPrix } from "./grand-prix.js";
+export { BuzzerRoom } from "./buzzer-room.js";
 
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no I/O/0/1
 const CODE_LENGTH = 5;
@@ -595,9 +596,9 @@ export default {
       return stub.fetch(fwd);
     }
 
-    // Battleship, Minesweeper, Multiverse Golf and the Grand Prix all hand
-    // off the same way.
-    const room = /^\/api\/(battle|mines|links|prix)\/([A-Za-z0-9-]{3,16})\/ws$/.exec(path);
+    // Battleship, Minesweeper, Multiverse Golf, the Grand Prix and the
+    // Buzzer all hand off the same way.
+    const room = /^\/api\/(battle|mines|links|prix|buzzer)\/([A-Za-z0-9-]{3,16})\/ws$/.exec(path);
     if (room) {
       if (request.headers.get("Upgrade") !== "websocket")
         return new Response("Expected a WebSocket upgrade.", { status: 426 });
@@ -610,6 +611,7 @@ export default {
       if ((await barred(env, user.uid)).banned) return new Response("Removed from the arena.", { status: 403 });
       const code = room[2].toUpperCase();
       const ns = room[1] === "mines" ? env.MINES
+        : room[1] === "buzzer" ? env.BUZZER
         : room[1] === "links" ? env.LINKS
         : room[1] === "prix" ? env.PRIX
         : env.BATTLE;

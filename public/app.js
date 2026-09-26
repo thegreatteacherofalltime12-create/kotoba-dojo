@@ -19,6 +19,7 @@ import {
 import { enterBattle, closeBattle, bindBattleControls } from "./battle.js";
 import { enterMines, closeMines, bindMineControls } from "./mines.js";
 import { enterPrix, closePrix } from "./prix.js";
+import { enterBuzzer, closeBuzzer } from "./buzzer.js";
 import { THEMES, applyTheme, savedTheme, themeById, THEME_EPOCH, DEFAULT_THEME, isStale } from "./theme.js";
 import { enterCasino, leaveCasino, bindCasino } from "./casino.js";
 import { casinoRulesHtml } from "./game-modes.js";
@@ -157,7 +158,7 @@ const S = {
 // ───────────────────────────────────────────────────────────── screens
 
 function show(name) {
-  for (const s of ["gate", "home", "forge", "dojo", "battle", "mines", "casino", "prix"]) $(`screen-${s}`).hidden = s !== name;
+  for (const s of ["gate", "home", "forge", "dojo", "battle", "mines", "casino", "prix", "buzzer"]) $(`screen-${s}`).hidden = s !== name;
   // The doorway belongs to the sign-in page; everything past it is the forest.
   document.body.classList.toggle("at-gate", name === "gate");
   if (typeof watchDojos === "function" && name !== "home") watchDojos(false);
@@ -2198,7 +2199,10 @@ function closePanel(panel, tab) {
 const closeCreate = () => closePanel("drawer-create", "tab-create");
 
 // One tile per game: tap it and the room opens. Nothing to read first.
-const GAME_ICONS = { crossword: "\u{1F520}", battleship: "\u2693", minesweeper: "\u{1F4A3}", casino: "\u{1F3B0}", links: "\u26F3" };
+const GAME_ICONS = {
+  crossword: "\u{1F520}", battleship: "\u2693", minesweeper: "\u{1F4A3}",
+  casino: "\u{1F3B0}", links: "\u26F3", prix: "\u{1F3CE}\uFE0F", buzzer: "\u{1F6CE}\uFE0F",
+};
 
 function drawCreate() {
   $("drawer-create").innerHTML = `
@@ -3260,6 +3264,7 @@ const ROOMS = {
   battleship: (code, back) => { show("battle"); enterBattle(code, idToken, back); },
   minesweeper: (code, back) => { show("mines"); enterMines(code, idToken, back); },
   prix: (code, back) => { show("prix"); enterPrix(code, idToken, back); },
+  buzzer: (code, back) => { show("buzzer"); enterBuzzer(code, idToken, back); },
   // Multiverse Golf runs on its own page: a full-screen course doesn't fit
   // inside a panel, and the round is long enough to want the whole window.
   // A room being created lands on the lobby with its code, to choose a course
@@ -3301,7 +3306,7 @@ async function joinByCode(code) {
  * Casino is solo and has no room to return to, and golf runs on its own
  * page and keeps its own hash, so neither is written here.
  */
-const REJOINABLE = new Set(["crossword", "battleship", "minesweeper", "prix"]);
+const REJOINABLE = new Set(["crossword", "battleship", "minesweeper", "prix", "buzzer"]);
 
 function rememberRoom(game, code) {
   if (!REJOINABLE.has(game) || !code) return;

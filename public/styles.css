@@ -1260,7 +1260,7 @@ h1, h2, h3 { font-family: var(--display); text-transform: none; letter-spacing: 
    button. Both are read at a glance under time pressure and neither survives
    being recoloured, so no theme touches them. */
 
-#screen-dojo, #screen-battle, #screen-mines {
+#screen-dojo, #screen-battle, #screen-mines, #screen-buzzer {
   position: relative;
   background-image:
     linear-gradient(180deg, rgba(10,10,12,.78), rgba(10,10,12,.6) 40%, rgba(10,10,12,.86)),
@@ -3745,3 +3745,146 @@ a.dtab { text-decoration: none; display: inline-block; }
 #prix-engines .ai-level { display: grid; gap: .1rem; text-align: left; padding: .5rem .7rem; }
 #prix-engines .ai-level b { font-family: var(--display); font-size: .82rem; letter-spacing: .04em; }
 #prix-engines .ai-level i { font-style: normal; font-size: .7rem; opacity: .75; }
+
+/* ── the buzzer ──────────────────────────────────────────────────────
+   Six categories across is a desktop shape. On a phone the board scrolls
+   sideways rather than squeezing six columns into 380 pixels, because a
+   $1,000 cell four characters wide is not a cell anybody can read or hit. */
+.bz-layout { display: grid; grid-template-columns: minmax(0, 1fr) 20rem; gap: 1rem; align-items: start; }
+.bz-main { min-width: 0; display: grid; gap: .8rem; }
+/* A grid item is min-width:auto by default, so the board’s own width was
+   pushing the clue and the buzzer off the side of a phone instead of
+   scrolling inside itself. */
+#bz-board-wrap { min-width: 0; display: grid; gap: .8rem; }
+
+.bz-board { display: grid; grid-template-columns: repeat(6, minmax(6.2rem, 1fr)); gap: .35rem; }
+.bz-category {
+  font-family: var(--display); font-size: .78rem; font-weight: 700; text-align: center;
+  color: var(--accent); text-transform: uppercase; letter-spacing: .03em;
+  padding: .45rem .2rem; line-height: 1.15; align-self: end;
+}
+.bz-cell {
+  background: rgba(8, 14, 34, .72); border: 1px solid var(--edge); border-radius: 4px;
+  color: #F4CE5A; font-family: var(--display); font-size: 1.25rem; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; min-height: 3.2rem;
+  cursor: pointer; transition: background-color .18s, border-color .18s, transform .12s;
+}
+.bz-cell:hover:not(:disabled) { border-color: var(--accent); background: rgba(255, 255, 255, .07); transform: translateY(-1px); }
+.bz-cell:disabled { cursor: default; }
+/* A spent cell keeps its place in the grid and stops being a target. It goes
+   dark rather than disappearing, so the board never reflows mid-game. */
+.bz-cell.spent { color: transparent; background: rgba(8, 14, 34, .3); border-color: rgba(255,255,255,.05); }
+
+.bz-clue-panel { display: grid; gap: .7rem; padding: 1rem; text-align: center; }
+.bz-clue-head { margin: 0; font-family: var(--display); font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.bz-clue { margin: 0 auto; font-size: 1.35rem; line-height: 1.4; color: #F8FAFC; max-width: 46rem; }
+.bz-bar { height: 5px; background: rgba(255, 255, 255, .08); border-radius: 3px; overflow: hidden; }
+.bz-bar span { display: block; height: 100%; background: var(--accent); transition: width .1s linear; }
+.bz-bar span.low { background: #DC2626; }
+.bz-secs { margin: 0; font-family: var(--display); font-size: .85rem; color: var(--muted); min-height: 1.1rem; }
+
+/* The buzzer says what it is doing in words as well as in colour: a light
+   that only changes hue is no light at all to a good many people. */
+.bz-buzzer {
+  font-family: var(--display); font-size: 1.3rem; letter-spacing: .1em; padding: .9rem;
+  border-radius: 8px; background: rgba(255,255,255,.06); color: var(--muted);
+  border: 2px solid var(--edge); width: 100%; cursor: not-allowed;
+}
+.bz-buzzer.live {
+  background: #16A34A; border-color: #4ADE80; color: #fff; cursor: pointer;
+  box-shadow: 0 0 0 3px rgba(74, 222, 128, .25), 0 0 18px rgba(22, 163, 74, .5);
+  animation: bz-pulse .9s ease-in-out infinite;
+}
+@keyframes bz-pulse { 50% { box-shadow: 0 0 0 6px rgba(74,222,128,.14), 0 0 22px rgba(22,163,74,.6); } }
+
+.bz-options { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
+.bz-option {
+  padding: .9rem .7rem; font: inherit; font-size: 1rem; line-height: 1.25;
+  background: rgba(255,255,255,.06); border: 2px solid var(--edge); border-radius: 8px;
+  color: #F8FAFC; cursor: pointer; min-height: 3.4rem;
+}
+.bz-option:hover { border-color: var(--accent); background: rgba(255,255,255,.1); }
+.bz-flash { margin: 0; min-height: 1.3rem; font-family: var(--display); font-size: 1rem; color: var(--muted); }
+.bz-flash.good { color: #4ADE80; }
+.bz-flash.bad { color: #F87171; }
+
+/* Lobby: the settings as tabs with windows, the way the race lobby does it. */
+.bz-setup { display: grid; gap: .4rem; margin: .6rem 0; }
+.bz-setup .bz-tab {
+  display: grid; grid-template-columns: 1fr auto; align-items: center; gap: .6rem;
+  padding: .7rem .85rem; background: rgba(255,255,255,.05); border: 1px solid var(--edge);
+  border-radius: 8px; color: inherit; font: inherit; cursor: pointer; text-align: left;
+}
+.bz-setup .bz-tab:hover:not(:disabled) { border-color: var(--accent); }
+.bz-setup .bz-tab:disabled { opacity: .55; cursor: default; }
+.bz-setup .bt-name { font-weight: 600; }
+.bz-setup .bt-now { font-family: var(--display); font-size: .8rem; color: var(--accent); }
+.bz-chosen { display: flex; flex-wrap: wrap; gap: .3rem; }
+.bz-chip {
+  font-family: var(--display); font-size: .7rem; text-transform: uppercase; letter-spacing: .04em;
+  padding: .25rem .5rem; border: 1px solid var(--edge); border-radius: 999px; color: var(--accent);
+}
+
+.bz-pick-body { display: grid; gap: .5rem; }
+.bz-pick-body .bz-sec { margin: .7rem 0 .1rem; font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.bz-cats { display: grid; grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); gap: .35rem; }
+.bz-catpick {
+  display: grid; gap: .1rem; padding: .55rem .65rem; text-align: left; font: inherit;
+  background: rgba(255,255,255,.04); border: 1px solid var(--edge); border-radius: 7px;
+  color: inherit; cursor: pointer;
+}
+.bz-catpick b { font-family: var(--display); font-size: .76rem; text-transform: uppercase; letter-spacing: .03em; }
+.bz-catpick i { font-size: .68rem; color: var(--muted); font-style: normal; }
+.bz-catpick.on { border-color: var(--accent); background: rgba(244, 206, 90, .12); }
+.bz-catpick:disabled { opacity: .4; cursor: default; }
+.bz-count { margin: .4rem 0 0; font-family: var(--display); font-size: .85rem; color: var(--accent); }
+
+/* Podiums, feed and chat share one block, laid out the way Battleship does. */
+.bz-deck { padding: 0; }
+.bz-tabs { display: flex; gap: .3rem; padding: .5rem .5rem 0; border-bottom: 1px solid var(--edge); }
+.bz-tabs .bz-tab {
+  flex: 1; padding: .45rem .6rem; font: inherit; font-size: .85rem; cursor: pointer;
+  background: transparent; border: 1px solid transparent; border-bottom: none;
+  border-radius: 6px 6px 0 0; color: var(--muted); text-align: center;
+}
+.bz-tabs .bz-tab:hover { color: var(--accent); }
+.bz-tabs .bz-tab.on { background: rgba(255,255,255,.06); border-color: var(--edge); color: inherit; font-weight: 600; }
+.bz-deck-body { padding: .6rem; }
+.bz-feed, .bz-chat { padding: .6rem .9rem; display: grid; gap: .35rem; height: 220px; overflow-y: auto; align-content: start; }
+.bz-feed-line, .bz-chat-line { margin: 0; font-size: .84rem; color: #CBD5E1; max-width: none; }
+.bz-chat-line b { color: var(--accent); font-family: var(--display); text-transform: uppercase; letter-spacing: .04em; }
+.bz-time { font-family: var(--display); font-size: .72rem; color: #64748B; }
+
+.bz-podiums { display: grid; gap: .3rem; }
+.bz-podium {
+  display: grid; grid-template-columns: 1fr auto auto; gap: .5rem; align-items: baseline;
+  padding: .45rem .6rem; border: 1px solid var(--edge); border-radius: 7px;
+  background: rgba(255,255,255,.04);
+}
+.bz-podium.me { border-color: var(--accent); }
+.bz-podium.buzzed { background: rgba(74, 222, 128, .14); border-color: #4ADE80; }
+.bz-who { font-weight: 600; font-size: .85rem; }
+.bz-cash { font-family: var(--display); color: #F4CE5A; }
+.bz-cash.red { color: #F87171; }
+.bz-rt { font-family: var(--display); font-size: .7rem; color: #64748B; }
+
+.bz-results { display: grid; gap: .4rem; padding: 1rem; }
+.bz-result { display: grid; grid-template-columns: auto 1fr auto; gap: .4rem .7rem; align-items: baseline; padding: .5rem .7rem; border: 1px solid var(--edge); border-radius: 8px; }
+.bz-result.me { border-color: var(--accent); }
+.bz-place { font-family: var(--display); font-size: 1.1rem; color: var(--accent); }
+.bz-sub { font-size: .75rem; color: var(--muted); grid-column: 2 / -1; }
+
+@media (max-width: 860px) {
+  .bz-layout { grid-template-columns: minmax(0, 1fr); }
+  .bz-board { overflow-x: auto; grid-template-columns: repeat(6, 5.6rem); padding-bottom: .3rem; }
+  .bz-clue { font-size: 1.1rem; }
+  .bz-options { grid-template-columns: 1fr; }
+}
+
+/* Nothing here is motion-only, so taking the motion away costs no meaning:
+   the buzzer still turns green and still says BUZZ. */
+@media (prefers-reduced-motion: reduce) {
+  .bz-cell, .bz-bar span { transition: none; }
+  .bz-cell:hover:not(:disabled) { transform: none; }
+  .bz-buzzer.live { animation: none; }
+}

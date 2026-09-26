@@ -221,6 +221,7 @@ export const TITLES = [
 ];
 
 export const GAME_NAMES = {
+  prix: "Multiverse Grand Prix", buzzer: "The Buzzer",
   arena: "Arena", crossword: "Word-Cross", battleship: "Battleship",
   minesweeper: "Minesweeper", links: "Multiverse Golf", casino: "Casino",
 };

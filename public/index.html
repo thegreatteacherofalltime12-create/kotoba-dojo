@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Omni Multiverse of Madness</title>
-<meta name="build" content="2026-09-26 23:42 UTC">
+<meta name="build" content="2026-09-26 23:53 UTC">
 <meta name="description" content="Omni Multiverse of Madness — competitive arena. Belts, MMR, casino floor and live standings.">
 <meta name="theme-color" content="#F4F1EA">
 <meta name="mobile-web-app-capable" content="yes">
@@ -447,6 +447,20 @@ if (location.protocol === "file:") {
 
 <div id="points-modal" class="modal" role="dialog" aria-modal="true" aria-label="How points work" hidden></div>
 
+<div id="bz-clue-modal" class="modal bz-clue-modal" role="dialog" aria-modal="true" aria-label="The clue" hidden>
+  <div class="modal-back"></div>
+  <div class="modal-card bz-clue-card">
+    <p id="bz-clue-head" class="bz-clue-head"></p>
+    <p id="bz-clue" class="bz-clue"></p>
+    <div class="bz-bar"><span id="bz-bar-fill"></span></div>
+    <p id="bz-secs" class="bz-secs" aria-live="off"></p>
+    <section id="bz-wager" class="bz-wager" hidden></section>
+    <button id="bz-buzzer" class="btn bz-buzzer">Wait&hellip;</button>
+    <div id="bz-options" class="bz-options" hidden></div>
+    <p id="bz-flash" class="bz-flash" aria-live="polite"></p>
+  </div>
+</div>
+
 <div id="bz-pick" class="modal" role="dialog" aria-modal="true" aria-label="Choose categories" hidden>
   <div class="modal-back" data-close></div>
   <div class="modal-card">
@@ -624,17 +638,6 @@ if (location.protocol === "file:") {
       <div id="bz-board-wrap" hidden>
         <div id="bz-board" class="bz-board"></div>
 
-        <section id="bz-wager" class="panel bz-wager" hidden></section>
-
-        <section id="bz-clue-panel" class="panel bz-clue-panel" hidden>
-          <p id="bz-clue-head" class="bz-clue-head"></p>
-          <p id="bz-clue" class="bz-clue"></p>
-          <div class="bz-bar"><span id="bz-bar-fill"></span></div>
-          <p id="bz-secs" class="bz-secs" aria-live="off"></p>
-          <button id="bz-buzzer" class="btn bz-buzzer">Wait&hellip;</button>
-          <div id="bz-options" class="bz-options" hidden></div>
-          <p id="bz-flash" class="bz-flash" aria-live="polite"></p>
-        </section>
       </div>
 
       <section id="bz-final" class="panel bz-final" hidden></section>

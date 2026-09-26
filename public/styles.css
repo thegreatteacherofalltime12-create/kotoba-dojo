@@ -3961,3 +3961,33 @@ a.dtab { text-decoration: none; display: inline-block; }
 @media (prefers-reduced-motion: reduce) {
   .bz-splash { animation: none; }
 }
+
+/* ── the clue window ─────────────────────────────────────────────────
+   The cell grows out of the board and takes the screen, which is what the
+   show does and what tells you the game has moved. It was a panel under the
+   board before, so picking a cell looked like nothing happening. */
+.bz-clue-modal .modal-card {
+  display: grid; gap: .8rem; text-align: center;
+  width: min(34rem, 100%); justify-self: center; align-self: center; margin-inline: auto;
+  padding: 1.2rem 1.1rem;
+  border: 2px solid var(--accent);
+  animation: bz-open .22s ease-out;
+}
+@keyframes bz-open { from { transform: scale(.9); opacity: 0; } }
+
+/* The clue is the biggest thing on the screen, because it is the only thing
+   that matters while it is up. */
+.bz-clue-modal .bz-clue { font-size: 1.4rem; line-height: 1.35; }
+.bz-clue-modal .bz-clue-head { color: #F4CE5A; font-size: .9rem; }
+.bz-clue-modal .bz-wager { padding: 0; background: none; border: none; }
+
+@media (max-width: 860px) {
+  .bz-clue-modal .modal-card { padding: 1rem .8rem; gap: .6rem; }
+  .bz-clue-modal .bz-clue { font-size: 1.15rem; }
+  .bz-clue-modal .bz-options { grid-template-columns: 1fr; }
+  .bz-clue-modal .bz-option { min-height: 3rem; padding: .7rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bz-clue-modal .modal-card { animation: none; }
+}

@@ -290,15 +290,26 @@ function drawBoard(g) {
     for (let col = 0; col < g.cats.length; col++) {
       const spent = g.spent[col][row];
       const cell = el("button", `bz-cell${spent ? " spent" : ""}`, money(g.values[row]));
-      cell.disabled = spent || !!g.cell || g.turnUid !== B.you;
+      const mine = g.turnUid === B.you;
+      cell.disabled = spent || !!g.cell || !mine;
       cell.setAttribute("aria-label", `${g.cats[col].name}, ${money(g.values[row])}`);
+      // A disabled button swallows the tap and says nothing, which reads as
+      // the game being broken. Every cell answers, even the ones that cannot
+      // be played.
+      cell.onpointerdown = () => {
+        if (spent) return say("That one's been played.");
+        if (g.cell) return say("There's a clue on the board already.");
+        if (!mine) return say(`It's ${nameOf(g, g.turnUid)} to pick.`);
+      };
       cell.onclick = () => send({ type: "BZ_PICK", col, row });
       host.append(cell);
     }
   }
 
   const c = g.cell;
-  $("bz-clue-panel").hidden = !c;
+  // The window is the clue. It opens when there is one and shuts when the
+  // cell closes, so a tap that lands is a tap you can see land.
+  showClue(!!c);
   $("bz-wager").hidden = !(c && c.stage === "WAGER" && c.holder === B.you);
   if (c && c.stage === "WAGER" && c.holder === B.you) drawWager(g, c);
   if (!c) { lastStage = null; return; }
@@ -434,6 +445,19 @@ function drawFinal(g) {
     row.append(el("span", "bz-sub", `${r.picked || "no answer"} · ${r.right ? "+" : "−"}${money(r.wager)}`));
     host.append(row);
   }
+}
+
+/**
+ * Open or shut the clue window.
+ *
+ * panel-open stops the page behind it scrolling under your thumb, which is
+ * the whole reason the arena's other modals set it.
+ */
+function showClue(on) {
+  const n = $("bz-clue-modal");
+  if (!n) return;
+  n.hidden = !on;
+  document.body.classList.toggle("panel-open", !!on);
 }
 
 function drawOptions() {
@@ -732,6 +756,8 @@ function wire() {
     i.value = "";
   };
   $("bz-pick").querySelectorAll("[data-close]").forEach((n) => { n.onclick = closePick; });
+  // There is deliberately no way to shut the clue window by hand. A clue you
+  // can dismiss is a clue you can duck, and the whole table is waiting on it.
 }
 
 wire();

@@ -1,0 +1,732 @@
+[
+ {
+  "id": "battleship",
+  "name": "BATTLESHIP ROYALE",
+  "section": "arena",
+  "scope": "Every answer is a hull class, a map, a rule or an arsenal token of Battleship Royale.",
+  "decoys": "The other hulls, the other maps, or the other battleship tokens."
+ },
+ {
+  "id": "prix",
+  "name": "THE MULTIVERSE GRAND PRIX",
+  "section": "arena",
+  "scope": "Every answer is a circuit, an engine, a length, an item box or an arsenal token of the Grand Prix.",
+  "decoys": "The other circuits, engines, items, or gp_ tokens."
+ },
+ {
+  "id": "mines",
+  "name": "MIND THE MINES",
+  "section": "arena",
+  "scope": "Every answer is a field level, a number or an arsenal token of Minesweeper.",
+  "decoys": "The other three levels, or the other ms_ tokens."
+ },
+ {
+  "id": "wordcross",
+  "name": "WORD-CROSS",
+  "section": "arena",
+  "scope": "Every answer is a rule, a clock, a scroll in the starter archive or a Word-Cross token.",
+  "decoys": "The other starter scrolls, or the other wc_ tokens."
+ },
+ {
+  "id": "golf",
+  "name": "MULTIVERSE GOLF",
+  "section": "arena",
+  "scope": "Every answer is one of the six real courses, a hole on one of them, or a rule of word golf.",
+  "decoys": "The other five courses, or the other holes on that card."
+ },
+ {
+  "id": "floor",
+  "name": "THE CASINO FLOOR",
+  "section": "arena",
+  "scope": "Every answer is a table on the floor, a rule of one of them, or a casino token. Never the horse race — another column owns that.",
+  "decoys": "The other tables, or the other cs_ tokens."
+ },
+ {
+  "id": "horses",
+  "name": "AND THEY'RE OFF!",
+  "section": "arena",
+  "scope": "Every answer is one of the seven horses (all Spades) or one of the seven bets on the race card.",
+  "decoys": "The other six horses, or the other six bets — whichever family the clue is in."
+ },
+ {
+  "id": "tokens",
+  "name": "TOKENS & ARSENALS",
+  "section": "arena",
+  "scope": "Every answer is a token, a price, a limit or a rule from the six arsenals.",
+  "decoys": "The other tokens in that game's arsenal, or the other five arsenals."
+ },
+ {
+  "id": "belts",
+  "name": "BELTS & BRASS",
+  "section": "arena",
+  "scope": "Every answer is a belt on the ladder, a service branch, or a rank inside one.",
+  "decoys": "The other eight belts, the other five branches, or the neighbouring ranks."
+ },
+ {
+  "id": "bounty",
+  "name": "THE BOUNTY OFFICE",
+  "section": "arena",
+  "scope": "Every answer is a bounty rule, bonus, tier or achievement.",
+  "decoys": "The other kill tiers, the other slayer tiers, or the other bonuses."
+ },
+ {
+  "id": "garage",
+  "name": "THE KART GARAGE",
+  "section": "arena",
+  "scope": "Every answer is a kart in the garage or what unlocks one.",
+  "decoys": "The other karts in the KARTS list."
+ },
+ {
+  "id": "lore",
+  "name": "DOJO LORE",
+  "section": "arena",
+  "scope": "Every answer is a fact about the arena as a whole — its games, its economy, its shape. Nothing a single-game column already owns.",
+  "decoys": "The other games, or the other arena-wide systems."
+ },
+ {
+  "id": "beforeafter",
+  "name": "BEFORE & AFTER",
+  "section": "staples",
+  "scope": "Every answer is two known things sharing a word, run together — SILENT NIGHT FEVER.",
+  "decoys": "Other run-together pairs built the same way, plausible but not the clued one."
+ },
+ {
+  "id": "potpourri",
+  "name": "POTPOURRI",
+  "section": "staples",
+  "scope": "Every answer is an ordinary household object. The subjects roam; the answers never leave the house.",
+  "decoys": "Other household objects.",
+  "note": "FRAGILE. It survives only because the answers are secretly one family. The night somebody writes a clue whose answer is a person, the column breaks. Keep the rule in the data."
+ },
+ {
+  "id": "wordorigins",
+  "name": "WORD ORIGINS",
+  "section": "staples",
+  "scope": "Every answer is the language, place or trade an English word came from.",
+  "decoys": "Other source languages, or other plausible origins."
+ },
+ {
+  "id": "wethepeople",
+  "name": "WE THE PEOPLE",
+  "section": "staples",
+  "scope": "Every answer is an amendment, a clause, a branch or an office of the US Constitution.",
+  "decoys": "The other amendments, or the other branches and offices."
+ },
+ {
+  "id": "worldhistory",
+  "name": "WORLD HISTORY",
+  "section": "staples",
+  "scope": "Every answer is an empire, a treaty, a revolution or a ruler from world history.",
+  "decoys": "Other empires, treaties or rulers of roughly the same era."
+ },
+ {
+  "id": "literature",
+  "name": "LITERATURE",
+  "section": "staples",
+  "scope": "Every answer is a novel, a novelist or a character from the literary canon.",
+  "decoys": "Other novels by the period, or other novelists of it."
+ },
+ {
+  "id": "sports",
+  "name": "SPORTS",
+  "section": "staples",
+  "scope": "Every answer is a sport, a rule of one, a trophy or a position.",
+  "decoys": "Other sports, other trophies, or the other positions in that sport."
+ },
+ {
+  "id": "colleges",
+  "name": "COLLEGES & UNIVERSITIES",
+  "section": "staples",
+  "scope": "Every answer is a university, its home town, its nickname or its colours.",
+  "decoys": "Other universities of similar standing."
+ },
+ {
+  "id": "presidents",
+  "name": "U.S. PRESIDENTS",
+  "section": "staples",
+  "scope": "Every answer is a US president or something one of them did.",
+  "decoys": "Other presidents, ideally from adjacent decades."
+ },
+ {
+  "id": "shakespeare",
+  "name": "SHAKESPEARE",
+  "section": "staples",
+  "scope": "Every answer is a Shakespeare play, character or line.",
+  "decoys": "The other plays, or the other characters in that play."
+ },
+ {
+  "id": "fairytales",
+  "name": "FAIRY TALES",
+  "section": "staples",
+  "scope": "Every answer is a fairy tale, its character, or the object at its centre.",
+  "decoys": "Other tales, or other characters from the same tradition."
+ },
+ {
+  "id": "strikeup",
+  "name": "STRIKE UP THE BAND",
+  "section": "staples",
+  "scope": "Every answer is a musical instrument or a section of the orchestra.",
+  "decoys": "Other instruments, ideally from the same section."
+ },
+ {
+  "id": "rhymetime",
+  "name": "RHYME TIME",
+  "section": "wordplay",
+  "scope": "Every answer is a rhyming pair of words meaning the clue — a FAT CAT.",
+  "decoys": "Other rhyming pairs, near misses on the meaning."
+ },
+ {
+  "id": "stupidanswers",
+  "name": "STUPID ANSWERS",
+  "section": "wordplay",
+  "scope": "Every answer is a word sitting in plain sight inside the clue.",
+  "decoys": "Other words from the same clue."
+ },
+ {
+  "id": "crosswordA",
+  "name": "CROSSWORD CLUES \"A\"",
+  "section": "wordplay",
+  "scope": "Every answer begins with A and is clued the way a crossword would clue it.",
+  "decoys": "Other A-words of the same length."
+ },
+ {
+  "id": "commonbonds",
+  "name": "COMMON BONDS",
+  "section": "wordplay",
+  "scope": "Every answer is the thing three named items have in common.",
+  "decoys": "Other properties two of the three share but not the third."
+ },
+ {
+  "id": "anagrams",
+  "name": "ANAGRAMS",
+  "section": "wordplay",
+  "scope": "Every answer is the word the clued letters rearrange into.",
+  "decoys": "Other real words from a near-identical letter set."
+ },
+ {
+  "id": "oddoneout",
+  "name": "ODD ONE OUT",
+  "section": "wordplay",
+  "scope": "Every answer is the one item in a list that does not belong.",
+  "decoys": "The other items in that same list."
+ },
+ {
+  "id": "namethedecade",
+  "name": "NAME THE DECADE",
+  "section": "wordplay",
+  "scope": "Every answer is a decade.",
+  "decoys": "The neighbouring decades."
+ },
+ {
+  "id": "startsends",
+  "name": "STARTS & ENDS",
+  "section": "wordplay",
+  "scope": "Every answer is a word starting and ending with the same letters.",
+  "decoys": "Other words with that same shape."
+ },
+ {
+  "id": "homophones",
+  "name": "HOMOPHONES",
+  "section": "wordplay",
+  "scope": "Every answer is one of a pair of words that sound alike and are spelt differently.",
+  "decoys": "The other spellings of that same sound."
+ },
+ {
+  "id": "palindromes",
+  "name": "PALINDROMES",
+  "section": "wordplay",
+  "scope": "Every answer reads the same backwards.",
+  "decoys": "Other palindromes of the same length."
+ },
+ {
+  "id": "quotablequotes",
+  "name": "QUOTABLE QUOTES",
+  "section": "wordplay",
+  "scope": "Every answer is who said a famous line.",
+  "decoys": "Other speakers from the same era or field."
+ },
+ {
+  "id": "alsoknownas",
+  "name": "ALSO KNOWN AS",
+  "section": "wordplay",
+  "scope": "Every answer is a real name behind a stage name, or the other way round.",
+  "decoys": "Other names from the same field."
+ },
+ {
+  "id": "alphabetsoup",
+  "name": "ALPHABET SOUP",
+  "section": "wordplay",
+  "scope": "Every answer is what an abbreviation stands for, or the abbreviation itself.",
+  "decoys": "Other abbreviations from the same domain."
+ },
+ {
+  "id": "foreignphrases",
+  "name": "FOREIGN PHRASES",
+  "section": "wordplay",
+  "scope": "Every answer is a foreign phrase used in English, or its meaning.",
+  "decoys": "Other phrases from the same source language."
+ },
+ {
+  "id": "nifty",
+  "name": "50 NIFTY STATES",
+  "section": "geography",
+  "scope": "Every answer is a US state.",
+  "decoys": "Other states, ideally neighbouring or similar in size."
+ },
+ {
+  "id": "rivers",
+  "name": "RIVERS RUN THROUGH IT",
+  "section": "geography",
+  "scope": "Every answer is a river.",
+  "decoys": "Other rivers of the same continent."
+ },
+ {
+  "id": "islands",
+  "name": "ISLAND HOPPING",
+  "section": "geography",
+  "scope": "Every answer is an island or island group.",
+  "decoys": "Other islands in the same ocean."
+ },
+ {
+  "id": "highpoints",
+  "name": "HIGH POINTS",
+  "section": "geography",
+  "scope": "Every answer is a mountain or a mountain range.",
+  "decoys": "Other peaks in the same range or continent."
+ },
+ {
+  "id": "dryheat",
+  "name": "IT'S A DRY HEAT",
+  "section": "geography",
+  "scope": "Every answer is a desert or a desert feature.",
+  "decoys": "Other deserts."
+ },
+ {
+  "id": "seas",
+  "name": "SEAS THE DAY",
+  "section": "geography",
+  "scope": "Every answer is a sea, gulf, strait or bay.",
+  "decoys": "Other seas bordering the same landmass."
+ },
+ {
+  "id": "eurotrip",
+  "name": "EUROTRIP",
+  "section": "geography",
+  "scope": "Every answer is a European country, capital or landmark.",
+  "decoys": "Other European countries or capitals."
+ },
+ {
+  "id": "africa",
+  "name": "OUT OF AFRICA",
+  "section": "geography",
+  "scope": "Every answer is an African country, capital, river or landmark.",
+  "decoys": "Other African countries or capitals."
+ },
+ {
+  "id": "asia",
+  "name": "POSTCARDS FROM ASIA",
+  "section": "geography",
+  "scope": "Every answer is an Asian country, capital or landmark.",
+  "decoys": "Other Asian countries or capitals."
+ },
+ {
+  "id": "southamerica",
+  "name": "DOWN SOUTH AMERICA WAY",
+  "section": "geography",
+  "scope": "Every answer is a South American country, capital or feature.",
+  "decoys": "Other South American countries or capitals."
+ },
+ {
+  "id": "flagday",
+  "name": "FLAG DAY",
+  "section": "geography",
+  "scope": "Every answer is the country a described flag belongs to.",
+  "decoys": "Other countries with flags of similar colours."
+ },
+ {
+  "id": "waterfront",
+  "name": "WATERFRONT PROPERTY",
+  "section": "geography",
+  "scope": "Every answer is a port city or a city on a named water.",
+  "decoys": "Other port cities."
+ },
+ {
+  "id": "emperor",
+  "name": "HAIL, EMPEROR!",
+  "section": "history",
+  "scope": "Every answer is a Roman emperor or something one of them did.",
+  "decoys": "Other emperors, ideally adjacent in the list."
+ },
+ {
+  "id": "pharaoh",
+  "name": "WALK LIKE A PHARAOH",
+  "section": "history",
+  "scope": "Every answer is an Egyptian pharaoh, god, site or object.",
+  "decoys": "Other pharaohs, or other gods of the same pantheon."
+ },
+ {
+  "id": "greek",
+  "name": "GREEK THINKERS",
+  "section": "history",
+  "scope": "Every answer is a Greek philosopher, mathematician or their idea.",
+  "decoys": "Other Greek thinkers of the same century."
+ },
+ {
+  "id": "castle",
+  "name": "THIS OLD CASTLE",
+  "section": "history",
+  "scope": "Every answer is a castle, a fortification or a part of one.",
+  "decoys": "Other castles, or other parts of a castle."
+ },
+ {
+  "id": "renaissance",
+  "name": "RENAISSANCE MEN",
+  "section": "history",
+  "scope": "Every answer is a Renaissance figure or one of their works.",
+  "decoys": "Other Renaissance figures, or other works by the same hand."
+ },
+ {
+  "id": "spirit76",
+  "name": "SPIRIT OF '76",
+  "section": "history",
+  "scope": "Every answer is a person, battle or document of the American Revolution.",
+  "decoys": "Other revolutionary figures, battles or documents."
+ },
+ {
+  "id": "bluegray",
+  "name": "BLUE & GRAY BATTLEGROUNDS",
+  "section": "history",
+  "scope": "Every answer is an American Civil War battle, general or place.",
+  "decoys": "Other Civil War battles or generals."
+ },
+ {
+  "id": "overthetop",
+  "name": "OVER THE TOP",
+  "section": "history",
+  "scope": "Every answer is a First World War battle, weapon, treaty or figure.",
+  "decoys": "Other Great War battles or figures."
+ },
+ {
+  "id": "battlestations",
+  "name": "BATTLE STATIONS",
+  "section": "history",
+  "scope": "Every answer is a Second World War battle, operation, leader or machine.",
+  "decoys": "Other Second World War battles or operations."
+ },
+ {
+  "id": "coldwar",
+  "name": "COLD WAR HOT SPOTS",
+  "section": "history",
+  "scope": "Every answer is a Cold War crisis, place, treaty or figure.",
+  "decoys": "Other Cold War crises or places."
+ },
+ {
+  "id": "setsail",
+  "name": "SET SAIL!",
+  "section": "history",
+  "scope": "Every answer is an explorer, their ship, or where they landed.",
+  "decoys": "Other explorers of the same age, or other ships."
+ },
+ {
+  "id": "whoinvented",
+  "name": "WHO INVENTED IT?",
+  "section": "history",
+  "scope": "Every answer is an inventor or the invention itself.",
+  "decoys": "Other inventors of the same era, or other inventions."
+ },
+ {
+  "id": "organ",
+  "name": "ORGAN RECITAL",
+  "section": "science",
+  "scope": "Every answer is an organ or a part of the human body.",
+  "decoys": "Other organs, ideally from the same system."
+ },
+ {
+  "id": "elementary",
+  "name": "ELEMENTARY, MY DEAR",
+  "section": "science",
+  "scope": "Every answer is a chemical element or its symbol.",
+  "decoys": "Other elements, ideally neighbours in the table."
+ },
+ {
+  "id": "force",
+  "name": "THE FORCE IS WITH YOU",
+  "section": "science",
+  "scope": "Every answer is a force, a law of physics or the physicist behind one.",
+  "decoys": "Other forces or laws."
+ },
+ {
+  "id": "starsearch",
+  "name": "STAR SEARCH",
+  "section": "science",
+  "scope": "Every answer is a star, a constellation or a stellar object.",
+  "decoys": "Other stars or constellations."
+ },
+ {
+  "id": "planets",
+  "name": "PLANETS & MOONS",
+  "section": "science",
+  "scope": "Every answer is a planet, a moon or a dwarf planet.",
+  "decoys": "The other planets, or the other moons of that planet."
+ },
+ {
+  "id": "weather",
+  "name": "WEATHER OR NOT",
+  "section": "science",
+  "scope": "Every answer is a weather phenomenon, cloud type or instrument.",
+  "decoys": "Other phenomena or cloud types."
+ },
+ {
+  "id": "rocks",
+  "name": "ROCK OF AGES",
+  "section": "science",
+  "scope": "Every answer is a rock, a mineral or a geological era.",
+  "decoys": "Other rocks of the same class, or the neighbouring eras."
+ },
+ {
+  "id": "mammals",
+  "name": "MAMMAL MANIA",
+  "section": "science",
+  "scope": "Every answer is a mammal.",
+  "decoys": "Other mammals, ideally from the same order."
+ },
+ {
+  "id": "birds",
+  "name": "FOR THE BIRDS",
+  "section": "science",
+  "scope": "Every answer is a bird.",
+  "decoys": "Other birds of the same family or habitat."
+ },
+ {
+  "id": "bugs",
+  "name": "BUG OFF",
+  "section": "science",
+  "scope": "Every answer is an insect or other arthropod.",
+  "decoys": "Other insects of the same order."
+ },
+ {
+  "id": "leaves",
+  "name": "LEAF IT TO ME",
+  "section": "science",
+  "scope": "Every answer is a tree, a plant or a part of one.",
+  "decoys": "Other trees or plants of the same kind."
+ },
+ {
+  "id": "dinos",
+  "name": "DINO-MITE",
+  "section": "science",
+  "scope": "Every answer is a dinosaur or a prehistoric creature.",
+  "decoys": "Other dinosaurs of the same period or diet."
+ },
+ {
+  "id": "doctor",
+  "name": "DOCTOR, DOCTOR",
+  "section": "science",
+  "scope": "Every answer is a disease, a treatment or a medical pioneer.",
+  "decoys": "Other diseases of the same kind, or other pioneers."
+ },
+ {
+  "id": "dothemath",
+  "name": "DO THE MATH",
+  "section": "science",
+  "scope": "Every answer is a mathematical term, constant, shape or mathematician.",
+  "decoys": "Other terms of the same branch, or other mathematicians."
+ },
+ {
+  "id": "classical",
+  "name": "CLASSICAL GAS",
+  "section": "culture",
+  "scope": "Every answer is a classical composer or one of their works.",
+  "decoys": "Other composers of the same period, or other works by that composer."
+ },
+ {
+  "id": "opera",
+  "name": "IT AIN'T OVER TILL...",
+  "section": "culture",
+  "scope": "Every answer is an opera, its composer or a character in one.",
+  "decoys": "Other operas, or other characters in that opera."
+ },
+ {
+  "id": "brush",
+  "name": "BRUSH WITH GREATNESS",
+  "section": "culture",
+  "scope": "Every answer is a painter, a painting or a movement.",
+  "decoys": "Other painters of the same movement, or other paintings by that hand."
+ },
+ {
+  "id": "building",
+  "name": "BUILDING BLOCKS",
+  "section": "culture",
+  "scope": "Every answer is a building, an architect or an architectural style.",
+  "decoys": "Other buildings of that style, or other architects."
+ },
+ {
+  "id": "poetic",
+  "name": "POETIC LICENSE",
+  "section": "culture",
+  "scope": "Every answer is a poet, a poem or a poetic form.",
+  "decoys": "Other poets of the same era, or other forms."
+ },
+ {
+  "id": "gods",
+  "name": "GODS & MONSTERS",
+  "section": "culture",
+  "scope": "Every answer is a god, hero or monster of myth.",
+  "decoys": "Other figures from the same pantheon — never mixed pantheons."
+ },
+ {
+  "id": "faiths",
+  "name": "FAITHS OF THE WORLD",
+  "section": "culture",
+  "scope": "Every answer is a religion, a text, a festival or a place of worship.",
+  "decoys": "Other faiths, or other texts and festivals of the same faith."
+ },
+ {
+  "id": "think",
+  "name": "THINK ABOUT IT",
+  "section": "culture",
+  "scope": "Every answer is a philosopher or a school of thought.",
+  "decoys": "Other philosophers of the same school or century."
+ },
+ {
+  "id": "setinstone",
+  "name": "SET IN STONE",
+  "section": "culture",
+  "scope": "Every answer is a monument, a statue or an ancient wonder.",
+  "decoys": "Other monuments of the same age or place."
+ },
+ {
+  "id": "movies",
+  "name": "AT THE MOVIES",
+  "section": "culture",
+  "scope": "Every answer is a film, a director or an actor.",
+  "decoys": "Other films of the same year or genre, or other directors."
+ },
+ {
+  "id": "tv",
+  "name": "MUST-SEE TV",
+  "section": "culture",
+  "scope": "Every answer is a television show or a character in one.",
+  "decoys": "Other shows of the same era, or other characters in that show."
+ },
+ {
+  "id": "broadway",
+  "name": "BROADWAY BABY",
+  "section": "culture",
+  "scope": "Every answer is a musical, a song from one or its writer.",
+  "decoys": "Other musicals, or other songs from that musical."
+ },
+ {
+  "id": "rock",
+  "name": "SCHOOL OF ROCK",
+  "section": "culture",
+  "scope": "Every answer is a rock band, an album or a member of one.",
+  "decoys": "Other bands of the same era, or other albums by that band."
+ },
+ {
+  "id": "popquiz",
+  "name": "POP QUIZ",
+  "section": "culture",
+  "scope": "Every answer is a pop act, a song or an album.",
+  "decoys": "Other acts of the same era, or other songs by that act."
+ },
+ {
+  "id": "toon",
+  "name": "TOON IN",
+  "section": "culture",
+  "scope": "Every answer is a cartoon, an animated film or a character.",
+  "decoys": "Other cartoons of the same studio, or other characters in that show."
+ },
+ {
+  "id": "pressstart",
+  "name": "PRESS START",
+  "section": "culture",
+  "scope": "Every answer is a video game, a console or a character.",
+  "decoys": "Other games on the same console, or other consoles."
+ },
+ {
+  "id": "origins",
+  "name": "SECRET ORIGINS",
+  "section": "culture",
+  "scope": "Every answer is a comic-book hero, villain or their alter ego.",
+  "decoys": "Other heroes from the same publisher, or other villains of that hero."
+ },
+ {
+  "id": "duos",
+  "name": "DYNAMIC DUOS",
+  "section": "culture",
+  "scope": "Every answer is one half of a famous pair, or the pair itself.",
+  "decoys": "Other famous pairs of the same kind.",
+  "note": "FRAGILE. Watch that the pairs stay one kind — a column mixing comedy duos with chemical pairs cannot supply decoys."
+ },
+ {
+  "id": "pasta",
+  "name": "SAY IT WITH PASTA",
+  "section": "everyday",
+  "scope": "Every answer is a pasta shape or an Italian dish.",
+  "decoys": "Other pasta shapes."
+ },
+ {
+  "id": "shoe",
+  "name": "IF THE SHOE FITS",
+  "section": "everyday",
+  "scope": "Every answer is a kind of footwear or a part of a shoe.",
+  "decoys": "Other kinds of footwear."
+ },
+ {
+  "id": "hood",
+  "name": "WHAT'S ON THE HOOD",
+  "section": "everyday",
+  "scope": "Every answer is a car marque, a model or a car part.",
+  "decoys": "Other marques from the same country, or other models."
+ },
+ {
+  "id": "money",
+  "name": "SHOW ME THE MONEY",
+  "section": "everyday",
+  "scope": "Every answer is a currency, a banknote or a figure on one.",
+  "decoys": "Other currencies, ideally from the same region."
+ },
+ {
+  "id": "bridge",
+  "name": "BRIDGE THE GAP",
+  "section": "everyday",
+  "scope": "Every answer is a bridge or a kind of bridge.",
+  "decoys": "Other bridges, or other bridge types."
+ },
+ {
+  "id": "mascot",
+  "name": "WHO'S THAT MASCOT?",
+  "section": "everyday",
+  "scope": "Every answer is a team mascot or the team it belongs to.",
+  "decoys": "Other mascots from the same league."
+ },
+ {
+  "id": "hostcities",
+  "name": "HOST CITIES",
+  "section": "everyday",
+  "scope": "Every answer is a city that hosted a games, a cup or a fair.",
+  "decoys": "Other host cities of the same event."
+ },
+ {
+  "id": "toolbox",
+  "name": "IN THE TOOLBOX",
+  "section": "everyday",
+  "scope": "Every answer is a hand tool or a part of one.",
+  "decoys": "Other hand tools."
+ },
+ {
+  "id": "yourmove",
+  "name": "YOUR MOVE",
+  "section": "everyday",
+  "scope": "Every answer is a board game, a card game or a piece from one.",
+  "decoys": "Other games of the same kind, or the other pieces in that game."
+ },
+ {
+  "id": "calendar",
+  "name": "MARK YOUR CALENDAR",
+  "section": "everyday",
+  "scope": "Every answer is a holiday, a month or a day of note.",
+  "decoys": "Other holidays in the same season, or the neighbouring months."
+ }
+]

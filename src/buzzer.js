@@ -336,3 +336,99 @@ export function aiIntent(level, rnd) {
   const reaction = Math.max(MIN_REACTION_MS, spread(l.buzz, rnd) + (knows ? 0 : 400));
   return { buzz: true, knows, reaction, thinkMs: spread(l.think, rnd) };
 }
+
+// ── avatars ──────────────────────────────────────────────────────────
+
+/**
+ * Ten to choose from, free, picked before the lights go up.
+ *
+ * This is deliberately not the profile avatar. A family sharing one screen
+ * should be able to tell each other apart at a glance without anybody
+ * editing their account, and somebody who has spent a fortnight earning a
+ * frame should not have to wear it to a quiz.
+ */
+export const AVATARS = [
+  { id: "thinker", name: "The Thinker", ico: "\u{1F914}" },
+  { id: "scholar", name: "The Scholar", ico: "\u{1F393}" },
+  { id: "oracle", name: "The Oracle", ico: "\u{1F52E}" },
+  { id: "speedster", name: "The Speedster", ico: "⚡" },
+  { id: "strategist", name: "The Strategist", ico: "♟️" },
+  { id: "mastermind", name: "The Mastermind", ico: "\u{1F9E0}" },
+  { id: "challenger", name: "The Challenger", ico: "\u{1F94A}" },
+  { id: "champion", name: "The Champion", ico: "\u{1F3C6}" },
+  { id: "wildcard", name: "The Wildcard", ico: "\u{1F0CF}" },
+  { id: "maven", name: "The Maven", ico: "\u{1F989}" },
+];
+
+export function avatarById(id) {
+  return AVATARS.find((a) => a.id === id) || null;
+}
+
+/** The first avatar nobody has taken, for a computer or a late arrival. */
+export function freeAvatar(taken) {
+  const used = new Set(taken || []);
+  return (AVATARS.find((a) => !used.has(a.id)) || AVATARS[0]).id;
+}
+
+// ── the set pieces ───────────────────────────────────────────────────
+
+/**
+ * How many Daily Doubles are hidden on a board. One in the first round and
+ * two in the second, which is the real rule.
+ */
+export function dailyDoubleCount(round) {
+  return Number(round) === 2 ? 2 : 1;
+}
+
+/**
+ * What a Daily Double may be wagered.
+ *
+ * The larger of your own money and the top value on the board, so a player
+ * who is behind — or under water — can still swing at it. That is the whole
+ * function of the rule: it is the one thing on the board that lets somebody
+ * out of a hole in a single clue.
+ *
+ * Deep Pockets doubles the ceiling, which is the only thing in the arsenal
+ * that changes an amount of money rather than an amount of information.
+ */
+export function wagerLimit(money, round, deepPockets = false) {
+  const floor = Math.max(Number(money) || 0, topValue(round));
+  return deepPockets ? floor * 2 : floor;
+}
+
+/**
+ * Final is the one clue you may not lose more on than you brought, and the
+ * one a player at or below zero sits out — the real rule, and the only door
+ * that closing zero actually shuts.
+ */
+export function finalLimit(money) {
+  return Math.max(0, Number(money) || 0);
+}
+
+export function playsFinal(p) {
+  return !p?.watching && (p?.money || 0) > 0;
+}
+
+/**
+ * Answers are revealed lowest score first, exactly as the show does it. It
+ * puts the person who can still win last, so the game is decided on the final
+ * card rather than three cards ago.
+ */
+export function finalOrder(players) {
+  return [...players].sort((a, b) =>
+    (a.money || 0) - (b.money || 0) ||
+    String(a.name).localeCompare(String(b.name)));
+}
+
+/** A seeded pick of where the Daily Doubles hide, so a rebuilt room agrees. */
+export function plantDoubles(round, seed) {
+  const rnd = rngFrom(seed);
+  const cells = [];
+  for (let col = 0; col < COLS; col++) {
+    // The top row almost never hides one on television, and it is the row
+    // people click first, so keeping it clear stops the set piece landing
+    // before anybody has settled in.
+    for (let row = 1; row < ROWS; row++) cells.push({ col, row });
+  }
+  return shuffle(cells, rnd).slice(0, dailyDoubleCount(round));
+}

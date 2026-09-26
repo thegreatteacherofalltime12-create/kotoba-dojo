@@ -17,6 +17,19 @@ export const KEEP_DAYS = 7;
 
 export const UPDATES = [
   {
+    at: "2026-09-26T23:30:00Z",
+    where: "The Buzzer",
+    title: "A seventh game: The Buzzer",
+    text: "Six categories, five rows, one buzzer. A clue is read to the whole table at once with no "
+      + "options on it, the buzzers open, and the first buzz takes it \u2014 then four answers to that "
+      + "player alone, ten seconds, and a wrong one costs exactly what a right one pays. Buzzes are "
+      + "judged on reaction time rather than on who reached the server first, so a quick mind on hotel "
+      + "wifi beats a slow one on fibre. Daily Doubles, a Double Board, Final Jeopardy with secret "
+      + "wagers revealed lowest score first, ten free avatars and an arsenal of twelve. You sit down on "
+      + "$2,000 and it floats \u2014 you bank what you win above it. Solo against up to five computer "
+      + "players, and it scores the same.",
+  },
+  {
     at: "2026-09-25T02:00:00Z",
     where: "Grand Prix",
     title: "Pick your kart, and win a few",

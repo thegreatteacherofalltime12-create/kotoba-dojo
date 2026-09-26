@@ -2062,6 +2062,26 @@ const GAME_RULES = [
     ],
   },
   {
+    id: "buzzer", icon: "\u{1F6CE}\uFE0F", name: "The Buzzer", players: "1 or more", solo: "\u2713 PLAY ALONE",
+    play: [
+      "<b>Yes, you can play this alone.</b> Switch on <b>Solo board</b> and take on up to five computer players at Rookie, Club or Pro. It scores and pays exactly as a board against people does \u2014 beating five Pros is a win.",
+      "Six categories across, five clues down, values rising in two hundreds. Twelve categories make a game, six a round, drawn from a growing bank, so no two boards look alike.",
+      "A clue is read to everybody at once with <b>no options on it</b>. When the reading ends the buzzers open, and the <b>first buzz takes the clue</b> \u2014 then four options appear to that player alone, for ten seconds.",
+      "<b>Right</b> adds the value. <b>Wrong</b> takes it off and reopens the clue for everyone else. So a blind buzz is one chance in four at a cost equal to the prize, which is why guessing punishes itself.",
+      "Buzz <b>before</b> the buzzers open and you are locked out for a quarter of a second \u2014 long enough to lose the clue to somebody who waited.",
+      "Buzzes are judged on <b>reaction time</b>, not on who reached the server first: your browser stamps the moment the button went down against a clock the two of them agreed. A quick mind on a bad connection beats a slow one on a good one.",
+      "<b>Daily Doubles</b> \u2014 one on the first board, two on the second \u2014 are yours alone. Wager first, up to the larger of your money and the top value, then the clue. No buzzing.",
+      "<b>Final</b>: the category is announced, everybody wagers in secret, one clue, the same four options for all of you, and every answer revealed at once \u2014 lowest score first.",
+      "Ten avatars, free, picked before the lights go up. Chat stays open the whole way through; there are gaps between clues and people should talk in them.",
+    ],
+    score: [
+      "You sit down on <b>$2,000</b>, and it <b>floats</b>: it is a stake you play with, not a gift you keep. You bank what you finish with <i>above</i> it, so a flat board banks nothing and a bad one banks nothing rather than costing you.",
+      "<b>You keep playing below zero.</b> Still buzz, still answer, still win it all back, and a Daily Double is still yours. The only door that shuts is Final, and only if you are still under when the second board ends.",
+      "The match score is where you finished, plus how well you knew the answers, capped at 100 like every game here \u2014 and that is what feeds MMR, belts and the record books.",
+      "Banked money buys the arena's tokens in your profile's Token shop, exactly as casino winnings do.",
+    ],
+  },
+  {
     id: "casino", icon: "\u{1F3B0}", name: "The Casino", players: "the whole arena \u00b7 one floor", solo: "\u2713 PLAY ALONE",
     play: [
       "<b>Yes, you can play this alone.</b> The floor is shared, but nothing on it needs anyone else \u2014 the arcade, the horse race and every table can be played on your own, for the same MMR.",

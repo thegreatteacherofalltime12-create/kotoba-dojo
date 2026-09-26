@@ -16,14 +16,17 @@
 import {
   GAME_NAME, COLS, ROWS, START_MONEY, valueAt, readingMs,
   ANSWER_MS, NOBODY_MS, REVEAL_MS, BUZZ_WINDOW_MS,
-  judgeBuzz, winningBuzz, shuffle, rngFrom, optionsFor,
+  judgeBuzz, winningBuzz, shuffle, rngFrom, optionsFor, MIN_REACTION_MS,
   boardScore, standings, bankable,
   AI_LEVELS, AI_MAX, AI_NAMES, aiLevelById, aiIntent,
+  AVATARS, avatarById, freeAvatar, plantDoubles, wagerLimit, finalLimit, playsFinal, finalOrder,
 } from "./buzzer.js";
 import { CATEGORIES, SECTIONS, categoryById, poolFor } from "./buzzer-bank.js";
 import { moderate } from "./moderation.js";
 import { recordMatch, readRatings, bankWallet, strikePlayer } from "./firestore.js";
 import { announceRoom } from "./rooms.js";
+import { ARSENALS } from "./arsenals.js";
+import { tokensReply, heldTokens } from "./boost.js";
 import { applyBounty } from "./report-bounty.js";
 import { sessionGain, fieldMmrFor, beltFor, boosted } from "./mmr.js";
 
@@ -33,6 +36,14 @@ const IDLE_SHUTDOWN_MS = 30 * 60_000;
 // an early buzz is already punished by the lockout, which is the real rule.
 const BUZZES_PER_SECOND = 6;
 const BUZZ_BURST = 15;
+
+// A Daily Double is a decision rather than a reflex, so it gets longer than
+// a clue does — but not forever, because the rest of the table is watching
+// somebody think.
+const WAGER_MS = 20_000;
+const FINAL_WAGER_MS = 30_000;
+const FINAL_THINK_MS = 30_000;
+const FINAL_REVEAL_MS = 12_000;
 
 export class BuzzerRoom {
   constructor(state, env) {
@@ -132,7 +143,11 @@ export class BuzzerRoom {
         round: 1, roundNo: 0,
         cats: [], used: [],
         spent: freshBoard(),
-        turnUid: null, cell: null,
+        // Where the Daily Doubles hide. Never leaves this object, and neither
+        // does the seed it was drawn from — a seed a browser can read is a
+        // board a browser can solve.
+        doubles: [], turnUid: null, cell: null,
+        final: null, applied: {},
         players: {}, chat: [], feed: [],
         startedAt: null, seed: 1,
       };
@@ -174,6 +189,12 @@ export class BuzzerRoom {
       right: 0, wrong: 0, buzzes: 0, bestReaction: null,
       ai: false, aiLevel: null, avatar: null,
       ars: { armed: {}, used: {} },
+      // What the arsenal turned into for this board. Every one is applied by
+      // the room at the first moment it can be, so an armed token is a token
+      // spent rather than a button somebody has to remember to press.
+      answerMs: ANSWER_MS, freeWrong: 0, deepPockets: false, insured: false,
+      fastFinger: 0, twoFewer: 0, openBook: 0, cards: 0, nudges: 0,
+      polish: 0, pointsFinish: false,
       score: 0, mmrAtStart: 0, seed: null, gone: false,
     };
   }
@@ -197,9 +218,12 @@ export class BuzzerRoom {
       cats: this.g.cats, spent: this.g.spent, used: this.g.used,
       values: Array.from({ length: ROWS }, (_, r) => valueAt(r, this.g.round)),
       serverNow: Date.now(),
+      avatars: AVATARS,
+      taken: Object.values(this.g.players).map((p) => p.avatar).filter(Boolean),
+      final: this.finalView(open),
       cell: c ? {
         col: c.col, row: c.row, value: c.value, stage: c.stage,
-        catId: c.catId, q: c.q,
+        catId: c.catId, q: c.q, dd: !!c.dd, wager: c.wager ?? null,
         // When the buzzers opened, not when they will: the browser opens them
         // on its own clock against this, and every buzz is judged against it
         // afterwards. Sending it is what makes a reaction time mean anything.
@@ -219,6 +243,31 @@ export class BuzzerRoom {
         place: p.watching ? null : order.indexOf(p.uid) + 1,
         ...(open ? this.handOf(p) : {}),
       })),
+    };
+  }
+
+  /**
+   * Final, as far as anyone is allowed to see it.
+   *
+   * The wagers are secret until they are all in — that is the whole shape of
+   * the round — so what goes out is who has wagered rather than what they
+   * wagered. The clue follows once everybody has committed, and the amounts
+   * only at the reveal.
+   */
+  finalView(open = false) {
+    const f = this.g.final;
+    if (!f) return null;
+    const showing = f.stage === "REVEAL" || open;
+    return {
+      stage: f.stage, catName: f.catName, scope: f.scope,
+      q: f.stage === "CLUE" || showing ? f.q : null,
+      answer: showing ? f.a : null,
+      options: f.stage === "CLUE" || showing ? f.options : null,
+      deadline: f.deadline,
+      in: Object.keys(f.wagers || {}),
+      answered: Object.keys(f.answers || {}),
+      playing: f.playing || [],
+      reveal: showing ? (f.reveal || []) : null,
     };
   }
 
@@ -265,7 +314,18 @@ export class BuzzerRoom {
     const ws = this.socketFor(uid);
     const c = this.g.cell;
     if (!ws || !c || c.holder !== uid) return;
-    this.send(ws, "BZ_OPTIONS", { options: c.options, until: c.deadline, value: c.value });
+    const p = this.g.players[uid];
+    let options = c.options;
+    // Two Fewer takes two of the wrong ones away, which turns one chance in
+    // four into a coin toss. It is spent on the first clue it can be.
+    if (p && p.twoFewer > 0) {
+      p.twoFewer -= 1;
+      const wrong = options.filter((o) => o !== c.a);
+      options = shuffle([c.a, wrong[0]], rngFrom(this.g.seed ^ (c.col * 17) ^ c.row));
+    }
+    this.send(ws, "BZ_OPTIONS", {
+      options, until: c.deadline, value: c.dd ? c.wager : c.value, dd: !!c.dd,
+    });
   }
 
   // ------------------------------------------------------------------ chat
@@ -321,6 +381,14 @@ export class BuzzerRoom {
         case "BZ_PICK": return await this.pick(ws, who.uid, msg);
         case "BZ_BUZZ": return await this.buzz(ws, who.uid, msg);
         case "BZ_ANSWER": return await this.answer(ws, who.uid, msg);
+        case "BZ_WAGER": return await this.wager(ws, who.uid, msg);
+        case "BZ_AVATAR": return await this.setAvatar(ws, who.uid, msg);
+        case "BZ_FINAL_WAGER": return await this.finalWager(ws, who.uid, msg);
+        case "BZ_FINAL_ANSWER": return await this.finalAnswer(ws, who.uid, msg);
+        case "TOKENS":
+        case "APPLY_TOKEN": return await this.sendTokens(ws, who.uid, msg.type === "APPLY_TOKEN");
+        case "ARM_TOKEN": return await this.arm(ws, who.uid, msg);
+        case "DISARM_TOKEN": return await this.disarm(ws, who.uid, msg);
         case "BZ_SAY": return await this.say(ws, who.uid, msg);
         case "BZ_END_MATCH": {
           if (who.uid !== this.g.hostUid)
@@ -357,6 +425,106 @@ export class BuzzerRoom {
     if (msg.level && AI_LEVELS.some((l) => l.id === msg.level)) this.g.aiLevel = msg.level;
     await this.persist();
     this.pushState();
+  }
+
+  /**
+   * An avatar, taken before the lights go up. Two people cannot wear the
+   * same one — the whole purpose is telling each other apart at a glance on
+   * a shared screen, and two Oracles defeats it.
+   */
+  async setAvatar(ws, uid, msg) {
+    if (this.g.phase === "PLAYING")
+      return this.send(ws, "BZ_ERROR", { message: "Not once the board is up." });
+    const want = String(msg.id || "");
+    if (!avatarById(want)) return this.send(ws, "BZ_ERROR", { message: "No such avatar." });
+    const taken = Object.values(this.g.players).some((p) => p.uid !== uid && p.avatar === want);
+    if (taken) return this.send(ws, "BZ_ERROR", { message: "Somebody has that one already." });
+    this.g.players[uid].avatar = want;
+    await this.persist();
+    this.pushState();
+  }
+
+  // ---------------------------------------------------------------- tokens
+
+  arsOf(p) { p.ars = p.ars || { armed: {}, used: {} }; return p.ars; }
+
+  arsenalView(p) {
+    const armed = this.arsOf(p).armed || {};
+    return Object.entries(ARSENALS.buzzer).map(([key, spec]) => ({
+      key, name: spec.name, icon: spec.icon, max: spec.max || 99,
+      armed: armed[key] || 0, on: true,
+    }));
+  }
+
+  async sendTokens(ws, uid, apply, error = null) {
+    const p = this.g.players[uid];
+    const reply = await tokensReply(this.env, uid, "buzzer", {
+      applied: this.g.applied || {}, over: this.g.phase !== "LOBBY", apply,
+    });
+    if (reply.changed) { this.g.applied = this.g.applied || {}; this.g.applied[uid] = true; await this.persist(); }
+    this.send(ws, "BZ_TOKENS", { ...reply, error: error || reply.error, arsenal: this.arsenalView(p) });
+  }
+
+  async arm(ws, uid, msg) {
+    const p = this.g.players[uid];
+    if (this.g.phase !== "LOBBY")
+      return this.sendTokens(ws, uid, false, "Tokens are armed before the board goes up.");
+    const key = String(msg.key || "");
+    const spec = ARSENALS.buzzer[key];
+    if (!spec) return this.sendTokens(ws, uid, false, "No such token.");
+    const held = await heldTokens(this.env, uid);
+    const a = this.arsOf(p);
+    const on = a.armed[key] || 0;
+    if (on >= (spec.max || 99)) return this.sendTokens(ws, uid, false, `${spec.name} is capped at ${spec.max} a board.`);
+    if ((held[key] || 0) <= on) return this.sendTokens(ws, uid, false, `You don't hold another ${spec.name}.`);
+    a.armed[key] = on + 1;
+    await this.persist();
+    await this.sendTokens(ws, uid, false);
+    this.pushState();
+  }
+
+  async disarm(ws, uid, msg) {
+    const p = this.g.players[uid];
+    if (this.g.phase !== "LOBBY")
+      return this.sendTokens(ws, uid, false, "The board is already up.");
+    const key = String(msg.key || "");
+    const a = this.arsOf(p);
+    if (!a.armed[key]) return this.sendTokens(ws, uid, false);
+    a.armed[key] -= 1;
+    if (!a.armed[key]) delete a.armed[key];
+    await this.persist();
+    await this.sendTokens(ws, uid, false);
+    this.pushState();
+  }
+
+  /**
+   * What the arsenal turns into, at the moment the board goes up.
+   *
+   * Every one is applied here rather than left as a button, because a token
+   * you have to remember to press is a token half the table forgets. Only
+   * what actually took hold is recorded as spent — a token that could not
+   * bite stays armed and is not charged.
+   */
+  fitPlayer(p) {
+    const a = this.arsOf(p);
+    const used = {};
+    const spend = (key, n = 1) => { used[key] = (used[key] || 0) + n; };
+    const n = (key) => a.armed[key] || 0;
+
+    if (n("bz_house")) { p.money = 2_500; spend("bz_house"); }
+    if (n("bz_long")) { p.answerMs = 15_000; spend("bz_long", n("bz_long")); }
+    if (n("bz_second")) { p.freeWrong = n("bz_second"); spend("bz_second", n("bz_second")); }
+    if (n("bz_pockets")) { p.deepPockets = true; spend("bz_pockets", n("bz_pockets")); }
+    if (n("bz_insure")) { p.insured = true; spend("bz_insure", n("bz_insure")); }
+    if (n("bz_finger")) { p.fastFinger = 3 * n("bz_finger"); spend("bz_finger", n("bz_finger")); }
+    if (n("bz_fewer")) { p.twoFewer = n("bz_fewer"); spend("bz_fewer", n("bz_fewer")); }
+    if (n("bz_book")) { p.openBook = n("bz_book"); spend("bz_book", n("bz_book")); }
+    if (n("bz_card")) { p.cards = n("bz_card"); spend("bz_card", n("bz_card")); }
+    if (n("bz_nudge")) { p.nudges = n("bz_nudge"); spend("bz_nudge", n("bz_nudge")); }
+    if (n("bz_polish")) { p.polish = 8 * n("bz_polish"); spend("bz_polish", n("bz_polish")); }
+    if (n("bz_points")) { p.pointsFinish = true; spend("bz_points"); }
+
+    a.used = used;
   }
 
   async setCats(ws, uid, msg) {
@@ -408,6 +576,14 @@ export class BuzzerRoom {
       p.money = START_MONEY;
       p.right = 0; p.wrong = 0; p.buzzes = 0; p.bestReaction = null;
       p.score = 0;
+      p.answerMs = ANSWER_MS; p.freeWrong = 0; p.deepPockets = false; p.insured = false;
+      p.fastFinger = 0; p.twoFewer = 0; p.openBook = 0; p.cards = 0; p.nudges = 0;
+      p.polish = 0; p.pointsFinish = false;
+      this.fitPlayer(p);
+      // Anybody who never chose gets whatever is going, so nobody is a blank.
+      if (!p.avatar) {
+        p.avatar = freeAvatar(field.map((q) => q.avatar).filter(Boolean));
+      }
     }
 
     // Ratings once, at the lights, so a slow board read cannot hold up a clue.
@@ -425,6 +601,8 @@ export class BuzzerRoom {
     this.g.roundNo = (this.g.roundNo || 0) + 1;
     this.g.seed = (Date.now() & 0xffffff) ^ (this.g.roundNo * 7919);
     this.g.spent = freshBoard();
+    this.g.doubles = plantDoubles(1, this.g.seed);
+    this.g.final = null;
     this.g.cell = null;
     this.g.used = [...new Set([...this.g.used, ...this.g.cats.map((c) => c.id)])];
     // Whoever the host is picks first; after that it is whoever answered last.
@@ -493,16 +671,37 @@ export class BuzzerRoom {
     const rnd = rngFrom(this.g.seed + col * 31 + row * 7);
     const now = Date.now();
     const openAt = now + readingMs(clue.q);
+    const dd = (this.g.doubles || []).some((d) => d.col === col && d.row === row);
+    const picker = this.g.players[byUid];
 
     this.g.cell = {
-      col, row, value, catId: cat.id, stage: "READING",
+      col, row, value, catId: cat.id,
+      // A Daily Double belongs to whoever found it. Nobody buzzes, so it
+      // opens on the wager rather than on a reading — the clue is not read
+      // until the money is committed, which is what makes committing hard.
+      dd, stage: dd ? "WAGER" : "READING",
       q: clue.q, a: clue.a,
       options: optionsFor(clue, poolFor(cat), rnd),
-      shownAt: now, openAt,
-      deadline: openAt + NOBODY_MS,
-      holder: null, wrongUids: [], buzzes: [], locked: {},
+      shownAt: now, openAt: dd ? null : openAt,
+      deadline: dd ? now + WAGER_MS : openAt + NOBODY_MS,
+      holder: dd ? byUid : null, wager: null,
+      wrongUids: [], buzzes: [], locked: {},
       aiBuzz: {}, aiKnew: {}, aiAnswerAt: null,
     };
+
+    if (dd) {
+      this.g.doubles = this.g.doubles.filter((d) => !(d.col === col && d.row === row));
+      this.log(`${picker?.name || "Somebody"} has found a Daily Double.`);
+      this.broadcast("BZ_DOUBLE", { uid: byUid, name: picker?.name || "Somebody", col, row });
+      if (picker?.ai) {
+        // A computer wagers what it is worth: a Rookie hedges, a Pro swings.
+        const lvl = aiLevelById(picker.aiLevel);
+        const cap = wagerLimit(picker.money, this.g.round, picker.deepPockets);
+        const want = Math.round(cap * (0.25 + lvl.knows * 0.6));
+        this.setWager(picker, want);
+      }
+      return;
+    }
 
     // Every computer decides now what it will do with this clue, and its
     // decision is a reaction time — the same number a thumb produces — so it
@@ -516,8 +715,60 @@ export class BuzzerRoom {
       this.g.cell.aiKnew[p.uid] = intent.knows;
     }
 
+    // Open Book shows one clue's options before anybody may buzz, and the
+    // Nudge says which category still hides a Daily Double. Both are
+    // information rather than force, which is the only kind of token this
+    // arsenal is allowed to sell.
+    for (const q of Object.values(this.g.players)) {
+      if (q.ai || q.watching) continue;
+      const sock = this.socketFor(q.uid);
+      if (!sock) continue;
+      if (q.openBook > 0) {
+        q.openBook -= 1;
+        this.send(sock, "BZ_PEEK", { options: this.g.cell.options });
+      }
+      if (q.nudges > 0 && (this.g.doubles || []).length) {
+        q.nudges -= 1;
+        this.send(sock, "BZ_NUDGE", { catName: this.g.cats[this.g.doubles[0].col]?.name || "" });
+      }
+    }
+
     const who = this.g.players[byUid]?.name || "Someone";
     this.log(`${who} takes ${this.g.cats[col].name} for $${value.toLocaleString()}.`);
+  }
+
+  /**
+   * A wager on a Daily Double, clamped to the ceiling.
+   *
+   * The ceiling is the larger of your own money and the top value on the
+   * board, so a player who is behind — or under water — can still swing at
+   * it. That is the entire function of the rule: it is the one thing on the
+   * board that gets somebody out of a hole in a single clue.
+   */
+  async wager(ws, uid, msg) {
+    const c = this.g.cell;
+    if (!c || c.stage !== "WAGER" || c.holder !== uid)
+      return this.send(ws, "BZ_ERROR", { message: "There's no wager to make." });
+    this.setWager(this.g.players[uid], msg.amount);
+    await this.persist();
+    this.pushState();
+    this.sendOptions(uid);
+    await this.armAlarm();
+  }
+
+  setWager(p, amount) {
+    const c = this.g.cell;
+    const cap = wagerLimit(p.money, this.g.round, p.deepPockets);
+    c.wager = Math.max(0, Math.min(cap, Math.round(Number(amount) || 0)));
+    c.stage = "ANSWERING";
+    c.openAt = Date.now();
+    c.deadline = Date.now() + (p.ai ? 2_000 : p.answerMs || ANSWER_MS) + readingMs(c.q);
+    if (p.ai) {
+      const intent = aiIntent(p.aiLevel, rngFrom(this.g.seed ^ hashUid(p.uid) ^ c.col));
+      c.aiKnew[p.uid] = intent.knows;
+      c.aiAnswerAt = Date.now() + readingMs(c.q) + (intent.thinkMs || 1_200);
+    }
+    this.log(`${p.name} wagers $${c.wager.toLocaleString()}.`);
   }
 
   /** The reading is over. Nothing wakes the room for this; it is a fact about a timestamp. */
@@ -579,9 +830,13 @@ export class BuzzerRoom {
       return this.send(ws, "BZ_ERROR", { message: verdict.why });
     }
 
-    c.buzzes.push({ uid, reaction: verdict.reaction, arrivedAt, ok: true });
+    // Fast Finger shaves a fraction off, and never below the floor: it buys
+    // a sharper thumb, not a reaction no human could have had.
+    let reaction = verdict.reaction;
+    if (p.fastFinger > 0) { p.fastFinger -= 1; reaction = Math.max(MIN_REACTION_MS, reaction - 60); }
+    c.buzzes.push({ uid, reaction, arrivedAt, ok: true });
     p.buzzes += 1;
-    if (p.bestReaction == null || verdict.reaction < p.bestReaction) p.bestReaction = verdict.reaction;
+    if (p.bestReaction == null || reaction < p.bestReaction) p.bestReaction = reaction;
 
     if (c.stage !== "WINDOW") {
       c.stage = "WINDOW";
@@ -668,26 +923,41 @@ export class BuzzerRoom {
     const c = this.g.cell;
     const p = this.g.players[uid];
     const right = picked != null && String(picked) === String(c.a);
+    // A Daily Double is worth what was wagered on it, not what the cell said.
+    const stake = c.dd ? (c.wager ?? 0) : c.value;
 
     if (right) {
-      p.money += c.value;
+      p.money += stake;
       p.right += 1;
       // Whoever answered last picks, exactly as on television.
       this.g.turnUid = uid;
-      this.log(`${p.name} has it. $${c.value.toLocaleString()} — ${c.a}.`);
-      this.broadcast("BZ_VERDICT", { uid, right: true, picked, answer: c.a, value: c.value, money: p.money });
+      this.log(`${p.name} has it. $${stake.toLocaleString()} — ${c.a}.`);
+      this.broadcast("BZ_VERDICT", { uid, right: true, picked, answer: c.a, value: stake, money: p.money });
       return this.reveal();
     }
 
-    p.money -= c.value;
+    // Second Look eats the first wrong answer of a round outright; Insurance
+    // halves a Daily Double that goes against you. Neither is a way to hurt
+    // anybody else, which is the rule this arsenal is held to.
+    let cost = stake;
+    if (p.freeWrong > 0) { p.freeWrong -= 1; cost = 0; }
+    else if (c.dd && p.insured) cost = Math.round(stake / 2);
+
+    p.money -= cost;
     p.wrong += 1;
     c.wrongUids.push(uid);
     c.holder = null;
     c.aiAnswerAt = null;
-    this.log(picked == null
-      ? `${p.name} ran out of time. That's $${c.value.toLocaleString()}.`
-      : `${p.name} said ${picked}. That's $${c.value.toLocaleString()}.`);
-    this.broadcast("BZ_VERDICT", { uid, right: false, picked, answer: null, value: c.value, money: p.money });
+    this.log(cost === 0
+      ? `${p.name} was wrong, and a Second Look covers it.`
+      : picked == null
+        ? `${p.name} ran out of time. That's $${cost.toLocaleString()}.`
+        : `${p.name} said ${picked}. That's $${cost.toLocaleString()}.`);
+    this.broadcast("BZ_VERDICT", { uid, right: false, picked, answer: null, value: cost, money: p.money });
+
+    // A Daily Double belongs to one player and nobody else may have it, so a
+    // wrong one ends the clue there rather than reopening it.
+    if (c.dd) return this.reveal();
 
     // Anybody left who has not had a go? The buzzers reopen for them, and the
     // clock starts again from now — a reaction is measured from the moment
@@ -725,7 +995,7 @@ export class BuzzerRoom {
     const c = this.g.cell;
     if (!c) return;
     this.g.cell = null;
-    if (this.boardDone()) { await this.finish(); return; }
+    if (this.boardDone()) { await this.advanceRound(); return; }
     // Nobody got it, so the pick stays where it was.
     await this.persist();
     this.pushState();
@@ -733,6 +1003,163 @@ export class BuzzerRoom {
 
   boardDone() {
     return this.g.spent.every((col) => col.every(Boolean));
+  }
+
+  /**
+   * The first board is finished. The second doubles every value and brings
+   * six categories nobody has seen; after that there is only Final.
+   *
+   * The round is kept a number and the phase carries Final, rather than
+   * writing "FINAL" into the round. Values are worked out from the round, so
+   * a round that is not a number is a board where every clue is worth NaN.
+   */
+  async advanceRound() {
+    if (this.g.round === 1) {
+      this.g.round = 2;
+      this.g.spent = freshBoard();
+      this.g.cats = this.drawCats(COLS);
+      this.g.used = [...new Set([...this.g.used, ...this.g.cats.map((c) => c.id)])];
+      this.g.doubles = plantDoubles(2, this.g.seed ^ 0x5eed);
+      this.g.turnUid = standings(Object.values(this.g.players).filter((p) => !p.watching))
+        .slice(-1)[0]?.uid || this.g.turnUid;
+      await this.persist();
+      this.log("The Double Board. Every value is twice what it was.");
+      this.broadcast("BZ_ROUND", { round: 2, name: "The Double Board", cats: this.g.cats });
+      this.announce();
+      this.pushState();
+      await this.armAlarm();
+      return;
+    }
+    await this.startFinal();
+  }
+
+  /** Six categories this room has not played, or the freshest it can find. */
+  drawCats(n) {
+    const rnd = rngFrom((this.g.seed ^ 0xbeef) + this.g.round);
+    const fresh = CATEGORIES.filter((c) => !this.g.used.includes(c.id));
+    const draw = shuffle(fresh.length >= n ? fresh : CATEGORIES, rnd).slice(0, n);
+    return draw.map((c) => ({ id: c.id, name: c.name }));
+  }
+
+  // ------------------------------------------------------------------ final
+
+  /**
+   * Final. The category is announced, everybody wagers in secret, then one
+   * clue and the same four options for all of them at once.
+   *
+   * A player at or below zero sits it out. That is the real rule and the only
+   * door that going under actually shuts — you may buzz, answer and claw your
+   * way back all night, but if you are still under when the second board ends
+   * the others play Final without you.
+   */
+  async startFinal() {
+    const cat = this.drawCats(1)[0];
+    const full = categoryById(cat.id);
+    const clue = full.clues[ROWS - 1];
+    const rnd = rngFrom(this.g.seed ^ 0xf1a1);
+    const playing = Object.values(this.g.players).filter(playsFinal).map((p) => p.uid);
+
+    this.g.phase = "FINAL";
+    this.g.cell = null;
+    this.g.final = {
+      stage: "WAGER", catId: cat.id, catName: cat.name, scope: full.scope,
+      q: clue.q, a: clue.a, options: optionsFor(clue, poolFor(full), rnd),
+      wagers: {}, answers: {}, playing, reveal: [],
+      deadline: Date.now() + FINAL_WAGER_MS,
+    };
+    this.g.used = [...new Set([...this.g.used, cat.id])];
+
+    for (const uid of playing) {
+      const p = this.g.players[uid];
+      if (!p.ai) continue;
+      // A computer wagers by how much of the board it knows, and never more
+      // than it is holding.
+      const lvl = aiLevelById(p.aiLevel);
+      this.g.final.wagers[uid] = Math.round(finalLimit(p.money) * (0.3 + lvl.knows * 0.5));
+    }
+
+    await this.persist();
+    this.log(`Final: ${cat.name}. Wagers, please.`);
+    this.broadcast("BZ_FINAL", { stage: "WAGER", catName: cat.name, scope: full.scope, playing });
+    this.announce();
+    this.pushState();
+    await this.armAlarm();
+  }
+
+  async finalWager(ws, uid, msg) {
+    const f = this.g.final;
+    if (!f || f.stage !== "WAGER")
+      return this.send(ws, "BZ_ERROR", { message: "There's no wager to make." });
+    if (!f.playing.includes(uid))
+      return this.send(ws, "BZ_ERROR", { message: "You finished at or below zero, so Final isn't yours." });
+    const p = this.g.players[uid];
+    f.wagers[uid] = Math.max(0, Math.min(finalLimit(p.money), Math.round(Number(msg.amount) || 0)));
+    await this.persist();
+    this.pushState();
+    if (f.playing.every((u) => f.wagers[u] != null)) await this.finalClue();
+    else await this.armAlarm();
+  }
+
+  async finalClue() {
+    const f = this.g.final;
+    if (!f || f.stage !== "WAGER") return;
+    for (const uid of f.playing) if (f.wagers[uid] == null) f.wagers[uid] = 0;
+    f.stage = "CLUE";
+    f.deadline = Date.now() + readingMs(f.q) + FINAL_THINK_MS;
+    for (const uid of f.playing) {
+      const p = this.g.players[uid];
+      if (!p.ai) continue;
+      const intent = aiIntent(p.aiLevel, rngFrom(this.g.seed ^ hashUid(uid) ^ 0xfaded));
+      f.answers[uid] = intent.knows ? f.a : f.options[Math.floor(rngFrom(hashUid(uid))() * f.options.length)];
+    }
+    await this.persist();
+    this.log("Wagers are in. Here is the clue.");
+    this.broadcast("BZ_FINAL", { stage: "CLUE", q: f.q, options: f.options, until: f.deadline });
+    this.pushState();
+    await this.armAlarm();
+  }
+
+  async finalAnswer(ws, uid, msg) {
+    const f = this.g.final;
+    if (!f || f.stage !== "CLUE")
+      return this.send(ws, "BZ_ERROR", { message: "There's nothing to answer." });
+    if (!f.playing.includes(uid))
+      return this.send(ws, "BZ_ERROR", { message: "Final isn't yours this time." });
+    const picked = f.options.includes(msg.choice) ? msg.choice : null;
+    if (picked == null) return this.send(ws, "BZ_ERROR", { message: "That isn't one of the four." });
+    f.answers[uid] = picked;
+    await this.persist();
+    this.pushState();
+    if (f.playing.every((u) => f.answers[u] != null)) await this.revealFinal();
+    else await this.armAlarm();
+  }
+
+  /**
+   * Answers revealed lowest score first, exactly as the show does it. It puts
+   * the person who can still win last, so the game is decided on the final
+   * card rather than three cards ago.
+   */
+  async revealFinal() {
+    const f = this.g.final;
+    if (!f || f.stage === "REVEAL") return;
+    f.stage = "REVEAL";
+
+    const order = finalOrder(f.playing.map((uid) => this.g.players[uid]));
+    f.reveal = order.map((p) => {
+      const wager = f.wagers[p.uid] || 0;
+      const picked = f.answers[p.uid] || null;
+      const right = picked != null && String(picked) === String(f.a);
+      p.money += right ? wager : -wager;
+      if (right) p.right += 1; else p.wrong += 1;
+      return { uid: p.uid, name: p.name, wager, picked, right, money: p.money };
+    });
+
+    f.deadline = Date.now() + FINAL_REVEAL_MS;
+    await this.persist();
+    this.log(`The answer was ${f.a}. ${f.reveal.filter((r) => r.right).length} of ${f.reveal.length} had it.`);
+    this.broadcast("BZ_FINAL", { stage: "REVEAL", answer: f.a, reveal: f.reveal });
+    this.pushState();
+    await this.armAlarm();
   }
 
   // -------------------------------------------------------------- the clock
@@ -752,9 +1179,9 @@ export class BuzzerRoom {
 
   async armAlarm() {
     if (!this.g) return;
-    const when = [this.cellDeadline(), this.nextAiAt()].filter(Boolean);
+    const when = [this.cellDeadline(), this.nextAiAt(), this.g.final?.deadline].filter(Boolean);
     if (!when.length) {
-      if (this.g.phase !== "PLAYING" && this.connected().size === 0)
+      if (this.g.phase === "LOBBY" && this.connected().size === 0)
         await this.state.storage.setAlarm(Date.now() + IDLE_SHUTDOWN_MS);
       return;
     }
@@ -763,6 +1190,7 @@ export class BuzzerRoom {
 
   async alarm() {
     if (!this.g) return;
+    if (this.g.phase === "FINAL") { await this.finalTick(); return; }
     if (this.g.phase !== "PLAYING") {
       if (this.sockets().length === 0) {
         await this.state.storage.deleteAll();
@@ -771,6 +1199,15 @@ export class BuzzerRoom {
       return;
     }
     await this.tick();
+  }
+
+  /** Final runs on its own three deadlines: wager, think, then the reveal. */
+  async finalTick() {
+    const f = this.g.final;
+    if (!f || Date.now() < f.deadline) { await this.armAlarm(); return; }
+    if (f.stage === "WAGER") return await this.finalClue();
+    if (f.stage === "CLUE") return await this.revealFinal();
+    if (f.stage === "REVEAL") return await this.finish();
   }
 
   /**
@@ -788,6 +1225,13 @@ export class BuzzerRoom {
       const now = Date.now();
       this.stageNow();
 
+      // A wager nobody makes is the clue's own value, which is what the show
+      // does with a contestant who freezes.
+      if (c.stage === "WAGER" && now >= c.deadline) {
+        this.setWager(this.g.players[c.holder], c.value);
+        moved = true;
+        continue;
+      }
       if (c.stage === "OPEN" && this.aiDue(now)) { await this.injectAi(now); moved = true; continue; }
       if (c.stage === "WINDOW" && now >= c.deadline) { await this.resolveWindow(); moved = true; continue; }
       if (c.stage === "ANSWERING" && c.aiAnswerAt && now >= c.aiAnswerAt) { await this.aiAnswers(); moved = true; continue; }
@@ -866,9 +1310,12 @@ export class BuzzerRoom {
 
     const results = ordered.map((p, i) => {
       const placement = i + 1;
+      // Points Finish scores a board you left as though you had stayed;
+      // Podium Polish is eight points on top of whatever it came to.
       p.score = Math.min(100, Math.round(boardScore({
-        placement, field: field.length, right: p.right, wrong: p.wrong, finished: true,
-      })));
+        placement, field: field.length, right: p.right, wrong: p.wrong,
+        finished: !p.gone || !!p.pointsFinish,
+      }) + (p.polish || 0)));
 
       const gain = sessionGain({
         score: p.score, completed: true,

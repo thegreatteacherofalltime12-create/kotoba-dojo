@@ -17,6 +17,7 @@ export const TOKEN_ITEMS = [
   { game: "links", name: "Golf boost", icon: "⛳", where: "Multiverse Golf", blurb: "1.5× MMR on one round of Multiverse Golf" },
   { game: "casino", name: "Casino boost", icon: "\u{1F3B0}", where: "the Casino", blurb: "1.5× on every casino win for a day" },
   { game: "prix", name: "Grand Prix boost", icon: "\u{1F3CE}\uFE0F", where: "the Grand Prix", blurb: "1.5× MMR on one Multiverse Grand Prix" },
+  { game: "buzzer", name: "Buzzer boost", icon: "🛎️", where: "The Buzzer", blurb: "1.5× MMR on one board of The Buzzer" },
 ];
 
 export const tokenItem = (game) => TOKEN_ITEMS.find((t) => t.game === game) || TOKEN_ITEMS[0];
@@ -269,7 +270,44 @@ export const PRIX_ARSENAL_ITEMS = [
     blurb: "A race you do not finish is scored as though you had." },
 ];
 
+
+/**
+ * The Buzzer's arsenal: the Grand Prix grid plus ten dollars, because the two
+ * do the same jobs at the same points. The rule is the race's and it is held
+ * just as hard here — nothing you buy may be aimed at another player. Money
+ * buys you a better seat at the board, never a way to hurt the person beside
+ * you. Every one of these is applied by the room the moment it can be, so a
+ * token armed is a token spent rather than a button to remember.
+ */
+export const BUZZER_ARSENAL_ITEMS = [
+  { key: "bz_second", name: "Second Look", icon: "👀", price: 510, max: 5,
+    blurb: "Your first wrong answer in each round costs you nothing. One per round, per token." },
+  { key: "bz_card", name: "Category Card", icon: "🗂️", price: 610, max: 3,
+    blurb: "One category's scope is shown to you before the board turns — what family its answers belong to." },
+  { key: "bz_long", name: "Long Look", icon: "⏳", price: 710, max: 2,
+    blurb: "Fifteen seconds to choose instead of ten, all night." },
+  { key: "bz_house", name: "House Money", icon: "🏦", price: 810, max: 1,
+    blurb: "You sit down on ,500 rather than ,000. The extra floats with the rest of the stake." },
+  { key: "bz_fewer", name: "Two Fewer", icon: "✂️", price: 910, max: 3,
+    blurb: "On the first clue you take, two of the wrong options are taken away. One clue, per token." },
+  { key: "bz_pockets", name: "Deep Pockets", icon: "👛", price: 1010, max: 2,
+    blurb: "Your Daily Double ceiling doubles, so you may wager past what you are holding." },
+  { key: "bz_nudge", name: "The Nudge", icon: "👉", price: 1110, max: 2,
+    blurb: "Which category hides a Daily Double, told to you and nobody else, once a round." },
+  { key: "bz_finger", name: "Fast Finger", icon: "⚡", price: 1210, max: 3,
+    blurb: "Your next three buzzes land a fraction earlier — sixty milliseconds, never under the human floor." },
+  { key: "bz_insure", name: "Insurance", icon: "🛡️", price: 1310, max: 2,
+    blurb: "A Daily Double that goes wrong costs you half of what you wagered." },
+  { key: "bz_book", name: "Open Book", icon: "📖", price: 1510, max: 2,
+    blurb: "On the first clue of each round, the four options are shown to you before anyone may buzz." },
+  { key: "bz_polish", name: "Podium Polish", icon: "🏆", price: 2510, max: 2,
+    blurb: "Eight points on the match score when it is counted." },
+  { key: "bz_points", name: "Points Finish", icon: "🏁", price: 3010, max: 1,
+    blurb: "A board you do not see the end of is scored as though you had." },
+];
+
 export const GAME_ARSENAL_ITEMS = {
+  buzzer: BUZZER_ARSENAL_ITEMS,
   prix: PRIX_ARSENAL_ITEMS,
   casino: CASINO_ARSENAL_ITEMS,
   crossword: WORD_ARSENAL_ITEMS, battleship: ARSENAL_ITEMS, minesweeper: MINE_ARSENAL_ITEMS, links: LINKS_ARSENAL_ITEMS };

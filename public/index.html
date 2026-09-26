@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Omni Multiverse of Madness</title>
-<meta name="build" content="2026-09-26 22:05 UTC">
+<meta name="build" content="2026-09-26 22:33 UTC">
 <meta name="description" content="Omni Multiverse of Madness — competitive arena. Belts, MMR, casino floor and live standings.">
 <meta name="theme-color" content="#F4F1EA">
 <meta name="mobile-web-app-capable" content="yes">
@@ -590,6 +590,7 @@ if (location.protocol === "file:") {
 <section id="screen-buzzer" class="screen" hidden>
   <header class="topbar">
     <button id="btn-bz-leave" class="btn btn-tiny btn-end">End Match</button>
+    <button id="btn-bz-boost" class="btn btn-tiny">&#9889; Apply Token</button>
     <button id="btn-bz-mute" class="btn btn-tiny" aria-pressed="false">&#128266; Sound on</button>
     <span class="topbar-spacer"></span>
     <span class="dojo-code">Board <b id="bz-code"></b></span>
@@ -618,8 +619,12 @@ if (location.protocol === "file:") {
         </div>
       </section>
 
+      <p id="bz-splash" class="bz-splash" role="status" hidden></p>
+
       <div id="bz-board-wrap" hidden>
         <div id="bz-board" class="bz-board"></div>
+
+        <section id="bz-wager" class="panel bz-wager" hidden></section>
 
         <section id="bz-clue-panel" class="panel bz-clue-panel" hidden>
           <p id="bz-clue-head" class="bz-clue-head"></p>
@@ -631,6 +636,8 @@ if (location.protocol === "file:") {
           <p id="bz-flash" class="bz-flash" aria-live="polite"></p>
         </section>
       </div>
+
+      <section id="bz-final" class="panel bz-final" hidden></section>
 
       <section id="bz-results" class="panel bz-results" hidden></section>
     </main>

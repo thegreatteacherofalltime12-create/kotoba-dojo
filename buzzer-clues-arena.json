@@ -536,11 +536,11 @@
    {
     "row": 4,
     "q": "The side bet on a winner three clear steps up, paying 100 after the PRICES loop rather than the 50 its own line declares",
-    "a": "Long",
+    "a": "The Long",
     "wrong": [
-     "Short",
+     "The Short",
      "First Place",
-     "Top 3 - Exact"
+     "Exacta"
     ],
     "source": "src/casino-core.js:166-167 declares pays 50 (and the comment at :164-165 says both side bets pay 50), but PRICES at :151 and the loop at :172 overwrite it to 100 - the code pays 100"
    },
@@ -616,6 +616,132 @@
      "Multiverse Golf"
     ],
     "source": "public/boost.js:230-232, the comment above PRIX_ARSENAL_ITEMS at :233"
+   }
+  ]
+ },
+ {
+  "id": "belts",
+  "name": "BELTS & BRASS",
+  "section": "arena",
+  "scope": "Every answer is a belt on the ladder, a service branch, or a rank inside one.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The first belt you actually earn, worn from 1 MMR up until 200",
+    "a": "White",
+    "wrong": [
+     "Yellow",
+     "Orange",
+     "Green"
+    ],
+    "source": "src/mmr.js:15 — { at: 1, name: \"White\" }; Unranked sits below it at 0"
+   },
+   {
+    "row": 2,
+    "q": "The branch that borrows the Navy's rank ladder without being the Navy, and wears a lifebuoy",
+    "a": "Coast Guard",
+    "wrong": [
+     "Space Force",
+     "Army",
+     "Marine Corps"
+    ],
+    "source": "public/ranks.js:51 — officers: rows(\"officer\", OFFICERS_NAVY), emoji 🛟"
+   },
+   {
+    "row": 3,
+    "q": "What one promotion costs off the board, though lifetime MMR still counts it so no title is lost",
+    "a": "3,000 MMR",
+    "wrong": [
+     "2,600 MMR",
+     "1,525 MMR",
+     "1,200 MMR"
+    ],
+    "source": "public/cosmetics.js:13 — PRESTIGE_COST = 3000"
+   },
+   {
+    "row": 4,
+    "q": "The top enlisted rank a Marine reaches before the officer ladder begins",
+    "a": "Sergeant Major",
+    "wrong": [
+     "Master Sergeant",
+     "Gunnery Sergeant",
+     "Staff Sergeant"
+    ],
+    "source": "public/ranks.js:44 — last of the marines enlisted list"
+   },
+   {
+    "row": 5,
+    "q": "Every retirement is quietly worth this many prestiges when your lifetime climb is counted",
+    "a": "Ten",
+    "wrong": [
+     "Five",
+     "Fifteen",
+     "Twenty-five"
+    ],
+    "source": "public/cosmetics.js:16 — prestigeEver = prestige + retired * 10"
+   }
+  ]
+ },
+ {
+  "id": "bounty",
+  "name": "THE BOUNTY OFFICE",
+  "section": "arena",
+  "scope": "Every answer is a bounty rule, bonus, tier or achievement.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The bonus for taking a bounty off somebody",
+    "a": "50",
+    "wrong": [
+     "25",
+     "10",
+     "100"
+    ],
+    "source": "src/bounty.js:8 — CLAIM_BONUS = 50; DEFEND_BONUS is the 25"
+   },
+   {
+    "row": 2,
+    "q": "A match with fewer than this many on the field can neither claim a bounty nor lose one",
+    "a": "2",
+    "wrong": [
+     "3",
+     "4",
+     "5"
+    ],
+    "source": "src/bounty.js:16 — (field || 0) >= 2"
+   },
+   {
+    "row": 3,
+    "q": "The tier a third bounty kill wears, one above gold",
+    "a": "Diamond",
+    "wrong": [
+     "Silver",
+     "Gold",
+     "Platinum"
+    ],
+    "source": "src/bounty.js:33 — { at: 3, tier: \"diamond\" }"
+   },
+   {
+    "row": 4,
+    "q": "Ten lifetime kills, and this title and its avatar are yours",
+    "a": "Bounty Executioner",
+    "wrong": [
+     "Bounty Slayer",
+     "Bounty Warlord",
+     "Bounty Kill IV"
+    ],
+    "source": "src/bounty.js:39 — { at: 10, name: \"Bounty Executioner\" }"
+   },
+   {
+    "row": 5,
+    "q": "How long a bounty sits on one head before the office moves it along",
+    "a": "48 hours",
+    "wrong": [
+     "24 hours",
+     "72 hours",
+     "12 hours"
+    ],
+    "source": "src/bounty.js:10 — ROTATE_AFTER_MS = 48 * 60 * 60 * 1000"
    }
   ]
  }

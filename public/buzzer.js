@@ -5,6 +5,8 @@
 // button went down. Nothing here knows an answer before the room says so —
 // not even the one on screen, which arrives as text with no answer attached.
 
+import { applyTokenTab, BUZZER_ARSENAL_ITEMS } from "./boost.js";
+
 const $ = (id) => document.getElementById(id);
 const el = (tag, cls, text) => {
   const n = document.createElement(tag);
@@ -121,6 +123,14 @@ export function playCue(type) {
 
 // ── the socket ───────────────────────────────────────────────────────
 
+let boostTab = null;
+// Built now rather than when the first TOKENS message lands. Building it is
+// what puts the handler on the Apply Token button, and nothing else ever asks
+// the room for tokens — so deferring it means it is never built at all.
+const tokenTab = () => (boostTab ||= applyTokenTab({
+  game: "buzzer", send, button: $("btn-bz-boost"), label: "board", arsenal: BUZZER_ARSENAL_ITEMS,
+}));
+
 export async function enterBuzzer(code, getToken, onLeave) {
   B.code = code;
   B.onLeave = onLeave;
@@ -129,6 +139,7 @@ export async function enterBuzzer(code, getToken, onLeave) {
   $("bz-feed").textContent = "";
   $("bz-chat").textContent = "";
   setMuted(muted);
+  tokenTab();
   showDeck("podiums");
   await connect(getToken);
 }
@@ -189,6 +200,20 @@ function handle(msg) {
       B.optionsUntil = msg.until;
       return drawOptions();
     case "BZ_VERDICT": return verdict(msg);
+    case "BZ_TOKENS":
+      tokenTab().receive(msg);
+      if (msg.arsenal) tokenTab().arsenalState(msg.arsenal);
+      return;
+    case "BZ_DOUBLE": return splash("Daily Double", `${msg.name} found it`);
+    case "BZ_ROUND": return splash(msg.name, "Every value is twice what it was");
+    case "BZ_FINAL":
+      if (msg.stage === "WAGER") splash("Final", msg.catName);
+      return;
+    case "BZ_PEEK":
+      B.peek = msg.options;
+      return drawOptions();
+    case "BZ_NUDGE":
+      return say(`A Daily Double is still hiding in ${msg.catName}.`);
     case "BZ_GO":
       $("bz-lobby").hidden = true;
       $("bz-board-wrap").hidden = false;
@@ -201,8 +226,25 @@ function handle(msg) {
   }
 }
 
+/**
+ * A set piece, announced. It is a panel with words in it rather than an
+ * animation, because a splash that only flies is a splash that says nothing
+ * at all to somebody who has asked for less motion.
+ */
+function splash(title, sub) {
+  const n = $("bz-splash");
+  if (!n) return;
+  n.textContent = "";
+  n.append(el("b", null, title));
+  if (sub) n.append(el("i", null, sub));
+  n.hidden = false;
+  clearTimeout(B.splashTimer);
+  B.splashTimer = setTimeout(() => { n.hidden = true; }, 2600);
+}
+
 function verdict(msg) {
   B.options = null;
+  B.peek = null;
   drawOptions();
   const flash = $("bz-flash");
   if (msg.right) {
@@ -226,11 +268,16 @@ function draw(g) {
   B.isHost = g.hostUid === B.you;
 
   const playing = g.phase === "PLAYING";
-  $("bz-lobby").hidden = playing || g.phase === "RESULTS";
-  $("bz-board-wrap").hidden = !playing;
-  $("bz-phase").textContent = playing ? `Round ${g.round}` : g.phase === "RESULTS" ? "Finished" : "Lobby";
+  $("bz-lobby").hidden = g.phase !== "LOBBY";
+  $("bz-phase").textContent = g.phase === "FINAL" ? "Final"
+    : playing ? `Round ${g.round}`
+    : g.phase === "RESULTS" ? "Finished" : "Lobby";
 
-  if (!playing) drawLobby(g);
+  const final = g.phase === "FINAL";
+  $("bz-board-wrap").hidden = !playing;
+  $("bz-final").hidden = !final;
+  if (final) drawFinal(g);
+  else if (!playing) drawLobby(g);
   else drawBoard(g);
   drawPodiums(g);
 }
@@ -252,6 +299,8 @@ function drawBoard(g) {
 
   const c = g.cell;
   $("bz-clue-panel").hidden = !c;
+  $("bz-wager").hidden = !(c && c.stage === "WAGER" && c.holder === B.you);
+  if (c && c.stage === "WAGER" && c.holder === B.you) drawWager(g, c);
   if (!c) { lastStage = null; return; }
 
   $("bz-clue-head").textContent = `${g.cats[c.col].name} · ${money(c.value)}`;
@@ -283,14 +332,123 @@ function drawBoard(g) {
   drawOptions();
 }
 
+/**
+ * The wager on a Daily Double. The ceiling is the larger of your own money
+ * and the top value on the board, so a player who is under water can still
+ * swing at it — which is the entire function of the rule.
+ */
+function drawWager(g, c) {
+  const me = g.players.find((p) => p.uid === B.you);
+  const top = g.values[g.values.length - 1];
+  const cap = Math.max(me?.money || 0, top) * (me?.deepPockets ? 2 : 1);
+  const host = $("bz-wager");
+  host.textContent = "";
+  host.append(el("p", "bz-wager-head", `${g.cats[c.col].name} · Daily Double`));
+  host.append(el("p", "bz-wager-sub", `Anything up to ${money(cap)}.`));
+
+  const row = el("div", "bz-wager-row");
+  const input = el("input", "bz-wager-in");
+  input.type = "number";
+  input.min = "0";
+  input.max = String(cap);
+  input.value = String(Math.min(cap, Math.max(c.value, 0)));
+  input.setAttribute("aria-label", "Your wager");
+  const go = el("button", "btn btn-primary", "Wager it");
+  go.onclick = () => send({ type: "BZ_WAGER", amount: Number(input.value) || 0 });
+  row.append(input, go);
+  host.append(row);
+
+  const quick = el("div", "bz-wager-quick");
+  for (const [label, amount] of [["Minimum", 5], ["Half", Math.round(cap / 2)], ["Everything", cap]]) {
+    const b = el("button", "bz-chip-btn", label);
+    b.onclick = () => { input.value = String(amount); };
+    quick.append(b);
+  }
+  host.append(quick);
+}
+
+/**
+ * Final, in three beats: the category and a secret wager, then one clue with
+ * the same four options for everybody, then all the answers at once, lowest
+ * score first — which is what puts the person who can still win last.
+ */
+function drawFinal(g) {
+  const f = g.final;
+  const host = $("bz-final");
+  host.hidden = !f;
+  if (!f) return;
+  host.textContent = "";
+  const mine = f.playing.includes(B.you);
+
+  host.append(el("p", "bz-clue-head", `Final · ${f.catName}`));
+  if (f.scope) host.append(el("p", "bz-final-scope", f.scope));
+
+  if (f.stage === "WAGER") {
+    if (!mine) {
+      host.append(el("p", "bz-clue", "You finished at or below zero, so this one is played without you."));
+      return;
+    }
+    const me = g.players.find((p) => p.uid === B.you);
+    const cap = Math.max(0, me?.money || 0);
+    if (f.in.includes(B.you)) {
+      host.append(el("p", "bz-clue", "Your wager is in. Waiting for the rest of the table."));
+    } else {
+      host.append(el("p", "bz-wager-sub", `Anything up to ${money(cap)}, and nobody sees it but you.`));
+      const row = el("div", "bz-wager-row");
+      const input = el("input", "bz-wager-in");
+      input.type = "number"; input.min = "0"; input.max = String(cap);
+      input.value = String(Math.round(cap / 2));
+      input.setAttribute("aria-label", "Your final wager");
+      const go = el("button", "btn btn-primary", "Lock it in");
+      go.onclick = () => send({ type: "BZ_FINAL_WAGER", amount: Number(input.value) || 0 });
+      row.append(input, go);
+      host.append(row);
+    }
+    host.append(el("p", "bz-final-in", `${f.in.length} of ${f.playing.length} in`));
+    return;
+  }
+
+  if (f.stage === "CLUE") {
+    host.append(el("p", "bz-clue", f.q || ""));
+    if (mine && !f.answered.includes(B.you)) {
+      const opts = el("div", "bz-options");
+      (f.options || []).forEach((o) => {
+        const b = el("button", "bz-option", o);
+        b.onclick = () => send({ type: "BZ_FINAL_ANSWER", choice: o });
+        opts.append(b);
+      });
+      host.append(opts);
+    } else {
+      host.append(el("p", "bz-final-in", `${f.answered.length} of ${f.playing.length} answered`));
+    }
+    return;
+  }
+
+  host.append(el("p", "bz-clue", f.q || ""));
+  host.append(el("p", "bz-flash good", f.answer || ""));
+  for (const r of f.reveal || []) {
+    const row = el("div", `bz-result${r.uid === B.you ? " me" : ""}`);
+    row.append(el("span", "bz-place", r.right ? "✓" : "✗"));
+    row.append(el("span", "bz-who", r.name));
+    row.append(el("span", `bz-cash${r.money < 0 ? " red" : ""}`, money(r.money)));
+    row.append(el("span", "bz-sub", `${r.picked || "no answer"} · ${r.right ? "+" : "−"}${money(r.wager)}`));
+    host.append(row);
+  }
+}
+
 function drawOptions() {
   const host = $("bz-options");
   host.textContent = "";
-  host.hidden = !B.options;
-  if (!B.options) return;
-  B.options.forEach((o) => {
-    const b = el("button", "bz-option", o);
-    b.onclick = () => { B.options = null; drawOptions(); send({ type: "BZ_ANSWER", choice: o }); };
+  // Open Book shows the four before anybody may buzz. They are not yours to
+  // press yet, so they are shown and not armed.
+  const peeking = !B.options && B.peek;
+  const list = B.options || B.peek;
+  host.hidden = !list;
+  if (!list) return;
+  list.forEach((o) => {
+    const b = el("button", `bz-option${peeking ? " peek" : ""}`, o);
+    if (peeking) b.disabled = true;
+    else b.onclick = () => { B.options = null; B.peek = null; drawOptions(); send({ type: "BZ_ANSWER", choice: o }); };
     host.append(b);
   });
 }
@@ -329,6 +487,8 @@ function drawPodiums(g) {
   host.textContent = "";
   [...g.players].sort((a, b) => (b.money || 0) - (a.money || 0)).forEach((p) => {
     const row = el("div", `bz-podium${p.uid === B.you ? " me" : ""}${g.cell?.holder === p.uid ? " buzzed" : ""}`);
+    const av = (g.avatars || []).find((a) => a.id === p.avatar);
+    row.append(el("span", "bz-av", av ? av.ico : "\u{1F464}"));
     row.append(el("span", "bz-who", p.name + (p.ai ? " \u{1F916}" : "")));
     row.append(el("span", `bz-cash${p.money < 0 ? " red" : ""}`, money(p.money)));
     if (p.bestReaction) row.append(el("span", "bz-rt", `${(p.bestReaction / 1000).toFixed(2)}s`));
@@ -348,8 +508,11 @@ function drawLobby(g) {
   const tabs = $("bz-setup");
   tabs.textContent = "";
   const level = (B.aiLevels || []).find((l) => l.id === g.aiLevel);
+  const meAv = g.players.find((p) => p.uid === B.you)?.avatar;
+  const worn = (g.avatars || []).find((a) => a.id === meAv);
   const rows = [
     { key: "cats", name: "Categories", now: g.cats.length ? `${g.cats.length} chosen` : "None yet" },
+    { key: "avatar", name: "Your avatar", now: worn ? `${worn.ico} ${worn.name}` : "None yet" },
   ];
   if (g.solo) rows.push(
     { key: "count", name: "How many players", now: `${g.aiCount} computer${g.aiCount === 1 ? "" : "s"}` },
@@ -359,7 +522,8 @@ function drawLobby(g) {
     const b = el("button", "bz-tab");
     b.append(el("span", "bt-name", r.name));
     b.append(el("span", "bt-now", r.now));
-    b.disabled = !B.isHost;
+    // Your avatar is yours, host or not.
+    b.disabled = !B.isHost && r.key !== "avatar";
     b.onclick = () => openPick(r.key);
     tabs.append(b);
   }
@@ -378,6 +542,21 @@ function openPick(which) {
   card.textContent = "";
   $("bz-pick-title").textContent = which === "cats" ? "Choose six categories"
     : which === "count" ? "How many computer players" : "How quick they are";
+
+  if (which === "avatar") {
+    const grid = el("div", "bz-cats");
+    for (const a of g.avatars || []) {
+      const taken = (g.taken || []).includes(a.id) && a.id !== g.players.find((p) => p.uid === B.you)?.avatar;
+      const b = el("button", `bz-avatar${a.id === g.players.find((p) => p.uid === B.you)?.avatar ? " on" : ""}`);
+      b.append(el("span", "bz-av-ico", a.ico));
+      b.append(el("b", null, a.name));
+      if (taken) { b.disabled = true; b.append(el("i", null, "taken")); }
+      b.onclick = () => { send({ type: "BZ_AVATAR", id: a.id }); closePick(); };
+      grid.append(b);
+    }
+    card.append(grid);
+    return showPick();
+  }
 
   if (which === "count") {
     for (let n = 1; n <= (B.aiMax || 5); n++) {

@@ -3888,3 +3888,59 @@ a.dtab { text-decoration: none; display: inline-block; }
   .bz-cell:hover:not(:disabled) { transform: none; }
   .bz-buzzer.live { animation: none; }
 }
+
+/* ── the buzzer's set pieces ─────────────────────────────────────────
+   A splash is a panel with words in it rather than an animation. One that
+   only flies says nothing at all to somebody who has asked for less motion,
+   and nothing here may be motion-only. */
+.bz-splash {
+  margin: 0; padding: .9rem 1rem; text-align: center;
+  background: linear-gradient(180deg, rgba(244,206,90,.18), rgba(244,206,90,.05));
+  border: 2px solid var(--accent); border-radius: 10px;
+  display: grid; gap: .2rem; animation: bz-rise .35s ease-out;
+}
+.bz-splash b { font-family: var(--display); font-size: 1.5rem; letter-spacing: .08em; text-transform: uppercase; color: #F4CE5A; }
+.bz-splash i { font-style: normal; font-size: .9rem; color: var(--muted); }
+@keyframes bz-rise { from { transform: scale(.94); opacity: 0; } }
+
+.bz-wager { display: grid; gap: .6rem; padding: 1rem; text-align: center; }
+.bz-wager-head { margin: 0; font-family: var(--display); font-size: 1.1rem; text-transform: uppercase; letter-spacing: .06em; color: #F4CE5A; }
+.bz-wager-sub { margin: 0; font-size: .9rem; color: var(--muted); }
+.bz-wager-row { display: flex; gap: .5rem; justify-content: center; }
+.bz-wager-in {
+  flex: 1; max-width: 12rem; padding: .7rem .8rem; font: inherit; font-size: 1.2rem;
+  text-align: center; background: rgba(0,0,0,.35); border: 2px solid var(--edge);
+  border-radius: 8px; color: #F4CE5A; font-family: var(--display);
+}
+.bz-wager-quick { display: flex; gap: .4rem; justify-content: center; flex-wrap: wrap; }
+.bz-chip-btn {
+  padding: .35rem .7rem; font: inherit; font-size: .8rem; cursor: pointer;
+  background: rgba(255,255,255,.06); border: 1px solid var(--edge);
+  border-radius: 999px; color: var(--muted);
+}
+.bz-chip-btn:hover { border-color: var(--accent); color: inherit; }
+
+.bz-final { display: grid; gap: .7rem; padding: 1rem; text-align: center; }
+.bz-final-scope { margin: 0; font-size: .85rem; color: var(--muted); font-style: italic; }
+.bz-final-in { margin: 0; font-family: var(--display); font-size: .85rem; color: var(--accent); }
+
+/* An option shown by Open Book is shown, not armed: it is information about
+   the clue, not a turn at answering it. */
+.bz-option.peek { opacity: .75; border-style: dashed; cursor: default; }
+
+.bz-av { font-size: 1.05rem; line-height: 1; }
+.bz-podium { grid-template-columns: auto 1fr auto auto; }
+.bz-avatar {
+  display: grid; gap: .15rem; justify-items: center; padding: .6rem .5rem;
+  background: rgba(255,255,255,.04); border: 1px solid var(--edge); border-radius: 8px;
+  color: inherit; font: inherit; cursor: pointer; text-align: center;
+}
+.bz-avatar b { font-size: .75rem; font-weight: 600; }
+.bz-avatar i { font-size: .65rem; color: var(--muted); font-style: normal; }
+.bz-avatar.on { border-color: var(--accent); background: rgba(244,206,90,.12); }
+.bz-avatar:disabled { opacity: .35; cursor: default; }
+.bz-av-ico { font-size: 1.7rem; line-height: 1.1; }
+
+@media (prefers-reduced-motion: reduce) {
+  .bz-splash { animation: none; }
+}

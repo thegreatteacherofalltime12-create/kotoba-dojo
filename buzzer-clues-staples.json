@@ -1,0 +1,176 @@
+[
+ {
+  "id": "beforeafter",
+  "name": "BEFORE & AFTER",
+  "section": "staples",
+  "scope": "Every answer is two known things run together on a word they share — the last word of the first is the first word of the second.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "Gotham's caped pair, joined to the outlaw of Sherwood Forest",
+    "a": "Batman and Robin Hood",
+    "wrong": [
+     "Superman of Steel",
+     "Spider-Man of La Mancha",
+     "Iron Man of the Year"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The boy wizard of Hogwarts, joined to the spinning disc a pot is thrown on",
+    "a": "Harry Potter's Wheel",
+    "wrong": [
+     "Luke Skywalker's Kiln",
+     "James Bond's Lathe",
+     "Frodo Baggins' Loom"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The clown who sells hamburgers, joined to the fortieth president",
+    "a": "Ronald McDonald Reagan",
+    "wrong": [
+     "Wendy Thomas Jefferson",
+     "Burger King George",
+     "Colonel Sanders Lincoln"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The liner that went down in 1912, joined to a warship's wall of steel",
+    "a": "Titanic Armour Plate",
+    "wrong": [
+     "Lusitania Gun Deck",
+     "Britannic Hull Plate",
+     "Bismarck Belt Armour"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The boundary a black hole allows nothing back across, joined to the formal dance",
+    "a": "Event Horizon Ball",
+    "wrong": [
+     "Singularity Point Dance",
+     "Quantum Field Gala",
+     "Photon Sphere Waltz"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "potpourri",
+  "name": "POTPOURRI",
+  "section": "staples",
+  "scope": "Every answer is an ordinary household object. The subjects roam; the answers never leave the house.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "An everyday thing with a head and teeth and no mouth at all",
+    "a": "Comb",
+    "wrong": [
+     "Brush",
+     "Razor",
+     "Sponge"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "This cooking vessel takes its name by a long road from the Latin scutella, a little dish",
+    "a": "Skillet",
+    "wrong": [
+     "Saucepan",
+     "Colander",
+     "Spatula"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "David Smith patented the spring-loaded version of this fastener in 1853",
+    "a": "Clothespin",
+    "wrong": [
+     "Shoelace",
+     "Zipper",
+     "Button"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "Long before synthetic ones, a dried gourd did this bathroom job",
+    "a": "Loofah",
+    "wrong": [
+     "Pumice Stone",
+     "Washcloth",
+     "Scrub Brush"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "Melville Bissell patented a mechanical one of these in 1876, to get sawdust out of a shop floor",
+    "a": "Carpet Sweeper",
+    "wrong": [
+     "Vacuum Cleaner",
+     "Dustpan",
+     "Feather Duster"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "wordorigins",
+  "name": "WORD ORIGINS",
+  "section": "staples",
+  "scope": "Every answer is where an English word came from — the language it was borrowed out of, or the place or person behind it.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "Kindergarten arrives in English straight from this language, meaning a garden of children",
+    "a": "German",
+    "wrong": [
+     "Dutch",
+     "Swedish",
+     "Danish"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "Sabotage comes from this language's word for a wooden shoe",
+    "a": "French",
+    "wrong": [
+     "Dutch",
+     "German",
+     "Italian"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "Assassin traces back to a secretive eleventh-century sect in what is now this country",
+    "a": "Iran",
+    "wrong": [
+     "Egypt",
+     "Turkey",
+     "Iraq"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The name of the citrus fruit reached English from naranj, a word in this language",
+    "a": "Arabic",
+    "wrong": [
+     "Persian",
+     "Sanskrit",
+     "Turkish"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "Shrapnel is named for a gunnery officer who served this country's army",
+    "a": "Britain",
+    "wrong": [
+     "France",
+     "Germany",
+     "Russia"
+    ]
+   }
+  ]
+ }
+]

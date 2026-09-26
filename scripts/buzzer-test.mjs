@@ -242,7 +242,7 @@ console.log("\nten seconds, and nobody at all");
 {
   const { room, seats, say } = await roomOf(["a", "Ana"], ["b", "Bo"]);
   await boardOf(room, say, "a");
-  await say("a", { type: "BZ_PICK", col: 1, row: 1 });
+  await say("a", { type: "BZ_PICK", col: 1, row: 0 });   // row 0 never hides a Daily Double
   room.g.cell.openAt = Date.now() - 600;
 
   await say("a", { type: "BZ_BUZZ", at: room.g.cell.openAt + 400 });
@@ -254,7 +254,7 @@ console.log("\nten seconds, and nobody at all");
   // does not know simply never answers and the board never moves.
   room.g.cell.deadline = Date.now() - 1;
   await room.tick();
-  ok("ten seconds with no answer costs the value", room.g.players.a.money === 2000 - 400);
+  ok("ten seconds with no answer costs the value", room.g.players.a.money === 2000 - 200);
   ok("and the clue goes back up", room.g.cell.stage === "OPEN");
 
   room.g.cell.deadline = Date.now() - 1;
@@ -270,14 +270,14 @@ console.log("\nbelow zero");
   const { room, seats, say } = await roomOf(["a", "Ana"]);
   await boardOf(room, say, "a");
   room.g.players.a.money = -600;
-  await say("a", { type: "BZ_PICK", col: 2, row: 4 });
+  await say("a", { type: "BZ_PICK", col: 2, row: 0 });   // likewise
   room.g.cell.openAt = Date.now() - 500;
   await say("a", { type: "BZ_BUZZ", at: room.g.cell.openAt + 300 });
   ok("a player in the red can still buzz", room.g.cell.buzzes.length === 1);
   room.g.cell.deadline = Date.now() - 1;
   await room.tick();
   await say("a", { type: "BZ_ANSWER", choice: room.g.cell.a });
-  ok("and can still win it back", room.g.players.a.money === 400);
+  ok("and can still win it back", room.g.players.a.money === -400);
 }
 
 console.log("\nthe computer players");
@@ -363,6 +363,124 @@ console.log("\nleaving");
   await room.onGone(seats.a);
   ok("the host's job goes to whoever has been here longest", room.g.hostUid === "b");
   ok("and the room is still standing", room.g.phase === "LOBBY");
+}
+
+console.log("\nthe set pieces");
+{
+  const { room, seats, say } = await roomOf(["a", "Ana"], ["b", "Bo"]);
+  await boardOf(room, say, "a");
+  ok("one Daily Double is hidden on the first board", room.g.doubles.length === 1);
+  ok("and never on the top row, where everybody clicks first", room.g.doubles.every((d) => d.row > 0));
+
+  const seen = seats.b.last("BZ_STATE").game;
+  ok("where they are never leaves the room", seen.doubles === undefined);
+  ok("and neither does the seed they were drawn from", seen.seed === undefined);
+
+  const dd = room.g.doubles[0];
+  room.g.turnUid = "a";
+  await say("a", { type: "BZ_PICK", col: dd.col, row: dd.row });
+  ok("finding one opens a wager rather than a clue", room.g.cell.stage === "WAGER" && room.g.cell.dd === true);
+  ok("and it belongs to whoever found it", room.g.cell.holder === "a");
+  ok("nobody else is dealt its options", !seats.b.last("BZ_OPTIONS"));
+
+  await say("a", { type: "BZ_WAGER", amount: 999999 });
+  ok("a wager is clamped to the ceiling", room.g.cell.wager === 2000);
+  ok("and the clue is handed straight over, with no buzzing", room.g.cell.stage === "ANSWERING");
+  ok("its options reach the one player it belongs to", seats.a.last("BZ_OPTIONS").dd === true);
+
+  await say("a", { type: "BZ_ANSWER", choice: room.g.cell.a });
+  ok("a Daily Double pays what was wagered, not what the cell said", room.g.players.a.money === 4000);
+}
+
+console.log("\nthe second board");
+{
+  const { room, seats, say } = await roomOf(["a", "Ana"]);
+  await boardOf(room, say, "a");
+  const first = room.g.cats.map((c) => c.id).join();
+  for (let col = 0; col < 6; col++) for (let row = 0; row < 5; row++) room.g.spent[col][row] = true;
+  room.g.cell = { stage: "REVEAL", deadline: Date.now() - 1, col: 0, row: 0, a: "x", wrongUids: [], buzzes: [], aiBuzz: {} };
+  await room.tick();
+  ok("a finished board brings the second one up", room.g.round === 2);
+  ok("with six categories nobody has played here", room.g.cats.map((c) => c.id).join() !== first);
+  ok("two Daily Doubles this time", room.g.doubles.length === 2);
+  ok("and every value doubled", seats.a.last("BZ_STATE").game.values.join() === "400,800,1200,1600,2000");
+}
+
+console.log("\nfinal");
+{
+  const { room, seats, say } = await roomOf(["a", "Ana"], ["b", "Bo"], ["c", "Cy"]);
+  await boardOf(room, say, "a");
+  room.g.round = 2;
+  room.g.players.a.money = 4000;
+  room.g.players.b.money = 1200;
+  room.g.players.c.money = -300;
+  await room.startFinal();
+  ok("final opens on the category and a secret wager", room.g.phase === "FINAL" && room.g.final.stage === "WAGER");
+  ok("a player at or below zero sits it out", !room.g.final.playing.includes("c"));
+  await say("c", { type: "BZ_FINAL_WAGER", amount: 100 });
+  ok("and is told so plainly", /below zero/.test(seats.c.last("BZ_ERROR").message));
+
+  ok("the clue does not travel with the category", seats.a.last("BZ_STATE").game.final.q === null);
+  await say("a", { type: "BZ_FINAL_WAGER", amount: 99999 });
+  ok("a wager cannot exceed what you brought", room.g.final.wagers.a === 4000);
+  ok("nobody sees what anybody wagered", seats.b.last("BZ_STATE").game.final.reveal === null);
+  ok("only who has committed", seats.b.last("BZ_STATE").game.final.in.includes("a"));
+
+  await say("b", { type: "BZ_FINAL_WAGER", amount: 1200 });
+  ok("once everybody is in, the clue arrives", room.g.final.stage === "CLUE");
+  ok("with the same four options for all of them", seats.a.last("BZ_STATE").game.final.options.length === 4);
+
+  const answer = room.g.final.a;
+  await say("a", { type: "BZ_FINAL_ANSWER", choice: answer });
+  await say("b", { type: "BZ_FINAL_ANSWER", choice: room.g.final.options.find((o) => o !== answer) });
+  ok("the reveal follows the last answer", room.g.final.stage === "REVEAL");
+  const rev = room.g.final.reveal;
+  ok("lowest score first, so whoever can still win goes last", rev[0].uid === "b" && rev[1].uid === "a");
+  ok("a right answer adds the wager", room.g.players.a.money === 8000);
+  ok("a wrong one takes it off", room.g.players.b.money === 0);
+  ok("and the answer is public now it is settled", seats.c.last("BZ_STATE").game.final.answer === answer);
+}
+
+console.log("\nthe arsenal");
+{
+  const { room, say } = await roomOf(["a", "Ana"]);
+  const p = room.g.players.a;
+  p.ars.armed = { bz_house: 1, bz_long: 1, bz_second: 2, bz_polish: 1, bz_pockets: 1 };
+  await boardOf(room, say, "a");
+  ok("House Money seats you on $2,500", p.money === 2500);
+  ok("Long Look buys five more seconds", p.answerMs === 15000);
+  ok("two Second Looks cover two wrong answers", p.freeWrong === 2);
+  ok("Deep Pockets doubles the Daily Double ceiling", p.deepPockets === true);
+  ok("and only what took hold is recorded as spent",
+    Object.keys(p.ars.used).sort().join() === "bz_house,bz_long,bz_pockets,bz_polish,bz_second");
+
+  room.g.turnUid = "a";
+  let free = null;
+  for (let col = 0; col < 6 && !free; col++)
+    for (let row = 0; row < 5 && !free; row++)
+      if (!room.g.doubles.some((d) => d.col === col && d.row === row)) free = { col, row };
+  await say("a", { type: "BZ_PICK", col: free.col, row: free.row });
+  room.g.cell.openAt = Date.now() - 500;
+  await say("a", { type: "BZ_BUZZ", at: room.g.cell.openAt + 300 });
+  room.g.cell.deadline = Date.now() - 1;
+  await room.tick();
+  const before = p.money;
+  await say("a", { type: "BZ_ANSWER", choice: room.g.cell.options.find((o) => o !== room.g.cell.a) });
+  ok("a Second Look makes the first wrong answer cost nothing", p.money === before && p.freeWrong === 1);
+}
+
+console.log("\navatars");
+{
+  const { room, seats, say } = await roomOf(["a", "Ana"], ["b", "Bo"]);
+  await say("a", { type: "BZ_AVATAR", id: "oracle" });
+  ok("you take one before the lights go up", room.g.players.a.avatar === "oracle");
+  await say("b", { type: "BZ_AVATAR", id: "oracle" });
+  ok("and two people cannot wear the same one", /already/.test(seats.b.last("BZ_ERROR").message));
+  await say("a", { type: "BZ_SOLO", on: true });
+  await boardOf(room, say, "a");
+  const worn = Object.values(room.g.players).map((p) => p.avatar);
+  ok("everybody ends up wearing something", worn.every(Boolean));
+  ok("and no two the same", new Set(worn).size === worn.length);
 }
 
 function avg(xs) { return xs.reduce((s, x) => s + x, 0) / Math.max(1, xs.length); }

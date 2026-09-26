@@ -125,6 +125,20 @@ export const ARSENALS = {
     ms_hazard:  { name: "Hazard Pay",        price: 1_800,  max: 2, icon: "\u{1FA79}" },
     ms_promo:   { name: "Field Promotion",   price: 3_500,  max: 1, icon: "\u{1F396}\uFE0F" },
   },
+  buzzer: {
+    bz_second:  { name: "Second Look",    price: 510,   max: 5, icon: "👀" },
+    bz_card:    { name: "Category Card",  price: 610,   max: 3, icon: "🗂️" },
+    bz_long:    { name: "Long Look",      price: 710,   max: 2, icon: "⏳" },
+    bz_house:   { name: "House Money",    price: 810,   max: 1, icon: "🏦" },
+    bz_fewer:   { name: "Two Fewer",      price: 910,   max: 3, icon: "✂️" },
+    bz_pockets: { name: "Deep Pockets",   price: 1_010, max: 2, icon: "👛" },
+    bz_nudge:   { name: "The Nudge",      price: 1_110, max: 2, icon: "👉" },
+    bz_finger:  { name: "Fast Finger",    price: 1_210, max: 3, icon: "⚡" },
+    bz_insure:  { name: "Insurance",      price: 1_310, max: 2, icon: "🛡️" },
+    bz_book:    { name: "Open Book",      price: 1_510, max: 2, icon: "📖" },
+    bz_polish:  { name: "Podium Polish",  price: 2_510, max: 2, icon: "🏆" },
+    bz_points:  { name: "Points Finish",  price: 3_010, max: 1, icon: "🏁" },
+  },
 };
 
 /** Every token key to its spec, across the games. */

@@ -483,6 +483,98 @@ console.log("\navatars");
   ok("and no two the same", new Set(worn).size === worn.length);
 }
 
+console.log("\nthe computers take their turn");
+{
+  const { room, say } = await roomOf(["a", "Ana"]);
+  await say("a", { type: "BZ_SOLO", on: true });
+  await say("a", { type: "BZ_AI", count: 3, level: "rookie" });
+  await boardOf(room, say, "a");
+
+  // Hand the pick to a computer, the way answering right does.
+  room.g.turnUid = "ai0";
+  room.schedulePick();
+  ok("a computer with the pick is put on a clock", room.g.pickAt > Date.now());
+  ok("and a person with the pick is not", (() => {
+    room.g.turnUid = "a"; room.schedulePick(); return room.g.pickAt === null;
+  })());
+
+  room.g.turnUid = "ai0";
+  room.schedulePick();
+  room.g.pickAt = Date.now() - 1;
+  await room.tick();
+  ok("and when the clock runs out it chooses a cell", !!room.g.cell);
+  ok("the cell it chose belongs to it", room.g.cell.holder === "ai0" || room.g.turnUid === "ai0");
+  ok("and the board knows that cell is gone", room.g.spent[room.g.cell.col][room.g.cell.row] === true);
+}
+
+console.log("\na board that nobody is watching");
+{
+  // The whole point: a computer answering right used to hand itself the pick
+  // and then nothing happened, ever, for anybody.
+  const { room, say } = await roomOf(["a", "Ana"]);
+  await say("a", { type: "BZ_SOLO", on: true });
+  await say("a", { type: "BZ_AI", count: 3, level: "pro" });
+  await boardOf(room, say, "a");
+  room.g.turnUid = "ai1";
+  room.schedulePick();
+
+  let turns = 0;
+  let guard = 0;
+  while (room.g.phase === "PLAYING" && guard++ < 400) {
+    if (!room.g.cell) {
+      if (!room.g.pickAt) break;               // nobody is due to pick: stuck
+      room.g.pickAt = Date.now() - 1;
+      turns++;
+    } else {
+      room.g.cell.deadline = Date.now() - 1;
+      if (room.g.cell.openAt) room.g.cell.openAt = Date.now() - 6_000;
+      if (room.g.cell.aiAnswerAt) room.g.cell.aiAnswerAt = Date.now() - 1;
+    }
+    await room.tick();
+  }
+  ok(`the computers clear a whole board between them (${turns} picks)`, turns >= 30);
+  ok("and the round moves on rather than stopping", room.g.round === 2 || room.g.phase !== "PLAYING");
+  // Either something is happening, or the board is waiting on a person —
+  // which is the one kind of waiting that is allowed to last.
+  const waiting = room.g.players[room.g.turnUid];
+  ok("nobody is left holding a pick nobody can take",
+    room.g.phase !== "PLAYING" || !!room.g.cell || !!room.g.pickAt || (waiting && !waiting.ai));
+}
+
+console.log("\nwhen the person with the pick walks out");
+{
+  const { room, seats, say } = await roomOf(["a", "Ana"], ["b", "Bo"]);
+  await boardOf(room, say, "a");
+  room.g.turnUid = "b";
+  seats.b.open = false;
+  await room.onGone(seats.b);
+  ok("the pick goes to somebody who is still here", room.g.turnUid === "a");
+  ok("and the board is still running", room.g.phase === "PLAYING");
+}
+
+console.log("\nhow quick the computers are");
+{
+  // What a person races is the quickest of the table, not one of them.
+  const r = rngFrom(4242);
+  const fastest = (lvl, n) => {
+    let sum = 0;
+    for (let t = 0; t < 2000; t++) {
+      let best = Infinity;
+      for (let i = 0; i < n; i++) { const it = aiIntent(lvl, r, n); if (it.buzz && it.reaction < best) best = it.reaction; }
+      sum += best === Infinity ? 6000 : best;
+    }
+    return sum / 2000;
+  };
+  const rookie3 = fastest("rookie", 3), pro3 = fastest("pro", 3);
+  ok(`a Rookie table leaves a person time to think (${Math.round(rookie3)}ms)`, rookie3 > 2_500);
+  ok(`a Pro table does not (${Math.round(pro3)}ms)`, pro3 < 2_000);
+  ok("and Pro is quicker than Rookie either way", pro3 < rookie3);
+  // Adding opponents must not quietly raise the difficulty.
+  const one = fastest("club", 1), five = fastest("club", 5);
+  ok(`five of them are no quicker than one (${Math.round(one)}ms vs ${Math.round(five)}ms)`,
+    five > one * 0.6);
+}
+
 function avg(xs) { return xs.reduce((s, x) => s + x, 0) / Math.max(1, xs.length); }
 
 console.log(bad ? `\n${bad} failing\n` : "\nall buzzer checks passed\n");

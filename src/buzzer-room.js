@@ -146,7 +146,7 @@ export class BuzzerRoom {
         // Where the Daily Doubles hide. Never leaves this object, and neither
         // does the seed it was drawn from — a seed a browser can read is a
         // board a browser can solve.
-        doubles: [], turnUid: null, cell: null,
+        doubles: [], turnUid: null, pickAt: null, cell: null,
         final: null, applied: {},
         players: {}, chat: [], feed: [],
         startedAt: null, seed: 1,
@@ -607,6 +607,7 @@ export class BuzzerRoom {
     this.g.used = [...new Set([...this.g.used, ...this.g.cats.map((c) => c.id)])];
     // Whoever the host is picks first; after that it is whoever answered last.
     this.g.turnUid = field.find((p) => !p.ai)?.uid || field[0]?.uid || null;
+    this.schedulePick();
 
     await this.persist();
     this.log(`The board is up: ${this.g.cats.map((c) => c.name).join(" · ")}.`);
@@ -632,6 +633,63 @@ export class BuzzerRoom {
   }
 
   isAi(uid) { return typeof uid === "string" && /^ai\d+$/.test(uid); }
+
+  /**
+   * Hand the pick to somebody, and put a clock on it if that somebody is a
+   * computer.
+   *
+   * A person is waited for indefinitely: it is their turn and the board is
+   * theirs to take as long over as they like. A computer has to be woken up,
+   * because nothing else will ever do it.
+   */
+  schedulePick() {
+    this.g.pickAt = null;
+    const p = this.g.players[this.g.turnUid];
+    // Nobody has the pick, or whoever had it has gone: give it to anyone who
+    // is actually here, or the board stops on an empty podium.
+    if (!p || p.watching || (!p.ai && !this.connected().has(p.uid))) {
+      const heir = Object.values(this.g.players).find((q) =>
+        !q.watching && (q.ai || this.connected().has(q.uid)));
+      this.g.turnUid = heir?.uid || null;
+    }
+    const who = this.g.players[this.g.turnUid];
+    if (!who?.ai) return;
+    // Long enough to read the board, short enough not to feel like a hang.
+    const lvl = aiLevelById(who.aiLevel);
+    this.g.pickAt = Date.now() + 900 + Math.round(1_600 * (1 - lvl.knows));
+  }
+
+  /**
+   * A computer choosing a cell.
+   *
+   * It works down a column the way a person does rather than jumping about
+   * the board, and it starts at the cheap end — which is both how the game is
+   * usually played and how a board gets cleared without leaving awkward gaps.
+   */
+  async aiPick() {
+    this.g.pickAt = null;
+    const p = this.g.players[this.g.turnUid];
+    if (!p?.ai || this.g.cell) return;
+
+    const free = [];
+    for (let col = 0; col < COLS; col++) {
+      for (let row = 0; row < ROWS; row++) if (!this.g.spent[col][row]) free.push({ col, row });
+    }
+    if (!free.length) return;
+
+    const rnd = rngFrom(this.g.seed ^ hashUid(p.uid) ^ free.length);
+    const stay = free.filter((f) => f.col === p.lastCol);
+    const pool = stay.length && rnd() < 0.65 ? stay : free;
+    const cheapest = Math.min(...pool.map((f) => f.row));
+    const row = rnd() < 0.8 ? cheapest : pool[Math.floor(rnd() * pool.length)].row;
+    const cell = shuffle(pool.filter((f) => f.row === row), rnd)[0] || pool[0];
+
+    p.lastCol = cell.col;
+    this.g.spent[cell.col][cell.row] = true;
+    this.openCell(cell.col, cell.row, p.uid);
+    await this.persist();
+    this.pushState();
+  }
 
   // -------------------------------------------------------------- the board
 
@@ -707,9 +765,10 @@ export class BuzzerRoom {
     // decision is a reaction time — the same number a thumb produces — so it
     // goes through exactly the same judging as a person's buzz, with no
     // branch anywhere asking which is which.
+    const bots = Object.values(this.g.players).filter((q) => q.ai && !q.watching).length;
     for (const p of Object.values(this.g.players)) {
       if (!p.ai || p.watching) continue;
-      const intent = aiIntent(p.aiLevel, rngFrom(this.g.seed ^ (col * 977) ^ (row * 131) ^ hashUid(p.uid)));
+      const intent = aiIntent(p.aiLevel, rngFrom(this.g.seed ^ (col * 977) ^ (row * 131) ^ hashUid(p.uid)), bots);
       if (!intent.buzz) continue;
       this.g.cell.aiBuzz[p.uid] = intent.reaction;
       this.g.cell.aiKnew[p.uid] = intent.knows;
@@ -996,9 +1055,12 @@ export class BuzzerRoom {
     if (!c) return;
     this.g.cell = null;
     if (this.boardDone()) { await this.advanceRound(); return; }
-    // Nobody got it, so the pick stays where it was.
+    // Whoever answered last picks; if nobody did, it stays where it was. Then
+    // the clock, because a computer will not pick unless it is woken.
+    this.schedulePick();
     await this.persist();
     this.pushState();
+    await this.armAlarm();
   }
 
   boardDone() {
@@ -1022,6 +1084,9 @@ export class BuzzerRoom {
       this.g.doubles = plantDoubles(2, this.g.seed ^ 0x5eed);
       this.g.turnUid = standings(Object.values(this.g.players).filter((p) => !p.watching))
         .slice(-1)[0]?.uid || this.g.turnUid;
+      // The second board hands the pick to whoever is last, which with three
+      // computers on the podiums is nearly always a computer.
+      this.schedulePick();
       await this.persist();
       this.log("The Double Board. Every value is twice what it was.");
       this.broadcast("BZ_ROUND", { round: 2, name: "The Double Board", cats: this.g.cats });
@@ -1177,9 +1242,12 @@ export class BuzzerRoom {
 
   cellDeadline() { return this.g.cell?.deadline || null; }
 
+  /** When a computer is due to choose its cell, if one is. */
+  nextPickAt() { return this.g.cell ? null : (this.g.pickAt || null); }
+
   async armAlarm() {
     if (!this.g) return;
-    const when = [this.cellDeadline(), this.nextAiAt(), this.g.final?.deadline].filter(Boolean);
+    const when = [this.cellDeadline(), this.nextAiAt(), this.nextPickAt(), this.g.final?.deadline].filter(Boolean);
     if (!when.length) {
       if (this.g.phase === "LOBBY" && this.connected().size === 0)
         await this.state.storage.setAlarm(Date.now() + IDLE_SHUTDOWN_MS);
@@ -1221,8 +1289,13 @@ export class BuzzerRoom {
     let moved = false;
     while (this.g?.phase === "PLAYING" && guard++ < 8) {
       const c = this.g.cell;
-      if (!c) break;
       const now = Date.now();
+      if (!c) {
+        // No clue on the board. The only thing that can be owed is a
+        // computer's pick.
+        if (this.g.pickAt && now >= this.g.pickAt) { await this.aiPick(); moved = true; continue; }
+        break;
+      }
       this.stageNow();
 
       // A wager nobody makes is the clue's own value, which is what the show
@@ -1408,6 +1481,13 @@ export class BuzzerRoom {
     // A board is not lost because somebody's phone went to sleep. The clue in
     // front of them keeps its clock, and if it was theirs the ten seconds run
     // out on it like anybody else's.
+    // A board does not stop because the player whose turn it was closed the
+    // tab. The pick moves to somebody who is still here.
+    if (this.g.phase === "PLAYING" && who?.uid === this.g.turnUid && !this.g.cell) {
+      this.schedulePick();
+      await this.armAlarm();
+    }
+
     if (online.size === 0 && this.g.phase !== "PLAYING") {
       await this.state.storage.setAlarm(Date.now() + IDLE_SHUTDOWN_MS);
     }

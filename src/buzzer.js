@@ -305,9 +305,9 @@ export function bankable(money) {
  * which a sharp human beats often enough for it to be worth trying.
  */
 export const AI_LEVELS = [
-  { id: "rookie", name: "Rookie", knows: 0.32, gamble: 0.10, buzz: [900, 2600], think: [1200, 3000] },
-  { id: "club", name: "Club", knows: 0.58, gamble: 0.16, buzz: [520, 1500], think: [900, 2400] },
-  { id: "pro", name: "Pro", knows: 0.80, gamble: 0.22, buzz: [320, 950], think: [600, 1800] },
+  { id: "rookie", name: "Rookie", knows: 0.32, gamble: 0.10, buzz: [1200, 3200], think: [1200, 3000] },
+  { id: "club", name: "Club", knows: 0.58, gamble: 0.16, buzz: [800, 2200], think: [900, 2400] },
+  { id: "pro", name: "Pro", knows: 0.80, gamble: 0.22, buzz: [500, 1400], think: [600, 1800] },
 ];
 
 export const AI_MAX = 5;
@@ -329,11 +329,17 @@ const spread = (range, rnd) => Math.round(range[0] + rnd() * (range[1] - range[0
  * so a gambler is not lost: it is one chance in four, at the price a wrong
  * answer always costs.
  */
-export function aiIntent(level, rnd) {
+export function aiIntent(level, rnd, others = 1) {
   const l = aiLevelById(level);
   const knows = rnd() < l.knows;
   if (!knows && rnd() > l.gamble) return { buzz: false, knows: false, reaction: null, thinkMs: 0 };
-  const reaction = Math.max(MIN_REACTION_MS, spread(l.buzz, rnd) + (knows ? 0 : 400));
+  // What a person is really racing is not one computer but the quickest of
+  // them, and the quickest of five is a good deal quicker than the quickest
+  // of one. Left alone, adding opponents makes the game harder in a way no
+  // dial on the screen admits to — so each one slows as the table fills, and
+  // the difficulty you picked is the difficulty you get.
+  const crowd = 1 + 0.28 * Math.max(0, (Number(others) || 1) - 1);
+  const reaction = Math.max(MIN_REACTION_MS, Math.round(spread(l.buzz, rnd) * crowd) + (knows ? 0 : 400));
   return { buzz: true, knows, reaction, thinkMs: spread(l.think, rnd) };
 }
 

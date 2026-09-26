@@ -1,0 +1,698 @@
+[
+ {
+  "id": "nifty",
+  "name": "50 NIFTY STATES",
+  "section": "geography",
+  "scope": "Every answer is a US state.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The state cut off from the other forty-eight by Canada",
+    "a": "Alaska",
+    "wrong": [
+     "Hawaii",
+     "Washington",
+     "Montana"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The largest of the lower forty-eight by land area",
+    "a": "Texas",
+    "wrong": [
+     "California",
+     "Montana",
+     "New Mexico"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The smallest state in the country by land area",
+    "a": "Rhode Island",
+    "wrong": [
+     "Delaware",
+     "Connecticut",
+     "New Jersey"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The western state governed from Salem",
+    "a": "Oregon",
+    "wrong": [
+     "Washington",
+     "Idaho",
+     "Nevada"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The only state with a land border to exactly one other",
+    "a": "Maine",
+    "wrong": [
+     "Washington",
+     "Florida",
+     "Rhode Island"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "rivers",
+  "name": "RIVERS RUN THROUGH IT",
+  "section": "geography",
+  "scope": "Every answer is a river.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The South American river that carries more water than any other on earth",
+    "a": "Amazon",
+    "wrong": [
+     "Orinoco",
+     "Paraná",
+     "São Francisco"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The African river that runs north to the Mediterranean",
+    "a": "Nile",
+    "wrong": [
+     "Congo",
+     "Niger",
+     "Zambezi"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The river London was built on",
+    "a": "Thames",
+    "wrong": [
+     "Severn",
+     "Trent",
+     "Mersey"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "Europe's second-longest, crossing ten countries on its way to the Black Sea",
+    "a": "Danube",
+    "wrong": [
+     "Volga",
+     "Rhine",
+     "Elbe"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The longest river in Asia",
+    "a": "Yangtze",
+    "wrong": [
+     "Yellow",
+     "Mekong",
+     "Ganges"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "islands",
+  "name": "ISLAND HOPPING",
+  "section": "geography",
+  "scope": "Every answer is an island or island group.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The island nation off the south-east coast of Africa",
+    "a": "Madagascar",
+    "wrong": [
+     "Sri Lanka",
+     "Sumatra",
+     "Tasmania"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The largest island on earth, and Danish territory besides",
+    "a": "Greenland",
+    "wrong": [
+     "Iceland",
+     "Baffin Island",
+     "Victoria Island"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The Mediterranean island divided between Greek and Turkish communities",
+    "a": "Cyprus",
+    "wrong": [
+     "Crete",
+     "Sicily",
+     "Sardinia"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The Pacific archipelago whose finches sent Darwin away thinking",
+    "a": "Galápagos Islands",
+    "wrong": [
+     "Falkland Islands",
+     "Canary Islands",
+     "Azores"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The one island shared by Indonesia, Malaysia and Brunei",
+    "a": "Borneo",
+    "wrong": [
+     "New Guinea",
+     "Java",
+     "Sulawesi"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "highpoints",
+  "name": "HIGH POINTS",
+  "section": "geography",
+  "scope": "Every answer is a mountain or a mountain range.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The highest peak on earth above sea level",
+    "a": "Mount Everest",
+    "wrong": [
+     "K2",
+     "Kangchenjunga",
+     "Lhotse"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The range running the whole western edge of South America",
+    "a": "Andes",
+    "wrong": [
+     "Rockies",
+     "Alps",
+     "Himalayas"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "North America's highest, and called McKinley until recently",
+    "a": "Denali",
+    "wrong": [
+     "Mount Logan",
+     "Mount Whitney",
+     "Mount Elbert"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The dormant volcano that is the highest point in Africa",
+    "a": "Mount Kilimanjaro",
+    "wrong": [
+     "Mount Kenya",
+     "Mount Stanley",
+     "Mount Speke"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The range that convention uses to divide Europe from Asia",
+    "a": "Ural Mountains",
+    "wrong": [
+     "Caucasus Mountains",
+     "Carpathian Mountains",
+     "Pyrenees"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "dryheat",
+  "name": "IT'S A DRY HEAT",
+  "section": "geography",
+  "scope": "Every answer is a desert or a desert feature.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The desert that takes up most of North Africa",
+    "a": "Sahara",
+    "wrong": [
+     "Kalahari",
+     "Namib",
+     "Arabian"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The cold desert across northern China and southern Mongolia",
+    "a": "Gobi",
+    "wrong": [
+     "Taklamakan",
+     "Thar",
+     "Karakum"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The North American desert across California, Nevada, Utah and Arizona",
+    "a": "Mojave",
+    "wrong": [
+     "Sonoran",
+     "Chihuahuan",
+     "Great Basin"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The driest place on earth outside the poles",
+    "a": "Atacama",
+    "wrong": [
+     "Patagonian",
+     "Sechura",
+     "Monte"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The green place in a desert, where the water is",
+    "a": "Oasis",
+    "wrong": [
+     "Arroyo",
+     "Wadi",
+     "Playa"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "seas",
+  "name": "SEAS THE DAY",
+  "section": "geography",
+  "scope": "Every answer is a sea, gulf, strait or bay.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The sea that separates Europe from Africa",
+    "a": "Mediterranean Sea",
+    "wrong": [
+     "Adriatic Sea",
+     "Red Sea",
+     "Baltic Sea"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The narrow water between the Atlantic and the Mediterranean",
+    "a": "Strait of Gibraltar",
+    "wrong": [
+     "Strait of Hormuz",
+     "Strait of Malacca",
+     "Bosphorus Strait"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The gulf bordered by the United States, Mexico and Cuba",
+    "a": "Gulf of Mexico",
+    "wrong": [
+     "Gulf of California",
+     "Gulf of Alaska",
+     "Gulf of Saint Lawrence"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The sea between Great Britain and the European mainland",
+    "a": "North Sea",
+    "wrong": [
+     "Irish Sea",
+     "Celtic Sea",
+     "Norwegian Sea"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The inland sea between south-eastern Europe and Anatolia",
+    "a": "Black Sea",
+    "wrong": [
+     "Caspian Sea",
+     "Aral Sea",
+     "Aegean Sea"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "eurotrip",
+  "name": "EUROTRIP",
+  "section": "geography",
+  "scope": "Every answer is a European country, capital or landmark.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The iron lattice tower on the Champ de Mars",
+    "a": "Eiffel Tower",
+    "wrong": [
+     "Arc de Triomphe",
+     "Louvre Pyramid",
+     "Notre-Dame Cathedral"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The capital that holds both the Colosseum and the Pantheon",
+    "a": "Rome",
+    "wrong": [
+     "Milan",
+     "Venice",
+     "Florence"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The country of windmills, tulips and a great many canals",
+    "a": "Netherlands",
+    "wrong": [
+     "Belgium",
+     "Denmark",
+     "Sweden"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The ancient citadel on the rock above Athens",
+    "a": "Acropolis",
+    "wrong": [
+     "Parthenon",
+     "Temple of Olympian Zeus",
+     "Ancient Agora"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The Austrian capital on the Danube",
+    "a": "Vienna",
+    "wrong": [
+     "Salzburg",
+     "Innsbruck",
+     "Graz"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "africa",
+  "name": "OUT OF AFRICA",
+  "section": "geography",
+  "scope": "Every answer is an African country, capital, river or landmark.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The monumental tombs on the Giza plateau outside Cairo",
+    "a": "Pyramids",
+    "wrong": [
+     "Sphinx",
+     "Valley of the Kings",
+     "Karnak Temple"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The country at the continent's southern tip, with three capitals",
+    "a": "South Africa",
+    "wrong": [
+     "Namibia",
+     "Botswana",
+     "Zimbabwe"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The Kenyan capital with a national park inside the city limits",
+    "a": "Nairobi",
+    "wrong": [
+     "Mombasa",
+     "Kisumu",
+     "Nakuru"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The fall on the Zambezi between Zambia and Zimbabwe",
+    "a": "Victoria Falls",
+    "wrong": [
+     "Tugela Falls",
+     "Blue Nile Falls",
+     "Ouzoud Falls"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The most populous country on the continent, on the Gulf of Guinea",
+    "a": "Nigeria",
+    "wrong": [
+     "Ethiopia",
+     "Egypt",
+     "Democratic Republic of the Congo"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "asia",
+  "name": "POSTCARDS FROM ASIA",
+  "section": "geography",
+  "scope": "Every answer is an Asian country, capital or landmark.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The fortifications strung along China's old northern frontier",
+    "a": "Great Wall",
+    "wrong": [
+     "Forbidden City",
+     "Terracotta Army",
+     "Temple of Heaven"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The Japanese capital that was called Edo",
+    "a": "Tokyo",
+    "wrong": [
+     "Kyoto",
+     "Osaka",
+     "Yokohama"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The white marble mausoleum on the Yamuna at Agra",
+    "a": "Taj Mahal",
+    "wrong": [
+     "Red Fort",
+     "Qutb Minar",
+     "Hawa Mahal"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The island city-state at the tip of the Malay peninsula",
+    "a": "Singapore",
+    "wrong": [
+     "Malaysia",
+     "Brunei",
+     "East Timor"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The Thai capital called Krung Thep at home",
+    "a": "Bangkok",
+    "wrong": [
+     "Chiang Mai",
+     "Phuket",
+     "Pattaya"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "southamerica",
+  "name": "DOWN SOUTH AMERICA WAY",
+  "section": "geography",
+  "scope": "Every answer is a South American country, capital or feature.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The largest country on the continent by land and by people",
+    "a": "Brazil",
+    "wrong": [
+     "Argentina",
+     "Colombia",
+     "Peru"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The Art Deco figure standing over Rio de Janeiro",
+    "a": "Christ the Redeemer",
+    "wrong": [
+     "Sugarloaf Mountain",
+     "Copacabana Beach",
+     "Iguazu Falls"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The long thin country down the continent's western edge",
+    "a": "Chile",
+    "wrong": [
+     "Peru",
+     "Ecuador",
+     "Bolivia"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The fifteenth-century Inca citadel high in the Peruvian Andes",
+    "a": "Machu Picchu",
+    "wrong": [
+     "Sacsayhuamán",
+     "Ollantaytambo",
+     "Chan Chan"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The Argentine capital on the Río de la Plata",
+    "a": "Buenos Aires",
+    "wrong": [
+     "Córdoba",
+     "Rosario",
+     "Mendoza"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "flagday",
+  "name": "FLAG DAY",
+  "section": "geography",
+  "scope": "Every answer is the country a described flag belongs to.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "A red disc centred on plain white",
+    "a": "Japan",
+    "wrong": [
+     "South Korea",
+     "Vietnam",
+     "Bangladesh"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "A red maple leaf on white, between two red bands",
+    "a": "Canada",
+    "wrong": [
+     "Peru",
+     "Austria",
+     "Lebanon"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "Three horizontal bands of black, red and gold",
+    "a": "Germany",
+    "wrong": [
+     "Belgium",
+     "Austria",
+     "Netherlands"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "A yellow star at the centre of a red band over a green one",
+    "a": "Burkina Faso",
+    "wrong": [
+     "Cameroon",
+     "Senegal",
+     "Ghana"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The one national flag that is not a rectangle, being two pennants stacked",
+    "a": "Nepal",
+    "wrong": [
+     "Bhutan",
+     "Sri Lanka",
+     "Maldives"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "waterfront",
+  "name": "WATERFRONT PROPERTY",
+  "section": "geography",
+  "scope": "Every answer is a port city or a city on a named water.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The Australian city with an opera house on its harbour",
+    "a": "Sydney",
+    "wrong": [
+     "Melbourne",
+     "Brisbane",
+     "Perth"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The Italian city built on a lagoon and run through with canals",
+    "a": "Venice",
+    "wrong": [
+     "Genoa",
+     "Naples",
+     "Palermo"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The American port on the shore of Lake Michigan",
+    "a": "Chicago",
+    "wrong": [
+     "Detroit",
+     "Cleveland",
+     "Milwaukee"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "India's commercial capital, on the Arabian Sea",
+    "a": "Mumbai",
+    "wrong": [
+     "Chennai",
+     "Kolkata",
+     "Kochi"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The Pacific Northwest seaport on Puget Sound",
+    "a": "Seattle",
+    "wrong": [
+     "Portland",
+     "Vancouver",
+     "San Francisco"
+    ]
+   }
+  ]
+ }
+]

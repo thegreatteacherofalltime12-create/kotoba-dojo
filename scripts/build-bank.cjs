@@ -4,7 +4,7 @@
 const fs = require("fs");
 const ROOT = "D:/Appbuilder/kotoba-dojo/";
 
-const FILES = ["buzzer-clues-arena.json", "buzzer-clues-staples.json"];
+const FILES = fs.readdirSync(ROOT).filter((f) => /^buzzer-clues-.*.json$/.test(f)).sort();
 const scopes = JSON.parse(fs.readFileSync(ROOT + "buzzer-scopes.json", "utf8"));
 const specOf = new Map(scopes.map((s) => [s.id, s]));
 

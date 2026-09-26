@@ -1,0 +1,814 @@
+[
+ {
+  "id": "rhymetime",
+  "name": "RHYME TIME",
+  "section": "wordplay",
+  "scope": "Every answer is a rhyming pair of words meaning the clue.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "A house pet of the feline sort, carrying rather too much weight",
+    "a": "Fat cat",
+    "wrong": [
+     "Plump stump",
+     "Round hound",
+     "Big pig"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "A very amusing rabbit",
+    "a": "Funny bunny",
+    "wrong": [
+     "Silly filly",
+     "Jolly collie",
+     "Jokey pokey"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "A small insect settled comfortably in a woven floor covering",
+    "a": "Snug bug",
+    "wrong": [
+     "Warm worm",
+     "Fly tie",
+     "Ant pant"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "A clever and thought-provoking piece of painting or sculpture",
+    "a": "Smart art",
+    "wrong": [
+     "Wise prize",
+     "Bright sight",
+     "Keen scene"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "A male duck baking a sweet thing in the oven",
+    "a": "Drake cake",
+    "wrong": [
+     "Duck muck",
+     "Swan flan",
+     "Goose juice"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "stupidanswers",
+  "name": "STUPID ANSWERS",
+  "section": "wordplay",
+  "scope": "Every answer is a word sitting in plain sight inside the clue. Say it out loud and you have said the answer.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The colour named in the name of the Black Sea",
+    "a": "Black",
+    "wrong": [
+     "Sea",
+     "Blue",
+     "Green"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The material a solid brick wall is built out of",
+    "a": "Brick",
+    "wrong": [
+     "Stone",
+     "Timber",
+     "Concrete"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The number of wheels on a standard two-wheeled bicycle",
+    "a": "Two",
+    "wrong": [
+     "One",
+     "Three",
+     "Four"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The shape the Pentagon building is built in",
+    "a": "Pentagon",
+    "wrong": [
+     "Hexagon",
+     "Octagon",
+     "Square"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The continent the African elephant is native to",
+    "a": "Africa",
+    "wrong": [
+     "Asia",
+     "Europe",
+     "Australia"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "crosswordA",
+  "name": "CROSSWORD CLUES \"A\"",
+  "section": "wordplay",
+  "scope": "Every answer begins with A and is clued the way a crossword would clue it.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "First of the twelve months, alphabetically speaking",
+    "a": "April",
+    "wrong": [
+     "August",
+     "Autumn",
+     "Advent"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "Orchard fruit with a reputation for keeping the doctor away",
+    "a": "Apple",
+    "wrong": [
+     "Acorn",
+     "Agave",
+     "Apricot"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "Take a child into the family as your own",
+    "a": "Adopt",
+    "wrong": [
+     "Adapt",
+     "Admit",
+     "Adore"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "A gulf so deep it seems to have no bottom at all",
+    "a": "Abyss",
+    "wrong": [
+     "Abbey",
+     "Abode",
+     "Annex"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "One who works for the good of others at cost to themselves",
+    "a": "Altruist",
+    "wrong": [
+     "Activist",
+     "Anarchist",
+     "Abolitionist"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "commonbonds",
+  "name": "COMMON BONDS",
+  "section": "wordplay",
+  "scope": "Every answer is the thing three named items have in common.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "A comb, a saw, a zipper",
+    "a": "They have teeth",
+    "wrong": [
+     "They are metal",
+     "They are used on hair",
+     "They cut things"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "A needle, a hurricane, a potato",
+    "a": "They have an eye",
+    "wrong": [
+     "They are dangerous",
+     "They grow in soil",
+     "They are sharp"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "A river, a cave, a bottle",
+    "a": "They have a mouth",
+    "wrong": [
+     "They hold water",
+     "They have a bottom",
+     "They have a neck"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "A tree, a dog, a seal",
+    "a": "They all bark",
+    "wrong": [
+     "They have fur",
+     "They have leaves",
+     "They have tails"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "A table, a journey, a trouser",
+    "a": "They have legs",
+    "wrong": [
+     "They have tops",
+     "They have feet",
+     "They have an end"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "anagrams",
+  "name": "ANAGRAMS",
+  "section": "wordplay",
+  "scope": "Every answer is the word the clued letters rearrange into, and so is every wrong option.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The letters of SILENT, rearranged into what you do with your ears",
+    "a": "Listen",
+    "wrong": [
+     "Tinsel",
+     "Enlist",
+     "Inlets"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The letters of DANGER, rearranged into somewhere things grow",
+    "a": "Garden",
+    "wrong": [
+     "Gander",
+     "Ranged",
+     "Grande"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The letters of SECURE, rearranged into what the lifeboat does",
+    "a": "Rescue",
+    "wrong": [
+     "Recuse",
+     "Ceruse",
+     "Cereus"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The letters of TEACHER, rearranged into somebody who wins dishonestly",
+    "a": "Cheater",
+    "wrong": [
+     "Reteach",
+     "Hectare",
+     "Recheat"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The letters of TRIANGLE, rearranged into a whole number, or the heart of a calculus problem",
+    "a": "Integral",
+    "wrong": [
+     "Altering",
+     "Alerting",
+     "Relating"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "oddoneout",
+  "name": "ODD ONE OUT",
+  "section": "wordplay",
+  "scope": "Every answer is the one item in a list that does not belong.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "Apple, banana, carrot, grape",
+    "a": "Carrot",
+    "wrong": [
+     "Apple",
+     "Banana",
+     "Grape"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "Venus, Mars, Apollo, Jupiter",
+    "a": "Apollo",
+    "wrong": [
+     "Venus",
+     "Mars",
+     "Jupiter"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "Oxygen, gold, silver, iron",
+    "a": "Oxygen",
+    "wrong": [
+     "Gold",
+     "Silver",
+     "Iron"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "Piano, violin, cello, viola",
+    "a": "Piano",
+    "wrong": [
+     "Violin",
+     "Cello",
+     "Viola"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "George, John, Thomas, Benjamin",
+    "a": "Benjamin",
+    "wrong": [
+     "George",
+     "John",
+     "Thomas"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "namethedecade",
+  "name": "NAME THE DECADE",
+  "section": "wordplay",
+  "scope": "Every answer is a decade.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The decade Apollo 11 put the first people on the Moon",
+    "a": "1960s",
+    "wrong": [
+     "1950s",
+     "1970s",
+     "1980s"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The decade the Titanic went down on her maiden voyage",
+    "a": "1910s",
+    "wrong": [
+     "1890s",
+     "1900s",
+     "1920s"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The decade the Berlin Wall came down",
+    "a": "1980s",
+    "wrong": [
+     "1970s",
+     "1990s",
+     "1960s"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The decade the Soviet Union dissolved into independent republics",
+    "a": "1990s",
+    "wrong": [
+     "1980s",
+     "1970s",
+     "2000s"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The decade the United States took the dollar off gold at home",
+    "a": "1930s",
+    "wrong": [
+     "1920s",
+     "1940s",
+     "1970s"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "startsends",
+  "name": "STARTS & ENDS",
+  "section": "wordplay",
+  "scope": "Every answer is a word starting and ending with the same letters.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "A fabric shelter held up with poles and ropes",
+    "a": "Tent",
+    "wrong": [
+     "Tart",
+     "Tact",
+     "Toot"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "A great bird of prey that a good many countries put on their arms",
+    "a": "Eagle",
+    "wrong": [
+     "Evade",
+     "Elope",
+     "Eerie"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The instrument that finds aircraft and storms with radio waves",
+    "a": "Radar",
+    "wrong": [
+     "Rotor",
+     "River",
+     "Rider"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "Where outpatients are seen and treated",
+    "a": "Clinic",
+    "wrong": [
+     "Civic",
+     "Comic",
+     "Cubic"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The building that keeps what a culture does not want to lose",
+    "a": "Museum",
+    "wrong": [
+     "Medium",
+     "Maximum",
+     "Momentum"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "homophones",
+  "name": "HOMOPHONES",
+  "section": "wordplay",
+  "scope": "Every answer is one of a pair of words that sound alike and are spelt differently.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The unit a diamond is weighed in",
+    "a": "Carat",
+    "wrong": [
+     "Karat",
+     "Carrot",
+     "Caret"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "A ceremony performed the same way every time",
+    "a": "Rite",
+    "wrong": [
+     "Right",
+     "Write",
+     "Wright"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The African antelope also called a wildebeest",
+    "a": "Gnu",
+    "wrong": [
+     "New",
+     "Knew",
+     "Nu"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The little wedge a proofreader draws to show something is missing",
+    "a": "Caret",
+    "wrong": [
+     "Carat",
+     "Karat",
+     "Carrot"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The Dane whose model of the atom won the 1922 Nobel Prize in Physics",
+    "a": "Bohr",
+    "wrong": [
+     "Bore",
+     "Boar",
+     "Boer"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "palindromes",
+  "name": "PALINDROMES",
+  "section": "wordplay",
+  "scope": "Every answer reads the same backwards.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "A narrow boat driven along with a double-bladed paddle",
+    "a": "Kayak",
+    "wrong": [
+     "Radar",
+     "Rotor",
+     "Level"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The spinning blades that hold a helicopter up",
+    "a": "Rotor",
+    "wrong": [
+     "Level",
+     "Civic",
+     "Madam"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "A principle held as true by a faith or a philosophy",
+    "a": "Tenet",
+    "wrong": [
+     "Civic",
+     "Madam",
+     "Minim"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "What the British call a half note",
+    "a": "Minim",
+    "wrong": [
+     "Tenet",
+     "Civic",
+     "Radar"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "Made a god of",
+    "a": "Deified",
+    "wrong": [
+     "Rotator",
+     "Reviver",
+     "Repaper"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "quotablequotes",
+  "name": "QUOTABLE QUOTES",
+  "section": "wordplay",
+  "scope": "Every answer is who said a famous line.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "\"I have a dream that my four little children will one day live in a nation where they will not be judged by the color of their skin\"",
+    "a": "Martin Luther King Jr.",
+    "wrong": [
+     "Malcolm X",
+     "John Lewis",
+     "Medgar Evers"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "\"That's one small step for man, one giant leap for mankind\"",
+    "a": "Neil Armstrong",
+    "wrong": [
+     "Buzz Aldrin",
+     "Yuri Gagarin",
+     "John Glenn"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "\"Speak softly and carry a big stick; you will go far\"",
+    "a": "Theodore Roosevelt",
+    "wrong": [
+     "Franklin D. Roosevelt",
+     "Woodrow Wilson",
+     "William Howard Taft"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "\"I am become Death, the destroyer of worlds\"",
+    "a": "J. Robert Oppenheimer",
+    "wrong": [
+     "Albert Einstein",
+     "Richard Feynman",
+     "Enrico Fermi"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "\"The report of my death was an exaggeration\"",
+    "a": "Mark Twain",
+    "wrong": [
+     "Oscar Wilde",
+     "Charles Dickens",
+     "George Bernard Shaw"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "alsoknownas",
+  "name": "ALSO KNOWN AS",
+  "section": "wordplay",
+  "scope": "Every answer is a real name behind a stage name, or the other way round.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The name on Marilyn Monroe's birth certificate",
+    "a": "Norma Jeane Mortenson",
+    "wrong": [
+     "Frances Gumm",
+     "Lucille LeSueur",
+     "Marion Morrison"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The name Muhammad Ali was born with and gave up in 1964",
+    "a": "Cassius Clay",
+    "wrong": [
+     "Walker Smith Jr.",
+     "Arnold Cream",
+     "Joseph Barrow"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The Missouri man who signed his books Mark Twain",
+    "a": "Samuel Clemens",
+    "wrong": [
+     "Eric Blair",
+     "Charles Dodgson",
+     "Mary Ann Evans"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The Budapest-born escapologist who performed as Harry Houdini",
+    "a": "Ehrich Weiss",
+    "wrong": [
+     "David Kotkin",
+     "Chaim Witz",
+     "Laszlo Lowenstein"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The name Coco Chanel was christened with",
+    "a": "Gabrielle",
+    "wrong": [
+     "Jeanne",
+     "Elsa",
+     "Madeleine"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "alphabetsoup",
+  "name": "ALPHABET SOUP",
+  "section": "wordplay",
+  "scope": "Every answer is what an abbreviation stands for, or the abbreviation itself.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The U in the UN",
+    "a": "United",
+    "wrong": [
+     "Universal",
+     "Union",
+     "Unified"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The scan whose three letters are MRI",
+    "a": "Magnetic Resonance Imaging",
+    "wrong": [
+     "Medical Radiation Imaging",
+     "Magnetic Radiation Interface",
+     "Medical Resonance Interface"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The O in OPEC",
+    "a": "Organization",
+    "wrong": [
+     "Oil",
+     "Oceanic",
+     "Overseas"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The N in NATO",
+    "a": "North",
+    "wrong": [
+     "National",
+     "Nations",
+     "Naval"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The S in LASER",
+    "a": "Stimulated",
+    "wrong": [
+     "Simulated",
+     "Saturated",
+     "Synchronized"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "foreignphrases",
+  "name": "FOREIGN PHRASES",
+  "section": "wordplay",
+  "scope": "Every answer is a foreign phrase used in English, or its meaning.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The Latin for seize the day",
+    "a": "Carpe diem",
+    "wrong": [
+     "Caveat emptor",
+     "E pluribus unum",
+     "Veni vidi vici"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The French for the feeling that this has all happened before",
+    "a": "Déjà vu",
+    "wrong": [
+     "Faux pas",
+     "C'est la vie",
+     "Joie de vivre"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The Spanish goodbye that English borrowed for a final one",
+    "a": "Adiós",
+    "wrong": [
+     "Hasta luego",
+     "Por favor",
+     "De nada"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The German word English took for pleasure at another's misfortune",
+    "a": "Schadenfreude",
+    "wrong": [
+     "Doppelgänger",
+     "Wanderlust",
+     "Zeitgeist"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The Latin a diplomat is declared when a country wants them gone",
+    "a": "Persona non grata",
+    "wrong": [
+     "Habeas corpus",
+     "Quid pro quo",
+     "De facto"
+    ]
+   }
+  ]
+ }
+]

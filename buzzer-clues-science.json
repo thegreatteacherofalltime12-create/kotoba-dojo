@@ -1,0 +1,582 @@
+[
+ {
+  "id": "organ",
+  "name": "ORGAN RECITAL",
+  "section": "science",
+  "scope": "Every answer is an organ or a part of the human body.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The muscle that pumps blood round the whole body",
+    "a": "Heart",
+    "wrong": [
+     "Lungs",
+     "Liver",
+     "Kidneys"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The longest and strongest bone in the body, in the thigh",
+    "a": "Femur",
+    "wrong": [
+     "Tibia",
+     "Fibula",
+     "Humerus"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The organ that makes bile and cleans the blood",
+    "a": "Liver",
+    "wrong": [
+     "Pancreas",
+     "Gallbladder",
+     "Spleen"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The anatomist's name for the voice box",
+    "a": "Larynx",
+    "wrong": [
+     "Pharynx",
+     "Trachea",
+     "Esophagus"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The almond-shaped knot of nuclei that handles fear",
+    "a": "Amygdala",
+    "wrong": [
+     "Hippocampus",
+     "Cerebellum",
+     "Hypothalamus"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "elementary",
+  "name": "ELEMENTARY, MY DEAR",
+  "section": "science",
+  "scope": "Every answer is a chemical element or its symbol.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The lightest element there is, at atomic number one",
+    "a": "Hydrogen",
+    "wrong": [
+     "Helium",
+     "Lithium",
+     "Oxygen"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The yellow metal whose symbol is Au",
+    "a": "Gold",
+    "wrong": [
+     "Silver",
+     "Platinum",
+     "Copper"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The halogen that keeps swimming pools and drinking water clean",
+    "a": "Chlorine",
+    "wrong": [
+     "Fluorine",
+     "Bromine",
+     "Iodine"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The one metal that is liquid at ordinary room temperature",
+    "a": "Mercury",
+    "wrong": [
+     "Gallium",
+     "Cesium",
+     "Francium"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The noble gas that makes up nearly one percent of the air",
+    "a": "Argon",
+    "wrong": [
+     "Neon",
+     "Krypton",
+     "Xenon"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "force",
+  "name": "THE FORCE IS WITH YOU",
+  "section": "science",
+  "scope": "Every answer is a force, a law of physics or the physicist behind one.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The force that pulls everything towards the middle of the earth",
+    "a": "Gravity",
+    "wrong": [
+     "Magnetism",
+     "Friction",
+     "Tension"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The Englishman who set down the three laws of motion",
+    "a": "Isaac Newton",
+    "wrong": [
+     "Albert Einstein",
+     "Galileo Galilei",
+     "Johannes Kepler"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "Mass times velocity, and what a moving thing has of it",
+    "a": "Momentum",
+    "wrong": [
+     "Acceleration",
+     "Inertia",
+     "Torque"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The force that holds a nucleus together against its own repulsion",
+    "a": "Strong nuclear force",
+    "wrong": [
+     "Weak nuclear force",
+     "Electromagnetism",
+     "Gravity"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The law that says the entropy of a closed system never falls",
+    "a": "Second Law of Thermodynamics",
+    "wrong": [
+     "First Law of Thermodynamics",
+     "Third Law of Thermodynamics",
+     "Zeroth Law of Thermodynamics"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "starsearch",
+  "name": "STAR SEARCH",
+  "section": "science",
+  "scope": "Every answer is a star, a constellation or a stellar object.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The nearest star to us, and the reason anything grows here",
+    "a": "The Sun",
+    "wrong": [
+     "Proxima Centauri",
+     "Sirius",
+     "Alpha Centauri"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The star in Ursa Minor that sailors steered by",
+    "a": "Polaris",
+    "wrong": [
+     "Sirius",
+     "Vega",
+     "Arcturus"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The hunter of Greek myth, with three stars for a belt",
+    "a": "Orion",
+    "wrong": [
+     "Perseus",
+     "Hercules",
+     "Centaurus"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The red supergiant on the hunter's right shoulder",
+    "a": "Betelgeuse",
+    "wrong": [
+     "Rigel",
+     "Bellatrix",
+     "Saiph"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The open cluster in Taurus better known as the Seven Sisters",
+    "a": "Pleiades",
+    "wrong": [
+     "Hyades",
+     "Beehive Cluster",
+     "Double Cluster"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "planets",
+  "name": "PLANETS & MOONS",
+  "section": "science",
+  "scope": "Every answer is a planet, a moon or a dwarf planet.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The gas giant you know at once by its Great Red Spot",
+    "a": "Jupiter",
+    "wrong": [
+     "Saturn",
+     "Mars",
+     "Uranus"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The ice giant tipped so far over that it rolls round the sun on its side",
+    "a": "Uranus",
+    "wrong": [
+     "Neptune",
+     "Saturn",
+     "Venus"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The cratered little world closest in to the sun",
+    "a": "Mercury",
+    "wrong": [
+     "Venus",
+     "Mars",
+     "Pluto"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "Saturn's biggest moon, with a thick air and lakes of methane",
+    "a": "Titan",
+    "wrong": [
+     "Europa",
+     "Ganymede",
+     "Enceladus"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The one dwarf planet in the main asteroid belt",
+    "a": "Ceres",
+    "wrong": [
+     "Pluto",
+     "Eris",
+     "Haumea"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "weather",
+  "name": "WEATHER OR NOT",
+  "section": "science",
+  "scope": "Every answer is a weather phenomenon, cloud type or instrument.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The heaped white clouds of a fine afternoon",
+    "a": "Cumulus",
+    "wrong": [
+     "Stratus",
+     "Cirrus",
+     "Nimbus"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The instrument that reads the pressure of the air",
+    "a": "Barometer",
+    "wrong": [
+     "Anemometer",
+     "Hygrometer",
+     "Thermometer"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "A turning column of air that reaches the ground",
+    "a": "Tornado",
+    "wrong": [
+     "Hurricane",
+     "Cyclone",
+     "Typhoon"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The thin high clouds made wholly of falling ice",
+    "a": "Cirrus",
+    "wrong": [
+     "Stratus",
+     "Cumulonimbus",
+     "Altocumulus"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The scale that rates a twister by the damage it leaves behind",
+    "a": "Enhanced Fujita scale",
+    "wrong": [
+     "Saffir-Simpson scale",
+     "Beaufort scale",
+     "Mercalli scale"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "rocks",
+  "name": "ROCK OF AGES",
+  "section": "science",
+  "scope": "Every answer is a rock, a mineral or a geological era.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The hardest natural mineral, and nothing but carbon",
+    "a": "Diamond",
+    "wrong": [
+     "Quartz",
+     "Corundum",
+     "Topaz"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "Molten rock while it is still under the crust",
+    "a": "Magma",
+    "wrong": [
+     "Lava",
+     "Basalt",
+     "Pumice"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The dark fine-grained rock most of the ocean floor is made of",
+    "a": "Basalt",
+    "wrong": [
+     "Granite",
+     "Obsidian",
+     "Pumice"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The one-to-ten scale for how well a mineral resists a scratch",
+    "a": "Mohs scale",
+    "wrong": [
+     "Richter scale",
+     "Mercalli scale",
+     "Wentworth scale"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The era of the Triassic, Jurassic and Cretaceous together",
+    "a": "Mesozoic",
+    "wrong": [
+     "Paleozoic",
+     "Cenozoic",
+     "Proterozoic"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "mammals",
+  "name": "MAMMAL MANIA",
+  "section": "science",
+  "scope": "Every answer is a mammal.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The filter feeder that is the largest animal ever to have lived",
+    "a": "Blue whale",
+    "wrong": [
+     "Sperm whale",
+     "Orca",
+     "Humpback whale"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The only mammal that truly flies rather than glides",
+    "a": "Bat",
+    "wrong": [
+     "Flying squirrel",
+     "Colugo",
+     "Sugar glider"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The slow tree-dweller that grows algae in its own coat",
+    "a": "Sloth",
+    "wrong": [
+     "Koala",
+     "Lemur",
+     "Orangutan"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The Australian that lays eggs, carries venom and has a bill like a duck",
+    "a": "Platypus",
+    "wrong": [
+     "Echidna",
+     "Wombat",
+     "Numbat"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The scaled mammal that rolls into a ball, and the most trafficked on earth",
+    "a": "Pangolin",
+    "wrong": [
+     "Armadillo",
+     "Echidna",
+     "Porcupine"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "birds",
+  "name": "FOR THE BIRDS",
+  "section": "science",
+  "scope": "Every answer is a bird.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The flightless African bird that lays the largest egg on land",
+    "a": "Ostrich",
+    "wrong": [
+     "Emu",
+     "Cassowary",
+     "Rhea"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The flightless southern swimmer in what looks like evening dress",
+    "a": "Penguin",
+    "wrong": [
+     "Puffin",
+     "Albatross",
+     "Cormorant"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The night hunter that flies in silence and turns its head most of the way round",
+    "a": "Owl",
+    "wrong": [
+     "Hawk",
+     "Falcon",
+     "Eagle"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The only bird that can hover on the spot and fly backwards",
+    "a": "Hummingbird",
+    "wrong": [
+     "Swift",
+     "Swallow",
+     "Kestrel"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The fastest animal alive, past two hundred miles an hour in its stoop",
+    "a": "Peregrine falcon",
+    "wrong": [
+     "Golden eagle",
+     "Goshawk",
+     "Osprey"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "bugs",
+  "name": "BUG OFF",
+  "section": "science",
+  "scope": "Every answer is an insect or other arthropod.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The insect that pollinates the orchard and fills the comb",
+    "a": "Honey bee",
+    "wrong": [
+     "Wasp",
+     "Hornet",
+     "Mason bee"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The colony insect that hauls many times its own weight",
+    "a": "Ant",
+    "wrong": [
+     "Termite",
+     "Beetle",
+     "Earwig"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The eight-legged spinner that catches dinner in silk",
+    "a": "Spider",
+    "wrong": [
+     "Scorpion",
+     "Tick",
+     "Mite"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The insect that goes from crawling caterpillar to broad wings",
+    "a": "Butterfly",
+    "wrong": [
+     "Dragonfly",
+     "Grasshopper",
+     "Praying mantis"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The loud insect that waits seventeen years underground before it comes up",
+    "a": "Cicada",
+    "wrong": [
+     "Locust",
+     "Cricket",
+     "Katydid"
+    ]
+   }
+  ]
+ }
+]

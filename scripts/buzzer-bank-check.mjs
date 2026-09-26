@@ -64,8 +64,13 @@ for (const c of cats) {
     if (Math.max(...lens) > Math.min(...lens) * 3 && Math.max(...lens) > 12) {
       soft(w, "one option is much longer than the others — a guessable shape");
     }
-    // The answer sitting inside its own clue gives it away.
-    if (answer.length > 3 && question.toLowerCase().includes(answer.toLowerCase())) {
+    // The answer sitting inside its own clue gives it away — except in the
+    // three categories where that is the entire joke. Stupid Answers is
+    // nothing but answers hiding in plain sight, and Odd One Out has to print
+    // the list it is asking you to pick from.
+    const SAYS_ITS_ANSWER = new Set(["stupidanswers", "oddoneout", "commonbonds"]);
+    if (!SAYS_ITS_ANSWER.has(spec.id) && answer.length > 3 &&
+        question.toLowerCase().includes(answer.toLowerCase())) {
       fail(w, "the clue contains its own answer");
     }
     if (spec.section === "arena" && !q.source) soft(w, "an arena clue with no source line");

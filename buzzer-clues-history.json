@@ -1,0 +1,582 @@
+[
+ {
+  "id": "emperor",
+  "name": "HAIL, EMPEROR!",
+  "section": "history",
+  "scope": "Every answer is a Roman emperor or something one of them did.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The emperor said to have fiddled while Rome burned",
+    "a": "Nero",
+    "wrong": [
+     "Caligula",
+     "Commodus",
+     "Domitian"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The emperor who made his horse Incitatus a priest",
+    "a": "Caligula",
+    "wrong": [
+     "Nero",
+     "Tiberius",
+     "Claudius"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The emperor who walled off the north of Britain",
+    "a": "Hadrian",
+    "wrong": [
+     "Trajan",
+     "Antoninus Pius",
+     "Marcus Aurelius"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The Stoic who wrote the Meditations in camp, on campaign",
+    "a": "Marcus Aurelius",
+    "wrong": [
+     "Hadrian",
+     "Trajan",
+     "Nerva"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The emperor who split the empire four ways into the Tetrarchy",
+    "a": "Diocletian",
+    "wrong": [
+     "Constantine",
+     "Maximian",
+     "Galerius"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "pharaoh",
+  "name": "WALK LIKE A PHARAOH",
+  "section": "history",
+  "scope": "Every answer is an Egyptian pharaoh, god, site or object.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The boy king whose almost untouched tomb Howard Carter opened in 1922",
+    "a": "Tutankhamun",
+    "wrong": [
+     "Ramesses II",
+     "Seti I",
+     "Thutmose III"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The jackal-headed god of mummification, who walks souls to the afterlife",
+    "a": "Anubis",
+    "wrong": [
+     "Horus",
+     "Set",
+     "Thoth"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The pharaoh who had the Great Pyramid of Giza built",
+    "a": "Khufu",
+    "wrong": [
+     "Khafre",
+     "Menkaure",
+     "Sneferu"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The woman who ruled as pharaoh and raised a mortuary temple at Deir el-Bahari",
+    "a": "Hatshepsut",
+    "wrong": [
+     "Nefertiti",
+     "Cleopatra",
+     "Sobekneferu"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The heretic who turned Egypt to the sun disc Aten and back again after him",
+    "a": "Akhenaten",
+    "wrong": [
+     "Amenhotep III",
+     "Horemheb",
+     "Ay"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "greek",
+  "name": "GREEK THINKERS",
+  "section": "history",
+  "scope": "Every answer is a Greek philosopher, mathematician or their idea.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The philosopher Athens sentenced to death, who drank the hemlock",
+    "a": "Socrates",
+    "wrong": [
+     "Plato",
+     "Aristotle",
+     "Epicurus"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The man whose theorem ties the three sides of a right triangle together",
+    "a": "Pythagoras",
+    "wrong": [
+     "Euclid",
+     "Archimedes",
+     "Thales"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The tutor of Alexander the Great, who founded the Lyceum",
+    "a": "Aristotle",
+    "wrong": [
+     "Plato",
+     "Socrates",
+     "Diogenes"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The Syracusan who is supposed to have shouted Eureka in the bath",
+    "a": "Archimedes",
+    "wrong": [
+     "Euclid",
+     "Pythagoras",
+     "Eratosthenes"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The Alexandrian whose Elements earned him the name father of geometry",
+    "a": "Euclid",
+    "wrong": [
+     "Archimedes",
+     "Apollonius",
+     "Ptolemy"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "castle",
+  "name": "THIS OLD CASTLE",
+  "section": "history",
+  "scope": "Every answer is a castle, a fortification or a part of one.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The wide ditch round a castle, filled with water where it can be",
+    "a": "Moat",
+    "wrong": [
+     "Drawbridge",
+     "Portcullis",
+     "Bailey"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The heavy iron grille that drops to shut the gateway",
+    "a": "Portcullis",
+    "wrong": [
+     "Drawbridge",
+     "Barbican",
+     "Murder hole"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The strong central tower, and the last place left to fall back to",
+    "a": "Keep",
+    "wrong": [
+     "Barbican",
+     "Gatehouse",
+     "Turret"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The open courtyard inside the outer wall",
+    "a": "Bailey",
+    "wrong": [
+     "Keep",
+     "Motte",
+     "Turret"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The jutting stonework at the wall top, with holes to drop things through",
+    "a": "Machicolations",
+    "wrong": [
+     "Crenellations",
+     "Battlements",
+     "Embrasures"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "renaissance",
+  "name": "RENAISSANCE MEN",
+  "section": "history",
+  "scope": "Every answer is a Renaissance figure or one of their works.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The polymath who painted the Mona Lisa and the Last Supper",
+    "a": "Leonardo da Vinci",
+    "wrong": [
+     "Michelangelo",
+     "Raphael",
+     "Donatello"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The Florentine who cut a David out of one flawed block of marble",
+    "a": "Michelangelo",
+    "wrong": [
+     "Leonardo da Vinci",
+     "Donatello",
+     "Bernini"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The Florentine diplomat who wrote The Prince",
+    "a": "Niccolò Machiavelli",
+    "wrong": [
+     "Thomas More",
+     "Erasmus",
+     "Castiglione"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The Pole who put the Sun rather than the Earth at the middle of it all",
+    "a": "Nicolaus Copernicus",
+    "wrong": [
+     "Galileo Galilei",
+     "Johannes Kepler",
+     "Tycho Brahe"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The Dutch humanist behind the satire In Praise of Folly",
+    "a": "Erasmus",
+    "wrong": [
+     "Thomas More",
+     "Petrarch",
+     "Boccaccio"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "spirit76",
+  "name": "SPIRIT OF '76",
+  "section": "history",
+  "scope": "Every answer is a person, battle or document of the American Revolution.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The silversmith who rode out to Lexington with the warning",
+    "a": "Paul Revere",
+    "wrong": [
+     "William Dawes",
+     "Samuel Adams",
+     "John Hancock"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The man who did most of the writing of the Declaration of Independence",
+    "a": "Thomas Jefferson",
+    "wrong": [
+     "John Adams",
+     "Benjamin Franklin",
+     "James Madison"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The American general whose name became a byword for treachery",
+    "a": "Benedict Arnold",
+    "wrong": [
+     "Charles Lee",
+     "Horatio Gates",
+     "Nathanael Greene"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The 1777 New York victory that brought France into the war",
+    "a": "Battle of Saratoga",
+    "wrong": [
+     "Battle of Yorktown",
+     "Battle of Bunker Hill",
+     "Battle of Trenton"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The Prussian baron who drilled the Continental Army at Valley Forge",
+    "a": "Friedrich Wilhelm von Steuben",
+    "wrong": [
+     "Marquis de Lafayette",
+     "Casimir Pulaski",
+     "Tadeusz Kościuszko"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "bluegray",
+  "name": "BLUE & GRAY BATTLEGROUNDS",
+  "section": "history",
+  "scope": "Every answer is an American Civil War battle, general or place.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The general who commanded the Army of Northern Virginia",
+    "a": "Robert E. Lee",
+    "wrong": [
+     "Stonewall Jackson",
+     "James Longstreet",
+     "J.E.B. Stuart"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The three days in Pennsylvania that turned the war",
+    "a": "Battle of Gettysburg",
+    "wrong": [
+     "Battle of Shiloh",
+     "Battle of Bull Run",
+     "Battle of Chancellorsville"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The Union general who marched to the sea through Georgia",
+    "a": "William Tecumseh Sherman",
+    "wrong": [
+     "Ulysses S. Grant",
+     "George McClellan",
+     "Philip Sheridan"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The bloodiest single day in American military history, in Maryland in 1862",
+    "a": "Battle of Antietam",
+    "wrong": [
+     "Battle of Shiloh",
+     "Battle of Fredericksburg",
+     "Battle of Cold Harbor"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The Virginia village where the Army of Northern Virginia gave up in 1865",
+    "a": "Appomattox Court House",
+    "wrong": [
+     "Spotsylvania Court House",
+     "Harper's Ferry",
+     "Manassas"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "overthetop",
+  "name": "OVER THE TOP",
+  "section": "history",
+  "scope": "Every answer is a First World War battle, weapon, treaty or figure.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The archduke shot at Sarajevo, and the war followed",
+    "a": "Franz Ferdinand",
+    "wrong": [
+     "Nicholas II",
+     "Wilhelm II",
+     "Karl I"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The British liner a U-boat sank in 1915, with Americans aboard",
+    "a": "RMS Lusitania",
+    "wrong": [
+     "RMS Titanic",
+     "HMS Dreadnought",
+     "RMS Olympic"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The 1919 treaty that ended the war and sent Germany the bill",
+    "a": "Treaty of Versailles",
+    "wrong": [
+     "Treaty of Trianon",
+     "Treaty of Sèvres",
+     "Treaty of Brest-Litovsk"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The ten-month fight the French summed up as they shall not pass",
+    "a": "Battle of Verdun",
+    "wrong": [
+     "Battle of the Somme",
+     "Battle of Passchendaele",
+     "Battle of the Marne"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The intercepted German cable offering Mexico an alliance",
+    "a": "Zimmermann Telegram",
+    "wrong": [
+     "Schlieffen Plan",
+     "Fourteen Points",
+     "Balfour Declaration"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "battlestations",
+  "name": "BATTLE STATIONS",
+  "section": "history",
+  "scope": "Every answer is a Second World War battle, operation, leader or machine.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The Japanese strike on an American naval base in December 1941",
+    "a": "Pearl Harbor",
+    "wrong": [
+     "Wake Island",
+     "Guadalcanal",
+     "Corregidor"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The codename for the Allied landings in Normandy",
+    "a": "Operation Overlord",
+    "wrong": [
+     "Operation Market Garden",
+     "Operation Torch",
+     "Operation Barbarossa"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The 1942 sea fight where broken codes cost Japan four carriers",
+    "a": "Battle of Midway",
+    "wrong": [
+     "Battle of the Coral Sea",
+     "Battle of Leyte Gulf",
+     "Battle of the Philippine Sea"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The siege on the Volga that turned the Eastern Front",
+    "a": "Battle of Stalingrad",
+    "wrong": [
+     "Battle of Kursk",
+     "Siege of Leningrad",
+     "Battle of Moscow"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The codename of the American project that built the atomic bomb",
+    "a": "Manhattan Project",
+    "wrong": [
+     "Operation Paperclip",
+     "Project Alberta",
+     "Operation Crossroads"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "coldwar",
+  "name": "COLD WAR HOT SPOTS",
+  "section": "history",
+  "scope": "Every answer is a Cold War crisis, place, treaty or figure.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The 1962 standoff over Soviet missiles ninety miles from Florida",
+    "a": "Cuban Missile Crisis",
+    "wrong": [
+     "Berlin Blockade",
+     "Suez Crisis",
+     "U-2 Incident"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The western alliance signed in 1949",
+    "a": "NATO",
+    "wrong": [
+     "SEATO",
+     "CENTO",
+     "ANZUS"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The American money that rebuilt western Europe after 1948",
+    "a": "Marshall Plan",
+    "wrong": [
+     "Truman Doctrine",
+     "Molotov Plan",
+     "Point Four Program"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The war that ended in an armistice and a demilitarised zone on the 38th parallel",
+    "a": "Korean War",
+    "wrong": [
+     "Vietnam War",
+     "Soviet-Afghan War",
+     "Chinese Civil War"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The eastern alliance raised in 1955 to answer the western one",
+    "a": "Warsaw Pact",
+    "wrong": [
+     "Comecon",
+     "Non-Aligned Movement",
+     "Cominform"
+    ]
+   }
+  ]
+ }
+]

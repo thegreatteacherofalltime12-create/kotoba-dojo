@@ -462,5 +462,237 @@
     ]
    }
   ]
+ },
+ {
+  "id": "colleges",
+  "name": "COLLEGES & UNIVERSITIES",
+  "section": "staples",
+  "scope": "Every answer is a university, its home town, its nickname or its colours.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The Ivy League university that sits in Cambridge, Massachusetts",
+    "a": "Harvard",
+    "wrong": [
+     "Yale",
+     "Princeton",
+     "Columbia"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The fighting mascot of the University of Notre Dame",
+    "a": "Irish",
+    "wrong": [
+     "Trojans",
+     "Spartans",
+     "Wolverines"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The Rhode Island Ivy whose teams run out behind a bear",
+    "a": "Brown",
+    "wrong": [
+     "Dartmouth",
+     "Cornell",
+     "Penn"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The university in Evanston, Illinois, known for its Medill School of Journalism",
+    "a": "Northwestern",
+    "wrong": [
+     "Chicago",
+     "Vanderbilt",
+     "Emory"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The Chapel Hill university whose teams wear a light blue all their own",
+    "a": "North Carolina",
+    "wrong": [
+     "Duke",
+     "Wake Forest",
+     "NC State"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "shakespeare",
+  "name": "SHAKESPEARE",
+  "section": "staples",
+  "scope": "Every answer is a Shakespeare play, character or line.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The tragedy of two star-crossed teenagers from Verona",
+    "a": "Romeo and Juliet",
+    "wrong": [
+     "Macbeth",
+     "Hamlet",
+     "Othello"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The melancholy Danish prince who asks whether to be or not to be",
+    "a": "Hamlet",
+    "wrong": [
+     "Horatio",
+     "Laertes",
+     "Claudius"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The comedy of shipwrecked twins named Viola and Sebastian",
+    "a": "Twelfth Night",
+    "wrong": [
+     "As You Like It",
+     "Much Ado About Nothing",
+     "The Comedy of Errors"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The ensign who persuades his general that Desdemona has been unfaithful",
+    "a": "Iago",
+    "wrong": [
+     "Cassio",
+     "Roderigo",
+     "Brabantio"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The king who offers his whole kingdom for a horse at Bosworth Field",
+    "a": "Richard III",
+    "wrong": [
+     "Henry V",
+     "King Lear",
+     "Richard II"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "fairytales",
+  "name": "FAIRY TALES",
+  "section": "staples",
+  "scope": "Every answer is a fairy tale, its character, or the object at its centre.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The wooden puppet whose nose grows longer every time he lies",
+    "a": "Pinocchio",
+    "wrong": [
+     "Geppetto",
+     "Jiminy Cricket",
+     "Figaro"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The girl who leaves a glass slipper behind on the palace stairs",
+    "a": "Cinderella",
+    "wrong": [
+     "Snow White",
+     "Sleeping Beauty",
+     "Rapunzel"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The very edible house Hansel and Gretel find deep in the wood",
+    "a": "Gingerbread house",
+    "wrong": [
+     "Candy cane castle",
+     "Chocolate cottage",
+     "Sugar plum palace"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "In the Grimms' Briar Rose, the number of wise women who give gifts before the uninvited one arrives",
+    "a": "Twelve",
+    "wrong": [
+     "Three",
+     "Seven",
+     "Thirteen"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "What Jack takes to the beanstalk to bring the giant down with it",
+    "a": "An axe",
+    "wrong": [
+     "A sword",
+     "A magic bean",
+     "A golden harp"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "strikeup",
+  "name": "STRIKE UP THE BAND",
+  "section": "staples",
+  "scope": "Every answer is a musical instrument or a section of the orchestra.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The stringed instrument played sitting down, held between the knees",
+    "a": "Cello",
+    "wrong": [
+     "Violin",
+     "Viola",
+     "Double bass"
+    ]
+   },
+   {
+    "row": 2,
+    "q": "The brass instrument played by working a slide rather than pressing valves",
+    "a": "Trombone",
+    "wrong": [
+     "Trumpet",
+     "French horn",
+     "Tuba"
+    ]
+   },
+   {
+    "row": 3,
+    "q": "The double-reed woodwind that gives the orchestra its tuning note",
+    "a": "Oboe",
+    "wrong": [
+     "Clarinet",
+     "Flute",
+     "Bassoon"
+    ]
+   },
+   {
+    "row": 4,
+    "q": "The tuned percussion whose name is Greek for wood and sound",
+    "a": "Xylophone",
+    "wrong": [
+     "Marimba",
+     "Glockenspiel",
+     "Vibraphone"
+    ]
+   },
+   {
+    "row": 5,
+    "q": "The small woodwind that sounds an octave above the flute",
+    "a": "Piccolo",
+    "wrong": [
+     "Fife",
+     "Recorder",
+     "Ocarina"
+    ]
+   }
+  ]
  }
 ]

@@ -325,13 +325,30 @@ function drawShell() {
   if (!s) return;
   $("tank-phase").textContent = s.phase === "PLAYING" ? "In the field" : s.phase === "OVER" ? "Duel over" : "Lobby";
   const wind = s.wind || 0;
-  $("tank-wind").textContent = `${wind === 0 ? "calm" : `${Math.abs(wind)} ${wind > 0 ? "→" : "←"}`}`;
+  // In the lobby the gauge has nothing to report yet, so it shows the strength
+  // that was chosen for the duel instead of a reading from a duel not running.
+  const strength = (s.windModes || []).find((w) => w.id === s.windMode)?.name;
+  $("tank-wind").textContent = s.phase === "LOBBY" && strength
+    ? strength.toLowerCase()
+    : `${wind === 0 ? "calm" : `${Math.abs(wind)} ${wind > 0 ? "→" : "←"}`}`;
   const turn = s.tanks.find((t) => t.uid === s.turn);
   const mine = s.turn === T.you;
   $("tank-turn").textContent = s.phase !== "PLAYING" ? "—" : mine ? "Your shot" : `${turn?.name || "—"} is shooting`;
   $("tank-fire").disabled = !mine || s.phase !== "PLAYING" || !!T.flying;
   $("tank-host").hidden = !s.isHost || s.phase === "PLAYING";
   $("btn-tank-start").textContent = s.roundNo ? "Fight again" : "Begin the duel";
+  // There is no battlefield until a duel starts, and an empty canvas the
+  // height of one is a large confusing nothing. Say what is being waited for
+  // instead, in the words of whoever is waiting for it.
+  const lobby = s.phase === "LOBBY";
+  $("tank-frame").hidden = lobby;
+  $("tank-wait").hidden = !lobby;
+  if (lobby) {
+    $("tank-wait").textContent = s.isHost
+      ? "No field yet. Set the computers, the difficulty and the wind, then begin the duel."
+      : `Waiting for ${s.tanks.find((t) => t.uid === s.hostUid)?.name || "the host"} to begin the duel.`;
+  }
+  if (s.windMode) $("tank-wind-mode").value = s.windMode;
   if (s.aim) {
     // The room withholds the dial from a tank an EMP has just hit, which is
     // the whole of what an EMP does — so an empty aim is not a missing reply.
@@ -362,8 +379,7 @@ function drawShell() {
 function drawStrip() {
   const a = T.state?.arsenal;
   const strip = $("tank-strip");
-  strip.hidden = !a?.on;
-  if (!a?.on) return;
+  if (!a?.on) { strip.hidden = true; return; }
   strip.textContent = "";
   for (const item of TANK_ARSENAL_ITEMS) {
     const left = (a.armed[item.key] || 0) - (a.used[item.key] || 0);
@@ -400,6 +416,9 @@ function drawStrip() {
     };
     strip.append(b);
   }
+  // An arsenal with nothing in it is an empty bar across the top of the game,
+  // which reads as something broken rather than as something unbought.
+  strip.hidden = !strip.childElementCount;
 }
 
 function showResults(msg) {
@@ -430,6 +449,7 @@ export function bindTankControls() {
     type: "TANK_START",
     ai: Number($("tank-ai").value || 0),
     level: $("tank-level").value,
+    wind: $("tank-wind-mode").value,
   });
 
   const aim = () => send({

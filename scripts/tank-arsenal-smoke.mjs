@@ -10,7 +10,7 @@
 // matters: the client is handed finished flights and cannot argue with them.
 import { TankDuel } from "../src/artillery-room.js";
 import { ARSENALS } from "../src/arsenals.js";
-import { START_HP, TANK_R, groundAt } from "../src/artillery.js";
+import { START_HP, TANK_R, WIND_MAX, WIND_MODES, groundAt } from "../src/artillery.js";
 
 let bad = 0;
 const ok = (l, c) => { console.log(`${c ? "  pass" : "  FAIL"}  ${l}`); if (!c) bad++; };
@@ -42,7 +42,7 @@ function makeState() {
   };
 }
 
-async function room(uids, { ai = 0, level = "medium" } = {}) {
+async function room(uids, { ai = 0, level = "medium", wind = "normal" } = {}) {
   const state = makeState();
   state.storage.owner = state;
   const duel = new TankDuel(state, { FIREBASE_PROJECT_ID: "test" });
@@ -56,7 +56,7 @@ async function room(uids, { ai = 0, level = "medium" } = {}) {
     await duel.onJoin(uid, uid.toUpperCase(), ws);
   }
   const say = (uid, obj) => duel.webSocketMessage(socks[uid], JSON.stringify(obj));
-  await say(uids[0], { type: "TANK_START", ai, level });
+  await say(uids[0], { type: "TANK_START", ai, level, wind });
   return { duel, socks, say, state };
 }
 
@@ -363,6 +363,33 @@ console.log("\nwhat the duel was worth");
   ok("what the arsenal used is on the result for the record write", win.spent.at_double === 1);
   ok("and only what was used comes off what was armed", t.ars.armed.at_double === 1 && !Object.keys(t.ars.used).length);
   ok("nothing is left raised for the next duel", !t.ars.guards.length && !t.ars.chute);
+}
+
+console.log("\nthe wind the host set");
+{
+  const calm = await room(["a", "b"], { wind: "calm" });
+  ok("dead calm is dead calm on the first turn", calm.duel.g.wind === 0);
+  // Every turn of it, rather than the one the duel happened to open on.
+  for (let i = 0; i < 6; i++) await calm.say(calm.duel.whoseTurn(), { type: "TANK_FIRE", angle: 90, power: 100 });
+  ok("and stays calm as the turns pass", calm.duel.g.wind === 0);
+  ok("which the field is told, so the gauge can say so", calm.duel.view("a").windMax === 0);
+
+  const wild = await room(["a", "b"], { wind: "wild" });
+  let worst = Math.abs(wild.duel.g.wind);
+  for (let i = 0; i < 12; i++) {
+    await wild.say(wild.duel.whoseTurn(), { type: "TANK_FIRE", angle: 90, power: 100 });
+    if (wild.duel.g.phase !== "PLAYING") break;
+    worst = Math.max(worst, Math.abs(wild.duel.g.wind));
+  }
+  ok(`a gale blows harder than the usual weather (${worst})`, worst > WIND_MAX);
+  ok("but never past what it was set to", worst <= wild.duel.windMax());
+
+  const usual = await room(["a", "b"]);
+  ok("normal is the default a duel gets without asking", usual.duel.g.windMode === "normal");
+  ok("and an invented strength is refused rather than obeyed",
+    (await room(["a", "b"], { wind: "hurricane" })).duel.g.windMode === "normal");
+  ok("the strength is on the state for the lobby to show",
+    usual.duel.view("a").windModes.length === WIND_MODES.length);
 }
 
 console.log(bad ? `\n${bad} check(s) failed\n` : "\nall tank arsenal checks passed\n");

@@ -26,6 +26,25 @@ export const WORLD_H = 600;
 export const GRAVITY = 0.32;
 /** Wind blows between these, and is redrawn every round. */
 export const WIND_MAX = 40;
+
+/**
+ * How hard it is allowed to blow, as the host's choice rather than a constant.
+ *
+ * Wind is the whole difficulty dial of an artillery game: dead calm is a game
+ * of geometry you can learn, and a gale is a game of reading the gauge every
+ * turn. Both are worth playing, and which one you are playing should not be a
+ * surprise — so it is picked before the duel and shown on the field.
+ */
+export const WIND_MODES = [
+  { id: "calm", name: "Dead calm", max: 0, blurb: "No wind at all. Pure geometry." },
+  { id: "light", name: "Light airs", max: 14, blurb: "Enough to matter at long range." },
+  { id: "normal", name: "Normal", max: WIND_MAX, blurb: "The usual: read the gauge every turn." },
+  { id: "wild", name: "Wild", max: 85, blurb: "A gale that can carry a shell half the map." },
+];
+
+export function windModeById(id) {
+  return WIND_MODES.find((w) => w.id === id) || WIND_MODES[2];
+}
 export const MAX_STEPS = 2600;
 
 /** Power 1..100 becomes a muzzle speed. 100 crosses most of the map at 45°. */

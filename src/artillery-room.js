@@ -1,5 +1,5 @@
 import {
-  GAME_NAME, WORLD_W, WORLD_H, TANK_R, START_HP, WIND_MAX,
+  GAME_NAME, WORLD_W, WORLD_H, TANK_R, START_HP, WIND_MAX, WIND_MODES, windModeById,
   makeTerrain, startPositions, groundAt, carve, settle, blastOn,
   salvo, mound, levelGround, dealt, taken, drained, repaired, burnTick, teleportTo,
   TOKEN_KIND, PAYLOADS,
@@ -61,6 +61,7 @@ export class TankDuel {
       tanks: {},                // uid -> tank
       aiLevel: "medium",
       aiCount: 1,
+      windMode: "normal",
       applied: {},              // the 1.5x boost, per uid
     };
   }
@@ -269,9 +270,12 @@ export class TankDuel {
 
   rnd() { return rngFrom((this.g?.seed || 1) + this.g?.turnNo * 977 + 13); }
 
+  /** The strength the host set, or the usual one for a duel saved before it. */
+  windMax() { return windModeById(this.g?.windMode).max; }
+
   rollWind() {
     const r = this.rnd();
-    return Math.round((r() * 2 - 1) * WIND_MAX);
+    return Math.round((r() * 2 - 1) * this.windMax());
   }
 
   tankList() { return this.g.order.map((uid) => this.g.tanks[uid]).filter(Boolean); }
@@ -299,6 +303,7 @@ export class TankDuel {
       return this.send(ws, "TANK_REJECT", { why: "The player who opened this room calls the start." });
 
     if (msg.level && aiLevelById(msg.level).id === msg.level) g.aiLevel = msg.level;
+    if (msg.wind && windModeById(msg.wind).id === msg.wind) g.windMode = msg.wind;
     if (msg.ai != null) g.aiCount = Math.max(0, Math.min(AI_MAX, Number(msg.ai) || 0));
 
     // The computers come and go with the setting rather than piling up: a
@@ -635,7 +640,7 @@ export class TankDuel {
     this.state.waitUntil(recordMatch(this.env, {
       code: g.code,
       game: "artillery",
-      mode: `${g.order.length} tanks${g.aiCount ? ` · ${aiLevelById(g.aiLevel).name} computers` : ""}`,
+      mode: `${g.order.length} tanks · ${windModeById(g.windMode).name.toLowerCase()}${g.aiCount ? ` · ${aiLevelById(g.aiLevel).name} computers` : ""}`,
       roundNo: g.roundNo,
       finishedAt: Date.now(),
       durationMs: Date.now() - g.startedAt,
@@ -673,7 +678,9 @@ export class TankDuel {
       isHost: this.canStart(uid),
       world: { w: WORLD_W, h: WORLD_H, r: TANK_R },
       wind: g.wind,
-      windMax: WIND_MAX,
+      windMax: this.windMax(),
+      windMode: g.windMode || "normal",
+      windModes: WIND_MODES,
       terrain: g.phase === "LOBBY" ? [] : this.groundOut(),
       fires: g.fires,
       turn: this.whoseTurn(),
@@ -722,7 +729,7 @@ export class TankDuel {
       phase: g.phase,
       label: g.solo
         ? `Solo · ${aiLevelById(g.aiLevel).name}`
-        : `${g.order.length || Object.keys(g.tanks).length} tanks`,
+        : `${g.order.length || Object.keys(g.tanks).length} tanks · ${windModeById(g.windMode).name.toLowerCase()}`,
       round: g.roundNo,
     });
   }

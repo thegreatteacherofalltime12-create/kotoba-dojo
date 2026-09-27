@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Omni Multiverse of Madness</title>
-<meta name="build" content="2026-09-27 14:42 UTC">
+<meta name="build" content="2026-09-27 15:01 UTC">
 <meta name="description" content="Omni Multiverse of Madness — competitive arena. Belts, MMR, casino floor and live standings.">
 <meta name="theme-color" content="#F4F1EA">
 <meta name="mobile-web-app-capable" content="yes">
@@ -635,11 +635,21 @@ if (location.protocol === "file:") {
               <option value="hard">Hard</option>
             </select>
           </label>
+          <label class="opt-line">Wind
+            <select id="tank-wind-mode">
+              <option value="calm">Dead calm &mdash; no wind at all</option>
+              <option value="light">Light airs &mdash; matters at range</option>
+              <option value="normal" selected>Normal &mdash; read it every turn</option>
+              <option value="wild">Wild &mdash; a gale, half the map</option>
+            </select>
+          </label>
           <button id="btn-tank-start" class="btn btn-primary btn-wide">Begin the duel</button>
         </div>
       </section>
 
-      <div class="tank-frame">
+      <p id="tank-wait" class="panel pad" hidden></p>
+
+      <div id="tank-frame" class="tank-frame">
         <div class="tank-head">
           <span class="tank-lcd">Wind <b id="tank-wind">calm</b></span>
           <span class="tank-lcd" id="tank-turn">&mdash;</span>

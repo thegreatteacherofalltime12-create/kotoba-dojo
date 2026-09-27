@@ -3991,3 +3991,38 @@ a.dtab { text-decoration: none; display: inline-block; }
 @media (prefers-reduced-motion: reduce) {
   .bz-clue-modal .modal-card { animation: none; }
 }
+
+/* ── the clock, and being told you were right ────────────────────────
+   The bar runs the whole time there is a clue up: amber while it is being
+   read, green once the buzzers are open, red when the ten seconds are
+   nearly gone. Three states, three colours, and a number beside it — none
+   of it colour-only, because a bar that only changes hue says nothing at
+   all to a good many people. */
+.bz-bar { height: 7px; }
+.bz-bar span.reading { background: #F4CE5A; }
+.bz-bar span.low { background: #DC2626; }
+.bz-secs { font-weight: 700; letter-spacing: .04em; }
+
+/* The option you pressed answers back. Being told in a line of text
+   underneath is not the same as watching the thing you pressed go green,
+   and the thing you pressed is where you are already looking. */
+.bz-option.right {
+  background: #16A34A; border-color: #4ADE80; color: #fff; font-weight: 700;
+  box-shadow: 0 0 0 3px rgba(74, 222, 128, .3);
+}
+.bz-option.wrong {
+  background: #7F1D1D; border-color: #F87171; color: #FECACA;
+  text-decoration: line-through;
+}
+.bz-option.right::after { content: " \2713"; }
+.bz-option.wrong::after { content: " \2717"; }
+
+/* And the whole card, for the half-second where you are not looking at any
+   one button in particular. */
+.bz-clue-card.got-it { border-color: #4ADE80; box-shadow: 0 0 0 4px rgba(74, 222, 128, .22), 0 30px 80px rgba(2, 6, 23, .7); }
+.bz-clue-card.missed-it { border-color: #F87171; box-shadow: 0 0 0 4px rgba(248, 113, 113, .2), 0 30px 80px rgba(2, 6, 23, .7); }
+.bz-clue-card { transition: border-color .2s, box-shadow .2s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .bz-clue-card { transition: none; }
+}

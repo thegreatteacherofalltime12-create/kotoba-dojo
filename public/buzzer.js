@@ -243,17 +243,45 @@ function splash(title, sub) {
 }
 
 function verdict(msg) {
-  B.options = null;
-  B.peek = null;
-  drawOptions();
   const flash = $("bz-flash");
+  const card = document.querySelector(".bz-clue-card");
+  const host = $("bz-options");
+  const mine = msg.uid === B.you;
+
+  // Mark it on the option itself before the buttons go. Being told the
+  // answer in a line of text underneath is not the same as seeing the thing
+  // you pressed go green, and the thing you pressed is where you are looking.
+  if (mine && host && !host.hidden && host.children.length) {
+    for (const b of host.children) {
+      b.disabled = true;
+      if (msg.picked && b.textContent === msg.picked) b.classList.add(msg.right ? "right" : "wrong");
+      // Only on a right answer, because a wrong one puts the clue back up
+      // for everybody else and the answer is still theirs to find.
+      if (msg.right && msg.answer && b.textContent === msg.answer) b.classList.add("right");
+    }
+    clearTimeout(B.optTimer);
+    B.optTimer = setTimeout(() => { B.options = null; B.peek = null; drawOptions(); }, 1_500);
+  } else {
+    B.options = null;
+    B.peek = null;
+    drawOptions();
+  }
+
+  if (card) {
+    card.classList.remove("got-it", "missed-it");
+    // Reading the class back forces the style to settle, so the same verdict
+    // twice running still shows twice.
+    void card.offsetWidth;
+    card.classList.add(msg.right && mine ? "got-it" : msg.right ? "" : "missed-it");
+  }
+
   if (msg.right) {
-    flash.textContent = `${msg.answer} — ${money(msg.value)}`;
+    flash.textContent = `${mine ? "Right" : msg.answer} \u2014 ${mine ? "+" : ""}${money(msg.value)}`;
     flash.className = "bz-flash good";
   } else {
     playCue("wrong");
     flash.textContent = msg.uid
-      ? `Not ${msg.picked || "in time"}. −${money(msg.value)}`
+      ? `${mine ? "No" : "Not " + (msg.picked || "in time")}. \u2212${money(msg.value)}`
       : `Nobody had it. ${msg.answer}`;
     flash.className = "bz-flash bad";
   }
@@ -327,6 +355,7 @@ function drawBoard(g) {
     B.peek = null;
     $("bz-flash").textContent = "";
     $("bz-flash").className = "bz-flash";
+    document.querySelector(".bz-clue-card")?.classList.remove("got-it", "missed-it");
     lastStage = null;
   }
   if (c.answer) {
@@ -480,6 +509,21 @@ function drawOptions() {
  * it no longer has to wake up and say "you may press now", which it had no
  * reason to do and frequently did not.
  */
+/**
+ * What stage the clue is really in, as far as this browser can tell.
+ *
+ * The room's own stage lags, because the room only wakes when something
+ * happens and the reading ending is not something happening. Everything on
+ * screen that moves — the button, the bar, the seconds — reads this rather
+ * than the room's copy, or it all freezes together in exactly the stretch
+ * where the player is waiting and watching it.
+ */
+function stageNow(c) {
+  if (!c) return null;
+  if (c.stage === "READING" && serverNow() >= (c.openAt || Infinity)) return "OPEN";
+  return c.stage;
+}
+
 function paintBuzzer(g, c) {
   const bar = $("bz-buzzer");
   if (!bar || !c) return;
@@ -488,10 +532,10 @@ function paintBuzzer(g, c) {
   const me = g.players.find((p) => p.uid === B.you);
   const watching = !me || me.watching;
 
-  const past = serverNow() >= (c.openAt || Infinity);
-  const contested = c.stage === "OPEN" || c.stage === "WINDOW";
-  const shut = c.stage === "ANSWERING" || c.stage === "REVEAL" || c.stage === "WAGER";
-  const open = !shut && (contested || past);
+  const st = stageNow(c);
+  const contested = st === "OPEN" || st === "WINDOW";
+  const shut = st === "ANSWERING" || st === "REVEAL" || st === "WAGER";
+  const open = !shut && contested;
 
   bar.hidden = c.stage === "REVEAL" || c.stage === "WAGER" || mine || watching;
   bar.disabled = !open || out;
@@ -520,22 +564,26 @@ function paintClock() {
   const c = g?.cell;
   if (!c || !fill) { if (fill) fill.style.width = "0%"; return; }
   const now = serverNow();
+  const st = stageNow(c);
+  // Reading counts down to the moment the buzzers open; after that, to the
+  // moment the clue gives up on everybody.
   let from = c.shownAt || c.openAt, to = c.deadline;
-  // Reading counts down from when the clue went up to when the buzzers open,
-  // which is a real span rather than a guessed one.
-  if (c.stage === "READING" && now < c.openAt) { from = c.shownAt; to = c.openAt; }
+  if (st === "READING") { from = c.shownAt; to = c.openAt; }
   const span = Math.max(1, to - from);
   const left = Math.max(0, Math.min(1, (to - now) / span));
   // The buzzer can come open between two pushes from the room, so it is
   // repainted on the same tick as the clock rather than only on a state.
   paintBuzzer(g, c);
   fill.style.width = `${Math.round(left * 100)}%`;
-  fill.className = c.stage === "ANSWERING" && left < 0.34 ? "low" : "";
+  fill.className = st === "READING" ? "reading"
+    : (st === "ANSWERING" || st === "WAGER") && left < 0.34 ? "low" : "";
 
   const secs = $("bz-secs");
   if (secs) {
-    secs.textContent = c.stage === "ANSWERING" || c.stage === "OPEN"
-      ? `${Math.max(0, (to - now) / 1000).toFixed(1)}s` : "";
+    const show = st === "READING" ? "Reading\u2026"
+      : st === "REVEAL" ? ""
+      : `${Math.max(0, (to - now) / 1000).toFixed(1)}s`;
+    secs.textContent = show;
   }
 }
 

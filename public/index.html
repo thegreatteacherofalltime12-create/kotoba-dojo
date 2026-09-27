@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Omni Multiverse of Madness</title>
-<meta name="build" content="2026-09-27 00:18 UTC">
+<meta name="build" content="2026-09-27 14:34 UTC">
 <meta name="description" content="Omni Multiverse of Madness — competitive arena. Belts, MMR, casino floor and live standings.">
 <meta name="theme-color" content="#F4F1EA">
 <meta name="mobile-web-app-capable" content="yes">
@@ -595,6 +595,71 @@ if (location.protocol === "file:") {
       <section class="panel">
         <div class="panel-head"><h2>Field</h2></div>
         <ul id="mine-standings" class="mine-standings"></ul>
+      </section>
+    </aside>
+  </div>
+</section>
+
+<!-- the tank duel -->
+<section id="screen-tanks" class="screen" hidden>
+  <header class="topbar">
+    <button id="btn-tank-leave" class="btn btn-tiny btn-end">End Match</button>
+    <button id="btn-tank-boost" class="btn btn-tiny">&#9889; Apply Token</button>
+    <span class="topbar-spacer"></span>
+    <span class="dojo-code">Field <b id="tank-code"></b></span>
+    <span id="tank-phase" class="topbar-mark"></span>
+  </header>
+
+  <div class="wrap tank-layout">
+    <main class="tank-main">
+      <p id="tank-error" class="notice notice-bad" hidden></p>
+      <div id="tank-strip" class="panel arsenal" hidden></div>
+
+      <section id="tank-host" class="panel host-panel" hidden>
+        <div class="panel-head"><h2>Host controls</h2><span class="host-tag">You call the start</span></div>
+        <div class="pad">
+          <label class="opt-line">Computers
+            <select id="tank-ai">
+              <option value="0">none</option>
+              <option value="1" selected>1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+            </select>
+          </label>
+          <label class="opt-line">Difficulty
+            <select id="tank-level">
+              <option value="easy">Easy</option>
+              <option value="medium" selected>Medium</option>
+              <option value="hard">Hard</option>
+            </select>
+          </label>
+          <button id="btn-tank-start" class="btn btn-primary btn-wide">Begin the duel</button>
+        </div>
+      </section>
+
+      <div class="tank-frame">
+        <div class="tank-head">
+          <span class="tank-lcd">Wind <b id="tank-wind">calm</b></span>
+          <span class="tank-lcd" id="tank-turn">&mdash;</span>
+        </div>
+        <canvas id="tank-canvas" class="tank-canvas"></canvas>
+        <div class="tank-dials">
+          <label>Angle <input id="tank-angle" type="range" min="0" max="180" value="45"><b id="tank-angle-read">45&deg;</b></label>
+          <label>Power <input id="tank-power" type="range" min="1" max="100" value="60"><b id="tank-power-read">60</b></label>
+          <button id="tank-fire" class="btn btn-primary" disabled>Fire</button>
+        </div>
+        <p id="tank-emp" class="panel-sub" hidden>EMP: your aiming line is down. Shoot by feel.</p>
+      </div>
+
+      <div id="tank-results" class="panel pad" hidden></div>
+    </main>
+
+    <aside class="tank-side">
+      <section class="panel">
+        <div class="panel-head"><h2>The field</h2></div>
+        <ul id="tank-field" class="tank-standings"></ul>
       </section>
     </aside>
   </div>

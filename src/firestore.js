@@ -296,7 +296,7 @@ function tokensOf(field) {
 }
 
 export const TOKEN_PRICE = 200;
-export const TOKEN_GAMES = ["crossword", "battleship", "minesweeper", "links", "casino", "prix", "buzzer"];
+export const TOKEN_GAMES = ["crossword", "battleship", "minesweeper", "links", "casino", "prix", "buzzer", "artillery"];
 // The Battleship arsenal sells alongside the boosts, each at its own price.
 export const TOKEN_PRICES = Object.fromEntries([
   ...TOKEN_GAMES.map((g) => [g, TOKEN_PRICE]),
@@ -1167,7 +1167,7 @@ export async function recordMatch(env, match) {
     // "Word-Cross" is how every round of golf read as a crossword.
     const names = {
       crossword: "Word-Cross", battleship: "Battleship", minesweeper: "Minesweeper",
-      links: "Multiverse Golf", casino: "Casino",
+      links: "Multiverse Golf", casino: "Casino", artillery: "Artillery Tank Duel",
     };
     const game = names[match.game] || String(match.game || "a game");
     const ranked = [...match.results].sort((a, b) => (b.score || 0) - (a.score || 0));

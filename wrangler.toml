@@ -102,6 +102,17 @@ class_name = "BuzzerRoom"
 tag = "v10"
 new_sqlite_classes = ["BuzzerRoom"]
 
+# One instance per duel. Holds the battlefield, the wind and every tank —
+# and fires every shell, because a client that reports its own hits always
+# hits. The finished flight path is what reaches the browser.
+[[durable_objects.bindings]]
+name = "TANKS"
+class_name = "TankDuel"
+
+[[migrations]]
+tag = "v11"
+new_sqlite_classes = ["TankDuel"]
+
 
 # Curated puzzle bank. Game content, not user data — the DO reads answers
 # from here at round start.

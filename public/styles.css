@@ -4026,3 +4026,45 @@ a.dtab { text-decoration: none; display: inline-block; }
 @media (prefers-reduced-motion: reduce) {
   .bz-clue-card { transition: none; }
 }
+
+/* ── Artillery Tank Duel ─────────────────────────────────────────────
+   The canvas is the game, so it takes the width it is given and keeps the
+   world's 5:3 shape — a phone and a desktop are looking at the identical
+   battlefield rather than two that happen to look alike. Everything around
+   it is the arena's usual furniture. */
+
+.tank-layout { display: grid; grid-template-columns: minmax(0,1fr) 280px; gap: 1.1rem; align-items: start; padding-top: .8rem; }
+.tank-main { display: grid; gap: 1rem; min-width: 0; }
+.tank-side { position: sticky; top: 1rem; }
+
+.tank-frame { display: grid; gap: .6rem; min-width: 0; }
+.tank-head { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+.tank-lcd {
+  font-family: "Saira Condensed", monospace; font-size: 1.05rem; font-weight: 800;
+  background: #000; color: #f4ce5a; padding: .15rem .7rem; border-radius: 4px;
+  letter-spacing: .06em; font-variant-numeric: tabular-nums;
+}
+.tank-canvas {
+  width: 100%; display: block; border-radius: 10px; background: #0b1220;
+  border: 1px solid var(--line, #2a2f3a); cursor: crosshair; touch-action: manipulation;
+}
+.tank-dials { display: flex; flex-wrap: wrap; gap: .8rem; align-items: center; }
+.tank-dials label { display: flex; align-items: center; gap: .45rem; font-size: .84rem; }
+.tank-dials input[type="range"] { width: clamp(8rem, 22vw, 14rem); }
+.tank-dials b { font-variant-numeric: tabular-nums; min-width: 2.6rem; }
+
+.tank-standings { list-style: none; margin: 0; padding: .7rem .9rem; display: grid; gap: .45rem; }
+.tank-row { display: grid; grid-template-columns: 1fr auto; gap: .2rem .5rem; font-size: .86rem; align-items: center; }
+.tank-row i { grid-column: 1 / -1; font-size: .76rem; color: var(--muted); font-style: normal; }
+.tank-row.up { outline: 1px solid #f4ce5a; outline-offset: 3px; border-radius: 6px; }
+.tank-row.out { opacity: .5; }
+.tank-hp { font-variant-numeric: tabular-nums; }
+.tank-results-list { margin: .4rem 0 0; padding-left: 1.2rem; display: grid; gap: .3rem; }
+.tank-results-list i { font-style: normal; color: var(--muted); }
+.ars-btn.live { box-shadow: 0 0 0 2px rgba(143, 208, 255, .75); }
+.opt-line { display: flex; align-items: center; justify-content: space-between; gap: .6rem; margin-bottom: .6rem; font-size: .9rem; }
+
+@media (max-width: 900px) {
+  .tank-layout { grid-template-columns: 1fr; }
+  .tank-side { position: static; }
+}

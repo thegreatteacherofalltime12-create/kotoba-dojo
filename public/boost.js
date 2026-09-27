@@ -18,6 +18,7 @@ export const TOKEN_ITEMS = [
   { game: "casino", name: "Casino boost", icon: "\u{1F3B0}", where: "the Casino", blurb: "1.5× on every casino win for a day" },
   { game: "prix", name: "Grand Prix boost", icon: "\u{1F3CE}\uFE0F", where: "the Grand Prix", blurb: "1.5× MMR on one Multiverse Grand Prix" },
   { game: "buzzer", name: "Buzzer boost", icon: "🛎️", where: "The Buzzer", blurb: "1.5× MMR on one board of The Buzzer" },
+  { game: "artillery", name: "Artillery boost", icon: "💥", where: "Artillery Tank Duel", blurb: "1.5× MMR on one Artillery Tank Duel" },
 ];
 
 export const tokenItem = (game) => TOKEN_ITEMS.find((t) => t.game === game) || TOKEN_ITEMS[0];
@@ -306,8 +307,65 @@ export const BUZZER_ARSENAL_ITEMS = [
     blurb: "A board you do not see the end of is scored as though you had." },
 ];
 
+/**
+ * The tank arsenal: bought in the shop, armed in the Apply Token tab of a
+ * duel, and then either picked up with a shot or fired on its own.
+ *
+ * Three ways in, and the tab says which is which, because getting it wrong
+ * costs a turn:
+ *
+ *   shot    picked before you fire, and it goes up with the shell
+ *   strike  takes the turn on its own, pointed at a column of the map
+ *   guard   raised while somebody else is shooting, and spent by their blast
+ *   turn    takes your turn and does its work at once
+ *
+ * The room resolves every one of them. Prices and limits mirror
+ * src/arsenals.js; the mechanics are src/artillery.js.
+ */
+export const TANK_ARSENAL_ITEMS = [
+  { key: "at_orbital", name: "Orbital Strike", icon: "🛸", price: 5000, max: 1, act: "strike", aim: "column",
+    blurb: "Takes your turn. Three vertical lasers come down on the column you point at and the two beside it." },
+  { key: "at_teleport", name: "Teleport Evade", icon: "🌀", price: 4500, max: 2, act: "turn",
+    blurb: "Takes your turn. Your tank appears at the safest spot on the map — the one furthest from everybody else." },
+  { key: "at_bubble", name: "Invulnerability Shield", icon: "🛡️", price: 4000, max: 2, act: "guard",
+    blurb: "Raise it any time. The next blast that reaches you does nothing at all, and the shield is gone." },
+  { key: "at_carpet", name: "Carpet Bomb", icon: "✈️", price: 3500, max: 2, act: "strike", aim: "column",
+    blurb: "Takes your turn. Five explosions in a line across the column you point at." },
+  { key: "at_triple", name: "Triple Shot", icon: "🔫", price: 2500, max: 3, act: "shot",
+    blurb: "Three shells instead of one, six degrees apart. All three fly against the ground as it was." },
+  { key: "at_homing", name: "Homing Missile", icon: "🚀", price: 2000, max: 4, act: "shot",
+    blurb: "Turns toward the nearest enemy all the way down — enough to pull a shot that was nearly right onto the tank, nowhere near enough to rescue a bad one. A hill in the way still stops it." },
+  { key: "at_leveler", name: "Terrain Leveler", icon: "🚧", price: 1800, max: 2, act: "strike", aim: "column",
+    blurb: "Takes your turn and hurts nobody: 360 units of map are flattened to their own average height." },
+  { key: "at_vampire", name: "Vampire Shell", icon: "🦸", price: 1500, max: 3, act: "shot",
+    blurb: "Half of everything the shot deals comes back to you as health." },
+  { key: "at_double", name: "Double Damage", icon: "✖️", price: 1200, max: 3, act: "shot",
+    blurb: "Everything the shot deals, doubled — before any shield or armour on the other end." },
+  { key: "at_emp", name: "EMP Blast", icon: "💡", price: 1000, max: 3, act: "turn", aim: "target",
+    blurb: "Takes your turn. One tank loses its aiming line for its next turn and shoots by feel." },
+  { key: "at_nowind", name: "Wind Nullifier", icon: "🌬️", price: 800, max: 1, act: "shot",
+    blurb: "Your shot flies as though the wind were zero, whatever the gauge says." },
+  { key: "at_napalm", name: "Napalm Fire", icon: "🔥", price: 750, max: 4, act: "shot",
+    blurb: "A smaller blast that leaves a pool of fire: 12 a turn for three turns to anyone standing in it." },
+  { key: "at_cluster", name: "Cluster Fragment", icon: "🧨", price: 600, max: 5, act: "shot",
+    blurb: "Comes apart at the top of its arc into three smaller shells that finish the flight." },
+  { key: "at_bouncy", name: "Bouncy Shell", icon: "⛳", price: 500, max: 5, act: "shot",
+    blurb: "Bounces off the ground once — off the slope it landed on — instead of exploding." },
+  { key: "at_repair", name: "Armor Repair", icon: "🔧", price: 450, max: 4, act: "turn",
+    blurb: "Takes your turn. Twenty hit points back, never past a hundred." },
+  { key: "at_tracer", name: "Tracer Round", icon: "📍", price: 400, max: 3, act: "shot",
+    blurb: "Your last shot's exact flight is drawn again while you aim the next one." },
+  { key: "at_chute", name: "Parachute", icon: "🪂", price: 300, max: 1, act: "guard",
+    blurb: "For the whole duel: the ground can go from under you and the fall costs nothing." },
+  { key: "at_armour", name: "Heavy Armor", icon: "🦺", price: 250, max: 4, act: "guard",
+    blurb: "Raise it any time. The next hit lands fifteen per cent lighter, and the plate is spent." },
+  { key: "at_mud", name: "Mud Shell", icon: "🪨", price: 200, max: 5, act: "shot",
+    blurb: "Hurts nobody and raises a mound where it lands, instead of digging a crater." },
+];
+
 export const GAME_ARSENAL_ITEMS = {
   buzzer: BUZZER_ARSENAL_ITEMS,
+  artillery: TANK_ARSENAL_ITEMS,
   prix: PRIX_ARSENAL_ITEMS,
   casino: CASINO_ARSENAL_ITEMS,
   crossword: WORD_ARSENAL_ITEMS, battleship: ARSENAL_ITEMS, minesweeper: MINE_ARSENAL_ITEMS, links: LINKS_ARSENAL_ITEMS };

@@ -13,6 +13,8 @@
  * unriggable from a console, which is worth a great deal more.
  */
 
+import { ARSENALS } from "./arsenals.js";
+
 export const GAME_NAME = "Artillery Tank Duel";
 
 // The world is a fixed size in its own units and the canvas scales to it, so
@@ -33,6 +35,7 @@ export const TANK_R = 11;          // how big a tank is to a shell
 export const START_HP = 100;
 export const BLAST_R = 58;         // a plain shell's crater and kill radius
 export const BLAST_DAMAGE = 46;    // at dead centre
+export const FALL_SAFE = 60;       // a drop shorter than this never hurts
 
 // ── the ground ───────────────────────────────────────────────────────
 
@@ -129,13 +132,18 @@ export function carve(terrain, x, y, radius) {
  * more than any browser needs to draw a smooth arc, and the last point is
  * always the point of impact so the explosion lands where it should.
  */
-export function fire({ from, angle, power, wind, terrain, tanks, shooter, gravity = GRAVITY, bounce = 0 }) {
+export function fire({
+  from, angle, power, wind, terrain, tanks, shooter,
+  gravity = GRAVITY, bounce = 0, vel = null, homing = 0, toward = null, apex = false,
+}) {
   const rad = (Number(angle) || 0) * Math.PI / 180;
   const v = Math.max(1, Math.min(100, Number(power) || 1)) * SPEED_PER_POWER;
   let x = from.x;
   let y = from.y;
-  let vx = Math.cos(rad) * v;
-  let vy = -Math.sin(rad) * v;
+  // A shell handed a velocity was already in the air — a cluster fragment
+  // leaving the shell that carried it — so the angle and power are ignored.
+  let vx = vel ? Number(vel.vx) || 0 : Math.cos(rad) * v;
+  let vy = vel ? Number(vel.vy) || 0 : -Math.sin(rad) * v;
   const ax = (Number(wind) || 0) / 1400;
 
   const path = [[Math.round(x), Math.round(y)]];
@@ -144,10 +152,40 @@ export function fire({ from, angle, power, wind, terrain, tanks, shooter, gravit
   for (let step = 0; step < MAX_STEPS; step++) {
     vx += ax;
     vy += gravity;
+    // A homing shell turns toward its mark: the velocity is rotated a little
+    // way toward the bearing of the target each step, at the same speed. A
+    // sideways shove was the first version of this and it was worse than
+    // nothing — it pushed a shell that was already going to land on somebody
+    // straight past them. Turning converges instead.
+    //
+    // The turn rate is the whole of the balance. It is enough to pull a shot
+    // that was nearly right onto the tank, and nowhere near enough to rescue
+    // a bad one: the mark has to be ahead of the shell, the shell keeps its
+    // speed, and a hill in the way still stops it dead.
+    if (homing && toward) {
+      const dx = toward.x - x, dy = toward.y - y;
+      const want = Math.hypot(dx, dy);
+      const speed = Math.hypot(vx, vy);
+      if (want > 1 && speed > 0.01 && (vx * dx + vy * dy) > 0) {
+        const turn = Math.min(homing, 1);
+        const nx = vx / speed + ((dx / want) - vx / speed) * turn;
+        const ny = vy / speed + ((dy / want) - vy / speed) * turn;
+        const len = Math.hypot(nx, ny) || 1;
+        vx = (nx / len) * speed;
+        vy = (ny / len) * speed;
+      }
+    }
     x += vx;
     y += vy;
 
     if (step % 4 === 0) path.push([Math.round(x), Math.round(y)]);
+
+    // The top of the arc, where a cluster shell stops being one shell. The
+    // velocity goes back with it so the fragments carry on from here.
+    if (apex && vy >= 0 && step > 1) {
+      path.push([Math.round(x), Math.round(y)]);
+      return { path, hit: { kind: "apex", x, y, vx, vy } };
+    }
 
     // Off the side of the world, or so far up it will not be coming back
     // inside the step budget.
@@ -214,13 +252,327 @@ export function blastOn(tanks, at, radius = BLAST_R, top = BLAST_DAMAGE) {
 }
 
 /** A tank stands on the ground under it, and falls when the ground goes. */
-export function settle(terrain, tank) {
+export function settle(terrain, tank, guard = []) {
   const ground = groundAt(terrain, tank.x) - TANK_R;
   const fell = Math.max(0, ground - tank.y);
   tank.y = ground;
   // A long drop hurts, which is what makes digging the ground out from under
   // somebody a real tactic rather than a way of making them comfortable.
-  return fell > 60 ? Math.min(35, Math.round((fell - 60) / 6)) : 0;
+  if ((guard || []).includes("at_chute")) return 0;
+  return fell > FALL_SAFE ? Math.min(35, Math.round((fell - FALL_SAFE) / 6)) : 0;
+}
+
+// ── the arsenal ──────────────────────────────────────────────────────
+
+/**
+ * The tank arsenal, and what each token does to a turn.
+ *
+ * Everything here is arithmetic on the same terms the plain shot uses, for
+ * the same reason the plain shot lives here: a paid weapon the client worked
+ * out for itself is a paid weapon a console can aim for free. So a token
+ * changes the numbers handed to `fire`, or it changes the blasts that come
+ * back, and nothing else.
+ *
+ * Four kinds, and the room only ever needs to know which kind it holds:
+ *
+ *   shell   changes the shot being taken — spread, payload, bounce, damage
+ *   strike  replaces the shot with something called down on a column
+ *   guard   changes what a blast does to the tank holding it
+ *   turn    does something to a tank on its own, without firing
+ */
+export const ARSENAL = ARSENALS.artillery;
+
+export const TOKEN_KIND = {
+  at_triple: "shell", at_homing: "shell", at_cluster: "shell", at_bouncy: "shell",
+  at_napalm: "shell", at_mud: "shell", at_vampire: "shell", at_double: "shell",
+  at_nowind: "shell", at_tracer: "shell",
+  at_orbital: "strike", at_carpet: "strike", at_leveler: "strike",
+  at_bubble: "guard", at_armour: "guard", at_chute: "guard",
+  at_teleport: "turn", at_repair: "turn", at_emp: "turn",
+};
+
+/**
+ * What the shell is, as opposed to what is done to it.
+ *
+ * One of these at a time: a shell cannot be a mud shell and a napalm shell
+ * both, and letting two stack would mean deciding whose crater wins in the
+ * room, at the one moment there is no good answer.
+ */
+export const PAYLOADS = ["at_homing", "at_cluster", "at_napalm", "at_mud"];
+
+export const TRIPLE_SPREAD = 6;    // degrees between the three shells
+export const HOMING_PULL = 0.05;   // how far it turns toward the mark each step
+export const CLUSTER_N = 3;
+export const CLUSTER_SPREAD = 0.85;
+export const CLUSTER_R = 38;
+export const CLUSTER_DAMAGE = 22;
+export const NAPALM_R = 34;
+export const NAPALM_DAMAGE = 20;
+export const BURN_R = 46;          // the pool of fire it leaves
+export const BURN_DAMAGE = 12;     // a turn, to anybody standing in it
+export const BURN_TURNS = 3;
+export const MUD_R = 62;           // the mound it raises, in place of a crater
+export const ORBITAL_LANES = 3;
+export const ORBITAL_GAP = 72;
+export const ORBITAL_R = 44;
+export const ORBITAL_DAMAGE = 38;
+export const CARPET_N = 5;
+export const CARPET_GAP = 62;
+export const CARPET_R = 40;
+export const CARPET_DAMAGE = 30;
+export const LEVEL_R = 180;
+export const DOUBLE_MULT = 2;
+export const VAMPIRE_SHARE = 0.5;
+export const ARMOUR_CUT = 0.15;
+export const REPAIR_SHARE = 0.2;
+
+const holds = (use, key) => (use || []).includes(key);
+
+/** The one payload on a shot, or null for a plain shell. */
+export function payloadOf(use) {
+  return PAYLOADS.find((k) => holds(use, k)) || null;
+}
+
+/** Wind, as this shot will feel it. */
+export function windFor(wind, use) {
+  return holds(use, "at_nowind") ? 0 : (Number(wind) || 0);
+}
+
+/**
+ * The shot a turn actually takes, once the tokens on it are read.
+ *
+ * Returned rather than applied so the room can show it — a player who paid
+ * 2,500 for three shells should be able to see that three are coming.
+ */
+export function shotPlan({ angle, power, use = [] }) {
+  const a = Number(angle) || 0;
+  const payload = payloadOf(use);
+  const shells = holds(use, "at_triple")
+    ? [a - TRIPLE_SPREAD, a, a + TRIPLE_SPREAD]
+    : [a];
+  return {
+    shells: shells.map((deg) => ({ angle: deg, power })),
+    payload,
+    bounce: holds(use, "at_bouncy") ? 1 : 0,
+    homing: payload === "at_homing" ? HOMING_PULL : 0,
+    split: payload === "at_cluster" ? CLUSTER_N : 0,
+    mound: payload === "at_mud",
+    burn: payload === "at_napalm",
+    double: holds(use, "at_double"),
+    vampire: holds(use, "at_vampire"),
+    tracer: holds(use, "at_tracer"),
+    windless: holds(use, "at_nowind"),
+  };
+}
+
+/** The blast one landed shell leaves, by what kind of shell it was. */
+function blastFor(hit, plan, child = false) {
+  if (child) return { x: hit.x, y: hit.y, radius: CLUSTER_R, top: CLUSTER_DAMAGE, kind: "cluster" };
+  if (plan.mound) return { x: hit.x, y: hit.y, radius: MUD_R, top: 0, kind: "mud" };
+  if (plan.burn) return { x: hit.x, y: hit.y, radius: NAPALM_R, top: NAPALM_DAMAGE, kind: "napalm" };
+  return { x: hit.x, y: hit.y, radius: BLAST_R, top: BLAST_DAMAGE, kind: "shell" };
+}
+
+/** Whoever a homing shell leans toward: the nearest tank that is not you. */
+export function nearestTarget(tanks, from, shooter) {
+  let best = null;
+  for (const t of tanks || []) {
+    if (t.dead || t.uid === shooter) continue;
+    const d = Math.hypot(t.x - from.x, t.y - from.y);
+    if (!best || d < best.d) best = { d, x: t.x, y: t.y, uid: t.uid };
+  }
+  return best;
+}
+
+/**
+ * A whole turn's worth of shooting, flown and finished.
+ *
+ * Every shell of it is integrated against the battlefield as it stood when
+ * the turn began — the crater the first shell of a triple shot digs does not
+ * move the second one. That is a simplification, and it is the honest kind:
+ * all three were in the air together.
+ *
+ * `aim` is where a strike is called down, which is the only thing in the
+ * arsenal pointed at a place rather than fired from a barrel.
+ */
+export function salvo({ from, angle, power, wind, terrain, tanks, shooter, use = [], aim = null }) {
+  const plan = shotPlan({ angle, power, use });
+  const w = windFor(wind, use);
+  const flights = [];
+  const blasts = [];
+  const fires = [];
+
+  // A strike is not a shot: it is called down on a column and the barrel
+  // never moves. It takes the turn all the same.
+  if (holds(use, "at_leveler")) {
+    const x = Math.max(0, Math.min(WORLD_W - 1, Math.round(aim?.x ?? from.x)));
+    return { plan, wind: w, flights, blasts, fires, level: { x, radius: LEVEL_R } };
+  }
+  if (holds(use, "at_orbital") || holds(use, "at_carpet")) {
+    const orbital = holds(use, "at_orbital");
+    const n = orbital ? ORBITAL_LANES : CARPET_N;
+    const gap = orbital ? ORBITAL_GAP : CARPET_GAP;
+    const x0 = Math.round(aim?.x ?? from.x);
+    for (let i = 0; i < n; i++) {
+      const x = Math.round(x0 + (i - (n - 1) / 2) * gap);
+      if (x < 0 || x > WORLD_W - 1) continue;
+      const y = groundAt(terrain, x);
+      blasts.push({
+        x, y,
+        radius: orbital ? ORBITAL_R : CARPET_R,
+        top: orbital ? ORBITAL_DAMAGE : CARPET_DAMAGE,
+        kind: orbital ? "orbital" : "carpet",
+      });
+      // Handed over as a flight so the client has one thing to animate either
+      // way: straight down out of the sky, which is what it looks like.
+      flights.push({
+        path: [[x, -20], [x, Math.round(y)]],
+        hit: { kind: "ground", x, y },
+      });
+    }
+    return { plan, wind: w, flights, blasts, fires };
+  }
+
+  const mark = nearestTarget(tanks, from, shooter);
+
+  for (const shell of plan.shells) {
+    const shot = fire({
+      from, angle: shell.angle, power: shell.power, wind: w, terrain, tanks, shooter,
+      bounce: plan.bounce,
+      homing: plan.homing && mark ? plan.homing : 0,
+      toward: mark,
+      apex: plan.split > 0,
+    });
+    flights.push({ path: shot.path, hit: shot.hit });
+
+    // A cluster shell never lands: it comes apart at the top of its arc and
+    // three smaller ones finish the flight.
+    if (plan.split && shot.hit.kind === "apex") {
+      for (let i = 0; i < plan.split; i++) {
+        const spread = (i - (plan.split - 1) / 2) * CLUSTER_SPREAD;
+        const child = fire({
+          from: { x: shot.hit.x, y: shot.hit.y },
+          vel: { vx: shot.hit.vx + spread, vy: shot.hit.vy },
+          wind: w, terrain, tanks, shooter,
+        });
+        flights.push({ path: child.path, hit: child.hit, child: true });
+        if (child.hit.kind !== "away") blasts.push(blastFor(child.hit, plan, true));
+      }
+      continue;
+    }
+    if (shot.hit.kind === "away") continue;
+    blasts.push(blastFor(shot.hit, plan));
+    if (plan.burn) fires.push({ x: Math.round(shot.hit.x), radius: BURN_R, turns: BURN_TURNS });
+  }
+
+  return { plan, wind: w, flights, blasts, fires };
+}
+
+/** A mud shell's mound: ground raised rather than taken away. */
+export function mound(terrain, x, radius = MUD_R) {
+  const from = Math.max(0, Math.round(x - radius));
+  const to = Math.min(WORLD_W - 1, Math.round(x + radius));
+  for (let i = from; i <= to; i++) {
+    const dx = i - x;
+    const lift = Math.sqrt(Math.max(0, radius * radius - dx * dx)) * 0.55;
+    terrain[i] = Math.max(WORLD_H * 0.16, terrain[i] - lift);
+  }
+}
+
+/**
+ * A terrain leveler: everything inside the radius pulled toward the average
+ * height of it, with the rim eased so the new flat does not meet the old hill
+ * in a cliff no shell can be fired over.
+ */
+export function levelGround(terrain, x, radius = LEVEL_R) {
+  const from = Math.max(0, Math.round(x - radius));
+  const to = Math.min(WORLD_W - 1, Math.round(x + radius));
+  let sum = 0;
+  for (let i = from; i <= to; i++) sum += terrain[i];
+  const flat = sum / (to - from + 1);
+  for (let i = from; i <= to; i++) {
+    // 1 in the middle, 0 at the rim: the flat wins where it was aimed and the
+    // hill keeps its shape where it was not.
+    const ease = Math.max(0, Math.min(1, (1 - Math.abs(i - x) / radius) * 1.4));
+    terrain[i] = terrain[i] + (flat - terrain[i]) * ease;
+  }
+  return Math.round(flat);
+}
+
+/** What the shooter's own tokens do to the damage a blast deals. */
+export function dealt(raw, use) {
+  return holds(use, "at_double") ? Math.round(raw * DOUBLE_MULT) : raw;
+}
+
+/**
+ * What the tank being hit makes of it. A shield eats the shot whole; heavy
+ * armour takes a seventh off. Both are spent by taking the hit, which is why
+ * this says whether it was used rather than doing it quietly.
+ */
+export function taken(raw, guard = []) {
+  if (raw <= 0) return { damage: 0, blocked: false, armoured: false };
+  if (holds(guard, "at_bubble")) return { damage: 0, blocked: true, armoured: false };
+  if (holds(guard, "at_armour"))
+    return { damage: Math.max(0, Math.round(raw * (1 - ARMOUR_CUT))), blocked: false, armoured: true };
+  return { damage: raw, blocked: false, armoured: false };
+}
+
+/** What a vampire shell gives back to whoever fired it. */
+export function drained(total, use) {
+  return holds(use, "at_vampire") ? Math.round(Math.max(0, total) * VAMPIRE_SHARE) : 0;
+}
+
+/** Armor Repair, as a number of hit points rather than a promise. */
+export function repaired(tank, max = START_HP) {
+  const want = Math.round(max * REPAIR_SHARE);
+  return Math.max(0, Math.min(want, max - (tank.hp || 0)));
+}
+
+/**
+ * Fire left on the field, and what it does to whoever stands in it.
+ *
+ * Burns tick at the end of the turn, so a tank that drives — teleports — out
+ * of a pool of fire is out of it, and one that sits in it pays for sitting. A
+ * parachute is no help here; only a shield is.
+ */
+export function burnTick(tanks, fires, guardOf = () => []) {
+  const hits = [];
+  for (const f of fires || []) {
+    for (const t of tanks) {
+      if (t.dead) continue;
+      if (Math.abs(t.x - f.x) > f.radius) continue;
+      const { damage, blocked } = taken(BURN_DAMAGE, guardOf(t.uid));
+      if (damage > 0) hits.push({ uid: t.uid, damage, from: "burn" });
+      else if (blocked) hits.push({ uid: t.uid, damage: 0, from: "burn", blocked: true });
+    }
+  }
+  const left = (fires || [])
+    .map((f) => ({ ...f, turns: f.turns - 1 }))
+    .filter((f) => f.turns > 0);
+  return { hits, fires: left };
+}
+
+/**
+ * Somewhere else to be.
+ *
+ * A teleport is only worth 4,500 if it is actually safe, so it looks for the
+ * spot furthest from everybody else rather than any spot at all — out of a
+ * crossfire, not into a different one.
+ */
+export function teleportTo(terrain, tanks, tank, rnd = Math.random) {
+  const margin = 60;
+  const others = (tanks || []).filter((t) => !t.dead && t.uid !== tank.uid);
+  let best = null;
+  for (let i = 0; i < 24; i++) {
+    const x = Math.round(margin + rnd() * (WORLD_W - margin * 2));
+    const near = others.length ? Math.min(...others.map((t) => Math.abs(t.x - x))) : WORLD_W;
+    // A slope you cannot sit on is not a safe place to arrive.
+    const slope = Math.abs(groundAt(terrain, x + 4) - groundAt(terrain, x - 4));
+    const worth = near - slope * 6;
+    if (!best || worth > best.worth) best = { x, worth };
+  }
+  const x = best ? best.x : Math.round(WORLD_W / 2);
+  return { x, y: groundAt(terrain, x) - TANK_R };
 }
 
 // ── the commanders ───────────────────────────────────────────────────

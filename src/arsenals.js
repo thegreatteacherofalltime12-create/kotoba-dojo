@@ -139,6 +139,33 @@ export const ARSENALS = {
     bz_polish:  { name: "Podium Polish",  price: 2_510, max: 2, icon: "🏆" },
     bz_points:  { name: "Points Finish",  price: 3_010, max: 1, icon: "🏁" },
   },
+  // The tank arsenal. Unlike the race and the Buzzer, this is a shooting
+  // game and its tokens may be aimed at another player: a duel is already a
+  // thing you do to somebody. What it may not do is hide anything — every
+  // shell a token fires is integrated by the room and the whole flight is
+  // sent to everybody, so a paid weapon is a louder shot and never a secret
+  // one. Mechanics live in src/artillery.js; the room applies them.
+  artillery: {
+    at_orbital:  { name: "Orbital Strike",        price: 5_000, max: 1, icon: "🛸" },
+    at_teleport: { name: "Teleport Evade",        price: 4_500, max: 2, icon: "🌀" },
+    at_bubble:   { name: "Invulnerability Shield", price: 4_000, max: 2, icon: "🛡️" },
+    at_carpet:   { name: "Carpet Bomb",           price: 3_500, max: 2, icon: "✈️" },
+    at_triple:   { name: "Triple Shot",           price: 2_500, max: 3, icon: "🔫" },
+    at_homing:   { name: "Homing Missile",        price: 2_000, max: 4, icon: "🚀" },
+    at_leveler:  { name: "Terrain Leveler",       price: 1_800, max: 2, icon: "🚧" },
+    at_vampire:  { name: "Vampire Shell",         price: 1_500, max: 3, icon: "🦸" },
+    at_double:   { name: "Double Damage",         price: 1_200, max: 3, icon: "✖️" },
+    at_emp:      { name: "EMP Blast",             price: 1_000, max: 3, icon: "💡" },
+    at_nowind:   { name: "Wind Nullifier",        price: 800,   max: 1, icon: "🌬️" },
+    at_napalm:   { name: "Napalm Fire",           price: 750,   max: 4, icon: "🔥" },
+    at_cluster:  { name: "Cluster Fragment",      price: 600,   max: 5, icon: "🧨" },
+    at_bouncy:   { name: "Bouncy Shell",          price: 500,   max: 5, icon: "⛳" },
+    at_repair:   { name: "Armor Repair",          price: 450,   max: 4, icon: "🔧" },
+    at_tracer:   { name: "Tracer Round",          price: 400,   max: 3, icon: "📍" },
+    at_chute:    { name: "Parachute",             price: 300,   max: 1, icon: "🪂" },
+    at_armour:   { name: "Heavy Armor",           price: 250,   max: 4, icon: "🦺" },
+    at_mud:      { name: "Mud Shell",             price: 200,   max: 5, icon: "🪨" },
+  },
 };
 
 /** Every token key to its spec, across the games. */

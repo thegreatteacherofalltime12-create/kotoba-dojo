@@ -8,7 +8,11 @@ import {
   makeTerrain, startPositions, groundAt, carve, settle, fire, splash, blastOn,
   aiAim, aiLevelById, duelScore, standings, rngFrom,
   AVATARS, avatarById, freeAvatar, AI_LEVELS, AI_MAX,
-  WORLD_W, WORLD_H, TANK_R, BLAST_R, SPEED_PER_POWER,
+  WORLD_W, WORLD_H, TANK_R, BLAST_R, BLAST_DAMAGE, START_HP, SPEED_PER_POWER,
+  ARSENAL, TOKEN_KIND, PAYLOADS, payloadOf, windFor, shotPlan, salvo, nearestTarget,
+  mound, levelGround, dealt, taken, drained, repaired, burnTick, teleportTo,
+  TRIPLE_SPREAD, HOMING_PULL, CLUSTER_N, BURN_R, BURN_DAMAGE, BURN_TURNS,
+  MUD_R, ORBITAL_LANES, CARPET_N, CARPET_GAP, LEVEL_R,
 } from "../src/artillery.js";
 
 let bad = 0;
@@ -212,6 +216,190 @@ console.log("\nthe difficulty levels");
   ok("and pays more for it",
     aiLevelById("hard").pay > aiLevelById("easy").pay);
   ok("an unknown level is the easy one, not a crash", aiLevelById("nope").id === "easy");
+}
+
+console.log("\nwhat a token does to a shot");
+{
+  const plain = shotPlan({ angle: 50, power: 70, use: [] });
+  ok("a plain shot is one shell", plain.shells.length === 1 && !plain.payload);
+  const tri = shotPlan({ angle: 50, power: 70, use: ["at_triple"] });
+  ok("a triple shot is three, spread either side of the aim",
+    tri.shells.length === 3 && tri.shells[0].angle === 50 - TRIPLE_SPREAD && tri.shells[2].angle === 50 + TRIPLE_SPREAD);
+  ok("and all three at the power that was dialled", tri.shells.every((s) => s.power === 70));
+  ok("two payloads on one shell is one payload", payloadOf(["at_mud", "at_napalm"]) === "at_napalm");
+  ok("and a shell with none has none", payloadOf(["at_triple", "at_double"]) === null);
+  ok("a wind nullifier is a wind of zero", windFor(37, ["at_nowind"]) === 0 && windFor(37, []) === 37);
+  ok("a bouncy shell is allowed exactly one bounce",
+    shotPlan({ angle: 50, power: 70, use: ["at_bouncy"] }).bounce === 1);
+}
+
+console.log("\nthe shells the arsenal sells");
+{
+  const { terrain, tanks } = field(2024);
+  const from = { x: tanks[0].x, y: tanks[0].y - 6 };
+  const shoot = (use, aim) => salvo({ from, angle: 45, power: 72, wind: 12, terrain, tanks, shooter: "t0", use, aim });
+
+  const one = shoot([]);
+  ok("a plain shell is one flight and one crater", one.flights.length === 1 && one.blasts.length === 1);
+
+  const three = shoot(["at_triple"]);
+  ok("a triple shot flies three", three.flights.length === 3);
+
+  const cluster = shoot(["at_cluster"]);
+  ok("a cluster shell comes apart at the apex, into three",
+    cluster.flights.filter((f) => f.child).length === CLUSTER_N);
+  ok("and the shell that carried them never explodes itself",
+    cluster.blasts.every((b) => b.kind === "cluster"));
+  ok("each fragment hits softer than a whole shell",
+    cluster.blasts.every((b) => b.top < BLAST_DAMAGE && b.radius < BLAST_R));
+
+  const napalm = shoot(["at_napalm"]);
+  ok("napalm leaves fire behind it", napalm.fires.length === 1 && napalm.fires[0].turns === BURN_TURNS);
+
+  const mud = shoot(["at_mud"]);
+  ok("a mud shell hurts nobody", mud.blasts.every((b) => b.top === 0 && b.kind === "mud"));
+
+  const orbital = shoot(["at_orbital"], { x: tanks[1].x });
+  ok("an orbital strike is three columns where it was pointed",
+    orbital.blasts.length === ORBITAL_LANES && orbital.blasts.some((b) => Math.abs(b.x - tanks[1].x) < 2));
+  ok("and each one comes down out of the sky", orbital.flights.every((f) => f.path[0][1] < 0));
+
+  const carpet = shoot(["at_carpet"], { x: 500 });
+  ok("a carpet bomb is five, in a line", carpet.blasts.length === CARPET_N);
+  ok("spread across the map rather than stacked",
+    Math.abs(carpet.blasts[4].x - carpet.blasts[0].x) === CARPET_GAP * 4);
+
+  const leveler = shoot(["at_leveler"], { x: 500 });
+  ok("a leveler fires nothing and hurts nobody",
+    !leveler.flights.length && !leveler.blasts.length && leveler.level.x === 500);
+
+  // A shell fired at a tank stops in it rather than passing through, with or
+  // without a token on it — the token changes the numbers, never the rules.
+  ok("every shell of every kind ends somewhere",
+    [one, three, cluster, napalm, mud].every((s) => s.flights.every((f) => f.hit?.kind)));
+}
+
+console.log("\na homing shell turns, and does not always arrive");
+{
+  // Counted in hits rather than in average miss distance, because the average
+  // is the wrong measure here: a turning shell that cannot reach its mark digs
+  // itself in somewhere further away than a plain one would have, which makes
+  // the average worse while the thing anybody cares about gets better.
+  let plainHits = 0, homedHits = 0, shots = 0;
+  for (const seed of [77, 2024, 31, 555, 4321]) {
+    const { terrain, tanks } = field(seed);
+    const from = { x: tanks[0].x, y: tanks[0].y - 6 };
+    const mark = nearestTarget(tanks, from, "t0");
+    if (seed === 77) ok("the mark is the other tank, not itself", mark.uid === "t1");
+    for (let a = 24; a <= 78; a += 3) {
+      for (let p = 24; p <= 100; p += 4) {
+        const near = (shot) => Math.hypot(shot.hit.x - mark.x, shot.hit.y - mark.y);
+        if (near(fire({ from, angle: a, power: p, wind: 0, terrain, tanks, shooter: "t0" })) < BLAST_R) plainHits++;
+        if (near(fire({ from, angle: a, power: p, wind: 0, terrain, tanks, shooter: "t0", homing: HOMING_PULL, toward: mark })) < BLAST_R) homedHits++;
+        shots++;
+      }
+    }
+  }
+  ok(`it lands in blast range far more often (${plainHits} -> ${homedHits} of ${shots})`,
+    homedHits > plainHits * 1.5);
+  ok("and still misses most of a wild spread of aims, which is the point",
+    homedHits < shots / 2);
+}
+
+console.log("\nthe ground a token moves");
+{
+  const terrain = makeTerrain(555);
+  const before = [...terrain];
+  const flat = levelGround(terrain, 500);
+  const spread = (g) => Math.max(...g.slice(440, 560)) - Math.min(...g.slice(440, 560));
+  ok(`a leveler flattens what it covers (${spread(before).toFixed(0)} -> ${spread(terrain).toFixed(0)})`,
+    spread(terrain) < spread(before));
+  ok("to about the average height it found there", Math.abs(flat - terrain[500]) < 6);
+  let cliff = 0;
+  for (let i = 1; i < terrain.length; i++) cliff = Math.max(cliff, Math.abs(terrain[i] - terrain[i - 1]));
+  ok(`and leaves no cliff at the rim (${cliff.toFixed(1)} units)`, cliff < 6);
+  ok("nothing outside the radius is touched",
+    terrain.every((h, i) => Math.abs(i - 500) > LEVEL_R ? h === before[i] : true));
+
+  const m = makeTerrain(555);
+  mound(m, 300);
+  ok("a mud shell raises the ground where it landed", m[300] < before[300]);
+  ok("and only around where it landed",
+    m.every((h, i) => Math.abs(i - 300) > MUD_R ? h === before[i] : true));
+  ok("but never up into the sky", m.every((h) => h > 0));
+}
+
+console.log("\nwhat a hit becomes");
+{
+  ok("double damage doubles it", dealt(23, ["at_double"]) === 46);
+  ok("and nothing else does", dealt(23, ["at_triple"]) === 23);
+  ok("a shield eats it whole", taken(46, ["at_bubble"]).damage === 0 && taken(46, ["at_bubble"]).blocked);
+  ok("heavy armour takes fifteen per cent off", taken(100, ["at_armour"]).damage === 85);
+  ok("a shield beats armour when both are up", taken(100, ["at_armour", "at_bubble"]).damage === 0);
+  ok("and a tank with neither takes what it was sent", taken(46, []).damage === 46);
+  ok("a vampire shell gives back half of what it dealt", drained(37, ["at_vampire"]) === 19);
+  ok("and a plain one gives back nothing", drained(37, []) === 0);
+  ok("a repair is a fifth of full health", repaired({ hp: 40 }) === 20);
+  ok("never more than the damage there is to repair", repaired({ hp: 95 }) === 5);
+  ok("and never on a tank that has taken none", repaired({ hp: START_HP }) === 0);
+}
+
+console.log("\nfire on the field");
+{
+  const { terrain, tanks } = field(31);
+  const pool = [{ x: tanks[1].x, radius: BURN_R, turns: 3 }];
+  const first = burnTick(tanks, pool);
+  ok("it burns whoever is standing in it", first.hits.some((h) => h.uid === "t1" && h.damage === BURN_DAMAGE));
+  ok("and nobody who is not", !first.hits.some((h) => h.uid === "t0"));
+  ok("and it is a turn shorter afterwards", first.fires[0].turns === 2);
+  const shielded = burnTick(tanks, pool, (uid) => (uid === "t1" ? ["at_bubble"] : []));
+  ok("a shield keeps the fire off", shielded.hits.every((h) => h.damage === 0));
+  let left = [{ x: tanks[1].x, radius: BURN_R, turns: 1 }];
+  ok("and fire burns out rather than forever", burnTick(tanks, left).fires.length === 0);
+}
+
+console.log("\nfalling, with and without a parachute");
+{
+  const terrain = makeTerrain(808);
+  const tank = { uid: "t", x: 400, y: groundAt(terrain, 400) - TANK_R };
+  const dug = [...terrain];
+  for (let i = 340; i < 460; i++) dug[i] += 150;
+  const bare = { ...tank };
+  const hurt = settle(dug, bare);
+  ok(`a long drop hurts (${hurt})`, hurt > 0);
+  const chuted = { ...tank };
+  ok("a parachute takes all of it", settle(dug, chuted, ["at_chute"]) === 0);
+  ok("and both tanks still land on the ground",
+    Math.abs(bare.y - chuted.y) < 0.001 && Math.abs(bare.y - (groundAt(dug, 400) - TANK_R)) < 0.001);
+  const nudged = { ...tank };
+  ok("a short drop hurts nobody, parachute or not", settle(terrain, nudged) === 0);
+}
+
+console.log("\nsomewhere else to be");
+{
+  const { terrain, tanks } = field(4321, 3);
+  const seq = rngFrom(9);
+  const to = teleportTo(terrain, tanks, tanks[0], seq);
+  ok("it lands on the map", to.x > 0 && to.x < WORLD_W);
+  ok("and standing on the ground", Math.abs(to.y - (groundAt(terrain, to.x) - TANK_R)) < 0.001);
+  const near = (x) => Math.min(...tanks.slice(1).map((t) => Math.abs(t.x - x)));
+  ok(`out of the crossfire rather than into it (${Math.round(near(to.x))} units clear)`,
+    near(to.x) > BLAST_R);
+}
+
+console.log("\nthe shop and the mechanics agree");
+{
+  const keys = Object.keys(ARSENAL);
+  ok("nineteen tokens in the arsenal", keys.length === 19);
+  ok("every one of them has a kind the room can act on",
+    keys.every((k) => ["shell", "strike", "guard", "turn"].includes(TOKEN_KIND[k])));
+  ok("and nothing has a kind that is not in the shop",
+    Object.keys(TOKEN_KIND).every((k) => ARSENAL[k]));
+  ok("every payload is a shell", PAYLOADS.every((k) => TOKEN_KIND[k] === "shell"));
+  ok("every one of them costs something, and caps per duel",
+    keys.every((k) => ARSENAL[k].price > 0 && ARSENAL[k].max >= 1));
+  ok("the dearest is the orbital strike, capped at one",
+    keys.every((k) => ARSENAL[k].price <= ARSENAL.at_orbital.price) && ARSENAL.at_orbital.max === 1);
 }
 
 console.log(bad ? `\n${bad} failing\n` : "\nall artillery checks passed\n");

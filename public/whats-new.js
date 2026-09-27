@@ -17,6 +17,19 @@ export const KEEP_DAYS = 7;
 
 export const UPDATES = [
   {
+    at: "2026-09-27T12:00:00Z",
+    where: "Artillery Tank Duel",
+    title: "An eighth game: Artillery Tank Duel",
+    text: "Angle, power, wind, fire \u2014 turn by turn until one tank is left standing. The ground is "
+      + "part of the game: every shell digs a crater, so the hill you were hiding behind is a hole by "
+      + "the third turn, and a long drop costs you health when it goes from under you. The room flies "
+      + "every shell and sends you the finished path, so nobody can hit you from a browser console. "
+      + "Nineteen tokens in the arsenal, from a $200 mud shell that builds cover instead of destroying "
+      + "it to a $5,000 orbital strike; shields and heavy armour are raised while somebody else is "
+      + "shooting, and a parachute lasts the whole duel. Solo against up to five computer gunners at "
+      + "three levels, and it scores and pays exactly as a duel against people does.",
+  },
+  {
     at: "2026-09-26T23:30:00Z",
     where: "The Buzzer",
     title: "A seventh game: The Buzzer",

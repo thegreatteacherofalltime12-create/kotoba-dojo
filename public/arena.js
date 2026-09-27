@@ -101,6 +101,15 @@ export const GAME_MODES = [
     available: true,
   },
   {
+    id: "tank-duel",
+    name: "Artillery Tank Duel",
+    players: "1 or more",
+    blurb: "Angle, power, wind. Turn by turn until one tank is left standing — and the ground goes with every shell, so the hill you hid behind is a hole by the third turn. Nineteen tokens in the arsenal, from a mud shell to an orbital strike.",
+    kind: "match",
+    game: "artillery",
+    available: true,
+  },
+  {
     id: "gauntlet",
     name: "Gauntlet",
     players: "1 player",

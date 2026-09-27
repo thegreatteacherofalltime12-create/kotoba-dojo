@@ -18,6 +18,7 @@ import {
 } from "./cosmetics.js";
 import { enterBattle, closeBattle, bindBattleControls } from "./battle.js";
 import { enterMines, closeMines, bindMineControls } from "./mines.js";
+import { enterTanks, closeTanks, bindTankControls } from "./tank.js";
 import { enterPrix, closePrix } from "./prix.js";
 import { enterBuzzer, closeBuzzer } from "./buzzer.js";
 import { THEMES, applyTheme, savedTheme, themeById, THEME_EPOCH, DEFAULT_THEME, isStale } from "./theme.js";
@@ -158,7 +159,7 @@ const S = {
 // ───────────────────────────────────────────────────────────── screens
 
 function show(name) {
-  for (const s of ["gate", "home", "forge", "dojo", "battle", "mines", "casino", "prix", "buzzer"]) $(`screen-${s}`).hidden = s !== name;
+  for (const s of ["gate", "home", "forge", "dojo", "battle", "mines", "casino", "prix", "buzzer", "tanks"]) $(`screen-${s}`).hidden = s !== name;
   // The doorway belongs to the sign-in page; everything past it is the forest.
   document.body.classList.toggle("at-gate", name === "gate");
   if (typeof watchDojos === "function" && name !== "home") watchDojos(false);
@@ -2082,6 +2083,21 @@ const GAME_RULES = [
     ],
   },
   {
+    id: "artillery", icon: "\u{1F4A5}", name: "Artillery Tank Duel", players: "1 or more", solo: "\u2713 PLAY ALONE",
+    play: [
+      "<b>Yes, you can play this alone.</b> Take on up to five computer gunners at Easy, Medium or Hard. It scores and pays exactly as a duel against people does.",
+      "Turn by turn. You are given the <b>wind</b>, you set an <b>angle</b> and a <b>power</b>, and you fire. The room flies the shell and sends everybody the finished path \u2014 so what you watch has already happened, and nobody can hit you from a browser console.",
+      "<b>The ground is part of the game.</b> Every shell digs a crater, so the hill you were hiding behind is a hole by the third turn \u2014 and when the ground goes from under a tank, the fall hurts it.",
+      "A direct hit is worst; a near miss still hurts, less the further out it lands. Last tank standing wins, and two tanks killed by the same blast is a draw.",
+      "The <b>arsenal</b> \u2014 nineteen tokens, from a $200 mud shell that builds cover to a $5,000 orbital strike \u2014 is armed under \u26A1 Apply Token and fired from the strip above the field. Shells and strikes go up with a shot; a shield or a plate of heavy armour is raised while somebody else is shooting; a parachute lasts the whole duel.",
+    ],
+    score: [
+      "Where you finished carries most of it, on the same hundred-point scale as every other game here: last tank standing scores highest, and being knocked out first scores least.",
+      "Accuracy is worth up to 14 and damage dealt up to 6, so shooting well improves a loss without ever carrying one.",
+      "Beating computer gunners counts, and the harder they are the more the field is worth.",
+    ],
+  },
+  {
     id: "casino", icon: "\u{1F3B0}", name: "The Casino", players: "the whole arena \u00b7 one floor", solo: "\u2713 PLAY ALONE",
     play: [
       "<b>Yes, you can play this alone.</b> The floor is shared, but nothing on it needs anyone else \u2014 the arcade, the horse race and every table can be played on your own, for the same MMR.",
@@ -3285,6 +3301,7 @@ const ROOMS = {
   minesweeper: (code, back) => { show("mines"); enterMines(code, idToken, back); },
   prix: (code, back) => { show("prix"); enterPrix(code, idToken, back); },
   buzzer: (code, back) => { show("buzzer"); enterBuzzer(code, idToken, back); },
+  artillery: (code, back) => { show("tanks"); enterTanks(code, idToken, back); },
   // Multiverse Golf runs on its own page: a full-screen course doesn't fit
   // inside a panel, and the round is long enough to want the whole window.
   // A room being created lands on the lobby with its code, to choose a course
@@ -3326,7 +3343,7 @@ async function joinByCode(code) {
  * Casino is solo and has no room to return to, and golf runs on its own
  * page and keeps its own hash, so neither is written here.
  */
-const REJOINABLE = new Set(["crossword", "battleship", "minesweeper", "prix", "buzzer"]);
+const REJOINABLE = new Set(["crossword", "battleship", "minesweeper", "prix", "buzzer", "artillery"]);
 
 function rememberRoom(game, code) {
   if (!REJOINABLE.has(game) || !code) return;
@@ -4468,6 +4485,7 @@ window.__bountyCard = bountyCard;
 
 bindBattleControls();
 bindMineControls();
+bindTankControls();
 bindCasino();
 
 // ── knowing when the arena has been rebuilt ─────────────────────────

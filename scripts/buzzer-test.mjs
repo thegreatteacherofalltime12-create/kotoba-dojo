@@ -575,6 +575,33 @@ console.log("\nhow quick the computers are");
     five > one * 0.6);
 }
 
+console.log("\nbuzzing before the room has noticed");
+{
+  // The room only wakes when something happens. A person whose reading clock
+  // has run out must be able to buzz anyway, because the browser opens the
+  // buzzers on its own clock and nothing will have told the room yet.
+  const { room, seats, say } = await roomOf(["a", "Ana"], ["b", "Bo"]);
+  await boardOf(room, say, "a");
+  await say("a", { type: "BZ_PICK", col: 0, row: 0 });
+  ok("the clue goes up as a reading", room.g.cell.stage === "READING");
+
+  // The reading ends. Nobody has touched the room, so it still says READING.
+  room.g.cell.openAt = Date.now() - 700;
+  ok("and the room has not noticed on its own", room.g.cell.stage === "READING");
+
+  await say("b", { type: "BZ_BUZZ", at: room.g.cell.openAt + 400 });
+  ok("a buzz is taken all the same", room.g.cell.buzzes.length === 1);
+  ok("and the room catches up as it does", room.g.cell.stage === "WINDOW");
+  ok("no refusal was sent", !seats.b.last("BZ_ERROR"));
+
+  // And one that really is early is still refused.
+  const { room: r2, seats: s2, say: y2 } = await roomOf(["a", "Ana"]);
+  await boardOf(r2, y2, "a");
+  await y2("a", { type: "BZ_PICK", col: 0, row: 0 });
+  await y2("a", { type: "BZ_BUZZ", at: Date.now() });
+  ok("buzzing during a real reading is still refused", /weren.t open/.test(s2.a.last("BZ_ERROR").message));
+}
+
 function avg(xs) { return xs.reduce((s, x) => s + x, 0) / Math.max(1, xs.length); }
 
 console.log(bad ? `\n${bad} failing\n` : "\nall buzzer checks passed\n");

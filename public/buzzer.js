@@ -317,29 +317,23 @@ function drawBoard(g) {
   $("bz-clue-head").textContent = `${g.cats[c.col].name} · ${money(c.value)}`;
   $("bz-clue").textContent = c.q;
 
-  const mine = c.holder === B.you;
-  const out = c.wrongUids.includes(B.you);
-  const open = c.stage === "OPEN" || c.stage === "WINDOW";
-
-  // The state changes, not only the light — a buzzer that opens by animating
-  // alone says nothing at all to somebody who cannot see it move.
-  const bar = $("bz-buzzer");
-  bar.hidden = c.stage === "REVEAL" || mine;
-  bar.disabled = !open || out;
-  bar.className = `btn bz-buzzer${open && !out ? " live" : ""}`;
-  bar.textContent = out ? "You've had your go"
-    : c.stage === "READING" ? "Wait…"
-    : open ? "BUZZ"
-    : c.holder ? `${nameOf(g, c.holder)} has it` : "…";
-
-  if (c.stage !== lastStage) {
-    if (c.stage === "OPEN" && lastStage === "READING") playCue("open");
-    lastStage = c.stage;
+  // A new cell wipes whatever the last one left behind. Without this the
+  // previous clue's answer sits under the new clue, which at best is untidy
+  // and at worst reads as the answer to the one on screen.
+  const key = `${c.col},${c.row},${c.shownAt}`;
+  if (key !== B.cellKey) {
+    B.cellKey = key;
+    B.options = null;
+    B.peek = null;
+    $("bz-flash").textContent = "";
+    $("bz-flash").className = "bz-flash";
+    lastStage = null;
   }
   if (c.answer) {
     $("bz-flash").textContent = c.answer;
     $("bz-flash").className = "bz-flash";
   }
+  paintBuzzer(g, c);
   drawOptions();
 }
 
@@ -478,6 +472,44 @@ function drawOptions() {
 }
 
 /**
+ * The buzzer, decided here rather than waited for.
+ *
+ * Whether the buzzers are open is a fact about a timestamp the browser
+ * already holds, so it is worked out locally every tenth of a second. The
+ * room is still the judge — it clamps the stamp and settles the window — but
+ * it no longer has to wake up and say "you may press now", which it had no
+ * reason to do and frequently did not.
+ */
+function paintBuzzer(g, c) {
+  const bar = $("bz-buzzer");
+  if (!bar || !c) return;
+  const mine = c.holder === B.you;
+  const out = c.wrongUids.includes(B.you);
+  const me = g.players.find((p) => p.uid === B.you);
+  const watching = !me || me.watching;
+
+  const past = serverNow() >= (c.openAt || Infinity);
+  const contested = c.stage === "OPEN" || c.stage === "WINDOW";
+  const shut = c.stage === "ANSWERING" || c.stage === "REVEAL" || c.stage === "WAGER";
+  const open = !shut && (contested || past);
+
+  bar.hidden = c.stage === "REVEAL" || c.stage === "WAGER" || mine || watching;
+  bar.disabled = !open || out;
+  bar.className = `btn bz-buzzer${open && !out ? " live" : ""}`;
+  bar.textContent = out ? "You've had your go"
+    : !open && !shut ? "Wait…"
+    : open ? "BUZZ"
+    : c.holder ? `${nameOf(g, c.holder)} has it` : "…";
+
+  // The two-note rise, once, at the moment they open.
+  const now = open ? "open" : c.stage;
+  if (now !== lastStage) {
+    if (now === "open") playCue("open");
+    lastStage = now;
+  }
+}
+
+/**
  * The clock, painted locally so it runs smoothly without the room having to
  * send a frame. Every deadline it reads came off the room's own clock, which
  * is the same clock a buzz is judged against.
@@ -489,9 +521,14 @@ function paintClock() {
   if (!c || !fill) { if (fill) fill.style.width = "0%"; return; }
   const now = serverNow();
   let from = c.shownAt || c.openAt, to = c.deadline;
-  if (c.stage === "READING") { from = c.openAt - 4_000; to = c.openAt; }
+  // Reading counts down from when the clue went up to when the buzzers open,
+  // which is a real span rather than a guessed one.
+  if (c.stage === "READING" && now < c.openAt) { from = c.shownAt; to = c.openAt; }
   const span = Math.max(1, to - from);
   const left = Math.max(0, Math.min(1, (to - now) / span));
+  // The buzzer can come open between two pushes from the room, so it is
+  // repainted on the same tick as the clock rather than only on a state.
+  paintBuzzer(g, c);
   fill.style.width = `${Math.round(left * 100)}%`;
   fill.className = c.stage === "ANSWERING" && left < 0.34 ? "low" : "";
 

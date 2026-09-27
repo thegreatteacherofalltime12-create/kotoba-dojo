@@ -6,7 +6,7 @@ import {
   minesIn, around, lineCells, quadrants, frontierMines, safeSquares, nearestMines, chordCells, bestOpening,
 } from "./minesweeper.js";
 import { recordMatch, readRatings } from "./firestore.js";
-import { boosted } from "./mmr.js";
+import { boostedBy, multFor } from "./mmr.js";
 import { tokensReply, heldTokens } from "./boost.js";
 import { announceRoom } from "./rooms.js";
 import { applyBounty } from "./report-bounty.js";
@@ -184,7 +184,7 @@ export class MineField {
         case "MINE_DIG":   return await this.dig(ws, who.uid, msg);
         case "MINE_FLAG":  return await this.flag(ws, who.uid, msg);
         case "TOKENS":
-        case "APPLY_TOKEN":  return await this.sendTokens(ws, who.uid, msg.type === "APPLY_TOKEN");
+        case "APPLY_TOKEN":  return await this.sendTokens(ws, who.uid, msg.type === "APPLY_TOKEN", null, msg.key);
         case "ARM_TOKEN":    return await this.arm(ws, who.uid, msg);
         case "DISARM_TOKEN": return await this.disarm(ws, who.uid, msg);
         case "MINE_ARSENAL": return await this.arsenal(ws, who.uid, msg);
@@ -328,10 +328,10 @@ export class MineField {
     };
   }
 
-  async sendTokens(ws, uid, apply, error = null) {
+  async sendTokens(ws, uid, apply, error = null, key = null) {
     this.g.applied = this.g.applied || {};
     const reply = await tokensReply(this.env, uid, "minesweeper", {
-      applied: this.g.applied, over: false, apply,
+      applied: this.g.applied, over: false, apply, key,
     });
     if (reply.changed) await this.persist();
     const p = this.g.players[uid];
@@ -758,14 +758,18 @@ export class MineField {
         playerMmr: p.mmrAtStart || 0, fieldMmr: fieldMmrFor(p.uid, ratings),
         mode, seed: p.seed, placement,
       });
-      p.boost = !!this.g.applied?.[p.uid];
-      if (p.boost) gain.total = boosted(gain.total);
+      // What was applied to this round: a multiplier by its own key, or the
+      // game's own boost token by the name of the game. One token either
+      // way, and the record write spends whichever it was.
+      p.boostKey = this.g.applied?.[p.uid] || null;
+      p.boost = !!p.boostKey;
+      if (p.boost) gain.total = boostedBy(gain.total, p.boostKey);
       const after = (p.mmrAtStart || 0) + gain.total;
       return {
         uid: p.uid, name: p.name, score: p.score, placement, seed: p.seed || null,
         status: p.won ? "cleared" : "sunk", elapsedMs: p.finishedAt,
         spent: p.ars?.used && Object.keys(p.ars.used).length ? { ...p.ars.used } : undefined,
-        mmrBefore: p.mmrAtStart || 0, gain: gain.total, boost: !!p.boost,
+        mmrBefore: p.mmrAtStart || 0, gain: gain.total, boost: !!p.boost, boostKey: p.boostKey || undefined, mult: p.boost ? multFor(p.boostKey) : undefined,
         breakdown: { base: gain.base, challenge: gain.challenge, completion: gain.completion, seed: gain.seed },
         mmrAfter: after, belt: beltFor(after).name,
         promoted: beltFor(after).name !== beltFor(p.mmrAtStart || 0).name,

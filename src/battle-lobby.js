@@ -7,7 +7,7 @@ import {
 } from "./battleship.js";
 import { chooseShots, remember, freshMemory, DIFFICULTIES } from "./ai.js";
 import { recordMatch, readRatings, strikePlayer } from "./firestore.js";
-import { boosted } from "./mmr.js";
+import { boostedBy, multFor } from "./mmr.js";
 import { tokensReply, heldTokens } from "./boost.js";
 import { moderate } from "./moderation.js";
 import { announceRoom } from "./rooms.js";
@@ -349,7 +349,7 @@ export class BattleRoyale {
         case "BATTLE_FIRE":   return await this.fire(ws, uid, msg);
         case "BATTLE_SAY":    return await this.say(uid, msg);
         case "TOKENS":
-        case "APPLY_TOKEN":   return await this.sendTokens(ws, uid, msg.type === "APPLY_TOKEN");
+        case "APPLY_TOKEN":   return await this.sendTokens(ws, uid, msg.type === "APPLY_TOKEN", null, msg.key);
         default: return this.send(ws, "BATTLE_ERROR", { message: "Unrecognised message." });
       }
     } catch (err) {
@@ -563,10 +563,10 @@ export class BattleRoyale {
   }
 
   /** The Apply Token reply, with the arsenal alongside the boost. */
-  async sendTokens(ws, uid, apply, error = null) {
+  async sendTokens(ws, uid, apply, error = null, key = null) {
     this.g.applied = this.g.applied || {};
     const reply = await tokensReply(this.env, uid, "battleship", {
-      applied: this.g.applied, over: this.g.phase === "OVER", apply,
+      applied: this.g.applied, over: this.g.phase === "OVER", apply, key,
     });
     if (reply.changed) await this.persist();
     const p = this.g.players[uid];
@@ -1172,8 +1172,12 @@ export class BattleRoyale {
         seed: p.seed,
         placement,
       });
-      p.boost = !!this.g.applied?.[uid];
-      if (p.boost) gain.total = boosted(gain.total);
+      // What was applied to this round: a multiplier by its own key, or the
+      // game's own boost token by the name of the game. One token either
+      // way, and the record write spends whichever it was.
+      p.boostKey = this.g.applied?.[uid] || null;
+      p.boost = !!p.boostKey;
+      if (p.boost) gain.total = boostedBy(gain.total, p.boostKey);
       const after = (p.mmrAtStart || 0) + gain.total;
       return {
         uid, name: p.name, score, placement, seed: p.seed || null,
@@ -1183,7 +1187,7 @@ export class BattleRoyale {
         // What the arsenal used, spent by the record write.
         spent: p.ars?.used && Object.keys(p.ars.used).length ? { ...p.ars.used } : undefined,
         status: p.alive ? "won" : "sunk",
-        mmrBefore: p.mmrAtStart || 0, gain: gain.total, boost: !!p.boost,
+        mmrBefore: p.mmrAtStart || 0, gain: gain.total, boost: !!p.boost, boostKey: p.boostKey || undefined, mult: p.boost ? multFor(p.boostKey) : undefined,
         breakdown: { base: gain.base, challenge: gain.challenge, completion: gain.completion, seed: gain.seed },
         mmrAfter: after, belt: beltFor(after).name,
         promoted: beltFor(after).name !== beltFor(p.mmrAtStart || 0).name,

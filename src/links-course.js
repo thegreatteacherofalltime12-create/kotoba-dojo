@@ -4,7 +4,7 @@ import {
 } from "./links.js";
 import { ARSENALS } from "./arsenals.js";
 import { recordMatch, readRatings } from "./firestore.js";
-import { boosted } from "./mmr.js";
+import { boostedBy, multFor } from "./mmr.js";
 import { tokensReply, heldTokens } from "./boost.js";
 import { announceRoom } from "./rooms.js";
 import { sessionGain, fieldMmrFor, beltFor } from "./mmr.js";
@@ -170,11 +170,11 @@ export class LinksCourse {
     };
   }
 
-  async sendTokens(ws, uid, apply, error = null) {
+  async sendTokens(ws, uid, apply, error = null, key = null) {
     const room = this.room;
     room.applied = room.applied || {};
     const reply = await tokensReply(this.env, uid, "links", {
-      applied: room.applied, over: room.phase === "OVER", apply,
+      applied: room.applied, over: room.phase === "OVER", apply, key,
     });
     if (reply.changed) await this.save();
     const p = room.players[uid];
@@ -614,8 +614,12 @@ export class LinksCourse {
         fieldMmr: fieldMmrFor(p.uid, ratings),
         mode, seed: p.seed, placement,
       });
-      p.boost = !!room.applied?.[p.uid];
-      if (p.boost) gain.total = boosted(gain.total);
+      // What was applied to this round: a multiplier by its own key, or the
+      // game's own boost token by the name of the game. One token either
+      // way, and the record write spends whichever it was.
+      p.boostKey = room.applied?.[p.uid] || null;
+      p.boost = !!p.boostKey;
+      if (p.boost) gain.total = boostedBy(gain.total, p.boostKey);
       const after = (p.mmrAtStart || 0) + gain.total;
       return {
         uid: p.uid,
@@ -633,7 +637,7 @@ export class LinksCourse {
         holes: this.cardOf(p).length,
         aces: this.cardOf(p).filter((h) => h.strokes === 1).length,
         mmrBefore: p.mmrAtStart || 0,
-        gain: gain.total, boost: !!p.boost,
+        gain: gain.total, boost: !!p.boost, boostKey: p.boostKey || undefined, mult: p.boost ? multFor(p.boostKey) : undefined,
         breakdown: { base: gain.base, challenge: gain.challenge, completion: gain.completion, seed: gain.seed },
         mmrAfter: after,
         belt: beltFor(after).name,
@@ -787,7 +791,7 @@ export class LinksCourse {
       if (msg.type === "LINKS_END") return void await this.finish(this.room, "ended");
       if (msg.type === "PING") { this.announce(); return; }
       if (msg.type === "TOKENS" || msg.type === "APPLY_TOKEN")
-        return void await this.sendTokens(server, uid, msg.type === "APPLY_TOKEN");
+        return void await this.sendTokens(server, uid, msg.type === "APPLY_TOKEN", null, msg.key);
       if (msg.type === "ARM_TOKEN") return void await this.arm(server, uid, msg);
       if (msg.type === "DISARM_TOKEN") return void await this.disarm(server, uid, msg);
       if (msg.type === "LINKS_ARSENAL") return void await this.useArsenal(server, uid, msg);

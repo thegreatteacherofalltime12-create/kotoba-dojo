@@ -28,7 +28,7 @@ import { announceRoom } from "./rooms.js";
 import { ARSENALS } from "./arsenals.js";
 import { tokensReply, heldTokens } from "./boost.js";
 import { applyBounty } from "./report-bounty.js";
-import { sessionGain, fieldMmrFor, beltFor, boosted } from "./mmr.js";
+import { sessionGain, fieldMmrFor, beltFor, boostedBy, multFor } from "./mmr.js";
 
 // How long a match nobody finished is kept once the last person leaves. A
 // day, because the common way to lose a game is to close the app and come
@@ -393,7 +393,7 @@ export class BuzzerRoom {
         case "BZ_FINAL_WAGER": return await this.finalWager(ws, who.uid, msg);
         case "BZ_FINAL_ANSWER": return await this.finalAnswer(ws, who.uid, msg);
         case "TOKENS":
-        case "APPLY_TOKEN": return await this.sendTokens(ws, who.uid, msg.type === "APPLY_TOKEN");
+        case "APPLY_TOKEN": return await this.sendTokens(ws, who.uid, msg.type === "APPLY_TOKEN", null, msg.key);
         case "ARM_TOKEN": return await this.arm(ws, who.uid, msg);
         case "DISARM_TOKEN": return await this.disarm(ws, who.uid, msg);
         case "BZ_SAY": return await this.say(ws, who.uid, msg);
@@ -463,10 +463,10 @@ export class BuzzerRoom {
     }));
   }
 
-  async sendTokens(ws, uid, apply, error = null) {
+  async sendTokens(ws, uid, apply, error = null, key = null) {
     const p = this.g.players[uid];
     const reply = await tokensReply(this.env, uid, "buzzer", {
-      applied: this.g.applied || {}, over: this.g.phase !== "LOBBY", apply,
+      applied: this.g.applied || {}, over: this.g.phase !== "LOBBY", apply, key,
     });
     if (reply.changed) { this.g.applied = this.g.applied || {}; this.g.applied[uid] = true; await this.persist(); }
     this.send(ws, "BZ_TOKENS", { ...reply, error: error || reply.error, arsenal: this.arsenalView(p) });
@@ -1458,8 +1458,12 @@ export class BuzzerRoom {
         playerMmr: p.mmrAtStart || 0, fieldMmr: fieldMmrFor(p.uid, ratings),
         mode, seed: p.seed, placement,
       });
-      p.boost = !!this.g.applied?.[p.uid];
-      if (p.boost) gain.total = boosted(gain.total);
+      // What was applied to this round: a multiplier by its own key, or the
+      // game's own boost token by the name of the game. One token either
+      // way, and the record write spends whichever it was.
+      p.boostKey = this.g.applied?.[p.uid] || null;
+      p.boost = !!p.boostKey;
+      if (p.boost) gain.total = boostedBy(gain.total, p.boostKey);
       const after = (p.mmrAtStart || 0) + gain.total;
 
       return {
@@ -1470,7 +1474,7 @@ export class BuzzerRoom {
         money: p.money, banked: bankable(p.money),
         right: p.right, wrong: p.wrong, buzzes: p.buzzes, bestReaction: p.bestReaction,
         spent: p.ars?.used && Object.keys(p.ars.used).length ? { ...p.ars.used } : undefined,
-        mmrBefore: p.mmrAtStart || 0, gain: gain.total, boost: !!p.boost,
+        mmrBefore: p.mmrAtStart || 0, gain: gain.total, boost: !!p.boost, boostKey: p.boostKey || undefined, mult: p.boost ? multFor(p.boostKey) : undefined,
         breakdown: { base: gain.base, challenge: gain.challenge, completion: gain.completion, seed: gain.seed },
         mmrAfter: after, belt: beltFor(after).name,
         promoted: beltFor(after).name !== beltFor(p.mmrAtStart || 0).name,

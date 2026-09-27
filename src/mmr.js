@@ -105,6 +105,44 @@ export const PRESTIGE_COST = 3000;
 export const BOOST_MULT = 1.5;
 export const boosted = (total) => Math.round((total || 0) * BOOST_MULT);
 
+/**
+ * The multipliers above the boost, and what they cost.
+ *
+ * The 1.5x boosts are one per game: a Word-Cross boost does nothing in a
+ * race. These are not — one multiplier works in whatever you are playing,
+ * because five tiers across eight games would be forty things to sell and
+ * nobody would find the one they wanted.
+ *
+ * The prices climb faster than the multiplier does, and deliberately: a 6x
+ * costs four times a 2x for three times the pay, so the cheap one is the
+ * sensible buy and the dear one is a decision. They are spent by the round
+ * that uses them, exactly as a boost is, and only ever one to a round —
+ * applying a multiplier is applying it instead of the boost, not as well.
+ */
+export const MULTIPLIERS = [
+  { key: "mx2", mult: 2, price: 5_000, name: "2\u00d7 MMR" },
+  { key: "mx3", mult: 3, price: 8_000, name: "3\u00d7 MMR" },
+  { key: "mx4", mult: 4, price: 12_000, name: "4\u00d7 MMR" },
+  { key: "mx5", mult: 5, price: 15_000, name: "5\u00d7 MMR" },
+  { key: "mx6", mult: 6, price: 20_000, name: "6\u00d7 MMR" },
+];
+
+export const isMultiplier = (key) => MULTIPLIERS.some((m) => m.key === key);
+
+/** What a given token multiplies by: a tier, or the plain boost. */
+export function multFor(key) {
+  return MULTIPLIERS.find((m) => m.key === key)?.mult ?? BOOST_MULT;
+}
+
+/**
+ * A round's MMR, once whatever was applied to it is taken in.
+ *
+ * `key` is what the player applied — a game's own boost token, whose key is
+ * the game, or one of the multipliers. Anything unrecognised is the boost, so
+ * a round can never pay less for having had a token on it.
+ */
+export const boostedBy = (total, key) => Math.round((total || 0) * multFor(key));
+
 export function canPrestige(mmr) {
   return (mmr ?? 0) >= PRESTIGE_COST;
 }

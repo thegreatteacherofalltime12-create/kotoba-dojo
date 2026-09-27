@@ -1,7 +1,7 @@
 import { ROUND_MS, scoreFor } from "./scoring.js";
 import { validatePuzzle, stripAnswers, answerKey, WORD_COUNT } from "./validate.js";
 import { recordMatch, readRatings, getScroll, bumpScroll } from "./firestore.js";
-import { boosted } from "./mmr.js";
+import { boostedBy, multFor } from "./mmr.js";
 import { tokensReply, heldTokens } from "./boost.js";
 import { ARSENALS } from "./arsenals.js";
 import { sessionGain, fieldMmrFor, beltFor } from "./mmr.js";
@@ -260,7 +260,7 @@ export class DojoLobby {
         // The Apply Token tab: what is held, what is armed for this round,
         // and the tokens themselves. Scoring clears what was applied.
         case "TOKENS":
-        case "APPLY_TOKEN":  return await this.sendTokens(ws, who.uid, msg.type === "APPLY_TOKEN");
+        case "APPLY_TOKEN":  return await this.sendTokens(ws, who.uid, msg.type === "APPLY_TOKEN", null, msg.key);
         case "ARM_TOKEN":    return await this.arm(ws, who.uid, msg);
         case "DISARM_TOKEN": return await this.disarm(ws, who.uid, msg);
         case "USE_TOKEN":    return await this.useArsenal(ws, who.uid, msg);
@@ -422,10 +422,10 @@ export class DojoLobby {
     };
   }
 
-  async sendTokens(ws, uid, apply, error = null) {
+  async sendTokens(ws, uid, apply, error = null, key = null) {
     this.lobby.applied = this.lobby.applied || {};
     const reply = await tokensReply(this.env, uid, "crossword", {
-      applied: this.lobby.applied, over: false, apply,
+      applied: this.lobby.applied, over: false, apply, key,
     });
     if (reply.changed) await this.persist();
     const p = this.lobby.players[uid];
@@ -840,8 +840,12 @@ export class DojoLobby {
         seed: p.seed,
         placement,
       });
-      p.boost = !!this.lobby.applied?.[p.uid];
-      if (p.boost) gain.total = boosted(gain.total);
+      // What was applied to this round: a multiplier by its own key, or the
+      // game's own boost token by the name of the game. One token either
+      // way, and the record write spends whichever it was.
+      p.boostKey = this.lobby.applied?.[p.uid] || null;
+      p.boost = !!p.boostKey;
+      if (p.boost) gain.total = boostedBy(gain.total, p.boostKey);
       const after = (p.mmrAtStart || 0) + gain.total;
       return {
         uid: p.uid,
@@ -854,7 +858,7 @@ export class DojoLobby {
         seed: p.seed || null,
         mmrBefore: p.mmrAtStart || 0,
         spent: p.ars?.used && Object.keys(p.ars.used).length ? { ...p.ars.used } : undefined,
-        gain: gain.total, boost: !!p.boost,
+        gain: gain.total, boost: !!p.boost, boostKey: p.boostKey || undefined, mult: p.boost ? multFor(p.boostKey) : undefined,
         breakdown: { base: gain.base, challenge: gain.challenge, completion: gain.completion, seed: gain.seed },
         mmrAfter: after,
         belt: beltFor(after).name,

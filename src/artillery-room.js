@@ -10,7 +10,7 @@ import {
 import { ARSENALS } from "./arsenals.js";
 import { recordMatch, readRatings, strikePlayer } from "./firestore.js";
 import { moderate } from "./moderation.js";
-import { boosted, sessionGain, fieldMmrFor, beltFor } from "./mmr.js";
+import { sessionGain, fieldMmrFor, beltFor, boostedBy, multFor } from "./mmr.js";
 import { tokensReply, heldTokens } from "./boost.js";
 import { announceRoom } from "./rooms.js";
 
@@ -145,11 +145,11 @@ export class TankDuel {
     };
   }
 
-  async sendTokens(ws, uid, apply, error = null) {
+  async sendTokens(ws, uid, apply, error = null, key = null) {
     const g = this.g;
     g.applied = g.applied || {};
     const reply = await tokensReply(this.env, uid, "artillery", {
-      applied: g.applied, over: g.phase === "OVER", apply,
+      applied: g.applied, over: g.phase === "OVER", apply, key,
     });
     if (reply.changed) await this.save();
     const t = g.tanks[uid];
@@ -749,8 +749,12 @@ export class TankDuel {
         fieldMmr: fieldMmrFor(t.uid, ratings),
         mode, seed: t.seed, placement,
       });
-      t.boost = !!g.applied?.[t.uid];
-      if (t.boost) gain.total = boosted(gain.total);
+      // What was applied to this round: a multiplier by its own key, or the
+      // game's own boost token by the name of the game. One token either
+      // way, and the record write spends whichever it was.
+      t.boostKey = g.applied?.[t.uid] || null;
+      t.boost = !!t.boostKey;
+      if (t.boost) gain.total = boostedBy(gain.total, t.boostKey);
       const after = (t.mmrAtStart || 0) + gain.total;
       return {
         uid: t.uid,
@@ -766,7 +770,7 @@ export class TankDuel {
         status: t.dead ? "destroyed" : "standing",
         elapsedMs: Date.now() - g.startedAt,
         mmrBefore: t.mmrAtStart || 0,
-        gain: gain.total, boost: !!t.boost,
+        gain: gain.total, boost: !!t.boost, boostKey: t.boostKey || undefined, mult: t.boost ? multFor(t.boostKey) : undefined,
         breakdown: { base: gain.base, challenge: gain.challenge, completion: gain.completion, seed: gain.seed },
         mmrAfter: after,
         belt: beltFor(after).name,
@@ -982,7 +986,7 @@ export class TankDuel {
       case "TANK_SAY": return void await this.say(ws, uid, msg);
       case "TANK_END": return void await this.finish("ended");
       case "TOKENS": return void await this.sendTokens(ws, uid, false);
-      case "APPLY_TOKEN": return void await this.sendTokens(ws, uid, true);
+      case "APPLY_TOKEN": return void await this.sendTokens(ws, uid, true, null, msg.key);
       case "ARM_TOKEN": return void await this.arm(ws, uid, msg);
       case "DISARM_TOKEN": return void await this.disarm(ws, uid, msg);
       case "PING": this.announce(); return;

@@ -21,6 +21,7 @@ import { bankWallet, writeHistory, postFeed, awardMmr, spendToken } from "./fire
 import { boosted } from "./mmr.js";
 import { heldTokens } from "./boost.js";
 import { ARSENALS } from "./arsenals.js";
+import { isMultiplier } from "./mmr.js";
 
 // A win at any table or on the track is worth this much MMR, up to the
 // day's cap. Small on purpose: a hand takes ten seconds and a ranked round
@@ -185,13 +186,19 @@ export class CasinoFloor {
    * The Apply Token tab on the floor. A casino token is spent the moment it
    * is applied, and every win for the rest of the day (UTC) pays half again.
    */
-  async tokens(ws, uid, p, apply) {
+  async tokens(ws, uid, p, apply, key = null) {
     const day = new Date().toISOString().slice(0, 10);
     this.f.mmrDaily = this.f.mmrDaily || {};
     const row = this.f.mmrDaily[uid]?.day === day ? this.f.mmrDaily[uid] : { day, given: 0 };
     let tokens = await heldTokens(this.env, uid);
     let error = null;
-    if (apply && !row.boost) {
+    // The floor sells a day, not a round: one casino token makes every win
+    // today pay half again. A multiplier is a round's worth of luck and there
+    // is no round here to spend it on, so it is refused rather than quietly
+    // taken and spent as something else.
+    if (apply && key && isMultiplier(key)) {
+      error = "Multipliers are for a match. The casino token pays on every win today instead.";
+    } else if (apply && !row.boost) {
       if (!((tokens.casino || 0) > 0)) error = "You hold no casino token. The Token shop in your profile sells them.";
       else if (await spendToken(this.env, uid, p?.name, "casino")) {
         row.boost = true;
@@ -618,7 +625,7 @@ export class CasinoFloor {
         case "TABLE_END":    return await this.tableEnd(ws, who.uid);
         case "FLOOR_BANK":   return await this.bankOut(ws, who.uid);
         case "TOKENS":       return await this.tokens(ws, who.uid, this.f.players[who.uid], false);
-        case "APPLY_TOKEN":  return await this.tokens(ws, who.uid, this.f.players[who.uid], true);
+        case "APPLY_TOKEN":  return await this.tokens(ws, who.uid, this.f.players[who.uid], true, msg.key);
         case "ARM_TOKEN":    return await this.arm(ws, who.uid, msg);
         case "DISARM_TOKEN": return await this.disarm(ws, who.uid, msg);
         case "FLOOR_ARSENAL": return await this.arsenal(ws, who.uid, msg);

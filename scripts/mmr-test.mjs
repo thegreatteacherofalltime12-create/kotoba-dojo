@@ -2,6 +2,7 @@
 import {
   beltFor, challengeBonus, seedBonus, sessionGain, fieldMmrFor, canPrestige,
   BLACK_BELT, COMPLETION_BONUS, PRESTIGE_COST, boosted, BOOST_MULT,
+  MULTIPLIERS, multFor, boostedBy, isMultiplier,
 } from "../src/mmr.js";
 
 let bad = 0;
@@ -73,6 +74,32 @@ ok("black belt alone is not enough", canPrestige(BLACK_BELT) === false);
 console.log("\nboost tokens");
 ok("half again, rounded", boosted(100) === 150 && boosted(95) === 143 && boosted(0) === 0);
 ok("the multiplier is one and a half", BOOST_MULT === 1.5);
+
+console.log("\nthe multipliers above it");
+{
+  // The shop's promise, written down: five tiers, these multipliers, these
+  // prices. If somebody re-prices one, this is the line that argues.
+  const want = [[2, 5000], [3, 8000], [4, 12000], [5, 15000], [6, 20000]];
+  ok("five tiers, from double to six times", MULTIPLIERS.length === 5);
+  ok("each one multiplies and costs what the shop says",
+    MULTIPLIERS.every((m, i) => m.mult === want[i][0] && m.price === want[i][1]));
+  ok("keyed so a token can be told from a game", MULTIPLIERS.every((m) => m.key === `mx${m.mult}`));
+  // Never cheaper per multiple as the tier climbs, or the big one would be
+  // the only one anybody bought. The 4x and the 5x are level at $3,000 a
+  // multiple, so the 5x is bought for the size of the single hit rather than
+  // for value — which is a pricing choice, not an accident of arithmetic.
+  const each = MULTIPLIERS.map((m) => m.price / m.mult);
+  ok(`the big tiers are never better value (${each.map((n) => Math.round(n)).join(", ")} a multiple)`,
+    each.every((n, i) => i === 0 || n >= each[i - 1]));
+
+  ok("a tier multiplies by its tier", boostedBy(100, "mx2") === 200 && boostedBy(100, "mx6") === 600);
+  ok("and rounds like the boost does", boostedBy(95, "mx3") === 285 && boostedBy(0, "mx4") === 0);
+  ok("a game's own token is still the boost", boostedBy(100, "crossword") === 150 && multFor("prix") === BOOST_MULT);
+  ok("and so is anything unrecognised, so a round never pays less for a token",
+    boostedBy(100, "nonsense") === 150 && boostedBy(100, null) === 150);
+  ok("a multiplier knows itself, and a game is not one",
+    isMultiplier("mx5") && !isMultiplier("crossword") && !isMultiplier("bs_nuke"));
+}
 
 console.log(bad ? `\n${bad} failing\n` : "\nall MMR checks passed\n");
 process.exit(bad ? 1 : 0);

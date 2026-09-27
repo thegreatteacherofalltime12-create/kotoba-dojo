@@ -599,5 +599,46 @@ console.log("\nwhen a tracer round is worth nothing");
     /EMP/.test(emp.socks[t3.uid].last("TANK_REJECT").why) && !t3.ars.used.at_tracer);
 }
 
+console.log("\na multiplier on a match");
+{
+  // The room stores what was applied rather than that something was, and the
+  // result carries it so the record write spends the right token. Nothing is
+  // held in a test — there is no service account — so the map is set the way
+  // a successful apply would set it.
+  const { duel, socks, say } = await room(["a", "b"]);
+  const t = up(duel);
+  const mark = other(duel);
+  duel.g.applied = { [t.uid]: "mx3", [mark.uid]: "artillery" };
+  flatten(duel);
+  mark.x = t.x + 14;
+  mark.y = groundAt(duel.g.terrain, mark.x) - TANK_R;
+  mark.hp = 10;
+  await say(t.uid, { type: "TANK_FIRE", angle: 20, power: 8 });
+
+  const over = socks[t.uid].last("TANK_OVER");
+  const win = over.results.find((r) => r.uid === t.uid);
+  const lost = over.results.find((r) => r.uid === mark.uid);
+  ok("the result says which token was on it", win.boost === true && win.boostKey === "mx3" && win.mult === 3);
+  ok("and what a plain boost was worth beside it", lost.boostKey === "artillery" && lost.mult === 1.5);
+
+  // The same duel, scored with nothing applied, to compare the MMR against.
+  const plain = await room(["a", "b"]);
+  const t2 = up(plain.duel);
+  const m2 = other(plain.duel);
+  flatten(plain.duel);
+  m2.x = t2.x + 14;
+  m2.y = groundAt(plain.duel.g.terrain, m2.x) - TANK_R;
+  m2.hp = 10;
+  await plain.say(t2.uid, { type: "TANK_FIRE", angle: 20, power: 8 });
+  const bare = plain.socks[t2.uid].last("TANK_OVER").results.find((r) => r.uid === t2.uid);
+  ok(`a 3x pays three times what the same win pays bare (${bare.gain} -> ${win.gain})`,
+    win.gain === Math.round(bare.gain * 3));
+  ok("and the boost still pays half again",
+    lost.gain === Math.round(plain.socks[t2.uid].last("TANK_OVER").results.find((r) => r.uid === m2.uid).gain * 1.5));
+
+  ok("the room clears what was applied once the duel is scored",
+    !Object.keys(duel.g.applied).length);
+}
+
 console.log(bad ? `\n${bad} check(s) failed\n` : "\nall tank arsenal checks passed\n");
 process.exit(bad ? 1 : 0);

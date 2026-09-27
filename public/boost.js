@@ -23,6 +23,32 @@ export const TOKEN_ITEMS = [
 
 export const tokenItem = (game) => TOKEN_ITEMS.find((t) => t.game === game) || TOKEN_ITEMS[0];
 
+/**
+ * The multipliers, above the 1.5x boosts.
+ *
+ * Unlike a boost, which belongs to one game, a multiplier works in whatever
+ * you are playing — so there is one shelf of five rather than five on every
+ * game's shelf. One to a match, and applying one is applying it instead of
+ * the game's boost. Prices and multipliers mirror MULTIPLIERS in src/mmr.js.
+ *
+ * The casino is the exception, and the floor says so if you try: it sells a
+ * day rather than a match, and a multiplier has no match to sit on.
+ */
+export const MULTIPLIER_ITEMS = [
+  { key: "mx2", mult: 2, name: "2\u00d7 MMR", icon: "\u2716\uFE0F", price: 5000,
+    blurb: "Double the MMR of one ranked match, in any game. Spent by the match that uses it." },
+  { key: "mx3", mult: 3, name: "3\u00d7 MMR", icon: "\u{1F538}", price: 8000,
+    blurb: "Triple the MMR of one ranked match, in any game." },
+  { key: "mx4", mult: 4, name: "4\u00d7 MMR", icon: "\u{1F536}", price: 12000,
+    blurb: "Four times the MMR of one ranked match, in any game." },
+  { key: "mx5", mult: 5, name: "5\u00d7 MMR", icon: "\u{1F31F}", price: 15000,
+    blurb: "Five times the MMR of one ranked match, in any game." },
+  { key: "mx6", mult: 6, name: "6\u00d7 MMR", icon: "\u{1F4AB}", price: 20000,
+    blurb: "Six times the MMR of one ranked match, in any game. The dearest thing the shop sells for a single round." },
+];
+
+export const multiplierItem = (key) => MULTIPLIER_ITEMS.find((m) => m.key === key) || null;
+
 // The Battleship arsenal: bought in the shop, armed in the Apply Token tab
 // of a battle (four per battle, two nukes at most), fired from the Arsenal
 // strip on the battle screen. Only what is used is spent. Prices and rules
@@ -383,7 +409,21 @@ export const GAME_ARSENALS = TOKEN_ITEMS.map((t) => ({
     ...(GAME_ARSENAL_ITEMS[t.game] || []),
   ],
 }));
-export const shopItem = (key) => GAME_ARSENALS.flatMap((a) => a.items).find((t) => t.key === key);
+/**
+ * The multiplier shelf. It belongs to no game, so it is its own arsenal in
+ * the shop rather than repeated on all eight.
+ */
+export const MULTIPLIER_ARSENAL = {
+  game: "multipliers",
+  name: "MMR Multipliers",
+  icon: "\u2716\uFE0F",
+  items: MULTIPLIER_ITEMS.map((m) => ({ key: m.key, name: m.name, icon: m.icon, price: m.price, blurb: m.blurb })),
+};
+
+export const SHOP_SHELVES = [MULTIPLIER_ARSENAL, ...GAME_ARSENALS];
+
+export const shopItem = (key) =>
+  SHOP_SHELVES.flatMap((a) => a.items).find((t) => t.key === key);
 
 // The tab's own styles, carried with it so the golf page (which has none of
 // the arena's stylesheet) draws the same window.
@@ -459,14 +499,15 @@ export function applyTokenTab({ game, send, button, host, label, arsenal = false
     send({ type: "TOKENS" });
   }
 
-  function apply() {
+  /** `key` picks a multiplier; without one it is the game's own boost. */
+  function apply(key) {
     state = { ...state, busy: true, error: null };
     draw();
-    send({ type: "APPLY_TOKEN" });
+    send({ type: "APPLY_TOKEN", key });
   }
 
   function receive(msg) {
-    state = { loading: false, busy: false, tokens: msg.tokens || {}, applied: !!msg.applied, error: msg.error || null, day: !!msg.day, arsenal: msg.arsenal || state.arsenal || null };
+    state = { loading: false, busy: false, tokens: msg.tokens || {}, applied: !!msg.applied, error: msg.error || null, day: !!msg.day, arsenal: msg.arsenal || state.arsenal || null, appliedKey: msg.appliedKey || null, mult: msg.mult || null };
     if (button) button.classList.toggle("tok-live", state.applied);
     if (el && !el.hidden) draw();
   }
@@ -501,12 +542,26 @@ export function applyTokenTab({ game, send, button, host, label, arsenal = false
         ${right}
       </div>`;
     }).join("");
+    // The multipliers, which work in any game and are therefore not on any
+    // game's list. The casino has no match to put one on, so it does not
+    // offer them; the floor refuses them too, in case this ever forgets.
+    const mults = game === "casino" ? "" : MULTIPLIER_ITEMS.map((m) => {
+      const n = tokens[m.key] || 0;
+      const on = state.appliedKey === m.key;
+      return `<div class="tok-row is-here">
+        <span class="tok-ico">${m.icon}</span>
+        <div><div class="tok-name">${m.name}</div><div class="tok-have">${state.loading ? "…" : n ? `You hold <b>${n}</b>` : "None held"}</div></div>
+        <button class="tok-btn ${on ? "is-on" : ""}" data-apply-mult="${m.key}" ${state.applied || state.busy || state.loading || n < 1 ? "disabled" : ""}>${
+          on ? "Applied ⚡" : `Apply ${m.mult}×`}</button>
+      </div>`;
+    }).join("");
+    const worth = state.mult || 1.5;
     const note = state.error
       ? `<p class="tok-note bad">${state.error}</p>`
       : state.applied
         ? `<p class="tok-note good">⚡ Applied. ${state.day
           ? "Every casino win for the rest of today (UTC) pays half again."
-          : `This ${label || "match"} pays 1.5× MMR when it is scored.`}</p>`
+          : `This ${label || "match"} pays ${worth}× MMR when it is scored.`}</p>`
         : !state.loading && total === 0
           ? `<p class="tok-empty">You hold none. Buy them with casino money in your profile under ⚡ Token shop.</p>`
           : "";
@@ -518,6 +573,7 @@ export function applyTokenTab({ game, send, button, host, label, arsenal = false
           <div class="tok-body">
             <p class="tok-sub">Your ${String(here.where || "").replace(/^the /, "")} arsenal. Apply the ${here.name} and this ${label || "match"} pays half again on the MMR${here.game === "casino" ? " — on every win for the rest of the day" : ""}.</p>
             ${rows}
+            ${mults ? `<p class="tok-sub">Multipliers work in any game. One to a ${label || "match"}, instead of the boost rather than as well as it.</p>${mults}` : ""}
             ${note}
             ${arsenal ? arsenalHtml() : ""}
           </div>
@@ -525,7 +581,10 @@ export function applyTokenTab({ game, send, button, host, label, arsenal = false
       </div>`;
     h.querySelectorAll("[data-close]").forEach((n) => { n.onclick = close; });
     const b = h.querySelector("[data-apply]");
-    if (b) b.onclick = apply;
+    if (b) b.onclick = () => apply();
+    h.querySelectorAll("[data-apply-mult]").forEach((n) => {
+      n.onclick = () => apply(n.dataset.applyMult);
+    });
     h.querySelectorAll("[data-arm]").forEach((n) => {
       n.onclick = () => {
         const key = n.dataset.arm;

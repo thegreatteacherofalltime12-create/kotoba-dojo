@@ -26,7 +26,7 @@ import { enterCasino, leaveCasino, bindCasino } from "./casino.js";
 import { casinoRulesHtml } from "./game-modes.js";
 import { UPDATES, PULSE_HOURS, KEEP_DAYS } from "./whats-new.js";
 import { BRANCHES, branchOf, rankOf, atTop, rankLabel } from "./ranks.js";
-import { applyTokenTab, GAME_ARSENALS, shopItem, WORD_ARSENAL_ITEMS } from "./boost.js";
+import { applyTokenTab, SHOP_SHELVES, shopItem, WORD_ARSENAL_ITEMS } from "./boost.js";
 
 /**
  * True where typing summons an on-screen keyboard. Three tests rather than
@@ -3099,10 +3099,10 @@ async function drawShop(body) {
   const tokens = me?.tokens || {};
   const heldIn = (a) => a.items.reduce((n, t) => n + (tokens[t.key] || 0), 0);
   body.innerHTML = `
-    <p class="panel-sub">Casino money buys tokens, one arsenal per game. Inside a game, press <b>\u26A1 Apply Token</b> to use what you hold.</p>
+    <p class="panel-sub">Casino money buys tokens: one arsenal per game, and the MMR multipliers, which work in any of them. Inside a game, press <b>\u26A1 Apply Token</b> to use what you hold.</p>
     <div class="shop-wallet">\u{1F4B0} Wallet: <b>$${(S.purse?.wallet ?? 0).toLocaleString()}</b></div>
     <div class="gamegrid shop-games">
-      ${GAME_ARSENALS.map((a) => `
+      ${SHOP_SHELVES.map((a) => `
         <button class="gamepick" data-arsenal="${a.game}">
           <span class="gp-ico">${a.icon}</span>
           <span class="gp-name">${a.name}</span>
@@ -3114,7 +3114,7 @@ async function drawShop(body) {
 }
 
 function drawArsenalShop(game) {
-  const a = GAME_ARSENALS.find((x) => x.game === game);
+  const a = SHOP_SHELVES.find((x) => x.game === game);
   if (!a) return;
   const me = standings.find((r) => r.uid === S.user?.uid);
   const tokens = me?.tokens || {};

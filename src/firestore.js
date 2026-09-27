@@ -10,6 +10,7 @@
 // and the game still works — you just lose ranked history.
 
 import { ALL_TOKENS } from "./arsenals.js";
+import { MULTIPLIERS } from "./mmr.js";
 import { tellCommons } from "./commons-notify.js";
 import { allowed, featsFor, isMark, assistedRound, BIG_BANK } from "../public/cosmetics.js";
 import { GI_COLORS } from "../public/arena.js";
@@ -297,10 +298,12 @@ function tokensOf(field) {
 
 export const TOKEN_PRICE = 200;
 export const TOKEN_GAMES = ["crossword", "battleship", "minesweeper", "links", "casino", "prix", "buzzer", "artillery"];
-// The Battleship arsenal sells alongside the boosts, each at its own price.
+// Every arsenal sells alongside the boosts, each at its own price, and the
+// MMR multipliers sell beside all of them.
 export const TOKEN_PRICES = Object.fromEntries([
   ...TOKEN_GAMES.map((g) => [g, TOKEN_PRICE]),
   ...Object.entries(ALL_TOKENS).map(([k, v]) => [k, v.price]),
+  ...MULTIPLIERS.map((m) => [m.key, m.price]),
 ]);
 export const priceOf = (key) => TOKEN_PRICES[key] ?? null;
 
@@ -1282,7 +1285,10 @@ export function matchWrites(base, matchId, match, logged) {
     const feats = logged ? featsFor(match, r) : {};
     const featKeys = Object.keys(feats);
     const spends = [
-      ...(r.boost ? [[match.game || "crossword", 1]] : []),
+      // A multiplier is spent as itself; a game's own boost as the game. The
+      // room says which by putting the key on the result, and an older room
+      // that says only "boosted" still spends its game's token.
+      ...(r.boost ? [[r.boostKey || match.game || "crossword", 1]] : []),
       ...Object.entries(r.spent || {}).filter(([k, n]) => ALL_TOKENS[k] && n > 0).map(([k, n]) => [k, Math.round(n)]),
     ];
     writes.push({

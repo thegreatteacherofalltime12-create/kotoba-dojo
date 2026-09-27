@@ -514,6 +514,50 @@ function sendChat() {
 
 // ── battle ──────────────────────────────────────────────────────────
 
+/**
+ * A board of size x size cells, drawn once and then repainted.
+ *
+ * Open Ocean is twenty by twenty, so a board is four hundred elements and
+ * the screen holds two of them. Rebuilding both from scratch — which is what
+ * this did — is sixteen hundred nodes and as many event handlers, and it ran
+ * on every state the room sent AND on every cell the player tapped: picking a
+ * five-shot volley rebuilt four thousand nodes. On a phone that is the pause
+ * people were feeling.
+ *
+ * So the grid is built once and kept. After that a repaint sets a className
+ * and a disabled flag per cell and touches nothing else, and the clicking is
+ * one handler on the grid reading the cell out of the target rather than four
+ * hundred closures. `key` is what makes it a different board — whose water it
+ * is and how big — and changing it builds a fresh one.
+ */
+function paintGrid(host, key, size, cls, paint) {
+  let grid = host.firstElementChild;
+  if (!grid || grid.dataset.key !== key) {
+    host.textContent = "";
+    grid = el("div", cls);
+    grid.dataset.key = key;
+    grid.style.setProperty("--n", String(size));
+    const frag = document.createDocumentFragment();
+    for (let r = 0; r < size; r++) {
+      for (let c = 0; c < size; c++) {
+        const box = el("button", "bcell");
+        box.type = "button";
+        box.dataset.cell = `${r},${c}`;
+        frag.append(box);
+      }
+    }
+    grid.append(frag);
+    host.append(grid);
+  } else if (grid.className !== cls) {
+    grid.className = cls;
+  }
+  for (let i = 0; i < grid.children.length; i++) paint(grid.children[i], grid.children[i].dataset.cell);
+  return grid;
+}
+
+/** The cell a click or a hover landed on, or null for the gaps between. */
+const cellOf = (ev) => ev.target?.dataset?.cell || null;
+
 function drawBattle(me) {
   const g = B.game;
   const myTurn = g.turnUid === B.you && g.phase === "ACTIVE";
@@ -575,7 +619,6 @@ function drawBattle(me) {
   // Their water.
   const enemy = g.players.find((p) => p.uid === B.target);
   const board = $("enemy-grid");
-  board.textContent = "";
   if (enemy) {
     const mine = B.volley[enemy.uid] || [];
     $("enemy-name").textContent = `${enemy.name} — ${enemy.remaining} ships left${myTurn && mine.length ? ` · ${mine.length} shot${mine.length === 1 ? "" : "s"} here` : ""}`;
@@ -589,53 +632,54 @@ function drawBattle(me) {
     const span = B.mode === "nuke" ? (B.arsenal?.nukeSpan || 1)
       : B.mode === "strike" ? (B.arsenal?.strikeSpan || 6)
       : B.mode === "sonar" ? 3 : 1;
-    const grid = el("div", "bgrid");
-    grid.style.setProperty("--n", String(B.size));
-    for (let r = 0; r < B.size; r++) {
-      for (let c = 0; c < B.size; c++) {
-        const cell = `${r},${c}`;
-        const known = seen.has(cell);
-        const box = el("button", "bcell" +
-          (known ? (struck.has(cell) ? " hit" : " miss") : "") +
-          (wrecked.has(cell) ? " wreck" : "") +
-          (intel.has(cell) ? " shield" : shown.has(cell) ? " shield spent" : "") +
-          (mine.includes(cell) ? " picked" : ""));
-        box.type = "button";
-        box.disabled = !myTurn || (known && !blastMode);
-        if (blastMode) {
-          box.onmouseenter = () => {
-            grid.querySelectorAll(".blast").forEach((n) => n.classList.remove("blast"));
-            const area = B.mode === "depth" ? crossArea(cell, B.size) : blastArea(cell, span, B.size);
-            for (const x of area) {
-              const [rr, cc] = x.split(",").map(Number);
-              grid.children[rr * B.size + cc]?.classList.add("blast");
-            }
-          };
-          box.onmouseleave = () => grid.querySelectorAll(".blast").forEach((n) => n.classList.remove("blast"));
-        }
-        box.onclick = () => {
-          if (["nuke", "strike", "torpedo", "depth", "sonar"].includes(B.mode)) {
-            const what = { nuke: "the nuke", strike: "the air strike", torpedo: "a torpedo", depth: "a depth charge", sonar: "a sonar ping" }[B.mode];
-            if (!window.confirm(`Send ${what} at ${enemy.name} here?`)) return;
-            send({ type: "BATTLE_ARSENAL", action: B.mode, target: enemy.uid, cell });
-            // A blast is the turn; a torpedo or a ping leaves the volley alone.
-            if (B.mode === "nuke" || B.mode === "strike" || B.mode === "depth") B.volley = {};
-            B.mode = null;
-            drawBattle(me);
-            return;
-          }
-          const picks = B.volley[enemy.uid] = B.volley[enemy.uid] || [];
-          const at = picks.indexOf(cell);
-          if (at !== -1) picks.splice(at, 1);
-          else if (spent < B.shotsPerTurn) picks.push(cell);
-          drawBattle(me);
-        };
-        grid.append(box);
+    const grid = paintGrid(board, `${enemy.uid}:${B.size}`, B.size, "bgrid", (box, cell) => {
+      const known = seen.has(cell);
+      box.className = "bcell" +
+        (known ? (struck.has(cell) ? " hit" : " miss") : "") +
+        (wrecked.has(cell) ? " wreck" : "") +
+        (intel.has(cell) ? " shield" : shown.has(cell) ? " shield spent" : "") +
+        (mine.includes(cell) ? " picked" : "");
+      box.disabled = !myTurn || (known && !blastMode);
+    });
+
+    // One handler on the grid rather than one on every cell: the same work,
+    // set once a repaint instead of four hundred times.
+    grid.onclick = (ev) => {
+      const cell = cellOf(ev);
+      if (!cell) return;
+      if (["nuke", "strike", "torpedo", "depth", "sonar"].includes(B.mode)) {
+        const what = { nuke: "the nuke", strike: "the air strike", torpedo: "a torpedo", depth: "a depth charge", sonar: "a sonar ping" }[B.mode];
+        if (!window.confirm(`Send ${what} at ${enemy.name} here?`)) return;
+        send({ type: "BATTLE_ARSENAL", action: B.mode, target: enemy.uid, cell });
+        // A blast is the turn; a torpedo or a ping leaves the volley alone.
+        if (B.mode === "nuke" || B.mode === "strike" || B.mode === "depth") B.volley = {};
+        B.mode = null;
+        drawBattle(me);
+        return;
       }
-    }
-    board.append(grid);
+      const picks = B.volley[enemy.uid] = B.volley[enemy.uid] || [];
+      const at = picks.indexOf(cell);
+      if (at !== -1) picks.splice(at, 1);
+      else if (spent < B.shotsPerTurn) picks.push(cell);
+      drawBattle(me);
+    };
+
+    const clearBlast = () => grid.querySelectorAll(".blast").forEach((n) => n.classList.remove("blast"));
+    grid.onmouseover = blastMode ? (ev) => {
+      const cell = cellOf(ev);
+      if (!cell) return;
+      clearBlast();
+      const area = B.mode === "depth" ? crossArea(cell, B.size) : blastArea(cell, span, B.size);
+      for (const x of area) {
+        const [rr, cc] = x.split(",").map(Number);
+        grid.children[rr * B.size + cc]?.classList.add("blast");
+      }
+    } : null;
+    grid.onmouseleave = blastMode ? clearBlast : null;
+    if (!blastMode) clearBlast();
   } else {
     $("enemy-name").textContent = "No target";
+    board.textContent = "";
     board.append(el("p", "panel-sub", "Pick a captain to see their water."));
   }
 
@@ -656,7 +700,6 @@ function drawBattle(me) {
 
   // Your own water, with your fleet on it.
   const mine = $("own-grid");
-  mine.textContent = "";
   const hitCells = new Set((B.fleet || []).flatMap((s) => s.hits));
   const shipCells = new Map();
   for (const s of B.fleet || []) for (const cell of s.cells) shipCells.set(cell, s.sunk);
@@ -664,39 +707,39 @@ function drawBattle(me) {
   const shielding = B.mode === "shield";
   const myShield = new Set(B.arsenal?.shield?.cells || []);
   const shieldSpent = !!B.arsenal?.shield?.spent;
-  const grid = el("div", "bgrid own" + (shielding ? " aiming" : ""));
-  grid.style.setProperty("--n", String(B.size));
-  for (let r = 0; r < B.size; r++) {
-    for (let c = 0; c < B.size; c++) {
-      const cell = `${r},${c}`;
-      // Each hit is marked where it landed. A sunk ship is no longer painted
-      // red end to end, so you can still read which squares were actually hit.
-      let cls = "bcell";
-      if (shipCells.has(cell)) cls += " ship";
-      if (hitCells.has(cell)) cls += " hit wreck";
-      else if (taken.has(cell)) cls += " miss";
-      if (myShield.has(cell)) cls += shieldSpent ? " shield spent" : " shield";
-      if (!shielding) { grid.append(el("div", cls)); continue; }
-      const box = el("button", cls);
-      box.type = "button";
-      box.onmouseenter = () => {
-        grid.querySelectorAll(".blast").forEach((n) => n.classList.remove("blast"));
-        for (const x of blastArea(cell, B.arsenal?.strikeSpan || 6, B.size)) {
-          const [rr, cc] = x.split(",").map(Number);
-          grid.children[rr * B.size + cc]?.classList.add("blast");
-        }
-      };
-      box.onmouseleave = () => grid.querySelectorAll(".blast").forEach((n) => n.classList.remove("blast"));
-      box.onclick = () => {
-        if (!window.confirm("Put the Air Strike Defence here? It stays until a strike hits it.")) return;
-        send({ type: "BATTLE_ARSENAL", action: "shield", cell });
-        B.mode = null;
-        drawBattle(me);
-      };
-      grid.append(box);
+  const ownGrid = paintGrid(mine, `own:${B.size}`, B.size, "bgrid own" + (shielding ? " aiming" : ""), (box, cell) => {
+    // Each hit is marked where it landed. A sunk ship is no longer painted
+    // red end to end, so you can still read which squares were actually hit.
+    let cls = "bcell";
+    if (shipCells.has(cell)) cls += " ship";
+    if (hitCells.has(cell)) cls += " hit wreck";
+    else if (taken.has(cell)) cls += " miss";
+    if (myShield.has(cell)) cls += shieldSpent ? " shield spent" : " shield";
+    box.className = cls;
+    // Your own water is only clickable while you are placing a defence on it.
+    box.disabled = !shielding;
+  });
+
+  const clearOwnBlast = () => ownGrid.querySelectorAll(".blast").forEach((n) => n.classList.remove("blast"));
+  ownGrid.onmouseover = shielding ? (ev) => {
+    const cell = cellOf(ev);
+    if (!cell) return;
+    clearOwnBlast();
+    for (const x of blastArea(cell, B.arsenal?.strikeSpan || 6, B.size)) {
+      const [rr, cc] = x.split(",").map(Number);
+      ownGrid.children[rr * B.size + cc]?.classList.add("blast");
     }
-  }
-  mine.append(grid);
+  } : null;
+  ownGrid.onmouseleave = shielding ? clearOwnBlast : null;
+  ownGrid.onclick = shielding ? (ev) => {
+    const cell = cellOf(ev);
+    if (!cell) return;
+    if (!window.confirm("Put the Air Strike Defence here? It stays until a strike hits it.")) return;
+    send({ type: "BATTLE_ARSENAL", action: "shield", cell });
+    B.mode = null;
+    drawBattle(me);
+  } : null;
+  if (!shielding) clearOwnBlast();
 }
 
 // ── the arsenal strip ───────────────────────────────────────────────

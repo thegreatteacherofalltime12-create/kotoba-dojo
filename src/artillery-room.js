@@ -63,6 +63,7 @@ export class TankDuel {
       aiLevel: "medium",
       aiCount: 1,
       windMode: "normal",
+      assist: true,             // the room draws the arc you are about to fire
       applied: {},              // the 1.5x boost, per uid
       chat: [],                 // what the room said to each other
       log: [],                  // what the room did, in the order it did it
@@ -356,6 +357,7 @@ export class TankDuel {
 
     if (msg.level && aiLevelById(msg.level).id === msg.level) g.aiLevel = msg.level;
     if (msg.wind && windModeById(msg.wind).id === msg.wind) g.windMode = msg.wind;
+    if (msg.assist != null) g.assist = !!msg.assist;
     if (msg.ai != null) g.aiCount = Math.max(0, Math.min(AI_MAX, Number(msg.ai) || 0));
 
     // The computers come and go with the setting rather than piling up: a
@@ -432,28 +434,10 @@ export class TankDuel {
     t.angle = angle;
     t.power = power;
 
-    // What was picked to fire with, minus anything not armed, not a shooting
-    // token, or a second payload. Filtered here rather than refused, so a
-    // stale button on a reconnected client costs a plain shell and not a turn.
-    const picked = Array.isArray(msg.use) ? msg.use.map(String) : [];
-    const use = [];
-    let payload = null;
-    for (const key of picked) {
-      const kind = TOKEN_KIND[key];
-      if (kind !== "shell" && kind !== "strike") continue;
-      if (this.armedLeft(t, key) <= 0) continue;
-      if (PAYLOADS.includes(key)) {
-        if (payload) continue;
-        payload = key;
-      }
-      if (use.includes(key)) continue;
-      use.push(key);
-    }
-    // A strike replaces the shot, so one of them and nothing else with it.
-    const strike = use.find((k) => TOKEN_KIND[k] === "strike");
-    const firing = strike ? [strike] : use;
+    const { firing, strike } = this.firingList(t, msg.use);
 
-    const aim = { x: Math.max(0, Math.min(WORLD_W - 1, Number(msg.aimX ?? t.x) || 0)) };
+    if (msg.aimX != null) t.aimX = Math.max(0, Math.min(WORLD_W - 1, Number(msg.aimX) || 0));
+    const aim = { x: t.aimX ?? t.x };
     const shot = salvo({
       from: { x: t.x, y: t.y - 6 },
       angle, power, wind: g.wind,
@@ -576,6 +560,79 @@ export class TankDuel {
     });
 
     await this.endTurn();
+  }
+
+  /**
+   * What a shot is actually made of, given what the player picked.
+   *
+   * Anything not armed, not a shooting token, or a second payload is dropped
+   * rather than refused — a stale button on a reconnected client should cost
+   * a plain shell, not a turn. A strike replaces the shot, so it goes up on
+   * its own.
+   *
+   * The preview calls this too. If the arc you are shown were built from a
+   * different list than the shell that follows it, the line would be a lie,
+   * and a lying line is worse than no line at all.
+   */
+  firingList(t, picked) {
+    const want = Array.isArray(picked) ? picked.map(String) : [];
+    const use = [];
+    let payload = null;
+    for (const key of want) {
+      const kind = TOKEN_KIND[key];
+      if (kind !== "shell" && kind !== "strike") continue;
+      if (this.armedLeft(t, key) <= 0) continue;
+      if (PAYLOADS.includes(key)) {
+        if (payload) continue;
+        payload = key;
+      }
+      if (use.includes(key)) continue;
+      use.push(key);
+    }
+    const strike = use.find((k) => TOKEN_KIND[k] === "strike");
+    return { use, strike, firing: strike ? [strike] : use };
+  }
+
+  /**
+   * The arc of the shot you have not taken yet.
+   *
+   * Flown by the room through the same physics as the real thing, against the
+   * same ground, the same wind and the same tanks — so what you are shown is
+   * what will happen if you fire now, to the pixel. The browser is handed a
+   * finished path exactly as it is for a real shell; it never simulates
+   * anything, and there is no second copy of the physics to drift.
+   *
+   * Withheld in three cases, each for its own reason: the host may turn it
+   * off for a room that would rather estimate, it is nobody's business but
+   * the player whose turn it is, and an EMP takes it away — which is the
+   * whole of what an EMP is for.
+   */
+  aimPath(ws, uid, picked) {
+    const g = this.g;
+    const t = g?.tanks?.[uid];
+    if (!g || g.phase !== "PLAYING" || !t || t.dead) return;
+    if (g.assist === false) return this.send(ws, "TANK_AIM_PATH", { paths: [], off: true });
+    if (this.whoseTurn() !== uid) return;
+    if ((t.empUntil || 0) > g.turnNo) return this.send(ws, "TANK_AIM_PATH", { paths: [], blind: true });
+
+    const { firing } = this.firingList(t, picked);
+    const shot = salvo({
+      from: { x: t.x, y: t.y - 6 },
+      angle: t.angle, power: t.power, wind: g.wind,
+      terrain: g.terrain, tanks: this.tankList(), shooter: uid,
+      use: firing, aim: { x: t.aimX ?? t.x },
+    });
+    this.send(ws, "TANK_AIM_PATH", {
+      angle: t.angle, power: t.power, wind: shot.wind,
+      paths: shot.flights.map((f) => f.path),
+      // Where each one ends, and on what — a shell that stops in a tank is
+      // worth drawing differently from one that stops in a hill.
+      ends: shot.flights.map((f) => ({
+        x: Math.round(f.hit.x), y: Math.round(f.hit.y), kind: f.hit.kind,
+        uid: f.hit.uid || null,
+      })),
+      blasts: shot.blasts.map((b) => ({ x: Math.round(b.x), y: Math.round(b.y), radius: b.radius, kind: b.kind })),
+    });
   }
 
   /**
@@ -752,6 +809,7 @@ export class TankDuel {
       wind: g.wind,
       windMax: this.windMax(),
       windMode: g.windMode || "normal",
+      assist: g.assist !== false,
       windModes: WIND_MODES,
       terrain: g.phase === "LOBBY" ? [] : this.groundOut(),
       fires: g.fires,
@@ -875,13 +933,18 @@ export class TankDuel {
       case "TANK_START": return void await this.start(ws, uid, msg);
       case "TANK_FIRE": return void await this.fire(ws, uid, msg);
       case "TANK_AIM": {
-        // Kept so a reload does not lose the dial, and so the room can show
-        // the barrel turning. It decides nothing.
+        // The dial, kept so a reload does not lose it and so everybody can
+        // see the barrel turn. It decides nothing — the shot is decided by
+        // TANK_FIRE — but it is what the preview arc is drawn from.
         if (!t) return;
         t.angle = Math.max(0, Math.min(180, Number(msg.angle) || 0));
         t.power = Math.max(1, Math.min(100, Number(msg.power) || 1));
-        await this.save();
+        if (msg.aimX != null) t.aimX = Math.max(0, Math.min(WORLD_W - 1, Number(msg.aimX) || 0));
         this.broadcast("TANK_BARREL", { uid, angle: t.angle, power: t.power });
+        this.aimPath(ws, uid, msg.use);
+        // Saved after answering: the arc is what the player is waiting for,
+        // and the dial being a moment behind on a reload costs nothing.
+        await this.save();
         return;
       }
       case "TANK_ARSENAL": return void await this.useArsenal(ws, uid, msg);

@@ -42,6 +42,7 @@ export const T = {
   unread: { chat: 0, events: 0 },
   events: 0,              // lines of the event feed already drawn
   since: 0,               // when you walked in, so old lines raise no dot
+  preview: null,          // the arc of the shot not taken yet, flown by the room
   flying: null,           // the shot being animated
   frame: null, beat: null,
   onLeave: null,
@@ -90,6 +91,38 @@ export function closeTanks(forget = true) {
 }
 
 const send = (o) => { if (T.socket?.readyState === WebSocket.OPEN) T.socket.send(JSON.stringify(o)); };
+
+/**
+ * Telling the room where the barrel is pointing, and getting the arc back.
+ *
+ * Sent while the aim moves rather than only when it stops, so the curve
+ * follows the drag — but no faster than this, because a finger moves at sixty
+ * frames a second and a duel does not need sixty round trips a second. The
+ * trailing call matters as much as the throttle: the last position of a drag
+ * is the one the player is looking at.
+ */
+const AIM_EVERY_MS = 90;
+let aimAt = 0, aimSoon = null;
+
+function sendAim() {
+  aimAt = Date.now();
+  clearTimeout(aimSoon);
+  aimSoon = null;
+  send({
+    type: "TANK_AIM",
+    angle: Number($("tank-angle").value),
+    power: Number($("tank-power").value),
+    use: [...T.picked],
+    aimX: T.aimX,
+  });
+}
+
+function liveAim() {
+  const wait = AIM_EVERY_MS - (Date.now() - aimAt);
+  if (wait <= 0) return sendAim();
+  clearTimeout(aimSoon);
+  aimSoon = setTimeout(sendAim, wait);
+}
 
 let tokens = null;
 const tokenTab = () => (tokens ||= applyTokenTab({
@@ -140,8 +173,13 @@ function handle(msg) {
         hits: msg.hits,
       };
       if (msg.plan?.tokens?.length) T.picked = new Set();
+      T.preview = null;
       break;
     case "TANK_TURN":
+      T.preview = null;
+      // Your turn: ask for the arc of the aim you are already holding, so it
+      // is on screen before you touch anything.
+      if (msg.uid === T.you) liveAim();
       drawShell();
       break;
     case "TANK_BARREL": {
@@ -154,6 +192,11 @@ function handle(msg) {
         const t = T.tanks.find((x) => x.uid === msg.uid);
         if (t) { t.x = msg.x; t.y = msg.y; }
       }
+      break;
+    case "TANK_AIM_PATH":
+      // An empty answer is the room saying no — the host turned the arc off,
+      // or an EMP took it away. Either way there is nothing to draw.
+      T.preview = msg.paths?.length ? msg : null;
       break;
     case "TANK_CHAT": addChat(msg.line); break;
     case "TANK_LOG": addEvent(msg.line); break;
@@ -254,6 +297,41 @@ function draw() {
     trace.forEach(([px, py], i) => (i ? g.lineTo(px * sx, py * sy) : g.moveTo(px * sx, py * sy)));
     g.stroke();
     g.setLineDash([]);
+  }
+
+  // The arc of the shot about to be fired, as the room flew it. Dotted, so
+  // it reads as a thing that has not happened yet, against the solid line a
+  // shell in flight draws.
+  if (T.preview && !T.flying && T.state?.turn === T.you) {
+    g.lineWidth = 2;
+    g.strokeStyle = "rgba(143,208,255,0.75)";
+    g.setLineDash([3, 7]);
+    for (const path of T.preview.paths) {
+      if (path.length < 2) continue;
+      g.beginPath();
+      path.forEach(([px, py], i) => (i ? g.lineTo(px * sx, py * sy) : g.moveTo(px * sx, py * sy)));
+      g.stroke();
+    }
+    g.setLineDash([]);
+    for (const end of T.preview.ends || []) {
+      // A shell that ends in a tank is drawn as a hit, one that ends in the
+      // ground as a crater to come, and one that sails off the map not at all.
+      if (end.kind === "away") continue;
+      const tank = end.kind === "tank";
+      g.strokeStyle = tank ? "rgba(252,129,129,0.95)" : "rgba(143,208,255,0.8)";
+      g.lineWidth = tank ? 3 : 2;
+      g.beginPath();
+      g.arc(end.x * sx, end.y * sy, (tank ? 9 : 6) * sx, 0, Math.PI * 2);
+      g.stroke();
+      if (tank) {
+        g.beginPath();
+        g.moveTo((end.x - 6) * sx, (end.y - 6) * sy);
+        g.lineTo((end.x + 6) * sx, (end.y + 6) * sy);
+        g.moveTo((end.x + 6) * sx, (end.y - 6) * sy);
+        g.lineTo((end.x - 6) * sx, (end.y + 6) * sy);
+        g.stroke();
+      }
+    }
   }
 
   // The aim being dragged out, from the barrel to the finger — unless an EMP
@@ -362,6 +440,7 @@ function drawShell() {
       : `Waiting for ${s.tanks.find((t) => t.uid === s.hostUid)?.name || "the host"} to begin the duel.`;
   }
   if (s.windMode) $("tank-wind-mode").value = s.windMode;
+  if (s.assist != null) $("tank-assist").value = s.assist ? "on" : "off";
   if (s.aim) {
     // The room withholds the dial from a tank an EMP has just hit, which is
     // the whole of what an EMP does — so an empty aim is not a missing reply.
@@ -418,6 +497,7 @@ function drawStrip() {
           say("Click the field to point the strike.", false);
         }
         drawStrip();
+        liveAim();
         return;
       }
       if (item.aim === "target") {
@@ -538,17 +618,19 @@ export function bindTankControls() {
     ai: Number($("tank-ai").value || 0),
     level: $("tank-level").value,
     wind: $("tank-wind-mode").value,
+    assist: $("tank-assist").value === "on",
   });
 
-  const aim = () => send({
-    type: "TANK_AIM",
-    angle: Number($("tank-angle").value),
-    power: Number($("tank-power").value),
-  });
-  $("tank-angle").oninput = () => { $("tank-angle-read").textContent = `${$("tank-angle").value}°`; };
-  $("tank-power").oninput = () => { $("tank-power-read").textContent = $("tank-power").value; };
-  $("tank-angle").onchange = aim;
-  $("tank-power").onchange = aim;
+  $("tank-angle").oninput = () => {
+    $("tank-angle-read").textContent = `${$("tank-angle").value}°`;
+    liveAim();
+  };
+  $("tank-power").oninput = () => {
+    $("tank-power-read").textContent = $("tank-power").value;
+    liveAim();
+  };
+  $("tank-angle").onchange = sendAim;
+  $("tank-power").onchange = sendAim;
 
   $("tank-fire").onclick = () => {
     send({
@@ -559,6 +641,7 @@ export function bindTankControls() {
       aimX: T.aimX,
     });
     $("tank-fire").disabled = true;
+    T.preview = null;
   };
 
   /**
@@ -600,7 +683,7 @@ export function bindTankControls() {
   const strikePicked = () => [...T.picked].some((k) => T.state?.arsenal?.kinds?.[k] === "strike");
 
   /** Where the barrel is pointing, and how hard, for a drag to this point. */
-  const aimAt = (me, at) => {
+  const aimFor = (me, at) => {
     const dx = at.x - me.x;
     const dy = (me.y - 6) - at.y;
     // A drag below the barrel is not a shot into the ground: it is somebody
@@ -626,12 +709,14 @@ export function bindTankControls() {
     const at = atEvent(ev);
     if (strikePicked()) {
       T.aimX = Math.round(at.x);
+      liveAim();
       return;
     }
     const me = T.tanks.find((t) => t.uid === T.you);
     if (!me || me.dead || T.state?.turn !== T.you || T.flying) return;
     T.drag = at;
-    showAim(aimAt(me, at));
+    showAim(aimFor(me, at));
+    liveAim();
     canvas.setPointerCapture?.(ev.pointerId);
     ev.preventDefault();
   });
@@ -641,7 +726,8 @@ export function bindTankControls() {
     const me = T.tanks.find((t) => t.uid === T.you);
     if (!me) return;
     T.drag = atEvent(ev);
-    showAim(aimAt(me, T.drag));
+    showAim(aimFor(me, T.drag));
+    liveAim();
     ev.preventDefault();
   });
 
@@ -649,7 +735,7 @@ export function bindTankControls() {
     if (!T.drag) return;
     T.drag = null;
     canvas.releasePointerCapture?.(ev.pointerId);
-    aim();
+    sendAim();
   };
   canvas.addEventListener("pointerup", letGo);
   canvas.addEventListener("pointercancel", letGo);

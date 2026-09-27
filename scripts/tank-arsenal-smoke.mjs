@@ -42,7 +42,7 @@ function makeState() {
   };
 }
 
-async function room(uids, { ai = 0, level = "medium", wind = "normal" } = {}) {
+async function room(uids, { ai = 0, level = "medium", wind = "normal", assist = true } = {}) {
   const state = makeState();
   state.storage.owner = state;
   const duel = new TankDuel(state, { FIREBASE_PROJECT_ID: "test" });
@@ -56,7 +56,7 @@ async function room(uids, { ai = 0, level = "medium", wind = "normal" } = {}) {
     await duel.onJoin(uid, uid.toUpperCase(), ws);
   }
   const say = (uid, obj) => duel.webSocketMessage(socks[uid], JSON.stringify(obj));
-  await say(uids[0], { type: "TANK_START", ai, level, wind });
+  await say(uids[0], { type: "TANK_START", ai, level, wind, assist });
   return { duel, socks, say, state };
 }
 
@@ -470,6 +470,70 @@ console.log("\nthe feeds reach somebody who walks in late");
   await duel.onJoin("c", "C", ws);
   ok("a latecomer is handed what was said", ws.last("TANK_CHAT").line.text === "hello");
   ok("and what happened, on the state", (ws.last("TANK_STATE").state.log || []).length >= 2);
+}
+
+console.log("\nthe arc of the shot not taken yet");
+{
+  const { duel, socks, say } = await room(["a", "b"]);
+  const t = up(duel);
+  await say(t.uid, { type: "TANK_AIM", angle: 52, power: 74 });
+  const shown = socks[t.uid].last("TANK_AIM_PATH");
+  ok("aiming gets an arc back", !!shown && shown.paths.length === 1 && shown.paths[0].length > 2);
+  ok("flown against the wind that is actually blowing", shown.wind === duel.g.wind);
+
+  // The whole point: what you were shown is what you get. Same angle, same
+  // power, same ground, same wind — so the two paths are the same points.
+  await say(t.uid, { type: "TANK_FIRE", angle: 52, power: 74 });
+  const fired = socks[t.uid].last("TANK_SHOT").flights[0].path;
+  ok(`the shot follows the line exactly (${fired.length} points)`,
+    JSON.stringify(fired) === JSON.stringify(shown.paths[0]));
+
+  const two = await room(["a", "b"]);
+  const t2 = up(two.duel);
+  const mark2 = other(two.duel);
+  flatten(two.duel);
+  arm(t2, { at_triple: 1 });
+  await two.say(t2.uid, { type: "TANK_AIM", angle: 45, power: 60, use: ["at_triple"] });
+  ok("a triple shot is previewed as three arcs", two.socks[t2.uid].last("TANK_AIM_PATH").paths.length === 3);
+  ok("and previewing it spends nothing", two.duel.armedLeft(t2, "at_triple") === 1);
+  await two.say(t2.uid, { type: "TANK_AIM", angle: 45, power: 60, use: ["at_orbital"] });
+  ok("a token nobody armed is not previewed either",
+    two.socks[t2.uid].last("TANK_AIM_PATH").paths.length === 1);
+
+  // Where it ends, and on what.
+  const three = await room(["a", "b"]);
+  const t3 = up(three.duel);
+  const mark3 = other(three.duel);
+  flatten(three.duel);
+  mark3.x = t3.x + 40;
+  mark3.y = groundAt(three.duel.g.terrain, mark3.x) - TANK_R;
+  await three.say(t3.uid, { type: "TANK_AIM", angle: 20, power: 20 });
+  const ends = three.socks[t3.uid].last("TANK_AIM_PATH").ends;
+  ok("the end of the arc says what it ends on", ends.length === 1 && !!ends[0].kind);
+  if (ends[0].kind === "tank") ok("and names the tank when it ends in one", ends[0].uid === mark3.uid);
+  else ok("and names the tank when it ends in one (this one hit the ground)", ends[0].uid === null);
+}
+
+console.log("\nwho the arc is withheld from");
+{
+  const { duel, socks, say } = await room(["a", "b"]);
+  const waiting = other(duel).uid;
+  await say(waiting, { type: "TANK_AIM", angle: 45, power: 60 });
+  ok("nobody is shown the arc on somebody else's turn", !socks[waiting].last("TANK_AIM_PATH"));
+
+  const off = await room(["a", "b"], { assist: false });
+  const t2 = up(off.duel);
+  await off.say(t2.uid, { type: "TANK_AIM", angle: 45, power: 60 });
+  const answer = off.socks[t2.uid].last("TANK_AIM_PATH");
+  ok("a room that turned it off gets no arc", answer.off === true && !answer.paths.length);
+  ok("and the state says so, so the screen can too", off.duel.view(t2.uid).assist === false);
+
+  const emp = await room(["a", "b"]);
+  const t3 = up(emp.duel);
+  t3.empUntil = emp.duel.g.turnNo + 1;
+  await emp.say(t3.uid, { type: "TANK_AIM", angle: 45, power: 60 });
+  const blind = emp.socks[t3.uid].last("TANK_AIM_PATH");
+  ok("an EMP takes the arc away, which is what an EMP is for", blind.blind === true && !blind.paths.length);
 }
 
 console.log(bad ? `\n${bad} check(s) failed\n` : "\nall tank arsenal checks passed\n");

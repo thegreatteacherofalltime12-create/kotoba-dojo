@@ -4229,3 +4229,30 @@ a.dtab { text-decoration: none; display: inline-block; }
   .track-weather { display: none; }
   .track-layer { transition: none; }
 }
+
+/* The Token shop stands beside Create Match rather than folding into the
+   phone's "Everything else" menu: it is where casino money turns into
+   something, and it is the second thing people come to the home screen for.
+   Gold, so it reads as the money door without shouting over Create Match. */
+.dtab-shop {
+  border-color: color-mix(in srgb, #F4CE5A 45%, transparent);
+  color: #F4CE5A;
+}
+.dtab-shop:hover {
+  border-color: #F4CE5A;
+  background: color-mix(in srgb, #F4CE5A 12%, transparent);
+  color: #F4CE5A;
+}
+.dtab-shop.is-on { background: #F4CE5A; border-color: #F4CE5A; color: #1a1400; }
+
+@media (max-width: 760px) {
+  /* Three buttons on one row at phone width: Create Match, the shop, and the
+     menu holding the rest. They share the width evenly, and a label that does
+     not fit on one line takes two rather than being cut off with an ellipsis
+     — "+ Create M..." is not a button anybody can read at a glance. */
+  .drawer-tabs { flex-wrap: nowrap; align-items: stretch; }
+  .drawer-tabs > .dtab {
+    flex: 1 1 0; min-width: 0; justify-content: center; text-align: center;
+    padding-inline: .4rem; font-size: .7rem; line-height: 1.15; white-space: normal;
+  }
+}

@@ -563,7 +563,7 @@ export function applyTokenTab({ game, send, button, host, label, arsenal = false
           ? "Every casino win for the rest of today (UTC) pays half again."
           : `This ${label || "match"} pays ${worth}× MMR when it is scored.`}</p>`
         : !state.loading && total === 0
-          ? `<p class="tok-empty">You hold none. Buy them with casino money in your profile under ⚡ Token shop.</p>`
+          ? `<p class="tok-empty">You hold none. Buy them with casino money from ⚡ Token shop on the home screen.</p>`
           : "";
     h.innerHTML = `
       <div class="tok-modal">

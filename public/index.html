@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Omni Multiverse of Madness</title>
-<meta name="build" content="2026-09-27 23:49 UTC">
+<meta name="build" content="2026-09-27 23:57 UTC">
 <meta name="description" content="Omni Multiverse of Madness — competitive arena. Belts, MMR, casino floor and live standings.">
 <meta name="theme-color" content="#F4F1EA">
 <meta name="mobile-web-app-capable" content="yes">
@@ -128,6 +128,11 @@ if (location.protocol === "file:") {
         <div class="build-stamp" id="build-stamp"></div>
         <div class="drawer-tabs">
           <button id="tab-create" class="dtab dtab-go" aria-expanded="false" aria-controls="drawer-create">+ Create Match</button>
+          <!-- The shop stands beside Create Match rather than folding away with
+               the rest: it is where casino money turns into something, and it
+               is the second thing people come to the home screen for. It stays
+               out of the phone menu for the same reason. -->
+          <button id="tab-shop" class="dtab dtab-shop" aria-expanded="false" aria-controls="drawer-shop"><span aria-hidden="true">&#9889;</span> Token shop</button>
           <!-- On a phone these fold into one button; on a desktop the wrapper is invisible. -->
           <button id="tab-more" class="dtab dtab-more" aria-expanded="false" aria-controls="more-menu">Everything else <span class="more-caret" aria-hidden="true">&#9662;</span></button>
           <div class="more-menu" id="more-menu">
@@ -175,6 +180,7 @@ if (location.protocol === "file:") {
   <div class="wrap">
 
     <div class="modal" id="drawer-create" role="dialog" aria-modal="true" aria-label="Create a match" hidden></div>
+    <div class="modal" id="drawer-shop" role="dialog" aria-modal="true" aria-label="Token shop" hidden></div>
     <div class="modal" id="drawer-profile" role="dialog" aria-modal="true" aria-label="Profile" hidden></div>
     <div class="modal" id="avatar-modal" role="dialog" aria-modal="true" aria-label="Your avatar" hidden></div>
     <div class="modal" id="drawer-invite" role="dialog" aria-modal="true" aria-label="Invite to the Dojo" hidden></div>

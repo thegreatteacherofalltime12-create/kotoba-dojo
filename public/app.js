@@ -1627,7 +1627,7 @@ function drawRuleBelts(tab = "arena") {
             <li><b>Table Card Games</b> opens at <b>$50 and 2 table tokens</b>.</li>
             <li><b>Blackjack:</b> lose and it costs your bet and one table token. Win or push and your tokens are safe.</li>
             <li><b>Horse Race:</b> free to enter, cash wagers, 1:1 up to 24:1.</li>
-            <li>Banked casino money buys the <b>arena tokens</b> in your profile's Token shop \u2014 see the \u26A1 Tokens tab.</li>
+            <li>Banked casino money buys the <b>arena tokens</b> in the \u26A1 Token shop on the home screen \u2014 see the \u26A1 Tokens tab.</li>
           </ul>
         </div>
 
@@ -1861,7 +1861,7 @@ function tokensRules() {
   return `
     <div class="ruleboxes">
       ${box("\u{1F4CD} Where to find them", [
-        "Open your <b>Profile</b> and pick <b>\u26A1 Token shop</b>. It shows one arsenal per game \u2014 Word-Cross, Battleship, Minesweeper, Golf, Casino and the Grand Prix \u2014 with how many tokens each sells and how many you hold.",
+        "Press <b>\u26A1 Token shop</b> on the home screen, beside Create Match. It shows the MMR multipliers, which work in any game, and one arsenal per game \u2014 Word-Cross, Battleship, Minesweeper, Golf, Casino, the Grand Prix, the Buzzer and the tank duel \u2014 with how many tokens each sells and how many you hold.",
         "Tap a game and its arsenal opens in a window: that game's <b>1.5\u00d7 boost</b> first, then anything else it sells. Buy from there.",
         "Inside a game, the <b>\u26A1 Apply Token</b> button (top bar in every game, header on the golf page) lists that game's tokens you hold.",
       ])}
@@ -1869,7 +1869,7 @@ function tokensRules() {
         "Tokens cost <b>casino money</b>, never real money. Nothing in the game is bought with real money.",
         "Casino money comes from the floor: solve arcade puzzles under <b>Earn Money</b> ($5\u201315 each), win hands at the tables, collect on horse races.",
         "Winnings sit on the table until you <b>Officially end match</b>; only then do they bank to your wallet. Quitting the floor forfeits what's on the table.",
-        "The wallet you see in the Token shop is that banked money. A boost costs $200; the arsenals run from $143 to $50,000.",
+        "The wallet you see in the Token shop is that banked money. A boost costs $200, the multipliers $5,000 to $20,000, and the arsenals run from $143 to $50,000.",
       ])}
       ${box("\u26A1 How a boost is used", [
         "A token does nothing until you apply it. In the game, press <b>\u26A1 Apply Token</b> and apply the boost to the match you're in.",
@@ -2079,7 +2079,7 @@ const GAME_RULES = [
       "You sit down on <b>$2,000</b>, and it <b>floats</b>: it is a stake you play with, not a gift you keep. You bank what you finish with <i>above</i> it, so a flat board banks nothing and a bad one banks nothing rather than costing you.",
       "<b>You keep playing below zero.</b> Still buzz, still answer, still win it all back, and a Daily Double is still yours. The only door that shuts is Final, and only if you are still under when the second board ends.",
       "The match score is where you finished, plus how well you knew the answers, capped at 100 like every game here \u2014 and that is what feeds MMR, belts and the record books.",
-      "Banked money buys the arena's tokens in your profile's Token shop, exactly as casino winnings do.",
+      "Banked money buys the arena's tokens in the \u26A1 Token shop on the home screen, exactly as casino winnings do.",
     ],
   },
   {
@@ -2110,7 +2110,7 @@ const GAME_RULES = [
     ],
     score: [
       "Every hand or race you win pays <b>5 MMR</b>, up to <b>100 a day</b>. The arcade pays up to 50 MMR a puzzle by speed (see the Arena tab).",
-      "Banked money buys the arena's tokens in your profile's Token shop.",
+      "Banked money buys the arena's tokens in the \u26A1 Token shop on the home screen.",
       "The <b>arsenal</b> \u2014 eighteen tokens, from a Comp Pass to a Night Deposit \u2014 is armed under \u26A1 Apply Token and fired from the strip above the floor. Rules in the \u26A1 Tokens tab.",
       "The full table rules \u2014 baccarat's third card, roulette's layout, the Big Six wheel \u2014 are under <b>Casino Game Rules</b> on the floor bar.",
     ],
@@ -2142,6 +2142,7 @@ function openGameRules(id) {
 // Header tabs open one drawer at a time; clicking an open one closes it.
 const DRAWERS = [
   ["tab-create", "drawer-create"],
+  ["tab-shop", "drawer-shop"],
   ["tab-achv", "drawer-achv"],
   ["tab-profile", "drawer-profile"],
   ["tab-records", "drawer-records"],
@@ -2216,6 +2217,7 @@ if ($("tab-news")) {
 }
 $("tab-scrolls").onclick = () => { if (drawer("drawer-scrolls")) loadScrolls(); };
 $("tab-create").onclick = () => { if (drawer("drawer-create")) drawCreate(); };
+$("tab-shop").onclick = () => { if (drawer("drawer-shop")) drawShopDrawer(); };
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
   if (!$("points-modal").hidden) return closePoints();
@@ -3094,6 +3096,30 @@ async function refreshWallet() {
 // The shop: one card per game. Each opens that game's arsenal in its own
 // window — its 1.5\u00d7 boost and whatever else it sells — so nobody
 // scrolls a list of everything to find one thing.
+/**
+ * The Token shop, on the home screen beside Create Match.
+ *
+ * It used to be a subtab inside Profile, three clicks from the money it
+ * spends. The body is the same one either way — drawShop below fills
+ * whatever it is handed — so this is a frame around it and nothing more.
+ */
+function drawShopDrawer() {
+  const host = $("drawer-shop");
+  host.innerHTML = `
+    <div class="modal-back" data-close></div>
+    <div class="modal-card">
+      <div class="modal-head">
+        <h2>\u26A1 Token shop</h2>
+        <button class="modal-close" data-close aria-label="Close">&times;</button>
+      </div>
+      <div class="modal-body"><div id="shop-body"></div></div>
+    </div>`;
+  host.querySelectorAll("[data-close]").forEach((n) => {
+    n.onclick = () => closePanel("drawer-shop", "tab-shop");
+  });
+  drawShop($("shop-body"));
+}
+
 async function drawShop(body) {
   const me = standings.find((r) => r.uid === S.user?.uid);
   const tokens = me?.tokens || {};
@@ -3134,7 +3160,14 @@ function drawArsenalShop(game) {
         <p id="shop-status" class="notice" hidden></p>
       </div>
     </div>`;
-  const close = () => { host.hidden = true; host.textContent = ""; drawProfile("shop"); };
+  // Back to whichever shop opened it: the drawer on the home screen, or
+  // the profile, if anything still opens one from there.
+  const close = () => {
+    host.hidden = true;
+    host.textContent = "";
+    if (!$("drawer-shop").hidden) drawShopDrawer();
+    else if (!$("drawer-profile").hidden) drawProfile("info");
+  };
   host.querySelectorAll("[data-close]").forEach((n) => { n.onclick = close; });
   refreshWallet();
   host.querySelectorAll("[data-buy]").forEach((b) => {
@@ -3179,7 +3212,6 @@ function drawProfile(tab) {
         <div class="subtabs">
           <button class="stab ${tab === "info" ? "is-on" : ""}" data-tab="info">Info</button>
         <button class="stab ${tab === "theme" ? "is-on" : ""}" data-tab="theme">Theme</button>
-        <button class="stab ${tab === "shop" ? "is-on" : ""}" data-tab="shop">\u26A1 Token shop</button>
         </div>
         <div id="profile-body"></div>
       </div>
@@ -3229,7 +3261,13 @@ function drawProfile(tab) {
     return;
   }
 
-  if (tab === "shop") { drawShop(body); return; }
+  // The shop lives on the home screen now. Anything still asking Profile
+  // for it is sent there rather than shown an empty panel.
+  if (tab === "shop") {
+    closePanel("drawer-profile", "tab-profile");
+    if (drawer("drawer-shop")) drawShopDrawer();
+    return;
+  }
 
   body.innerHTML = `
     <p class="panel-sub">Your sign-in name never changes &mdash; it's how the arena knows you. This is the name others see.</p>

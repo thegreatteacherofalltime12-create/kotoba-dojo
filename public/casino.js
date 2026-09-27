@@ -1713,8 +1713,13 @@ function showHand(msg) {
       // The dealer has bet into you. Nothing else is on offer.
       stepper.hidden = true;
       quick.hidden = true;
-      const call = el("button", "fbtn hcheck", `CALL ${money(owed)}`);
-      call.disabled = owed > cash;
+      // Everything you have, when that is less than the dealer asked for.
+      // Disabling this button was how an all-in player ended up with Fold as
+      // the only thing they could press; the room takes what is there and
+      // plays the hand out.
+      const short = owed > cash;
+      const call = el("button", "fbtn hcheck", short ? `CALL ALL IN ${money(cash)}` : `CALL ${money(owed)}`);
+      call.disabled = cash < 1;
       call.onclick = () => send({ type: "TABLE_ACT", move: "call" });
       const fold = el("button", "fbtn hfold", "FOLD");
       fold.onclick = () => send({ type: "TABLE_ACT", move: "fold" });

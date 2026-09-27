@@ -1434,12 +1434,16 @@ export class CasinoFloor {
           this.push();
           return;
         }
-        const call = this.take(p, h.pending);
+        // Short of the call means all in for what is left, not stuck. The
+        // rest of the dealer's bet is void — the house cannot win money that
+        // was never wagered — and the hand goes to the cards.
+        const call = this.take(p, Math.min(h.pending, p.table));
         if (call === null)
-          return this.send(ws, "FLOOR_ERROR", { message: "You can't cover that call." });
+          return this.send(ws, "FLOOR_ERROR", { message: "You have nothing left to call with." });
         h.wagers.push(call);
+        const short = call < h.pending;
         h.pending = 0;
-        h.dealerSaid = "you called";
+        h.dealerSaid = short ? `you called all in for ${call}` : "you called";
         // A called bet ends the street.
         return await this.holdemNext(ws, p, h);
       }
@@ -1478,16 +1482,32 @@ export class CasinoFloor {
 
       if (act.move === "bet" || act.move === "raise") {
         const pot = h.wagers.reduce((a, b) => a + b, 0);
-        const size = act.move === "raise"
+        const want = act.move === "raise"
           ? Math.max(5, Math.round((act.amount || h.facing * 2) / 5) * 5)
           : Math.max(5, Math.round((pot * 0.5) / 5) * 5);
+        // No bet larger than the player can cover. A dealer that bets past
+        // somebody's last chip is not making them decide, it is taking the
+        // hand off them: they cannot call, so the only button that works is
+        // Fold, and everything already in the pot goes without a showdown.
+        // That is what a player who had gone all in was hitting.
+        const size = Math.min(want, p.table);
+        // Nothing left to bet into. The dealer checks and the hand plays on
+        // to the cards, which is what being all in is supposed to buy you.
+        if (size < BET_STEP) {
+          h.pending = 0;
+          h.dealerSaid = "the dealer checks — you are all in";
+          return await this.holdemNext(ws, p, h);
+        }
         h.pending = size;
-        h.dealerSaid = act.move === "raise" ? `the dealer raises ${size}` : `the dealer bets ${size}`;
+        const allIn = size < want;
+        h.dealerSaid = allIn
+          ? `the dealer bets ${size} — all you have left`
+          : act.move === "raise" ? `the dealer raises ${size}` : `the dealer bets ${size}`;
         await this.save();
         this.push();
         return this.send(ws, "TABLE_HAND", {
           game: "holdem", cards: h.hole, board: h.board, street: h.street, level: h.level,
-          staked: pot, pending: size, dealerSaid: h.dealerSaid,
+          staked: pot, pending: size, allIn, dealerSaid: h.dealerSaid,
           rank: bestOfSeven([...h.hole, ...h.board].slice(0, 7)).name,
         });
       }

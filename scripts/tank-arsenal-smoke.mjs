@@ -536,5 +536,68 @@ console.log("\nwho the arc is withheld from");
   ok("an EMP takes the arc away, which is what an EMP is for", blind.blind === true && !blind.paths.length);
 }
 
+console.log("\na tracer round, in a room that draws no arcs");
+{
+  const { duel, socks, say } = await room(["a", "b"], { assist: false });
+  const t = up(duel);
+  arm(t, { at_tracer: 2 });
+  await say(t.uid, { type: "TANK_AIM", angle: 45, power: 60 });
+  ok("no arc, because the host turned it off", socks[t.uid].last("TANK_AIM_PATH").off === true);
+
+  const turn = duel.whoseTurn();
+  await say(t.uid, { type: "TANK_ARSENAL", key: "at_tracer" });
+  ok("lighting one draws the arc", (socks[t.uid].last("TANK_AIM_PATH").paths || []).length === 1);
+  ok("and costs no turn, because looking is not a move", duel.whoseTurn() === turn);
+  ok("and is spent by the looking", t.ars.used.at_tracer === 1);
+  ok("the arsenal says it is lit", duel.arsenalView(t).tracer === true);
+
+  // Still lit while this turn lasts, however the aim moves.
+  await say(t.uid, { type: "TANK_AIM", angle: 60, power: 80 });
+  const again = socks[t.uid].last("TANK_AIM_PATH");
+  ok("and stays lit as the aim moves", again.paths.length === 1 && again.angle === 60);
+
+  // The turn passes, and so does the light.
+  await say(t.uid, { type: "TANK_FIRE", angle: 60, power: 80 });
+  if (duel.g.phase === "PLAYING") {
+    const back = other(duel).uid === t.uid ? t.uid : null;
+    await say(duel.whoseTurn(), { type: "TANK_FIRE", angle: 90, power: 100 });
+    if (duel.g.phase === "PLAYING" && duel.whoseTurn() === t.uid) {
+      await say(t.uid, { type: "TANK_AIM", angle: 45, power: 60 });
+      ok("and it is dark again next turn", socks[t.uid].last("TANK_AIM_PATH").off === true);
+    } else {
+      ok("and it is dark again next turn (the duel ended first)", true);
+    }
+  } else {
+    ok("and it is dark again next turn (the duel ended first)", true);
+  }
+}
+
+console.log("\nwhen a tracer round is worth nothing");
+{
+  const { duel, socks, say } = await room(["a", "b"]);
+  const t = up(duel);
+  arm(t, { at_tracer: 1 });
+  await say(t.uid, { type: "TANK_ARSENAL", key: "at_tracer" });
+  ok("a room that draws arcs for everybody says so",
+    /already drawn for everybody/.test(socks[t.uid].last("TANK_REJECT").why));
+  ok("rather than taking the token off somebody who clicked out of habit",
+    !t.ars.used.at_tracer);
+
+  const off = await room(["a", "b"], { assist: false });
+  const waiting = other(off.duel);
+  arm(waiting, { at_tracer: 1 });
+  await off.say(waiting.uid, { type: "TANK_ARSENAL", key: "at_tracer" });
+  ok("and it is lit on your own turn, not on somebody else's",
+    /your own turn/.test(off.socks[waiting.uid].last("TANK_REJECT").why) && !waiting.ars.used.at_tracer);
+
+  const emp = await room(["a", "b"], { assist: false });
+  const t3 = up(emp.duel);
+  arm(t3, { at_tracer: 1 });
+  t3.empUntil = emp.duel.g.turnNo + 1;
+  await emp.say(t3.uid, { type: "TANK_ARSENAL", key: "at_tracer" });
+  ok("and an EMP beats it, because an EMP has the instruments",
+    /EMP/.test(emp.socks[t3.uid].last("TANK_REJECT").why) && !t3.ars.used.at_tracer);
+}
+
 console.log(bad ? `\n${bad} check(s) failed\n` : "\nall tank arsenal checks passed\n");
 process.exit(bad ? 1 : 0);

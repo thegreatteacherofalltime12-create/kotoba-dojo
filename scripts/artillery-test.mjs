@@ -392,7 +392,7 @@ console.log("\nthe shop and the mechanics agree");
   const keys = Object.keys(ARSENAL);
   ok("nineteen tokens in the arsenal", keys.length === 19);
   ok("every one of them has a kind the room can act on",
-    keys.every((k) => ["shell", "strike", "guard", "turn"].includes(TOKEN_KIND[k])));
+    keys.every((k) => ["shell", "strike", "guard", "sight", "turn"].includes(TOKEN_KIND[k])));
   ok("and nothing has a kind that is not in the shop",
     Object.keys(TOKEN_KIND).every((k) => ARSENAL[k]));
   ok("every payload is a shell", PAYLOADS.every((k) => TOKEN_KIND[k] === "shell"));

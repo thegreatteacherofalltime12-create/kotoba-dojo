@@ -80,7 +80,7 @@ export class TankDuel {
       angle: 45, power: 60,
       shots: 0, hits: 0, damage: 0, taken: 0,
       ars: this.freshArs(),
-      lastShot: null,           // the flight, for a Tracer Round to read back
+      tracerTurn: 0,            // the turn a Tracer Round lit your arc for
       empUntil: 0,              // turns numbered; no aiming help until then
       lastSeen: Date.now(),
     };
@@ -137,8 +137,11 @@ export class TankDuel {
       chute: !!a.chute,
       yourTurn: this.whoseTurn() === t.uid,
       playing: this.g?.phase === "PLAYING" && !t.dead,
-      // What the last shot did, for a Tracer Round to draw again.
-      tracer: this.armedLeft(t, "at_tracer") > 0 ? t.lastShot : null,
+      // Whether the arc is being drawn for you, and why. In a room with the
+      // assist on it is everybody's; in one without, it is what a Tracer
+      // Round buys for a turn.
+      assist: this.g?.assist !== false,
+      tracer: t.tracerTurn === this.g?.turnNo,
     };
   }
 
@@ -210,6 +213,31 @@ export class TankDuel {
       return this.send(ws, "TANK_REJECT", { why: `No ${spec.name} armed. Arm one under Apply Token.` });
 
     const a = this.arsOf(t);
+
+    /**
+     * A Tracer Round: the arc, in a room that does not hand it out.
+     *
+     * It costs no turn — looking is not a move — and it lasts the turn it was
+     * fired on, which is the turn you were going to shoot in anyway. In a room
+     * with the assist on there is nothing to buy, and the room says so rather
+     * than taking the token off somebody who clicked out of habit.
+     */
+    if (kind === "sight") {
+      if (g.assist !== false)
+        return this.send(ws, "TANK_REJECT", { why: "The arc is already drawn for everybody in this duel." });
+      if (this.whoseTurn() !== uid)
+        return this.send(ws, "TANK_REJECT", { why: "Light it on your own turn, when there is a shot to aim." });
+      if ((t.empUntil || 0) > g.turnNo)
+        return this.send(ws, "TANK_REJECT", { why: "The EMP has your instruments. Nothing to light it with." });
+      t.tracerTurn = g.turnNo;
+      this.useToken(t, key);
+      this.logEvent("token", `${t.name} lit a tracer round.`);
+      await this.save();
+      this.pushAll();
+      this.send(ws, "TANK_ARSENAL_STATE", { arsenal: this.arsenalView(t) });
+      this.aimPath(ws, uid, msg.use);
+      return;
+    }
 
     if (kind === "guard") {
       if (key === "at_chute") {
@@ -522,7 +550,6 @@ export class TankDuel {
       dead.push(other.uid);
     }
 
-    t.lastShot = { angle, power, wind: shot.wind, path: shot.flights[0]?.path || [] };
 
     // One line an onlooker could follow: what was fired, what it cost whom,
     // and who stopped it. Names rather than uids, because the feed is read.
@@ -611,9 +638,13 @@ export class TankDuel {
     const g = this.g;
     const t = g?.tanks?.[uid];
     if (!g || g.phase !== "PLAYING" || !t || t.dead) return;
-    if (g.assist === false) return this.send(ws, "TANK_AIM_PATH", { paths: [], off: true });
     if (this.whoseTurn() !== uid) return;
+    // An EMP is checked before the reasons you might be owed an arc: it takes
+    // the instruments, and a token cannot argue with that.
     if ((t.empUntil || 0) > g.turnNo) return this.send(ws, "TANK_AIM_PATH", { paths: [], blind: true });
+    // Either the room draws it for everybody, or you lit this turn yourself.
+    if (g.assist === false && t.tracerTurn !== g.turnNo)
+      return this.send(ws, "TANK_AIM_PATH", { paths: [], off: true });
 
     const { firing } = this.firingList(t, picked);
     const shot = salvo({

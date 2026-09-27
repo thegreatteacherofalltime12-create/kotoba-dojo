@@ -297,6 +297,7 @@ export function settle(terrain, tank, guard = []) {
  *   shell   changes the shot being taken — spread, payload, bounce, damage
  *   strike  replaces the shot with something called down on a column
  *   guard   changes what a blast does to the tank holding it
+ *   sight   shows you something, and costs you no turn to look
  *   turn    does something to a tank on its own, without firing
  */
 export const ARSENAL = ARSENALS.artillery;
@@ -304,7 +305,7 @@ export const ARSENAL = ARSENALS.artillery;
 export const TOKEN_KIND = {
   at_triple: "shell", at_homing: "shell", at_cluster: "shell", at_bouncy: "shell",
   at_napalm: "shell", at_mud: "shell", at_vampire: "shell", at_double: "shell",
-  at_nowind: "shell", at_tracer: "shell",
+  at_nowind: "shell", at_tracer: "sight",
   at_orbital: "strike", at_carpet: "strike", at_leveler: "strike",
   at_bubble: "guard", at_armour: "guard", at_chute: "guard",
   at_teleport: "turn", at_repair: "turn", at_emp: "turn",
@@ -379,7 +380,6 @@ export function shotPlan({ angle, power, use = [] }) {
     burn: payload === "at_napalm",
     double: holds(use, "at_double"),
     vampire: holds(use, "at_vampire"),
-    tracer: holds(use, "at_tracer"),
     windless: holds(use, "at_nowind"),
   };
 }

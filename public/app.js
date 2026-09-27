@@ -2090,7 +2090,8 @@ const GAME_RULES = [
       "The <b>wind</b> is set before the duel and shown above the field: dead calm is pure geometry, normal has you reading the gauge every turn, and wild can carry a shell half the map. It is redrawn after every shot.",
       "<b>The ground is part of the game.</b> Every shell digs a crater, so the hill you were hiding behind is a hole by the third turn \u2014 and when the ground goes from under a tank, the fall hurts it.",
       "A direct hit is worst; a near miss still hurts, less the further out it lands. Last tank standing wins, and two tanks killed by the same blast is a draw.",
-      "The <b>arsenal</b> \u2014 nineteen tokens, from a $200 mud shell that builds cover to a $5,000 orbital strike \u2014 is armed under \u26A1 Apply Token and fired from the strip above the field. Shells and strikes go up with a shot; a shield or a plate of heavy armour is raised while somebody else is shooting; a parachute lasts the whole duel.",
+      "The <b>arc of your shot is drawn before you fire it</b>, bending with the wind, with a mark where it will land \u2014 the room flies it through the same physics as the real shell. The host can turn that assist off for a duel that would rather judge it, and an EMP takes it away from whoever it hit.",
+      "The <b>arsenal</b> \u2014 nineteen tokens, from a $200 mud shell that builds cover to a $5,000 orbital strike \u2014 is armed under \u26A1 Apply Token and fired from the strip above the field. Shells and strikes go up with a shot; a shield or a plate of heavy armour is raised while somebody else is shooting; a parachute lasts the whole duel; and a Tracer Round buys you the arc for a turn in a room that turned the assist off.",
     ],
     score: [
       "Where you finished carries most of it, on the same hundred-point scale as every other game here: last tank standing scores highest, and being knocked out first scores least.",

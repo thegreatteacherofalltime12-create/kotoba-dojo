@@ -288,17 +288,6 @@ function draw() {
   }
   g.globalAlpha = 1;
 
-  // a tracer round draws the last shot again while you aim
-  const trace = T.state?.arsenal?.tracer?.path;
-  if (trace?.length && !T.flying) {
-    g.strokeStyle = "rgba(255,255,255,0.22)";
-    g.setLineDash([4, 6]);
-    g.beginPath();
-    trace.forEach(([px, py], i) => (i ? g.lineTo(px * sx, py * sy) : g.moveTo(px * sx, py * sy)));
-    g.stroke();
-    g.setLineDash([]);
-  }
-
   // The arc of the shot about to be fired, as the room flew it. Dotted, so
   // it reads as a thing that has not happened yet, against the solid line a
   // shell in flight draws.

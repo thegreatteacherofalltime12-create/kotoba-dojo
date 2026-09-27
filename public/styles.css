@@ -4046,7 +4046,7 @@ a.dtab { text-decoration: none; display: inline-block; }
 }
 .tank-canvas {
   width: 100%; display: block; border-radius: 10px; background: #0b1220;
-  border: 1px solid var(--line, #2a2f3a); cursor: crosshair; touch-action: manipulation;
+  border: 1px solid var(--line, #2a2f3a); cursor: crosshair; touch-action: none;
 }
 .tank-dials { display: flex; flex-wrap: wrap; gap: .8rem; align-items: center; }
 .tank-dials label { display: flex; align-items: center; gap: .45rem; font-size: .84rem; }
@@ -4067,4 +4067,21 @@ a.dtab { text-decoration: none; display: inline-block; }
 @media (max-width: 900px) {
   .tank-layout { grid-template-columns: 1fr; }
   .tank-side { position: static; }
+}
+
+/* The duel is played on glass over the arena background rather than on the
+   paper sheet the crossword and Battleship use, so the "played on paper" rule
+   above — which paints .host-panel in board ink — would leave every label on
+   this screen black on near-black. Put the page's own text colour back. */
+#screen-tanks .host-panel { color: var(--text); }
+#screen-tanks .host-panel label,
+#screen-tanks .opt-line,
+#screen-tanks .tank-dials label,
+#screen-tanks .tank-row,
+#screen-tanks .tank-results-list { color: var(--text); }
+#screen-tanks .topbar .btn { border-color: #fff; color: #fff; background: rgba(10, 10, 12, .45); }
+#screen-tanks .topbar .btn:hover:not(:disabled) { background: #fff; color: #141414; }
+#btn-tank-leave {
+  border: 2px solid var(--action-hot) !important; color: var(--action-hot) !important;
+  background: rgba(10, 10, 12, .72) !important; opacity: 1 !important;
 }

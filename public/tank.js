@@ -21,6 +21,12 @@ const el = (tag, cls, text) => {
 
 /** How fast a flight is drawn, in path points a frame. */
 const TRACE_SPEED = 2.2;
+/** World units of drag per point of power: a full-power shot is a long pull. */
+const DRAG_PER_POWER = 2.6;
+/** The world, for the frames drawn before the first state arrives. */
+const WORLD_W = 1000;
+const WORLD_H = 600;
+
 /** How long a crater flashes before the ground it made is drawn. */
 const BLAST_MS = 420;
 
@@ -31,6 +37,7 @@ export const T = {
   tanks: [],
   picked: new Set(),      // tokens going up with the next shot
   aimX: null,             // where a strike is pointed
+  drag: null,             // the aim being dragged out on the field
   flying: null,           // the shot being animated
   frame: null, beat: null,
   onLeave: null,
@@ -149,8 +156,8 @@ function handle(msg) {
 
 function fit() {
   const c = $("tank-canvas");
-  const world = T.state?.world || { w: 1000, h: 600 };
-  const wide = c.clientWidth || 1000;
+  const world = T.state?.world || { w: WORLD_W, h: WORLD_H };
+  const wide = c.clientWidth || WORLD_W;
   c.width = Math.round(wide);
   c.height = Math.round((wide * world.h) / world.w);
   return { c, sx: c.width / world.w, sy: c.height / world.h };
@@ -159,7 +166,7 @@ function fit() {
 function draw() {
   const { c, sx, sy } = fit();
   const g = c.getContext("2d");
-  const world = T.state?.world || { w: 1000, h: 600, r: 11 };
+  const world = T.state?.world || { w: WORLD_W, h: WORLD_H, r: 11 };
   g.clearRect(0, 0, c.width, c.height);
 
   // sky
@@ -234,6 +241,23 @@ function draw() {
     trace.forEach(([px, py], i) => (i ? g.lineTo(px * sx, py * sy) : g.moveTo(px * sx, py * sy)));
     g.stroke();
     g.setLineDash([]);
+  }
+
+  // The aim being dragged out, from the barrel to the finger — unless an EMP
+  // has just landed on you, since a line you can see is the whole of what an
+  // EMP takes away. You may still drag; you simply cannot watch yourself do it.
+  if (T.drag && !T.state?.emp) {
+    const me = T.tanks.find((t) => t.uid === T.you);
+    if (me) {
+      g.strokeStyle = "rgba(255,212,138,0.85)";
+      g.setLineDash([6, 5]);
+      g.lineWidth = 2;
+      g.beginPath();
+      g.moveTo(me.x * sx, (me.y - 6) * sy);
+      g.lineTo(T.drag.x * sx, T.drag.y * sy);
+      g.stroke();
+      g.setLineDash([]);
+    }
   }
 
   // where a strike is pointed
@@ -429,12 +453,83 @@ export function bindTankControls() {
     $("tank-fire").disabled = true;
   };
 
-  // Where a strike is called down. Nothing else on the canvas is clickable:
-  // a shot is the dial, so that a phone and a mouse aim the same way.
-  $("tank-canvas").onclick = (ev) => {
-    const c = $("tank-canvas");
-    const box = c.getBoundingClientRect();
-    const world = T.state?.world || { w: 1000 };
-    T.aimX = Math.round(((ev.clientX - box.left) / box.width) * world.w);
+  /**
+   * Aiming with a finger, or with a mouse, which are the same gesture.
+   *
+   * Drag away from your own tank in the direction you want to shoot: the
+   * bearing is the angle and how far you drag is the power, which is the
+   * thing a slider makes you do in two movements and a phone makes you do
+   * badly. The dials move with the drag and stay authoritative — the room is
+   * told an angle and a power either way, and never a gesture.
+   *
+   * While a strike is picked the field means something else: one tap puts
+   * the column where the strike comes down. So that is checked first.
+   */
+  const canvas = $("tank-canvas");
+
+  const atEvent = (ev) => {
+    const box = canvas.getBoundingClientRect();
+    const world = T.state?.world || { w: WORLD_W, h: WORLD_H };
+    return {
+      x: ((ev.clientX - box.left) / box.width) * world.w,
+      y: ((ev.clientY - box.top) / box.height) * world.h,
+    };
   };
+
+  const strikePicked = () => [...T.picked].some((k) => T.state?.arsenal?.kinds?.[k] === "strike");
+
+  /** Where the barrel is pointing, and how hard, for a drag to this point. */
+  const aimAt = (me, at) => {
+    const dx = at.x - me.x;
+    const dy = (me.y - 6) - at.y;
+    // A drag below the barrel is not a shot into the ground: it is somebody
+    // pulling flat, so it reads as flat on the side they pulled toward rather
+    // than as the zero a clamp would give it whichever way they went.
+    const raw = Math.round((Math.atan2(dy, dx) * 180) / Math.PI);
+    const angle = raw < 0 ? (dx >= 0 ? 0 : 180) : Math.min(180, raw);
+    const power = Math.max(1, Math.min(100, Math.round(Math.hypot(dx, dy) / DRAG_PER_POWER)));
+    return { angle, power };
+  };
+
+  const showAim = ({ angle, power }) => {
+    const blind = !!T.state?.emp;
+    $("tank-angle").value = angle;
+    $("tank-power").value = power;
+    $("tank-angle-read").textContent = blind ? "??" : `${angle}°`;
+    $("tank-power-read").textContent = blind ? "??" : power;
+    const me = T.tanks.find((t) => t.uid === T.you);
+    if (me) { me.angle = angle; me.power = power; }
+  };
+
+  canvas.addEventListener("pointerdown", (ev) => {
+    const at = atEvent(ev);
+    if (strikePicked()) {
+      T.aimX = Math.round(at.x);
+      return;
+    }
+    const me = T.tanks.find((t) => t.uid === T.you);
+    if (!me || me.dead || T.state?.turn !== T.you || T.flying) return;
+    T.drag = at;
+    showAim(aimAt(me, at));
+    canvas.setPointerCapture?.(ev.pointerId);
+    ev.preventDefault();
+  });
+
+  canvas.addEventListener("pointermove", (ev) => {
+    if (!T.drag) return;
+    const me = T.tanks.find((t) => t.uid === T.you);
+    if (!me) return;
+    T.drag = atEvent(ev);
+    showAim(aimAt(me, T.drag));
+    ev.preventDefault();
+  });
+
+  const letGo = (ev) => {
+    if (!T.drag) return;
+    T.drag = null;
+    canvas.releasePointerCapture?.(ev.pointerId);
+    aim();
+  };
+  canvas.addEventListener("pointerup", letGo);
+  canvas.addEventListener("pointercancel", letGo);
 }

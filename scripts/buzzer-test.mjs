@@ -602,6 +602,82 @@ console.log("\nbuzzing before the room has noticed");
   ok("buzzing during a real reading is still refused", /weren.t open/.test(s2.a.last("BZ_ERROR").message));
 }
 
+console.log("\nclosing the app mid-game");
+{
+  const { room, seats, say, state } = await roomOf(["a", "Ana"]);
+  await say("a", { type: "BZ_SOLO", on: true });
+  await say("a", { type: "BZ_AI", count: 3, level: "pro" });
+  await boardOf(room, say, "a");
+  await say("a", { type: "BZ_PICK", col: 0, row: 0 });
+
+  const before = {
+    money: room.g.players.a.money,
+    spent: room.g.spent.flat().filter(Boolean).length,
+    q: room.g.cell.q,
+    left: room.g.cell.deadline - Date.now(),
+  };
+
+  seats.a.open = false;
+  await room.onGone(seats.a);
+  ok("the room is held rather than dropped", !!room.g && !!room.g.pausedAt);
+  ok("and it is still the match it was", room.g.phase === "PLAYING" && !!room.g.cell);
+  ok("held for a day", Math.abs(state.alarmAt() - (room.g.pausedAt + 24 * 60 * 60_000)) < 50);
+
+  // The alarm goes off while they are away — the computers must not play on.
+  for (let i = 0; i < 6; i++) await room.alarm();
+  ok("the computers do not play to an empty table",
+    room.g.cell.q === before.q &&
+    room.g.spent.flat().filter(Boolean).length === before.spent &&
+    room.g.players.a.money === before.money);
+  ok("nobody's money moved while they were gone", room.g.players.a.money === before.money);
+
+  // Back an hour later. To stand an hour in the past without a clock to
+  // wind, the whole of the state before the pause has to move with it —
+  // moving only pausedAt asks the room to restore a moment that never was.
+  const away = 60 * 60_000;
+  room.g.pausedAt -= away;
+  room.g.startedAt -= away;
+  for (const k of ["shownAt", "openAt", "deadline"]) room.g.cell[k] -= away;
+  const ws2 = new FakeSocket("a", "Ana");
+  state.acceptWebSocket(ws2);
+  await room.onJoin("a", "Ana", "QUIZ1", ws2);
+  ok("coming back lets the clocks go again", !room.g.pausedAt);
+  ok("the same clue is still on the board", room.g.cell.q === before.q);
+  const now = room.g.cell.deadline - Date.now();
+  ok(`and it has the time left it had (${Math.round(now / 1000)}s)`, Math.abs(now - before.left) < 2_000);
+  ok("the board is where it was", room.g.spent.flat().filter(Boolean).length === before.spent);
+  ok("and the clue has not silently expired", room.g.cell.deadline > Date.now());
+}
+
+console.log("\nand a day later");
+{
+  const { room, seats, say, state } = await roomOf(["a", "Ana"]);
+  await boardOf(room, say, "a");
+  seats.a.open = false;
+  await room.onGone(seats.a);
+  ok("held", !!room.g.pausedAt);
+
+  // Not yet.
+  room.g.pausedAt = Date.now() - 23 * 60 * 60_000;
+  await room.alarm();
+  ok("twenty-three hours later it is still there", !!room.g);
+
+  // Now.
+  room.g.pausedAt = Date.now() - 24 * 60 * 60_000 - 1_000;
+  await room.alarm();
+  ok("a day later it is let go", room.g === null);
+}
+
+console.log("\na lobby left open");
+{
+  const { room, seats, state } = await roomOf(["a", "Ana"]);
+  ok("a room starts unheld", !room.g.pausedAt);
+  seats.a.open = false;
+  await room.onGone(seats.a);
+  ok("an abandoned lobby is held too, not binned at half an hour", !!room.g.pausedAt);
+  ok("for the same day", Math.abs(state.alarmAt() - (room.g.pausedAt + 24 * 60 * 60_000)) < 50);
+}
+
 function avg(xs) { return xs.reduce((s, x) => s + x, 0) / Math.max(1, xs.length); }
 
 console.log(bad ? `\n${bad} failing\n` : "\nall buzzer checks passed\n");

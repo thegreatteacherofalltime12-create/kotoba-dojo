@@ -30,7 +30,10 @@ import { tokensReply, heldTokens } from "./boost.js";
 import { applyBounty } from "./report-bounty.js";
 import { sessionGain, fieldMmrFor, beltFor, boosted } from "./mmr.js";
 
-const IDLE_SHUTDOWN_MS = 30 * 60_000;
+// How long a match nobody finished is kept once the last person leaves. A
+// day, because the common way to lose a game is to close the app and come
+// back to it in the evening, and half an hour does not cover an evening.
+const KEEP_MS = 24 * 60 * 60_000;
 // Pressing a buzzer is one event, and a person leaning on it is a handful.
 // This is here to stop a script hammering the object, not to pace anybody —
 // an early buzz is already punished by the lockout, which is the real rule.
@@ -147,7 +150,7 @@ export class BuzzerRoom {
         // does the seed it was drawn from — a seed a browser can read is a
         // board a browser can solve.
         doubles: [], turnUid: null, pickAt: null, cell: null,
-        final: null, applied: {},
+        final: null, applied: {}, pausedAt: null,
         players: {}, chat: [], feed: [],
         startedAt: null, seed: 1,
       };
@@ -157,6 +160,8 @@ export class BuzzerRoom {
     if (p) { p.name = name; p.gone = false; }
     else this.g.players[uid] = this.freshPlayer(uid, name);
 
+    // Whoever arrives first starts the clocks again.
+    await this.resume();
     await this.persist();
     this.announce();
     this.send(ws, "BZ_WELCOME", {
@@ -177,7 +182,9 @@ export class BuzzerRoom {
     // Back mid-clue: the options come with it, if they were theirs.
     if (this.g.cell?.holder === uid) this.sendOptions(uid);
 
-    await this.state.storage.deleteAlarm().catch(() => {});
+    // Deliberately no deleteAlarm here. A held match's alarm is the one that
+    // eventually lets it go, and throwing it away would leave the room to
+    // sit in storage for ever with nothing due to clean it up.
     await this.armAlarm();
   }
 
@@ -214,7 +221,7 @@ export class BuzzerRoom {
     return {
       code: this.g.code, phase: this.g.phase, hostUid: this.g.hostUid,
       solo: !!this.g.solo, aiCount: this.g.aiCount, aiLevel: this.g.aiLevel,
-      round: this.g.round, turnUid: this.g.turnUid,
+      round: this.g.round, turnUid: this.g.turnUid, paused: !!this.g.pausedAt,
       cats: this.g.cats, spent: this.g.spent, used: this.g.used,
       values: Array.from({ length: ROWS }, (_, r) => valueAt(r, this.g.round)),
       serverNow: Date.now(),
@@ -1245,12 +1252,57 @@ export class BuzzerRoom {
   /** When a computer is due to choose its cell, if one is. */
   nextPickAt() { return this.g.cell ? null : (this.g.pickAt || null); }
 
+  /**
+   * The room is empty. Stop everything and hold it.
+   *
+   * Without this the computers would go on playing to nobody, and the
+   * person who closed the app would come back to a board that had finished
+   * without them — which loses the match just as thoroughly as deleting it.
+   */
+  async pause() {
+    if (!this.g || this.g.pausedAt) return;
+    this.g.pausedAt = Date.now();
+    await this.persist();
+    await this.state.storage.setAlarm(this.g.pausedAt + KEEP_MS);
+    this.announce();
+  }
+
+  /**
+   * Somebody came back. Every deadline moves forward by however long the
+   * room stood empty, so the board is exactly where they left it rather than
+   * hours past the end of a clue nobody answered.
+   */
+  async resume() {
+    if (!this.g?.pausedAt) return;
+    const away = Date.now() - this.g.pausedAt;
+    this.g.pausedAt = null;
+    const on = (v) => (typeof v === "number" && v > 0 ? v + away : v);
+
+    if (this.g.startedAt) this.g.startedAt = on(this.g.startedAt);
+    this.g.pickAt = on(this.g.pickAt);
+    const c = this.g.cell;
+    if (c) {
+      c.shownAt = on(c.shownAt); c.openAt = on(c.openAt);
+      c.deadline = on(c.deadline); c.aiAnswerAt = on(c.aiAnswerAt);
+      for (const k of Object.keys(c.locked || {})) c.locked[k] = on(c.locked[k]);
+      for (const b of c.buzzes || []) b.arrivedAt = on(b.arrivedAt);
+    }
+    if (this.g.final) this.g.final.deadline = on(this.g.final.deadline);
+
+    await this.persist();
+    await this.armAlarm();
+    this.log("Back where we left off.");
+  }
+
   async armAlarm() {
     if (!this.g) return;
+    // A held match has one alarm and it is the one that eventually lets it
+    // go. Nothing else may take it.
+    if (this.g.pausedAt) return;
     const when = [this.cellDeadline(), this.nextAiAt(), this.nextPickAt(), this.g.final?.deadline].filter(Boolean);
     if (!when.length) {
       if (this.g.phase === "LOBBY" && this.connected().size === 0)
-        await this.state.storage.setAlarm(Date.now() + IDLE_SHUTDOWN_MS);
+        await this.state.storage.setAlarm(Date.now() + KEEP_MS);
       return;
     }
     await this.state.storage.setAlarm(Math.max(Math.min(...when), Date.now() + 200));
@@ -1258,14 +1310,25 @@ export class BuzzerRoom {
 
   async alarm() {
     if (!this.g) return;
-    if (this.g.phase === "FINAL") { await this.finalTick(); return; }
-    if (this.g.phase !== "PLAYING") {
-      if (this.sockets().length === 0) {
+
+    // Held. Either the day is up and it goes, or somebody is back and it
+    // should never have fired.
+    if (this.g.pausedAt) {
+      if (this.connected().size > 0) { await this.resume(); return; }
+      if (Date.now() - this.g.pausedAt >= KEEP_MS) {
         await this.state.storage.deleteAll();
         this.g = null;
+      } else {
+        await this.state.storage.setAlarm(this.g.pausedAt + KEEP_MS);
       }
       return;
     }
+
+    // Not held, but nobody is here either — hold it rather than playing on.
+    if (this.connected().size === 0) { await this.pause(); return; }
+
+    if (this.g.phase === "FINAL") { await this.finalTick(); return; }
+    if (this.g.phase !== "PLAYING") return;
     await this.tick();
   }
 
@@ -1478,19 +1541,22 @@ export class BuzzerRoom {
       if (heir) this.g.hostUid = heir.uid;
     }
 
-    // A board is not lost because somebody's phone went to sleep. The clue in
-    // front of them keeps its clock, and if it was theirs the ten seconds run
-    // out on it like anybody else's.
     // A board does not stop because the player whose turn it was closed the
     // tab. The pick moves to somebody who is still here.
-    if (this.g.phase === "PLAYING" && who?.uid === this.g.turnUid && !this.g.cell) {
+    if (online.size > 0 && this.g.phase === "PLAYING" && who?.uid === this.g.turnUid && !this.g.cell) {
       this.schedulePick();
       await this.armAlarm();
     }
 
-    if (online.size === 0 && this.g.phase !== "PLAYING") {
-      await this.state.storage.setAlarm(Date.now() + IDLE_SHUTDOWN_MS);
+    // The last person out stops the clocks. A match nobody officially ended
+    // is not over — it waits a day for somebody to come back to it, in
+    // whatever phase it was in, and the computers do not play on without
+    // them in the meantime.
+    if (online.size === 0) {
+      await this.pause();
+      return;
     }
+
     await this.persist();
     this.announce();
     this.pushState();

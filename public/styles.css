@@ -4115,3 +4115,105 @@ a.dtab { text-decoration: none; display: inline-block; }
 @media (max-width: 900px) {
   .tank-chat, .tank-events { height: 200px; }
 }
+
+/* ── the Grand Prix's skies ──────────────────────────────────────────
+   One layer per circuit, stacked and cross-faded, because CSS cannot
+   interpolate a gradient: "transition: background" on the element itself does
+   nothing at all and the sky would snap. The colours live in
+   public/track-themes.js; only the motion is here. */
+
+#screen-prix { position: relative; }
+#screen-prix > .topbar, #screen-prix > .wrap { position: relative; z-index: 1; }
+
+.track-sky {
+  position: absolute; inset: 0; z-index: 0; overflow: hidden;
+  border-radius: inherit; pointer-events: none;
+}
+.track-layer { position: absolute; inset: 0; opacity: 0; transition: opacity .8s ease-in-out; }
+.track-layer.is-on { opacity: 1; }
+
+/* The weather: a handful of specks, and the first thing to go when somebody
+   has asked for less movement. */
+.track-weather { position: absolute; inset: 0; overflow: hidden; }
+.track-weather i {
+  position: absolute; display: block;
+  width: var(--size, 4px); height: var(--size, 4px); border-radius: 50%;
+  opacity: 0; animation: track-rise 14s linear infinite;
+}
+
+@keyframes track-rise {
+  0%   { transform: translate3d(0, 105%, 0) scale(.6); opacity: 0; }
+  12%  { opacity: .75; }
+  88%  { opacity: .55; }
+  100% { transform: translate3d(var(--drift, 0), -10%, 0) scale(1); opacity: 0; }
+}
+@keyframes track-fall {
+  0%   { transform: translate3d(0, -10%, 0) rotate(0deg); opacity: 0; }
+  12%  { opacity: .8; }
+  88%  { opacity: .5; }
+  100% { transform: translate3d(var(--drift, 0), 105%, 0) rotate(320deg); opacity: 0; }
+}
+@keyframes track-blow {
+  0%   { transform: translate3d(-12vw, 0, 0); opacity: 0; }
+  15%  { opacity: .5; }
+  85%  { opacity: .3; }
+  100% { transform: translate3d(112vw, var(--drift, 0), 0); opacity: 0; }
+}
+@keyframes track-twinkle {
+  0%, 100% { opacity: .15; transform: scale(.7); }
+  50%      { opacity: .9; transform: scale(1.1); }
+}
+
+/* Neon Reef: bubbles, up. */
+.track-bubbles i { background: rgba(120, 255, 235, .5); box-shadow: 0 0 8px rgba(0, 255, 204, .55); }
+
+/* Cinder Rally: embers, up and out. */
+.track-embers i {
+  background: #ff7a1a; box-shadow: 0 0 10px rgba(255, 69, 0, .8);
+  animation-timing-function: ease-in;
+}
+
+/* The Glass Canyon: grit, sideways down the straight. */
+.track-dust i {
+  background: rgba(241, 196, 15, .55); border-radius: 50%;
+  top: calc(20% + var(--drift, 0px));
+  animation-name: track-blow; animation-timing-function: linear;
+}
+
+/* Orbital Ring: stars, still, breathing. */
+.track-stars i {
+  background: #efe6ff; box-shadow: 0 0 6px rgba(155, 89, 182, .85);
+  top: calc(45% + var(--drift, 0px));
+  animation-name: track-twinkle; animation-timing-function: ease-in-out;
+}
+
+/* Bramble Hollow: leaves, down and turning. */
+.track-leaves i {
+  background: #2ecc71; border-radius: 40% 60% 45% 55%;
+  animation-name: track-fall; animation-timing-function: ease-in-out;
+}
+
+/* Midnight Circuit: no specks at all — a grid that scrolls under you. */
+.track-gridlines {
+  background-image:
+    repeating-linear-gradient(90deg, rgba(52, 152, 219, .16) 0 1px, transparent 1px 64px),
+    repeating-linear-gradient(0deg, rgba(52, 152, 219, .10) 0 1px, transparent 1px 64px);
+  animation: track-grid 9s linear infinite;
+}
+@keyframes track-grid {
+  from { background-position: 0 0, 0 0; }
+  to   { background-position: 0 64px, 64px 0; }
+}
+
+/* What the track lends the screen: the chosen circuit and the kart in front
+   wear the track's own colour rather than the arena's. */
+#screen-prix .prix-circuit.is-on {
+  border-color: var(--track-accent, var(--accent));
+  box-shadow: 0 0 0 1px var(--track-accent, transparent), 0 0 18px var(--track-glow, transparent);
+}
+#screen-prix .topbar-mark { color: var(--track-accent, inherit); }
+
+@media (prefers-reduced-motion: reduce) {
+  .track-weather { display: none; }
+  .track-layer { transition: none; }
+}

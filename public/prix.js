@@ -5,6 +5,7 @@
 // sends guesses. Nothing here knows an answer before the room says so.
 
 import { applyTokenTab, PRIX_ARSENAL_ITEMS } from "./boost.js";
+import { applyTrackTheme, clearTrackTheme, themeFor } from "./track-themes.js";
 import { kartById } from "./cosmetics.js";
 
 const $ = (id) => document.getElementById(id);
@@ -19,6 +20,7 @@ export const P = {
   socket: null, code: null, you: null, isHost: false,
   game: null, item: null, tick: null, beat: null,
   onLeave: null, clockSkew: 0,
+  track: null,            // the circuit the screen is currently wearing
 };
 
 let boostTab = null;
@@ -34,6 +36,8 @@ export async function enterPrix(code, getToken, onLeave) {
   $("prix-results").hidden = true;
   $("prix-race").hidden = true;
   $("prix-chat").textContent = "";
+  P.track = null;
+  clearTrackTheme();
   // Build the token tab now. It is what puts the click handler on the
   // Apply Token button, and nothing else ever asks the room for tokens, so
   // leaving it until a PRIX_TOKENS arrives means it is never built at all.
@@ -61,7 +65,12 @@ export function closePrix(forget = true) {
   if (P.socket) { P.socket.onclose = null; P.socket.close(); P.socket = null; }
   clearInterval(P.tick);
   P.tick = null;
-  if (forget) P.code = null;
+  if (forget) {
+    P.code = null;
+    // The screen stops being a race, so it stops being a place.
+    P.track = null;
+    clearTrackTheme();
+  }
 }
 
 const send = (o) => { try { P.socket?.send(JSON.stringify(o)); } catch { /* closed */ } };
@@ -96,7 +105,9 @@ function handle(msg) {
     case "PRIX_START":
       P.clockSkew = Date.now() - (msg.serverNow || Date.now());
       say("");
-      flash("Lights out.");
+      // The sky is up by now — the state that turned the phase to RACING came
+      // first — so this only has to name the place.
+      flash(`Lights out \u2014 ${themeFor(P.game?.circuit).name}.`);
       break;
     case "PRIX_ITEM":
       P.item = msg;
@@ -145,6 +156,17 @@ function draw() {
   const g = P.game;
   if (!g) return;
   const racing = g.phase === "RACING";
+  // Once the vote is settled and the lights are out, the screen takes the
+  // colours of whatever won — and keeps them over the results, which are
+  // about the race that was just run. In the lobby there is no track yet,
+  // only a vote, so the arena's own background stays.
+  const settled = racing || g.phase === "RESULTS";
+  const wearing = settled ? g.circuit : null;
+  if (wearing !== P.track) {
+    P.track = wearing;
+    if (wearing) applyTrackTheme(wearing);
+    else clearTrackTheme();
+  }
   $("prix-phase").textContent = racing ? `Lap 1 of ${g.laps}` : g.phase === "RESULTS" ? "Race over" : "Waiting";
   $("prix-lobby").hidden = racing;
   $("prix-race").hidden = !racing;

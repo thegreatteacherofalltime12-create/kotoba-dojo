@@ -1191,5 +1191,32 @@ console.log("\nthe kart you race in");
   ok("and every one of them is a real kart", bots.every((x) => knownKart(x.kart)));
 }
 
+console.log("\nevery circuit has a sky");
+{
+  const { TRACK_THEMES, themeFor, DEFAULT_TRACK } = await import("../public/track-themes.js");
+  ok("a theme for every circuit on the vote",
+    CIRCUITS.every((c) => !!TRACK_THEMES[c.id]));
+  ok("and no theme for a circuit that does not exist",
+    Object.keys(TRACK_THEMES).every((id) => CIRCUITS.some((c) => c.id === id)));
+  // The themes carry the circuit's name and its one-line description, which
+  // the screen shows. Two copies of a string are two chances to drift.
+  ok("named as the room names them",
+    CIRCUITS.every((c) => TRACK_THEMES[c.id].name === c.name));
+  ok("and described as the room describes them",
+    CIRCUITS.every((c) => TRACK_THEMES[c.id].description === c.sub));
+  ok("every one of them is a gradient, an accent and a glow",
+    Object.values(TRACK_THEMES).every((t) =>
+      /gradient/.test(t.background) && /^#|^rgb/.test(t.accentColor) && /^rgba?\(/.test(t.glowColor)));
+  ok("and says what weather it has",
+    Object.values(TRACK_THEMES).every((t) => typeof t.particleType === "string" && t.particleType));
+
+  // A circuit id is what the room says; a name is what a person would type.
+  ok("a circuit id finds its theme", themeFor("orbital").name === "Orbital Ring");
+  ok("so does the name on the screen", themeFor("Neon Reef").accentColor === TRACK_THEMES.reef.accentColor);
+  ok("so does the state object the client holds", themeFor({ circuit: "bramble" }).name === "Bramble Hollow");
+  ok("and anything unrecognised falls back rather than throwing",
+    themeFor("nowhere").name === TRACK_THEMES[DEFAULT_TRACK].name && themeFor(null).name === TRACK_THEMES[DEFAULT_TRACK].name);
+}
+
 console.log(bad ? `\n${bad} failing\n` : "\nall grand prix checks passed\n");
 process.exit(bad ? 1 : 0);

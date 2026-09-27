@@ -3516,8 +3516,8 @@ a.dtab { text-decoration: none; display: inline-block; }
   .psum { font-size: 2.9rem; }
   .ptile { font-size: 1.5rem; }
   .ptile-pad { width: 4rem; height: 4rem; }
-  .prix-lane { font-size: .86rem; }
-  .pl-road { height: 1.5rem; }
+  .prix-lane { font-size: 1.08rem; }
+  .pl-road { height: 1.9rem; }
 }
 .prix-h { font-family: var(--display); font-size: .78rem; letter-spacing: .12em; text-transform: uppercase; margin: .9rem 0 .3rem; color: var(--accent); }
 
@@ -3533,21 +3533,25 @@ a.dtab { text-decoration: none; display: inline-block; }
 .prix-circuit .pc-sub { font-size: .7rem; opacity: .72; }
 .prix-circuit .pc-votes { font-size: .68rem; color: var(--accent); letter-spacing: .06em; }
 
-.prix-track { display: grid; gap: .3rem; padding: .7rem; }
-.prix-lane { display: grid; grid-template-columns: 1.4rem 7rem 1fr 3.2rem; gap: .5rem; align-items: center; font-size: .8rem; }
+/* A quarter larger than it was, all the way through: the gap between lanes,
+   the padding round them, the columns either side of the road, the type and
+   the road itself. Scaling one of those and not the others gives you a taller
+   road with the same small names beside it. */
+.prix-track { display: grid; gap: .38rem; padding: .88rem; }
+.prix-lane { display: grid; grid-template-columns: 1.75rem 8.75rem 1fr 4rem; gap: .62rem; align-items: center; font-size: 1rem; }
 /* The gallery gets a column for what each kart is carrying. Without this the
    strip is a fifth child in a four-column grid and wraps onto its own row. */
-.prix-lane.has-hand { grid-template-columns: 1.4rem 7rem 1fr auto 3.2rem; }
+.prix-lane.has-hand { grid-template-columns: 1.75rem 8.75rem 1fr auto 4rem; }
 .prix-lane.mine { background: color-mix(in srgb, var(--a1) 12%, transparent); border-radius: 6px; }
 .prix-lane .pl-place { font-family: var(--display); color: var(--accent); text-align: center; }
 .prix-lane .pl-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.prix-lane .pl-lap { font-family: var(--display); font-size: .7rem; letter-spacing: .06em; opacity: .8; text-align: right; }
+.prix-lane .pl-lap { font-family: var(--display); font-size: .88rem; letter-spacing: .06em; opacity: .8; text-align: right; }
 .pl-road {
-  position: relative; height: 18px; border-radius: 9px; overflow: hidden;
-  background: repeating-linear-gradient(90deg, rgba(255,255,255,.06) 0 14px, transparent 14px 28px), rgba(0,0,0,.35);
+  position: relative; height: 23px; border-radius: 12px; overflow: hidden;
+  background: repeating-linear-gradient(90deg, rgba(255,255,255,.06) 0 18px, transparent 18px 35px), rgba(0,0,0,.35);
   box-shadow: inset 0 0 0 1px var(--edge);
 }
-.pl-kart { position: absolute; top: 50%; transform: translate(-50%, -50%); transition: left .6s cubic-bezier(.22,.7,.3,1); font-size: .95rem; }
+.pl-kart { position: absolute; top: 50%; transform: translate(-50%, -50%); transition: left .6s cubic-bezier(.22,.7,.3,1); font-size: 1.2rem; }
 
 .prix-item { display: grid; gap: .6rem; }
 .prix-clue { font-size: 1rem; margin: 0; }
@@ -3576,7 +3580,7 @@ a.dtab { text-decoration: none; display: inline-block; }
 .pc-line.mine b { color: var(--a1, #baff00); }
 .prix-say { padding: 0 .6rem .6rem; }
 .prix-say input { flex: 1; }
-.prix-lane .pl-stat { font-size: .72rem; opacity: .75; }
+.prix-lane .pl-stat { font-size: .9rem; opacity: .75; }
 
 @media (max-width: 860px) {
   .prix-layout { grid-template-columns: 1fr; }
@@ -3597,13 +3601,13 @@ a.dtab { text-decoration: none; display: inline-block; }
 
 /* The boxes on the road, and the item in your hands. */
 .pl-box {
-  position: absolute; top: 50%; width: 7px; height: 7px; margin-left: -3px;
+  position: absolute; top: 50%; width: 9px; height: 9px; margin-left: -4px;
   transform: translateY(-50%) rotate(45deg); border-radius: 2px;
-  background: #F4CE5A; box-shadow: 0 0 5px rgba(244,206,90,.7);
+  background: #F4CE5A; box-shadow: 0 0 6px rgba(244,206,90,.7);
 }
 .pl-box.gone { background: rgba(255,255,255,.18); box-shadow: none; }
 .pl-slick {
-  position: absolute; top: 50%; width: 12px; height: 8px; margin-left: -6px;
+  position: absolute; top: 50%; width: 15px; height: 10px; margin-left: -7px;
   transform: translateY(-50%); border-radius: 50%; background: rgba(20,16,30,.95);
   box-shadow: 0 0 0 1px rgba(160,140,255,.55);
 }
@@ -4122,8 +4126,16 @@ a.dtab { text-decoration: none; display: inline-block; }
    nothing at all and the sky would snap. The colours live in
    public/track-themes.js; only the motion is here. */
 
-#screen-prix { position: relative; }
-#screen-prix > .topbar, #screen-prix > .wrap { position: relative; z-index: 1; }
+/* The frame the sky goes in. Only this box wears the circuit's colours: the
+   arena around it stays the arena. The lanes inside are thrown away and
+   redrawn on every state the room sends, which is why the sky lives on the
+   wrapper and not on .prix-track itself. */
+.prix-grid {
+  position: relative; border-radius: 8px; overflow: hidden;
+  box-shadow: inset 0 0 20px var(--track-glow, transparent);
+  transition: box-shadow .8s ease-in-out;
+}
+.prix-grid > .prix-track { position: relative; z-index: 1; }
 
 .track-sky {
   position: absolute; inset: 0; z-index: 0; overflow: hidden;

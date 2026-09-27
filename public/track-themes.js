@@ -80,30 +80,48 @@ export function themeFor(track) {
 }
 
 /**
- * Put a circuit's sky on the screen.
+ * The frame the sky goes in: the box holding the grid — every racer's lane,
+ * the road with its boxes, the lap counter — and nothing else.
+ *
+ * Deliberately not the whole screen. A race is a thing happening in a box on
+ * a page, and painting the page in the circuit's colours makes the arena
+ * around it somebody else's website for the length of a lap.
+ *
+ * It is the wrapper rather than #prix-track itself because the lanes are
+ * emptied and redrawn on every state the room sends, and a layer inside that
+ * would be swept away with them.
+ */
+function gridFrame(host) {
+  return host
+    || document.getElementById("prix-grid")
+    || document.getElementById("prix-track")?.parentElement
+    || document.getElementById("race-grid-container")
+    || null;
+}
+
+/**
+ * Put a circuit's sky in the grid.
  *
  * The gradient goes on a layer of its own rather than on the element, and a
  * new layer fades in over the old one — because CSS cannot interpolate a
  * gradient, so `transition: background` on the element itself does nothing at
  * all and the sky would snap. Two layers and an opacity is the whole trick.
  *
- * The accent and the glow go out as custom properties, so anything on the
- * screen that wants to match the track can read them without knowing this
- * file exists.
+ * The accent and the glow go out as custom properties, so anything that wants
+ * to match the track can read them without knowing this file exists — the
+ * frame's own inset glow is one of them.
  */
 export function applyTrackTheme(track, host) {
   const theme = themeFor(track);
-  const screen = host
-    || document.getElementById("screen-prix")
-    || document.getElementById("game-container")
-    || document.body;
+  const screen = gridFrame(host);
   if (!screen) return theme;
 
   screen.style.setProperty("--track-accent", theme.accentColor);
   screen.style.setProperty("--track-glow", theme.glowColor);
-  // Also on the root, for anything outside the screen that wants to match.
-  document.documentElement.style.setProperty("--track-accent", theme.accentColor);
-  document.documentElement.style.setProperty("--track-glow", theme.glowColor);
+  // And on the race screen around it, so the circuit button and the lap mark
+  // can take the track's colour without taking its background.
+  document.getElementById("screen-prix")?.style.setProperty("--track-accent", theme.accentColor);
+  document.getElementById("screen-prix")?.style.setProperty("--track-glow", theme.glowColor);
   screen.dataset.track = Object.keys(TRACK_THEMES).find((k) => TRACK_THEMES[k] === theme) || DEFAULT_TRACK;
 
   const sky = skyOf(screen);
@@ -137,12 +155,21 @@ export function applyTrackTheme(track, host) {
   return theme;
 }
 
-/** Take the sky away — for a screen that is no longer a race. */
+/** Take the sky away — for a grid that is no longer racing. */
 export function clearTrackTheme(host) {
-  const screen = host || document.getElementById("screen-prix");
-  const sky = screen?.querySelector(".track-sky");
-  if (sky) sky.textContent = "";
-  if (screen) delete screen.dataset.track;
+  const screen = gridFrame(host);
+  const sky = screen?.querySelector(":scope > .track-sky");
+  if (sky) sky.remove();
+  if (screen) {
+    delete screen.dataset.track;
+    screen.style.removeProperty("--track-accent");
+    screen.style.removeProperty("--track-glow");
+  }
+  const prix = document.getElementById("screen-prix");
+  if (prix) {
+    prix.style.removeProperty("--track-accent");
+    prix.style.removeProperty("--track-glow");
+  }
 }
 
 function skyOf(screen) {

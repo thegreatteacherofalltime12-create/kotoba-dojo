@@ -8,7 +8,8 @@ import {
   duelScore, standings, rngFrom,
 } from "./artillery.js";
 import { ARSENALS } from "./arsenals.js";
-import { recordMatch, readRatings } from "./firestore.js";
+import { recordMatch, readRatings, strikePlayer } from "./firestore.js";
+import { moderate } from "./moderation.js";
 import { boosted, sessionGain, fieldMmrFor, beltFor } from "./mmr.js";
 import { tokensReply, heldTokens } from "./boost.js";
 import { announceRoom } from "./rooms.js";
@@ -63,6 +64,8 @@ export class TankDuel {
       aiCount: 1,
       windMode: "normal",
       applied: {},              // the 1.5x boost, per uid
+      chat: [],                 // what the room said to each other
+      log: [],                  // what the room did, in the order it did it
     };
   }
 
@@ -223,6 +226,7 @@ export class TankDuel {
           ? "Shield up: the next blast to reach you does nothing at all."
           : "Heavy armour on: the next hit lands fifteen per cent lighter.");
       }
+      this.logEvent("token", `${t.name} ${key === "at_chute" ? "put a parachute on" : key === "at_bubble" ? "raised a shield" : "bolted heavy armour on"}.`);
       await this.save();
       this.pushAll();
       this.send(ws, "TANK_ARSENAL_STATE", { arsenal: this.arsenalView(t) });
@@ -239,6 +243,7 @@ export class TankDuel {
       t.hp += back;
       this.useToken(t, key);
       this.broadcast("TANK_EVENT", { kind: "repair", uid, hp: t.hp, healed: back });
+      this.logEvent("token", `${t.name} repaired ${back} of their armour.`);
       this.note(uid, `Armour repaired: ${back} back, at ${t.hp}.`);
     } else if (key === "at_teleport") {
       const to = teleportTo(g.terrain, this.tankList(), t, this.rnd());
@@ -248,6 +253,7 @@ export class TankDuel {
       settle(g.terrain, t, ["at_chute"]);
       this.useToken(t, key);
       this.broadcast("TANK_EVENT", { kind: "teleport", uid, x: t.x, y: t.y });
+      this.logEvent("token", `${t.name} teleported clear.`);
       this.note(uid, "Teleported clear.");
     } else if (key === "at_emp") {
       const mark = g.tanks[String(msg.at || "")];
@@ -259,11 +265,57 @@ export class TankDuel {
       mark.empUntil = g.turnNo + 2;
       this.useToken(t, key);
       this.broadcast("TANK_EVENT", { kind: "emp", uid, at: mark.uid });
+      this.logEvent("token", `${t.name} hit ${mark.name} with an EMP.`);
       this.note(mark.uid, "EMP: your aiming line is down for a turn.");
       this.note(uid, `EMP away: ${mark.name} is shooting blind.`);
     }
 
     await this.endTurn();
+  }
+
+  /* ── what was said, and what happened ──────────────────────────── */
+
+  /**
+   * The duel's chat.
+   *
+   * Open the whole way through, unlike the race's, which shuts at the lights.
+   * A race is a clock you are losing to; a duel is turns, and most of a turn
+   * is watching somebody else take theirs. Talking is what that time is for.
+   *
+   * Moderated on the same screen as the arena chat, and a refused line is a
+   * strike — the room a thing is said in does not change what may be said.
+   */
+  async say(ws, uid, msg) {
+    const t = this.g?.tanks?.[uid];
+    const text = String(msg.text || "").trim().slice(0, 200);
+    if (!text) return;
+    const verdict = await moderate(this.env, text);
+    if (!verdict.ok) {
+      const strikes = await strikePlayer(this.env, uid, t?.name || "Commander", {
+        text, reason: verdict.reason, where: "tank duel chat",
+      });
+      return this.send(ws, "TANK_REJECT", {
+        why: `That doesn't belong here (${verdict.reason}). Strike ${strikes ?? "?"} of 3.`,
+      });
+    }
+    const entry = { uid, name: t?.name || "Commander", text, at: Date.now() };
+    this.g.chat = [...(this.g.chat || []), entry].slice(-60);
+    await this.save();
+    this.broadcast("TANK_CHAT", { line: entry });
+  }
+
+  /**
+   * The event feed: what the duel did, in the order it did it.
+   *
+   * Kept by the room rather than assembled in the browser from the messages
+   * it happened to be awake for, so somebody who reloads mid-duel, or walks
+   * in halfway through, reads the same account as everybody else.
+   */
+  logEvent(kind, text) {
+    if (!this.g) return;
+    const entry = { at: Date.now(), turn: this.g.turnNo, kind, text };
+    this.g.log = [...(this.g.log || []), entry].slice(-80);
+    this.broadcast("TANK_LOG", { line: entry });
   }
 
   /* ── the duel ──────────────────────────────────────────────────── */
@@ -352,6 +404,7 @@ export class TankDuel {
 
     await this.save();
     this.pushAll();
+    this.logEvent("start", `Duel begins \u2014 ${g.order.length} tanks, ${windModeById(g.windMode).name.toLowerCase()} wind${g.aiCount ? `, ${aiLevelById(g.aiLevel).name.toLowerCase()} computers` : ""}.`);
     this.broadcast("TANK_START", { at: g.startedAt, wind: g.wind, seed: g.seed, terrain: this.groundOut() });
     await this.maybeAI();
   }
@@ -486,6 +539,22 @@ export class TankDuel {
     }
 
     t.lastShot = { angle, power, wind: shot.wind, path: shot.flights[0]?.path || [] };
+
+    // One line an onlooker could follow: what was fired, what it cost whom,
+    // and who stopped it. Names rather than uids, because the feed is read.
+    const named = (id) => g.tanks[id]?.name || "somebody";
+    const hurt = hits.filter((h) => h.uid !== uid && h.damage > 0);
+    const stopped = hits.filter((h) => h.blocked);
+    const fired = strike
+      ? `called down ${ARSENALS.artillery[strike].name}`
+      : `fired${firing.length ? ` with ${firing.map((k) => ARSENALS.artillery[k].name).join(" and ")}` : ""} at ${angle}\u00b0, power ${power}`;
+    const did = hurt.length
+      ? hurt.map((h) => `${named(h.uid)} for ${h.damage}`).join(", ")
+      : stopped.length ? `${named(stopped[0].uid)} blocked it` : "and missed";
+    this.logEvent("shot", `${t.name} ${fired} \u2014 ${hurt.length ? `hit ${did}` : did}.`);
+    for (const f of falls) this.logEvent("fall", `${named(f.uid)} fell with the ground, ${f.damage}.`);
+    for (const b of burn.hits.filter((h) => h.damage > 0)) this.logEvent("burn", `${named(b.uid)} is burning, ${b.damage}.`);
+    for (const id of dead) this.logEvent("dead", `${named(id)} is destroyed.`);
 
     await this.save();
     // The whole turn in one message: every flight, every crater, everything
@@ -633,6 +702,9 @@ export class TankDuel {
     }
     await this.save();
     this.pushAll();
+    this.logEvent("over", status === "mutual"
+      ? "Everybody lost: the last two went together."
+      : `${ordered[0]?.name || "Nobody"} is the last tank standing.`);
     this.broadcast("TANK_OVER", { results, status, mode });
 
     // The computers are not on the ladder, so they are not in the record —
@@ -698,6 +770,7 @@ export class TankDuel {
       aim: me && me.empUntil > g.turnNo ? null : { angle: me?.angle ?? 45, power: me?.power ?? 60 },
       emp: me ? Math.max(0, (me.empUntil || 0) - g.turnNo) : 0,
       arsenal: me ? this.arsenalView(me) : null,
+      log: (g.log || []).slice(-60),
     };
   }
 
@@ -783,6 +856,8 @@ export class TankDuel {
     }
     await this.save();
     this.send(ws, "TANK_WELCOME", { you: uid, isHost: this.canStart(uid), arsenal: ARSENALS.artillery });
+    // What was said before you got here, so a reload does not empty the room.
+    for (const line of (g.chat || []).slice(-30)) this.send(ws, "TANK_CHAT", { line });
     this.pushAll();
   }
 
@@ -810,6 +885,7 @@ export class TankDuel {
         return;
       }
       case "TANK_ARSENAL": return void await this.useArsenal(ws, uid, msg);
+      case "TANK_SAY": return void await this.say(ws, uid, msg);
       case "TANK_END": return void await this.finish("ended");
       case "TOKENS": return void await this.sendTokens(ws, uid, false);
       case "APPLY_TOKEN": return void await this.sendTokens(ws, uid, true);

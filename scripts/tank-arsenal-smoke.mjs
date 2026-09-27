@@ -392,5 +392,85 @@ console.log("\nthe wind the host set");
     usual.duel.view("a").windModes.length === WIND_MODES.length);
 }
 
+console.log("\nwhat the room says to each other");
+{
+  const { duel, socks, say } = await room(["a", "b"]);
+  await say("a", { type: "TANK_SAY", text: "  good luck  " });
+  const line = socks.b.last("TANK_CHAT").line;
+  ok("a line reaches everybody, not only the sender", !!line && !!socks.a.last("TANK_CHAT"));
+  ok("trimmed, and stamped with who said it", line.text === "good luck" && line.uid === "a" && line.name === "A");
+  ok("and kept, so a reload is not an empty room", duel.g.chat.length === 1);
+
+  await say("a", { type: "TANK_SAY", text: "   " });
+  ok("an empty line is not a line", duel.g.chat.length === 1);
+
+  const before = duel.g.chat.length;
+  await say("a", { type: "TANK_SAY", text: "you are a retard" });
+  ok("what does not belong in the arena does not belong here either",
+    duel.g.chat.length === before && /doesn't belong here/.test(socks.a.last("TANK_REJECT").why));
+
+  // Not "xxx" repeated, which the arena filter reads as exactly what it
+  // looks like, and rightly.
+  await say("a", { type: "TANK_SAY", text: "ha".repeat(200) });
+  ok("a very long line is cut rather than refused", duel.g.chat.at(-1).text.length === 200);
+
+  // Chat stays open through the duel: most of a turn is watching somebody
+  // else take theirs, and that is what the talking is for.
+  const shooter = duel.whoseTurn();
+  await say(shooter, { type: "TANK_FIRE", angle: 45, power: 60 });
+  await say("b", { type: "TANK_SAY", text: "nice shot" });
+  ok("and it is open while the duel is on", duel.g.chat.at(-1).text === "nice shot");
+}
+
+console.log("\nwhat the duel did");
+{
+  const { duel, socks, say } = await room(["a", "b"]);
+  const started = duel.g.log.find((l) => l.kind === "start");
+  ok("the duel opening is the first thing in the feed", !!started && /Duel begins/.test(started.text));
+  ok("and it says what was set", /tanks/.test(started.text) && /wind/.test(started.text));
+
+  const t = up(duel);
+  const mark = other(duel);
+  flatten(duel);
+  arm(t, { at_triple: 1 });
+  arm(mark, {});
+  mark.x = t.x + 14;
+  mark.y = groundAt(duel.g.terrain, mark.x) - TANK_R;
+  await say(t.uid, { type: "TANK_FIRE", angle: 20, power: 8, use: ["at_triple"] });
+
+  const shot = duel.g.log.filter((l) => l.kind === "shot").at(-1);
+  ok("a shot is written down in words an onlooker could follow", !!shot && shot.text.startsWith(t.name));
+  ok("naming the token it went up with", /Triple Shot/.test(shot.text));
+  ok("and who it hurt, by name and for how much", new RegExp(mark.name + " for \\d+").test(shot.text));
+  // The last TANK_LOG of the turn may be a death or the end of the duel, so
+  // look for the shot rather than assuming it was last through the door.
+  const sent = [...socks[t.uid].inbox].reverse().find((m) => m.type === "TANK_LOG" && m.line.kind === "shot");
+  ok("the line reaches the browser as it happens", sent?.line.text === shot.text);
+
+  const killed = duel.g.log.find((l) => l.kind === "dead");
+  if (killed) ok("a destroyed tank is named as destroyed", /destroyed/.test(killed.text));
+  else ok("a destroyed tank is named as destroyed (nobody died here)", true);
+
+  const over = duel.g.log.find((l) => l.kind === "over");
+  if (duel.g.phase === "OVER") ok("and the end of the duel is written too", !!over);
+  else ok("and the end of the duel is written too (still running)", !over);
+}
+
+console.log("\nthe feeds reach somebody who walks in late");
+{
+  const { duel, say } = await room(["a", "b"]);
+  await say("a", { type: "TANK_SAY", text: "hello" });
+  await say(duel.whoseTurn(), { type: "TANK_FIRE", angle: 45, power: 60 });
+  const view = duel.view("b");
+  ok("the state carries the event feed", view.log.length >= 2);
+  ok("which is capped rather than growing forever", view.log.length <= 60);
+  // A third player joining reads both feeds without having been here.
+  const ws = new FakeSocket("c", "C");
+  duel.state.acceptWebSocket(ws);
+  await duel.onJoin("c", "C", ws);
+  ok("a latecomer is handed what was said", ws.last("TANK_CHAT").line.text === "hello");
+  ok("and what happened, on the state", (ws.last("TANK_STATE").state.log || []).length >= 2);
+}
+
 console.log(bad ? `\n${bad} check(s) failed\n` : "\nall tank arsenal checks passed\n");
 process.exit(bad ? 1 : 0);

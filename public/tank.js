@@ -38,6 +38,10 @@ export const T = {
   picked: new Set(),      // tokens going up with the next shot
   aimX: null,             // where a strike is pointed
   drag: null,             // the aim being dragged out on the field
+  tab: "field",           // field / chat / events, in the sidebar
+  unread: { chat: 0, events: 0 },
+  events: 0,              // lines of the event feed already drawn
+  since: 0,               // when you walked in, so old lines raise no dot
   flying: null,           // the shot being animated
   frame: null, beat: null,
   onLeave: null,
@@ -48,6 +52,12 @@ export async function enterTanks(code, getToken, onLeave) {
   T.onLeave = onLeave;
   T.picked = new Set();
   T.aimX = null;
+  T.events = 0;
+  T.since = Date.now();
+  T.unread = { chat: 0, events: 0 };
+  $("tank-chat").textContent = "";
+  $("tank-events").textContent = "";
+  showTab("field");
   $("tank-code").textContent = code;
   $("tank-results").hidden = true;
   await connect(getToken);
@@ -111,6 +121,7 @@ function handle(msg) {
         T.terrain = msg.state?.terrain || [];
         T.tanks = msg.state?.tanks || [];
       }
+      syncEvents(msg.state?.log || []);
       drawShell();
       break;
     case "TANK_START":
@@ -144,6 +155,8 @@ function handle(msg) {
         if (t) { t.x = msg.x; t.y = msg.y; }
       }
       break;
+    case "TANK_CHAT": addChat(msg.line); break;
+    case "TANK_LOG": addEvent(msg.line); break;
     case "TANK_NOTE": say(msg.text, false); break;
     case "TANK_REJECT": say(msg.why); break;
     case "TANK_OVER": showResults(msg); break;
@@ -421,6 +434,81 @@ function drawStrip() {
   strip.hidden = !strip.childElementCount;
 }
 
+/* ── the sidebar ─────────────────────────────────────────────────── */
+
+/**
+ * Three tabs over one panel: who is on the field, what the room is saying,
+ * and what the duel has done. A dot marks a tab that has something you have
+ * not looked at, and looking at it clears the dot — the whole of the rule.
+ */
+function showTab(name) {
+  T.tab = name;
+  T.unread[name] = 0;
+  $("tank-field").hidden = name !== "field";
+  $("tank-chat").hidden = name !== "chat";
+  $("tank-say").hidden = name !== "chat";
+  $("tank-events").hidden = name !== "events";
+  for (const b of document.querySelectorAll("[data-tank-tab]")) {
+    const on = b.dataset.tankTab === name;
+    b.classList.toggle("is-on", on);
+    b.setAttribute("aria-selected", on ? "true" : "false");
+    const dot = b.querySelector(".tank-dot");
+    if (dot) dot.hidden = !T.unread[b.dataset.tankTab];
+  }
+  if (name === "chat") $("tank-chat").scrollTop = $("tank-chat").scrollHeight;
+  if (name === "events") $("tank-events").scrollTop = $("tank-events").scrollHeight;
+}
+
+/** Something arrived on a tab you are not reading. */
+function mark(name) {
+  if (T.tab === name) return;
+  T.unread[name] += 1;
+  const dot = document.querySelector(`[data-tank-tab="${name}"] .tank-dot`);
+  if (dot) dot.hidden = false;
+}
+
+function addChat(line) {
+  const host = $("tank-chat");
+  const row = el("div", `tc-line${line.uid === T.you ? " mine" : ""}`);
+  row.append(el("b", null, line.name));
+  row.append(el("span", null, line.text));
+  host.append(row);
+  host.scrollTop = host.scrollHeight;
+  // The room replays what was said before you arrived. That is history, not
+  // news, and history should not light a tab up.
+  if (!line.at || line.at >= T.since) mark("chat");
+}
+
+function addEvent(line) {
+  const host = $("tank-events");
+  const row = el("div", `tev tev-${line.kind || "note"}`);
+  row.append(el("span", null, line.text));
+  host.append(row);
+  while (host.childElementCount > 80) host.firstElementChild.remove();
+  host.scrollTop = host.scrollHeight;
+  T.events += 1;
+  mark("events");
+}
+
+/**
+ * The feed as the room has it, for a browser that missed some of it.
+ *
+ * The room's copy is what everybody reads, so a client that has drawn fewer
+ * lines than the room holds redraws the lot rather than trying to work out
+ * which ones it missed.
+ */
+function syncEvents(log) {
+  if (!log.length || log.length <= T.events) return;
+  const host = $("tank-events");
+  host.textContent = "";
+  T.events = 0;
+  for (const line of log) addEvent(line);
+  // Catching up on eighty lines is still one thing to look at.
+  T.unread.events = T.tab === "events" ? 0 : 1;
+  const dot = document.querySelector('[data-tank-tab="events"] .tank-dot');
+  if (dot) dot.hidden = !T.unread.events;
+}
+
 function showResults(msg) {
   const box = $("tank-results");
   box.hidden = false;
@@ -485,6 +573,19 @@ export function bindTankControls() {
    * While a strike is picked the field means something else: one tap puts
    * the column where the strike comes down. So that is checked first.
    */
+  for (const b of document.querySelectorAll("[data-tank-tab]")) {
+    b.onclick = () => showTab(b.dataset.tankTab);
+  }
+  const sayLine = () => {
+    const box = $("tank-text");
+    const text = box.value.trim();
+    if (!text) return;
+    send({ type: "TANK_SAY", text });
+    box.value = "";
+  };
+  $("btn-tank-send").onclick = sayLine;
+  $("tank-text").addEventListener("keydown", (e) => { if (e.key === "Enter") sayLine(); });
+
   const canvas = $("tank-canvas");
 
   const atEvent = (ev) => {

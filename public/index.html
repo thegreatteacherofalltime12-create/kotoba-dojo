@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Omni Multiverse of Madness</title>
-<meta name="build" content="2026-09-27 15:01 UTC">
+<meta name="build" content="2026-09-27 15:10 UTC">
 <meta name="description" content="Omni Multiverse of Madness — competitive arena. Belts, MMR, casino floor and live standings.">
 <meta name="theme-color" content="#F4F1EA">
 <meta name="mobile-web-app-capable" content="yes">
@@ -669,8 +669,18 @@ if (location.protocol === "file:") {
 
     <aside class="tank-side">
       <section class="panel">
-        <div class="panel-head"><h2>The field</h2></div>
+        <div class="panel-head tank-tabs" role="tablist">
+          <button class="tank-tab is-on" data-tank-tab="field" role="tab" aria-selected="true">Field</button>
+          <button class="tank-tab" data-tank-tab="chat" role="tab" aria-selected="false">Chat<i class="tank-dot" hidden></i></button>
+          <button class="tank-tab" data-tank-tab="events" role="tab" aria-selected="false">Events<i class="tank-dot" hidden></i></button>
+        </div>
         <ul id="tank-field" class="tank-standings"></ul>
+        <div id="tank-chat" class="tank-chat" hidden></div>
+        <div id="tank-say" class="joinrow tank-say" hidden>
+          <input id="tank-text" maxlength="200" placeholder="Say something">
+          <button id="btn-tank-send" class="btn btn-small">Send</button>
+        </div>
+        <div id="tank-events" class="tank-events" hidden></div>
       </section>
     </aside>
   </div>

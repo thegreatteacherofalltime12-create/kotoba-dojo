@@ -4085,3 +4085,33 @@ a.dtab { text-decoration: none; display: inline-block; }
   border: 2px solid var(--action-hot) !important; color: var(--action-hot) !important;
   background: rgba(10, 10, 12, .72) !important; opacity: 1 !important;
 }
+
+/* The sidebar is three tabs over one panel: the field, the room's chat, and
+   what the duel has done. The tabs live in the panel head, where the heading
+   was, so the panel is no taller for having gained two more things in it. */
+.tank-tabs { padding: 0; gap: 0; }
+.tank-tab {
+  flex: 1 1 0; appearance: none; cursor: pointer; position: relative;
+  font-family: var(--display); font-size: .72rem; letter-spacing: .1em; text-transform: uppercase;
+  padding: .7rem .4rem; background: transparent; border: 0;
+  border-bottom: 2px solid transparent; color: var(--muted);
+}
+.tank-tab:hover { color: var(--text); }
+.tank-tab.is-on { color: var(--text); border-bottom-color: var(--accent, #f4ce5a); }
+.tank-dot {
+  display: inline-block; width: 6px; height: 6px; margin-left: .35rem; border-radius: 50%;
+  background: var(--accent, #f4ce5a); vertical-align: middle;
+}
+.tank-chat { height: 320px; overflow-y: auto; display: grid; gap: .25rem; align-content: start; padding: .6rem; font-size: .8rem; }
+.tc-line { display: grid; grid-template-columns: auto 1fr; gap: .4rem; }
+.tc-line b { font-family: var(--display); font-size: .72rem; letter-spacing: .06em; color: var(--accent); }
+.tc-line.mine b { color: #8fd0ff; }
+.tank-say { display: flex; gap: .4rem; padding: 0 .6rem .6rem; }
+.tank-events { height: 320px; overflow-y: auto; display: grid; gap: .3rem; align-content: start; padding: .6rem; font-size: .78rem; }
+.tev { color: var(--muted); line-height: 1.35; }
+.tev-shot, .tev-token { color: var(--text); }
+.tev-dead, .tev-over { color: #fc8181; }
+.tev-start { color: var(--accent, #f4ce5a); }
+@media (max-width: 900px) {
+  .tank-chat, .tank-events { height: 200px; }
+}

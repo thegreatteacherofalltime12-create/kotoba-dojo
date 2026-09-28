@@ -353,7 +353,7 @@ function drawHostPanel() {
   const row = el("div", "host-switches");
   for (const [what, label, on, note] of [
     ["hideNames", "Hide captains' names", !!g.hideNames, "Everyone shows as Captain A, B, C."],
-    ["useTokens", "Allow the arsenal", !!g.useTokens, "Captains may arm nukes, air strikes and the rest from the Token shop."],
+    ["useTokens", "Allow the arsenal", !!g.useTokens, "Captains may arm nukes, air strikes and the rest from the Arsenal Shop."],
   ]) {
     const b = el("button", "hswitch" + (on ? " on" : ""));
     b.type = "button";

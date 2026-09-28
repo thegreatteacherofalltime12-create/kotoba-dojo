@@ -199,7 +199,7 @@ export class CasinoFloor {
     if (apply && key && isMultiplier(key)) {
       error = "Multipliers are for a match. The casino token pays on every win today instead.";
     } else if (apply && !row.boost) {
-      if (!((tokens.casino || 0) > 0)) error = "You hold no casino token. The Token shop in your profile sells them.";
+      if (!((tokens.casino || 0) > 0)) error = "You hold no casino token. The Arsenal Shop on the home screen sells them.";
       else if (await spendToken(this.env, uid, p?.name, "casino")) {
         row.boost = true;
         this.f.mmrDaily[uid] = row;
@@ -281,7 +281,7 @@ export class CasinoFloor {
     const a = this.arsOf(p);
     if (spec.max && (a.armed[key] || 0) >= spec.max) return this.sendTokens(ws, uid, `${spec.max} ${spec.name} is the limit for one session.`);
     const held = (await heldTokens(this.env, uid))[key] || 0;
-    if (held <= (a.armed[key] || 0)) return this.sendTokens(ws, uid, `You hold no more ${spec.name} tokens. The Token shop sells them.`);
+    if (held <= (a.armed[key] || 0)) return this.sendTokens(ws, uid, `You hold no more ${spec.name} tokens. The Arsenal Shop on the home screen sells them.`);
     a.armed[key] = (a.armed[key] || 0) + 1;
     await this.save();
     await this.sendTokens(ws, uid);

@@ -30,7 +30,7 @@ ok("the reply names the game", r.game === "crossword" && typeof r.tokens === "ob
 console.log("\napplying");
 const applied = {};
 r = await tokensReply(env, "u1", "crossword", { applied, over: false, apply: true });
-ok("holding none is refused, pointing at the shop", r.error?.includes("Token shop") && r.applied === false && !applied.u1);
+ok("holding none is refused, pointing at the shop", r.error?.includes("Arsenal Shop") && r.applied === false && !applied.u1);
 ok("nothing to persist after a refusal", r.changed === false);
 r = await tokensReply(env, "u1", "battleship", { applied: {}, over: true, apply: true });
 ok("a finished room refuses first", r.error?.includes("over"));

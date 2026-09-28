@@ -545,7 +545,7 @@ export default {
       return json(result, result.ok ? 200 : 400);
     }
 
-    // The token shop: casino money for a boost on the next ranked round.
+    // The Arsenal Shop: casino money for a boost on the next ranked round.
     if (path === "/api/shop") return json({ price: TOKEN_PRICE, games: TOKEN_GAMES });
     if (path === "/api/shop/buy" && request.method === "POST") {
       const token = (request.headers.get("Authorization") || "").replace(/^Bearer /, "");

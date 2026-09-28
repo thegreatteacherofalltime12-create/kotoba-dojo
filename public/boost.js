@@ -1,7 +1,7 @@
 // Boost tokens on the client: the shop's list of them, and the Apply Token
 // tab every game carries.
 //
-// A token is bought in the profile's Token shop and does nothing until the
+// A token is bought in the Arsenal Shop on the home screen and does nothing
 // player opens Apply Token inside a game and applies it to the match they are
 // in. The tab asks the room what the player holds (TOKENS), and applying
 // sends APPLY_TOKEN; the room answers both with the same reply, which this
@@ -582,7 +582,7 @@ export function applyTokenTab({ game, send, button, host, label, arsenal = false
           ? "Every casino win for the rest of today (UTC) pays half again."
           : `This ${label || "match"} pays ${worth}× MMR when it is scored.`}</p>`
         : !state.loading && total === 0
-          ? `<p class="tok-empty">You hold none. Buy them with casino money from ⚡ Token shop on the home screen.</p>`
+          ? `<p class="tok-empty">You hold none. Buy them with casino money from the ⚡ Arsenal Shop on the home screen.</p>`
           : "";
     h.innerHTML = `
       <div class="tok-modal">

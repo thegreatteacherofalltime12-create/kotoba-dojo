@@ -1627,7 +1627,7 @@ function drawRuleBelts(tab = "arena") {
             <li><b>Table Card Games</b> opens at <b>$50 and 2 table tokens</b>.</li>
             <li><b>Blackjack:</b> lose and it costs your bet and one table token. Win or push and your tokens are safe.</li>
             <li><b>Horse Race:</b> free to enter, cash wagers, 1:1 up to 24:1.</li>
-            <li>Banked casino money buys the <b>arena tokens</b> in the \u26A1 Token shop on the home screen \u2014 see the \u26A1 Tokens tab.</li>
+            <li>Banked casino money buys the <b>arena tokens</b> in the \u26A1 Arsenal Shop on the home screen \u2014 see the \u26A1 Tokens tab.</li>
           </ul>
         </div>
 
@@ -1861,7 +1861,7 @@ function tokensRules() {
   return `
     <div class="ruleboxes">
       ${box("\u{1F4CD} Where to find them", [
-        "Press <b>\u26A1 Token shop</b> on the home screen, beside Create Match. It shows the MMR multipliers, which work in any game, and one arsenal per game \u2014 Word-Cross, Battleship, Minesweeper, Golf, Casino, the Grand Prix, the Buzzer and the tank duel \u2014 with how many tokens each sells and how many you hold.",
+        "Press <b>\u26A1 Arsenal Shop</b> on the home screen, beside Create Match. It shows the MMR multipliers, which work in any game, and one arsenal per game \u2014 Word-Cross, Battleship, Minesweeper, Golf, Casino, the Grand Prix, the Buzzer and the tank duel \u2014 with how many tokens each sells and how many you hold.",
         "Tap a game and its arsenal opens in a window: that game's <b>1.5\u00d7 boost</b> first, then anything else it sells. Buy from there.",
         "Inside a game, the <b>\u26A1 Apply Token</b> button (top bar in every game, header on the golf page) lists that game's tokens you hold.",
       ])}
@@ -1869,7 +1869,7 @@ function tokensRules() {
         "Tokens cost <b>casino money</b>, never real money. Nothing in the game is bought with real money.",
         "Casino money comes from the floor: solve arcade puzzles under <b>Earn Money</b> ($5\u201315 each), win hands at the tables, collect on horse races.",
         "Winnings sit on the table until you <b>Officially end match</b>; only then do they bank to your wallet. Quitting the floor forfeits what's on the table.",
-        "The wallet you see in the Token shop is that banked money. A boost costs $200, the multipliers $5,000 to $20,000, and the arsenals run from $143 to $50,000.",
+        "The wallet you see in the Arsenal Shop is that banked money. A boost costs $200, the multipliers $5,000 to $20,000, and the arsenals run from $143 to $50,000.",
       ])}
       ${box("\u26A1 How a boost is used", [
         "A token does nothing until you apply it. In the game, press <b>\u26A1 Apply Token</b> and apply the boost to the match you're in.",
@@ -2079,7 +2079,7 @@ const GAME_RULES = [
       "You sit down on <b>$2,000</b>, and it <b>floats</b>: it is a stake you play with, not a gift you keep. You bank what you finish with <i>above</i> it, so a flat board banks nothing and a bad one banks nothing rather than costing you.",
       "<b>You keep playing below zero.</b> Still buzz, still answer, still win it all back, and a Daily Double is still yours. The only door that shuts is Final, and only if you are still under when the second board ends.",
       "The match score is where you finished, plus how well you knew the answers, capped at 100 like every game here \u2014 and that is what feeds MMR, belts and the record books.",
-      "Banked money buys the arena's tokens in the \u26A1 Token shop on the home screen, exactly as casino winnings do.",
+      "Banked money buys the arena's tokens in the \u26A1 Arsenal Shop on the home screen, exactly as casino winnings do.",
     ],
   },
   {
@@ -2110,7 +2110,7 @@ const GAME_RULES = [
     ],
     score: [
       "Every hand or race you win pays <b>5 MMR</b>, up to <b>100 a day</b>. The arcade pays up to 50 MMR a puzzle by speed (see the Arena tab).",
-      "Banked money buys the arena's tokens in the \u26A1 Token shop on the home screen.",
+      "Banked money buys the arena's tokens in the \u26A1 Arsenal Shop on the home screen.",
       "The <b>arsenal</b> \u2014 eighteen tokens, from a Comp Pass to a Night Deposit \u2014 is armed under \u26A1 Apply Token and fired from the strip above the floor. Rules in the \u26A1 Tokens tab.",
       "The full table rules \u2014 baccarat's third card, roulette's layout, the Big Six wheel \u2014 are under <b>Casino Game Rules</b> on the floor bar.",
     ],
@@ -3062,7 +3062,7 @@ function profileSummary() {
     </div>`;
 }
 
-// ── the token shop ───────────────────────────────────────────────────
+// ── the Arsenal Shop ─────────────────────────────────────────────────
 //
 // Casino money buys boost tokens: one per game, each worth half again on
 // the MMR of a round of that game (the casino's boosts every win for a
@@ -3111,7 +3111,7 @@ async function refreshWallet() {
 // window — its 1.5\u00d7 boost and whatever else it sells — so nobody
 // scrolls a list of everything to find one thing.
 /**
- * The Token shop, on the home screen beside Create Match.
+ * The Arsenal Shop, on the home screen beside Create Match.
  *
  * It used to be a subtab inside Profile, three clicks from the money it
  * spends. The body is the same one either way — drawShop below fills
@@ -3123,7 +3123,7 @@ function drawShopDrawer() {
     <div class="modal-back" data-close></div>
     <div class="modal-card">
       <div class="modal-head">
-        <h2>\u26A1 Token shop</h2>
+        <h2>\u26A1 Arsenal Shop</h2>
         <button class="modal-close" data-close aria-label="Close">&times;</button>
       </div>
       <div class="modal-body"><div id="shop-body"></div></div>

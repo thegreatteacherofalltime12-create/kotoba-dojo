@@ -194,7 +194,7 @@ export class LinksCourse {
     const a = this.arsOf(p);
     if (spec.max && (a.armed[key] || 0) >= spec.max) return this.sendTokens(ws, uid, false, `${spec.max} ${spec.name} is the limit for one round.`);
     const held = (await heldTokens(this.env, uid))[key] || 0;
-    if (held <= (a.armed[key] || 0)) return this.sendTokens(ws, uid, false, `You hold no more ${spec.name} tokens. The Token shop sells them.`);
+    if (held <= (a.armed[key] || 0)) return this.sendTokens(ws, uid, false, `You hold no more ${spec.name} tokens. The Arsenal Shop on the home screen sells them.`);
     a.armed[key] = (a.armed[key] || 0) + 1;
     await this.save();
     await this.sendTokens(ws, uid, false);

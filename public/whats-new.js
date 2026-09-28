@@ -17,6 +17,14 @@ export const KEEP_DAYS = 7;
 
 export const UPDATES = [
   {
+    at: "2026-09-28T09:00:00Z",
+    where: "Arsenal Shop",
+    title: "The Token shop is now the Arsenal Shop",
+    text: "Same door, same shelves, a name that says what is behind it: nine arsenals, one per game — "
+      + "plus the MMR multipliers, which work in any of them. It is on the home screen beside Create "
+      + "Match, where it has been since it left your profile.",
+  },
+  {
     at: "2026-09-27T12:00:00Z",
     where: "Artillery Tank Duel",
     title: "An eighth game: Artillery Tank Duel",

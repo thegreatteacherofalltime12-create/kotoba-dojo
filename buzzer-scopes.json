@@ -52,8 +52,8 @@
   "id": "tokens",
   "name": "TOKENS & ARSENALS",
   "section": "arena",
-  "scope": "Every answer is a token, a price, a limit or a rule from the six arsenals.",
-  "decoys": "The other tokens in that game's arsenal, or the other five arsenals."
+  "scope": "Every answer is a token, a price, a limit or a rule from the eight arsenals.",
+  "decoys": "The other tokens in that game's arsenal, or the other seven arsenals."
  },
  {
   "id": "belts",

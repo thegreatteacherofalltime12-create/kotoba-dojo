@@ -3069,8 +3069,20 @@ function profileSummary() {
 // day). Applied from the Apply Token tab inside the game; the list of them
 // lives in boost.js so the shop and the tab agree.
 
-/** One line of an arsenal window. */
+/** How many of one thing the shop will sell in a single press. */
+const BUY_COUNTS = [1, 2, 3, 5, 10, 25];
+
+/**
+ * One line of an arsenal window: what it is, what it costs, how many you
+ * want and the button that buys them.
+ *
+ * The count sits to the left of the price because that is the order the
+ * decision is made in — how many, then how much — and because buying ten of
+ * something was ten presses, ten confirmations and ten trips to the server.
+ */
 function shopRow(t, held) {
+  const counts = BUY_COUNTS.map((n) =>
+    `<option value="${n}">${n} \u00d7 ${(t.price * n).toLocaleString()}</option>`).join("");
   return `
     <div class="shop-item">
       <span class="shop-ico">${t.icon}</span>
@@ -3079,7 +3091,10 @@ function shopRow(t, held) {
         <div class="shop-blurb">${t.blurb}</div>
         <div class="shop-have" id="have-${t.key}">${held ? `You hold ${held}` : "None held"}</div>
       </div>
-      <button class="btn btn-primary btn-small" data-buy="${t.key}">Buy \u00b7 $${t.price.toLocaleString()}</button>
+      <div class="shop-buy">
+        <select class="shop-qty" id="qty-${t.key}" aria-label="How many ${t.name}">${counts}</select>
+        <button class="btn btn-primary btn-small" data-buy="${t.key}">Buy \u00b7 ${t.price.toLocaleString()}</button>
+      </div>
     </div>`;
 }
 
@@ -3120,10 +3135,31 @@ function drawShopDrawer() {
   drawShop($("shop-body"));
 }
 
+/** What a shelf says under its name: how much it sells, and what you hold. */
+function shelfLine(a, tokens) {
+  const held = a.items.reduce((n, t) => n + (tokens[t.key] || 0), 0);
+  return `${a.items.length} token${a.items.length === 1 ? "" : "s"}${held ? ` \u00b7 you hold ${held}` : ""}`;
+}
+
+/**
+ * The shelves, brought up to date where they stand.
+ *
+ * Drawing the shop again would do it, and that is what it used to do — but
+ * a redrawn list starts at the top, which throws away wherever the reader
+ * had got to. Nothing here is rebuilt; one line of text per shelf changes.
+ */
+function refreshShelfCounts() {
+  const me = standings.find((r) => r.uid === S.user?.uid);
+  const tokens = me?.tokens || {};
+  for (const n of document.querySelectorAll("[data-shelf]")) {
+    const shelf = SHOP_SHELVES.find((a) => a.game === n.dataset.shelf);
+    if (shelf) n.textContent = shelfLine(shelf, tokens);
+  }
+}
+
 async function drawShop(body) {
   const me = standings.find((r) => r.uid === S.user?.uid);
   const tokens = me?.tokens || {};
-  const heldIn = (a) => a.items.reduce((n, t) => n + (tokens[t.key] || 0), 0);
   body.innerHTML = `
     <p class="panel-sub">Casino money buys tokens: one arsenal per game, and the MMR multipliers, which work in any of them. Inside a game, press <b>\u26A1 Apply Token</b> to use what you hold.</p>
     <div class="shop-wallet">\u{1F4B0} Wallet: <b>$${(S.purse?.wallet ?? 0).toLocaleString()}</b></div>
@@ -3132,7 +3168,7 @@ async function drawShop(body) {
         <button class="gamepick" data-arsenal="${a.game}">
           <span class="gp-ico">${a.icon}</span>
           <span class="gp-name">${a.name}</span>
-          <span class="gp-players">${a.items.length} token${a.items.length === 1 ? "" : "s"}${heldIn(a) ? ` \u00b7 you hold ${heldIn(a)}` : ""}</span>
+          <span class="gp-players" data-shelf="${a.game}">${shelfLine(a, tokens)}</span>
         </button>`).join("")}
     </div>`;
   body.querySelectorAll("[data-arsenal]").forEach((b) => { b.onclick = () => drawArsenalShop(b.dataset.arsenal); });
@@ -3160,13 +3196,13 @@ function drawArsenalShop(game) {
         <p id="shop-status" class="notice" hidden></p>
       </div>
     </div>`;
-  // Back to whichever shop opened it: the drawer on the home screen, or
-  // the profile, if anything still opens one from there.
+  // The shop is still underneath, exactly as it was left; only the counts
+  // on its shelves may have moved. Drawing it again would put the reader
+  // back at the top of a list they had scrolled down.
   const close = () => {
     host.hidden = true;
     host.textContent = "";
-    if (!$("drawer-shop").hidden) drawShopDrawer();
-    else if (!$("drawer-profile").hidden) drawProfile("info");
+    refreshShelfCounts();
   };
   host.querySelectorAll("[data-close]").forEach((n) => { n.onclick = close; });
   refreshWallet();
@@ -3174,20 +3210,31 @@ function drawArsenalShop(game) {
     b.onclick = async () => {
       const key = b.dataset.buy;
       const item = shopItem(key);
-      if (!window.confirm(`Buy a ${item.name} for $${item.price.toLocaleString()} from your wallet?`)) return;
+      const count = Number($(`qty-${key}`)?.value || 1);
+      const bill = item.price * count;
+      const what = count === 1 ? `a ${item.name}` : `${count} \u00d7 ${item.name}`;
+      if (!window.confirm(`Buy ${what} for ${bill.toLocaleString()} from your wallet?`)) return;
       b.disabled = true;
       try {
         const res = await fetch("/api/shop/buy", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${await idToken()}` },
-          body: JSON.stringify({ game: key }),
+          body: JSON.stringify({ game: key, count }),
         });
         const out = await res.json();
         if (out.ok) {
           S.purse = { ...(S.purse || {}), wallet: out.wallet };
           document.querySelectorAll(".shop-wallet b").forEach((n) => { n.textContent = `$${out.wallet.toLocaleString()}`; });
           $(`have-${key}`).textContent = `You hold ${out.tokens ?? "?"}`;
-          say("shop-status", `${item.name} bought. In the game, press \u26A1 Apply Token to use it.`, false);
+          say("shop-status", `${count === 1 ? item.name : `${count} \u00d7 ${item.name}`} bought. In the game, press \u26A1 Apply Token to use ${count === 1 ? "it" : "them"}.`, false);
+          // The counts on the shelf behind this window, brought up to date
+          // where they stand rather than by drawing the shop again \u2014 which
+          // is what used to throw the reader back to the top of the list.
+          if (standings.length) {
+            const me = standings.find((r) => r.uid === S.user?.uid);
+            if (me) me.tokens = { ...(me.tokens || {}), [key]: out.tokens ?? ((me.tokens?.[key] || 0) + count) };
+          }
+          refreshShelfCounts();
           loadRankings();
         } else {
           say("shop-status", out.error || "The shop could not sell that.");

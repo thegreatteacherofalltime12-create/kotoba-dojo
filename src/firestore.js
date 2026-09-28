@@ -307,31 +307,44 @@ export const TOKEN_PRICES = Object.fromEntries([
 ]);
 export const priceOf = (key) => TOKEN_PRICES[key] ?? null;
 
+/** Nobody needs more than this many of one thing in a single press. */
+export const BUY_MAX = 25;
+
 /**
- * Buys one boost token for a game with casino money: the wallet is read
- * live and must hold the price, then one commit takes it off the private
- * wallet, writes the public row to match, and adds the token to the board
- * row. The room hears both.
+ * Buys tokens for a game with casino money: the wallet is read live and must
+ * hold the price, then one commit takes it off the private wallet, writes the
+ * public row to match, and adds the tokens to the board row. The room hears
+ * both.
+ *
+ * `count` is how many, because buying ten of something was ten confirmations,
+ * ten round trips and ten commits. It is one of each now, and the wallet is
+ * checked against the whole bill rather than the first token of it.
  */
-export async function buyToken(env, uid, name, game) {
+export async function buyToken(env, uid, name, game, count = 1) {
   const price = priceOf(game);
   if (price == null) return { ok: false, error: "No such token." };
+  const many = Math.max(1, Math.min(BUY_MAX, Math.round(Number(count) || 1)));
+  const bill = price * many;
   const token = await accessToken(env);
   if (!token) return { ok: false, error: "The shop isn't open in this arena." };
   const held = (await readWallet(env, uid)) ?? 0;
-  if (held < price) return { ok: false, error: `That token costs $${price.toLocaleString()}. Your wallet holds $${held.toLocaleString()}.` };
+  if (held < bill) {
+    return { ok: false, error: many === 1
+      ? `That token costs ${price.toLocaleString()}. Your wallet holds ${held.toLocaleString()}.`
+      : `${many} of those cost ${bill.toLocaleString()}. Your wallet holds ${held.toLocaleString()}.` };
+  }
 
-  const left = held - price;
+  const left = held - bill;
   const res = await fetch(`https://firestore.googleapis.com/v1/${base(env)}:commit`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       writes: [
-        ...walletWrites(`${base(env)}/users/${uid}`, `${base(env)}/wallets/${uid}`, uid, name, -price, left),
+        ...walletWrites(`${base(env)}/users/${uid}`, `${base(env)}/wallets/${uid}`, uid, name, -bill, left),
         {
           update: { name: `${base(env)}/leaderboard/${uid}`, fields: { uid: S(uid), name: S(name || "Player") } },
           updateMask: { fieldPaths: ["uid", "name"] },
-          updateTransforms: [{ fieldPath: `tokens.${game}`, increment: I(1) }],
+          updateTransforms: [{ fieldPath: `tokens.${game}`, increment: I(many) }],
         },
       ],
     }),
@@ -343,7 +356,7 @@ export async function buyToken(env, uid, name, game) {
   await (got
     ? tellCommons(env, "/board/upsert", { rows: [{ uid, name: name || "Player", tokens: { [game]: got[0] } }] })
     : tellCommons(env, "/dirty", {}));
-  return { ok: true, game, tokens: got ? got[0] : null, wallet: left };
+  return { ok: true, game, count: many, spent: bill, tokens: got ? got[0] : null, wallet: left };
 }
 
 /** One token of a game, spent. */

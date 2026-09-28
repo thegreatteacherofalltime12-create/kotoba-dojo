@@ -1212,6 +1212,27 @@ h1, h2, h3 { font-family: var(--display); text-transform: none; letter-spacing: 
   background: var(--a1-fill) !important;
   color: var(--on-a1) !important;
 }
+
+/* The shop is the other door on the home screen, so it is drawn like a door
+   rather than like a tab — outlined in the arena's gold, which is the colour
+   money is everywhere else in here, and filled with it when it is open. Gold
+   ink on a pale card is unreadable, so the text is the dark end of the same
+   gold and the fill carries the bright end. */
+.dtab-shop, #tab-shop {
+  background: var(--card) !important;
+  color: #7a5c00 !important;
+  border: 2px solid #E0B93A !important;
+  font-weight: 700 !important;
+}
+.dtab-shop:hover, #tab-shop:hover {
+  background: color-mix(in srgb, #F4CE5A 18%, var(--card)) !important;
+  color: #5c4500 !important;
+}
+.dtab-shop.is-on, #tab-shop.is-on {
+  background: #F4CE5A !important;
+  color: #1a1400 !important;
+  border-color: #F4CE5A !important;
+}
 .pb-invite, #tab-invite, .pf-red, #pf-invite {
   background: var(--a1-fill) !important;
   color: var(--on-a1) !important;
@@ -1635,6 +1656,12 @@ h1, h2, h3 { font-family: var(--display); text-transform: none; letter-spacing: 
 [data-theme="os"] .dtab-go.is-on, [data-theme="os"] #tab-create.is-on {
   background: linear-gradient(180deg, #8CC63E, #6B9B22) !important; color: #16210A !important;
   box-shadow: none;
+}
+[data-theme="os"] .dtab-shop, [data-theme="os"] #tab-shop {
+  color: #F4CE5A !important; background: #16202D !important; border-color: #24354A !important;
+}
+[data-theme="os"] .dtab-shop.is-on, [data-theme="os"] #tab-shop.is-on {
+  background: linear-gradient(180deg, #F4CE5A, #C9A227) !important; color: #1E1602 !important;
 }
 [data-theme="os"] .dtab-guide, [data-theme="os"] #tab-rules {
   color: #66C0F4 !important; background: #16202D !important; border-color: #24354A !important;
@@ -4230,29 +4257,38 @@ a.dtab { text-decoration: none; display: inline-block; }
   .track-layer { transition: none; }
 }
 
-/* The Token shop stands beside Create Match rather than folding into the
-   phone's "Everything else" menu: it is where casino money turns into
-   something, and it is the second thing people come to the home screen for.
-   Gold, so it reads as the money door without shouting over Create Match. */
-.dtab-shop {
-  border-color: color-mix(in srgb, #F4CE5A 45%, transparent);
-  color: #F4CE5A;
-}
-.dtab-shop:hover {
-  border-color: #F4CE5A;
-  background: color-mix(in srgb, #F4CE5A 12%, transparent);
-  color: #F4CE5A;
-}
-.dtab-shop.is-on { background: #F4CE5A; border-color: #F4CE5A; color: #1a1400; }
-
 @media (max-width: 760px) {
   /* Three buttons on one row at phone width: Create Match, the shop, and the
      menu holding the rest. They share the width evenly, and a label that does
      not fit on one line takes two rather than being cut off with an ellipsis
      — "+ Create M..." is not a button anybody can read at a glance. */
-  .drawer-tabs { flex-wrap: nowrap; align-items: stretch; }
+  /* Two rows rather than three squeezed buttons: the two doors people came
+     for share the top row, and the drawer holding everything else runs the
+     full width underneath, where it is easy to hit and easy to ignore. */
+  .drawer-tabs { flex-wrap: wrap; align-items: stretch; row-gap: .4rem; }
   .drawer-tabs > .dtab {
     flex: 1 1 0; min-width: 0; justify-content: center; text-align: center;
-    padding-inline: .4rem; font-size: .7rem; line-height: 1.15; white-space: normal;
+    padding-inline: .5rem; font-size: .74rem; line-height: 1.15; white-space: normal;
   }
+  #tab-more { flex: 1 0 100%; }
+}
+
+/* How many, then how much: the count sits to the left of the button that
+   spends the money, and the two read as one control. On a phone the row
+   stacks, so the pair stays together rather than the button wandering off
+   under the blurb. */
+.shop-buy { display: flex; align-items: center; gap: .4rem; }
+.shop-qty {
+  width: auto; min-width: 7.5rem; padding: .35rem .5rem; font-size: .78rem;
+  /* The theme every modal is drawn in is paper, so the dark field the rest of
+     the app gives a select would be dark ink on dark paint and unreadable.
+     Take the card and the ink the shop itself is written in. */
+  background: var(--card); color: var(--ink);
+  border: 1px solid var(--rule-solid, var(--edge)); border-radius: var(--r-sm);
+  font-weight: 700;
+}
+.shop-qty:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+@media (max-width: 560px) {
+  .shop-buy { width: 100%; }
+  .shop-qty { flex: 1 1 auto; min-width: 0; }
 }

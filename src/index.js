@@ -553,7 +553,7 @@ export default {
       try { user = await verifyMember(token, env); }
       catch { return json({ error: "Sign in first." }, 401); }
       const body = await request.json().catch(() => ({}));
-      const result = await buyToken(env, user.uid, user.name, String(body.game || ""));
+      const result = await buyToken(env, user.uid, user.name, String(body.game || ""), body.count);
       return json(result, result.ok ? 200 : 400);
     }
 

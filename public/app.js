@@ -3081,8 +3081,7 @@ const BUY_COUNTS = [1, 2, 3, 5, 10, 25];
  * something was ten presses, ten confirmations and ten trips to the server.
  */
 function shopRow(t, held) {
-  const counts = BUY_COUNTS.map((n) =>
-    `<option value="${n}">${n} \u00d7 ${(t.price * n).toLocaleString()}</option>`).join("");
+  const counts = BUY_COUNTS.map((n) => `<option value="${n}">${n}</option>`).join("");
   return `
     <div class="shop-item">
       <span class="shop-ico">${t.icon}</span>
@@ -3092,8 +3091,8 @@ function shopRow(t, held) {
         <div class="shop-have" id="have-${t.key}">${held ? `You hold ${held}` : "None held"}</div>
       </div>
       <div class="shop-buy">
-        <select class="shop-qty" id="qty-${t.key}" aria-label="How many ${t.name}">${counts}</select>
-        <button class="btn btn-primary btn-small" data-buy="${t.key}">Buy \u00b7 ${t.price.toLocaleString()}</button>
+        <select class="shop-qty" id="qty-${t.key}" aria-label="How many ${t.name}" title="How many">${counts}</select>
+        <button class="btn btn-primary btn-small" data-buy="${t.key}">Buy \u00b7 $${t.price.toLocaleString()}</button>
       </div>
     </div>`;
 }
@@ -3206,6 +3205,17 @@ function drawArsenalShop(game) {
   };
   host.querySelectorAll("[data-close]").forEach((n) => { n.onclick = close; });
   refreshWallet();
+  // The bill lives on the button and follows the count, so the price is
+  // said once rather than six times down a dropdown.
+  host.querySelectorAll(".shop-qty").forEach((sel) => {
+    sel.onchange = () => {
+      const key = sel.id.slice(4);
+      const b = host.querySelector(`[data-buy="${key}"]`);
+      const price = shopItem(key)?.price || 0;
+      if (b) b.textContent = `Buy \u00b7 $${(price * Number(sel.value || 1)).toLocaleString()}`;
+    };
+  });
+
   host.querySelectorAll("[data-buy]").forEach((b) => {
     b.onclick = async () => {
       const key = b.dataset.buy;

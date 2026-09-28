@@ -3437,6 +3437,14 @@ a.dtab { text-decoration: none; display: inline-block; }
 .shop-wallet b { color: #F4CE5A; }
 .shop-items { display: grid; gap: .45rem; }
 .shop-item { display: grid; grid-template-columns: auto 1fr auto; gap: .7rem; align-items: center; padding: .55rem .7rem; border: 1px solid var(--edge); border-radius: 10px; background: rgba(255,255,255,.04); }
+/* On a phone the third column — a count and a button — leaves the blurb a
+   column one word wide, which is how a sentence ends up reading straight
+   down the screen. Below this width the row becomes two: what it is on top,
+   what it costs and how many underneath. */
+@media (max-width: 620px) {
+  .shop-item { grid-template-columns: auto 1fr; row-gap: .5rem; }
+  .shop-item .shop-buy { grid-column: 1 / -1; justify-content: flex-end; }
+}
 .shop-ico { font-size: 1.6rem; line-height: 1; }
 .shop-name { font-family: var(--display); font-weight: 800; font-size: .86rem; }
 .shop-blurb { font-size: .7rem; color: var(--muted); }
@@ -4279,7 +4287,7 @@ a.dtab { text-decoration: none; display: inline-block; }
    under the blurb. */
 .shop-buy { display: flex; align-items: center; gap: .4rem; }
 .shop-qty {
-  width: auto; min-width: 7.5rem; padding: .35rem .5rem; font-size: .78rem;
+  width: auto; min-width: 4.5rem; padding: .35rem .5rem; font-size: .78rem;
   /* The theme every modal is drawn in is paper, so the dark field the rest of
      the app gives a select would be dark ink on dark paint and unreadable.
      Take the card and the ink the shop itself is written in. */
@@ -4288,7 +4296,9 @@ a.dtab { text-decoration: none; display: inline-block; }
   font-weight: 700;
 }
 .shop-qty:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-@media (max-width: 560px) {
-  .shop-buy { width: 100%; }
-  .shop-qty { flex: 1 1 auto; min-width: 0; }
+@media (max-width: 620px) {
+  /* The button carries the money, so it takes the room; the count needs only
+     enough for two digits. */
+  .shop-qty { flex: 0 0 auto; }
+  .shop-buy .btn { flex: 0 1 auto; white-space: nowrap; }
 }

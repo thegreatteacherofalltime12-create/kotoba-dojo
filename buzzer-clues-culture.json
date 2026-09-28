@@ -520,5 +520,68 @@
     ]
    }
   ]
+ },
+ {
+  "id": "starwars",
+  "name": "STAR WARS",
+  "section": "culture",
+  "scope": "Every answer is a character, a planet or a ship from the Star Wars films.",
+  "clues": [
+   {
+    "row": 1,
+    "q": "The smuggler captain of the Millennium Falcon, frozen in carbonite on Bespin",
+    "a": "Han Solo",
+    "wrong": [
+     "Lando Calrissian",
+     "Chewbacca",
+     "Wedge Antilles"
+    ],
+    "source": "The Empire Strikes Back (1980), Cloud City"
+   },
+   {
+    "row": 2,
+    "q": "The twin-sunned desert world where Luke Skywalker was raised by his aunt and uncle",
+    "a": "Tatooine",
+    "wrong": [
+     "Alderaan",
+     "Naboo",
+     "Coruscant"
+    ],
+    "source": "A New Hope (1977), opening acts"
+   },
+   {
+    "row": 3,
+    "q": "The Jedi Master who trained Luke in the swamps of Dagobah, and lifted an X-wing out of them",
+    "a": "Yoda",
+    "wrong": [
+     "Mace Windu",
+     "Qui-Gon Jinn",
+     "Count Dooku"
+    ],
+    "source": "The Empire Strikes Back (1980), Dagobah training"
+   },
+   {
+    "row": 4,
+    "q": "The armoured bounty hunter who carried a frozen smuggler to Jabba the Hutt for the price on his head",
+    "a": "Boba Fett",
+    "wrong": [
+     "Bossk",
+     "Dengar",
+     "IG-88"
+    ],
+    "source": "The Empire Strikes Back (1980) into Return of the Jedi (1983)"
+   },
+   {
+    "row": 5,
+    "q": "The ice world where tauntauns are ridden and Echo Base was dug in, abandoned under an Imperial assault",
+    "a": "Hoth",
+    "wrong": [
+     "Mustafar",
+     "Kamino",
+     "Kashyyyk"
+    ],
+    "source": "The Empire Strikes Back (1980), opening act"
+   }
+  ]
  }
 ]

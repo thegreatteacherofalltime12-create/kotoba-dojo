@@ -603,6 +603,13 @@
   "decoys": "Other films of the same year or genre, or other directors."
  },
  {
+  "id": "starwars",
+  "name": "STAR WARS",
+  "section": "culture",
+  "scope": "Every answer is a character, a planet or a ship from the Star Wars films.",
+  "decoys": "Other characters of the same trade, other planets, or other ships."
+ },
+ {
   "id": "tv",
   "name": "MUST-SEE TV",
   "section": "culture",

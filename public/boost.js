@@ -483,13 +483,21 @@ export function applyTokenTab({ game, send, button, host, label, arsenal = false
   const here = tokenItem(game);
   let el = host || null;
   let state = { loading: true };
+  // Arming draws twice — once to grey the button, once when the room answers
+  // — and the button is disabled in between, so focus cannot be handed back
+  // on the first pass and there is nothing left to read on the second.
+  // Remembered here instead, and given back the moment it can be.
+  let holding = null;
 
   const mount = () => {
     if (!el) { el = document.createElement("div"); el.hidden = true; document.body.appendChild(el); }
     return el;
   };
 
-  function close() { if (el) { el.hidden = true; el.textContent = ""; } }
+  function close() {
+    holding = null;
+    if (el) { el.hidden = true; el.textContent = ""; }
+  }
 
   function open() {
     const h = mount();
@@ -526,6 +534,17 @@ export function applyTokenTab({ game, send, button, host, label, arsenal = false
 
   function draw() {
     const h = mount();
+    // The card is rebuilt from scratch below, and arming a token draws twice
+    // — once to grey the button, once when the room answers. Whatever the
+    // reader had scrolled to, and whatever they had their finger on, has to
+    // be carried across or every arm sends them back to the top of the list.
+    const old = h.querySelector(".tok-card");
+    const wasAt = old ? old.scrollTop : 0;
+    const held = document.activeElement;
+    const hadHold = held?.dataset?.arm ? ["arm", held.dataset.arm]
+      : held?.dataset?.disarm ? ["disarm", held.dataset.disarm]
+      : holding;
+    holding = hadHold;
     const tokens = state.tokens || {};
     const total = Object.values(tokens).reduce((a, n) => a + (n || 0), 0);
     // This game's boost only; the arsenal follows for games that have one.
@@ -579,6 +598,19 @@ export function applyTokenTab({ game, send, button, host, label, arsenal = false
           </div>
         </div>
       </div>`;
+    const card = h.querySelector(".tok-card");
+    if (card && wasAt) card.scrollTop = wasAt;
+    // Back on the button they pressed, as soon as it is live enough to take
+    // it, so a second press needs no hunting and a keyboard keeps its place.
+    if (hadHold) {
+      const [kind, key] = hadHold;
+      const again = h.querySelector(`[data-${kind}="${key}"]`);
+      if (again && !again.disabled) {
+        again.focus({ preventScroll: true });
+        holding = null;
+      }
+    }
+
     h.querySelectorAll("[data-close]").forEach((n) => { n.onclick = close; });
     const b = h.querySelector("[data-apply]");
     if (b) b.onclick = () => apply();

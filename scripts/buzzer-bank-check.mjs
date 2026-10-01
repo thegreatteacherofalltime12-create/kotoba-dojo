@@ -30,7 +30,7 @@ console.log(`\nchecking ${cats.length} categories from ${file}\n`);
 for (const c of cats) {
   const at = c.name || c.id || "(unnamed)";
   const spec = byName.get(c.name) || byId.get(c.id);
-  if (!spec) { fail(at, "not one of the 104 — check the name against buzzer-scopes.json"); continue; }
+  if (!spec) { fail(at, `not one of the ${scopes.length} — check the name against buzzer-scopes.json`); continue; }
   if (c.id && spec.id !== c.id) soft(at, `id is "${c.id}", the scopes file says "${spec.id}"`);
   if (!c.scope) soft(at, "no scope; copy it from buzzer-scopes.json");
 

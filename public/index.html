@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Omni Multiverse of Madness</title>
-<meta name="build" content="2026-10-01 17:46 UTC">
+<meta name="build" content="2026-10-01 17:56 UTC">
 <meta name="description" content="Omni Multiverse of Madness — competitive arena. Belts, MMR, casino floor and live standings.">
 <meta name="theme-color" content="#F4F1EA">
 <meta name="mobile-web-app-capable" content="yes">
@@ -654,24 +654,29 @@ if (location.protocol === "file:") {
           <div class="m3-rise" title="Next row rises"><i id="m3-me-rise"></i></div>
           <div id="m3-me-grid" class="m3-board"></div>
         </section>
-        <section id="m3-theirs" class="m3-side m3-theirs">
-          <div class="m3-head"><b id="m3-foe-name"></b><span id="m3-foe-in" class="m3-in m3-in-foe" hidden></span></div>
-          <div class="m3-meter" title="Their charge"><i id="m3-foe-charge"></i><span>Charge <b id="m3-foe-charge-n">0</b></span></div>
-          <div class="m3-rise" title="Their next row"><i id="m3-foe-rise"></i></div>
-          <div id="m3-foe-grid" class="m3-board"></div>
-        </section>
-      </div>
 
-      <section id="m3-word" class="panel pad m3-word" hidden>
-        <p id="m3-clue" class="m3-clue"></p>
-        <div id="m3-letters" class="m3-letters"></div>
-        <div class="m3-answer">
-          <input id="m3-guess" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Unscramble it">
-          <button id="btn-m3-go" class="btn btn-primary">Launch</button>
-          <button id="btn-m3-skip" class="btn" title="A new word, at the cost of a quarter of your charge">Skip</button>
+        <!-- Beside your well, not under it: the word you are solving and the other
+             player's well, so a phone shows the whole fight without scrolling. -->
+        <div class="m3-aside">
+          <section id="m3-word" class="panel pad m3-word" hidden>
+            <p id="m3-clue" class="m3-clue"></p>
+            <div id="m3-letters" class="m3-letters"></div>
+            <div class="m3-answer">
+              <input id="m3-guess" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Unscramble it">
+              <button id="btn-m3-go" class="btn btn-primary">Launch</button>
+              <button id="btn-m3-skip" class="btn" title="A new word, at the cost of a quarter of your charge">Skip</button>
+            </div>
+            <p id="m3-hint" class="panel-sub"></p>
+          </section>
+
+          <section id="m3-theirs" class="m3-side m3-theirs">
+            <div class="m3-head"><b id="m3-foe-name"></b><span id="m3-foe-in" class="m3-in m3-in-foe" hidden></span></div>
+            <div class="m3-meter" title="Their charge"><i id="m3-foe-charge"></i><span>Charge <b id="m3-foe-charge-n">0</b></span></div>
+            <div class="m3-rise" title="Their next row"><i id="m3-foe-rise"></i></div>
+            <div id="m3-foe-grid" class="m3-board"></div>
+          </section>
         </div>
-        <p id="m3-hint" class="panel-sub"></p>
-      </section>
+      </div>
 
       <div id="m3-results" class="panel pad" hidden></div>
     </div>

@@ -17,6 +17,16 @@ export const KEEP_DAYS = 7;
 
 export const UPDATES = [
   {
+    at: "2026-10-01T23:30:00Z",
+    where: "Match-3 Attack Arena",
+    title: "Match-3 is slower when you play alone, and fits a phone",
+    text: "Solo matches now run at about half speed — the computer moves and launches less often, the stack "
+      + "rises slower, and Survival’s waves come further apart and give you longer to answer. On a phone, "
+      + "your well and the word you are solving now sit side by side so the whole fight fits one screen, "
+      + "and the page scrolls again outside your well. A finished match closes itself after a few seconds "
+      + "— tap Stay to keep the result up.",
+  },
+  {
     at: "2026-10-01T22:00:00Z",
     where: "Match-3 Attack Arena",
     title: "Match-3 gets Solo Survival, a boost, chat and spectators",

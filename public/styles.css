@@ -4311,7 +4311,8 @@ a.dtab { text-decoration: none; display: inline-block; }
 .m3-bar { display: flex; align-items: center; gap: .8rem; flex-wrap: wrap; }
 .m3-feed { display: grid; gap: .1rem; font-size: .74rem; color: var(--muted); flex: 1 1 14rem; min-width: 0; }
 .m3-ev { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.m3-arena { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, .62fr); gap: .8rem; align-items: start; }
+.m3-arena { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: .8rem; align-items: start; }
+.m3-aside { display: grid; gap: .8rem; min-width: 0; align-content: start; }
 .m3-side { display: grid; gap: .35rem; min-width: 0; }
 .m3-head { display: flex; align-items: center; justify-content: space-between; gap: .4rem; font-size: .84rem; min-width: 0; }
 .m3-head b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -4323,11 +4324,15 @@ a.dtab { text-decoration: none; display: inline-block; }
 .m3-meter span { position: relative; z-index: 1; display: block; text-align: center; font-size: .66rem; letter-spacing: .08em; line-height: 1.15rem; text-transform: uppercase; }
 .m3-rise { height: 5px; border-radius: 3px; }
 .m3-rise i { position: absolute; inset: 0 auto 0 0; width: 0; background: #8fd0ff; }
-.m3-board { border-radius: 10px; background: rgba(8, 12, 22, .72); border: 1px solid var(--edge); padding: 4px; touch-action: none; user-select: none; }
+.m3-board { border-radius: 10px; background: rgba(8, 12, 22, .72); border: 1px solid var(--edge); padding: 4px; user-select: none; container-type: inline-size; }
+/* Only your own well is dragged, so only it keeps the touch. The other player's
+   well is for looking at, and a finger on it should scroll the page. */
+.m3-mine .m3-board { touch-action: none; }
+/* Your well is as tall as the screen allows: ten rows of six, never more than fits. */
+.m3-mine .m3-board { width: min(100%, calc((100vh - 15rem) * .62)); width: min(100%, calc((100dvh - 15rem) * .62)); min-width: min(100%, 13rem); }
 .m3-board.is-over { opacity: .45; filter: grayscale(.8); }
 .m3-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 2px; }
-.m3c { aspect-ratio: 1; display: grid; place-items: center; border-radius: 22%; font-size: clamp(.6rem, 3.2vw, 1.25rem); line-height: 1; color: rgba(255,255,255,.92); transition: transform .12s ease; }
-.m3-theirs .m3c { font-size: clamp(.4rem, 1.9vw, .8rem); }
+.m3c { aspect-ratio: 1; display: grid; place-items: center; border-radius: 22%; font-size: clamp(.5rem, 2.2vw, 1.1rem); font-size: clamp(.5rem, 6.5cqw, 1.4rem); line-height: 1; color: rgba(255,255,255,.92); transition: transform .12s ease; }
 .m3c.empty { background: rgba(255,255,255,.025); }
 .m3c.t0 { background: #e0457b; } .m3c.t1 { background: #3b82f6; } .m3c.t2 { background: #2fa35a; }
 .m3c.t3 { background: #e0a526; color: #3a2a00; } .m3c.t4 { background: #8b5cf6; }
@@ -4358,5 +4363,25 @@ a.dtab { text-decoration: none; display: inline-block; }
 .m3-line.watcher b { color: var(--muted); }
 .m3-say { display: flex; gap: .4rem; padding: 0 .6rem .6rem; }
 
-/* Survival: one well, centred, with nobody on the other side of the table. */
-.m3-arena.m3-alone { grid-template-columns: minmax(0, 26rem); justify-content: center; }
+
+/* The line under a result that says the game is about to close itself. */
+.m3-closing { margin: 0.6rem 0 0; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; opacity: 0.85; }
+
+/* On a phone the whole fight fits one screen: your well on the left, the word
+   you are solving and the other player's well on the right. */
+@media (max-width: 640px) {
+  .m3-wrap { gap: .5rem; padding-top: .4rem; }
+  .m3-bar { gap: .5rem; }
+  .m3-arena, .m3-aside { gap: .5rem; }
+  .m3-head { font-size: .74rem; }
+  .m3-word { gap: .4rem; padding: .55rem; }
+  .m3-clue { font-size: .8rem; line-height: 1.25; }
+  .m3-letters { gap: .25rem; }
+  .m3-letter { width: 1.65rem; height: 2rem; font-size: 1rem; border-radius: 6px; }
+  .m3-answer { flex-wrap: wrap; gap: .3rem; }
+  /* 16px or the phone zooms in when the box is tapped */
+  .m3-answer input { flex: 1 1 100%; font-size: 16px; letter-spacing: .08em; padding: .4rem .5rem; }
+  .m3-answer .btn { flex: 1 1 0; padding-inline: .3rem; }
+  .m3-word .panel-sub { display: none; }
+  .m3-theirs .m3-board { width: 82%; margin-inline: auto; }
+}

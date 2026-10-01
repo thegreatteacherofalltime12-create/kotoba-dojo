@@ -1,5 +1,5 @@
 import {
-  GAME_NAME, ROWS, COLS, MATCH_MS, RISE_START_MS, MAX_LAND, LAND_MS, MAX_CHARGE,
+  GAME_NAME, ROWS, COLS, MATCH_MS, RISE_START_MS, SOLO_PACE, MAX_LAND, LAND_MS, MAX_CHARGE,
   makeBoard, swap, resolve, hasMove, reshuffle, height, rise, dropRubble, launchSize, nextRiseMs,
   aiMove, aiLevelById, AI_LEVELS, AI_NAMES, matchScore, standings, rngFrom,
   PRESSURE_START_MS, nextPressureMs, pressureSize, survivalScore,
@@ -61,6 +61,11 @@ export class MatchArena {
       mmrAtStart: 0, seed: null, lastSeen: Date.now(),
     };
   }
+
+  /** How much slower than a head-to-head the match runs: a solo one has nobody waiting on it. */
+  pace() { return this.g?.solo ? SOLO_PACE : 1; }
+  /** How long rubble takes to land once it is on its way. */
+  landMs() { return Math.round(LAND_MS * this.pace()); }
 
   list() { return this.g.order.map((u) => this.g.players[u]).filter(Boolean); }
   humans() { return this.list().filter((p) => !p.ai); }
@@ -133,9 +138,10 @@ export class MatchArena {
       const p = g.players[u];
       Object.assign(p, this.fresh(p.uid, p.name, p.ai), { seed: i + 1 });
       p.board = makeBoard(rngFrom(g.seed + i * 977));
-      p.riseAt = now + RISE_START_MS;
-      p.aiMoveAt = now + 2_500;
-      p.aiSolveAt = now + 9_000;
+      p.riseMs = Math.round(RISE_START_MS * this.pace());
+      p.riseAt = now + p.riseMs;
+      p.aiMoveAt = now + 5_000;
+      p.aiSolveAt = now + 15_000;
       this.newWord(p);
     });
     g.phase = "PLAYING";
@@ -179,7 +185,7 @@ export class MatchArena {
     if (p.over || p.incoming <= 0) return { placed: [] };
     const n = Math.min(MAX_LAND, p.incoming);
     p.incoming -= n;
-    p.landAt = p.incoming > 0 ? now + LAND_MS / 2 : 0;
+    p.landAt = p.incoming > 0 ? now + this.landMs() / 2 : 0;
     const d = dropRubble(p.board, n, Math.random);
     if (d.over) this.knockOut(p, now);
     return { placed: d.placed };
@@ -228,7 +234,7 @@ export class MatchArena {
     if (!p.incoming) p.landAt = 0;
     const rest = send - cancel;
     if (rest > 0 && foe && !foe.over) {
-      if (foe.incoming === 0) foe.landAt = now + LAND_MS;
+      if (foe.incoming === 0) foe.landAt = now + this.landMs();
       foe.incoming += rest;
     }
     if (send > 0) this.logEvent(`${p.name} unscrambled a word and sent ${send}${cancel ? ` (${cancel} cancelled incoming)` : ""}.`);
@@ -267,7 +273,7 @@ export class MatchArena {
       const me = this.list()[0];
       if (me && !me.over) {
         const n = pressureSize(now - g.startedAt);
-        if (me.incoming === 0) me.landAt = now + LAND_MS;
+        if (me.incoming === 0) me.landAt = now + this.landMs();
         me.incoming = Math.min(60, me.incoming + n);
         this.logEvent(`${n} rubble on its way.`);
       }
@@ -283,7 +289,7 @@ export class MatchArena {
       for (let k = 0; k < 4 && now >= p.riseAt && !p.over; k++) {
         const r = rise(p.board, Math.random);
         if (r.over) { this.knockOut(p, now); break; }
-        p.riseMs = nextRiseMs(p.riseMs);
+        p.riseMs = nextRiseMs(p.riseMs, this.pace());
         p.riseAt = Math.max(p.riseAt, now - 1) + p.riseMs;
         const out = resolve(p.board);
         if (out.steps.length) {

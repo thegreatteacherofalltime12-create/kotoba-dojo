@@ -8,7 +8,7 @@ import {
   makeBoard, findMatches, applyGravity, resolve, swap, moves, hasMove, reshuffle, height,
   rise, dropRubble, attackFor, launchSize, nextRiseMs, aiMove, AI_LEVELS, aiLevelById,
   matchScore, standings, rngFrom, copy,
-  PRESSURE_START_MS, PRESSURE_FLOOR_MS, nextPressureMs, pressureSize, survivalScore,
+  PRESSURE_START_MS, PRESSURE_FLOOR_MS, nextPressureMs, pressureSize, survivalScore, SOLO_PACE,
 } from "../src/match3.js";
 
 let bad = 0;
@@ -247,6 +247,18 @@ console.log("\nsurvival");
   ok("playing well improves a short run", survivalScore({ seconds: 60, sent: 20, solved: 6, maxChain: 4 }) > survivalScore({ seconds: 60, sent: 0, solved: 0, maxChain: 0 }));
   ok("a run that went nowhere scores nothing", survivalScore({ seconds: 0, sent: 0, solved: 0, maxChain: 0 }) === 0);
   ok("surviving to the end is worth a little more", survivalScore({ ...full, survived: true }) > survivalScore({ ...full, survived: false }));
+}
+
+console.log("\npace");
+{
+  ok("no level of the computer moves more than every two seconds", AI_LEVELS.every((l) => l.moveMs >= 2_000));
+  ok("or launches faster than every eight", AI_LEVELS.every((l) => l.solveMs >= 8_000));
+  ok("each level is still quicker than the one below", AI_LEVELS.every((l, i) => !i || (l.moveMs < AI_LEVELS[i - 1].moveMs && l.solveMs < AI_LEVELS[i - 1].solveMs)));
+  ok("playing alone runs slower than a head-to-head", SOLO_PACE > 1);
+  ok("and the rise slows to a slower floor, not just a slower start", (() => { let ms = RISE_START_MS * SOLO_PACE; for (let i = 0; i < 300; i++) ms = nextRiseMs(ms, SOLO_PACE); return ms === Math.round(RISE_FLOOR_MS * SOLO_PACE) && ms > RISE_FLOOR_MS; })());
+  ok("at the usual pace the floor is unchanged", (() => { let ms = RISE_START_MS; for (let i = 0; i < 300; i++) ms = nextRiseMs(ms); return ms === RISE_FLOOR_MS; })());
+  ok("survival does not open with a rush", PRESSURE_START_MS >= 15_000);
+  ok("and never gets quicker than a wave every seven seconds", PRESSURE_FLOOR_MS >= 7_000);
 }
 
 console.log(bad ? `\n${bad} failing\n` : "\nall match-3 checks passed\n");

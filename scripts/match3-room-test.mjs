@@ -7,7 +7,10 @@
 // The one thing no message may ever carry is the answer to a word that has not
 // been solved yet, so that is checked against everything either player was sent.
 import { MatchArena } from "../src/match3-room.js";
-import { moves, ROWS, COLS, RUBBLE, MAX_CHARGE, MAX_LAUNCH, height, hasMove, findMatches } from "../src/match3.js";
+import {
+  moves, ROWS, COLS, RUBBLE, MAX_CHARGE, MAX_LAUNCH, height, hasMove, findMatches,
+  RISE_START_MS, LAND_MS, SOLO_PACE, PRESSURE_START_MS,
+} from "../src/match3.js";
 
 let bad = 0;
 const ok = (l, c) => { console.log(`${c ? "  pass" : "  FAIL"}  ${l}`); if (!c) bad++; };
@@ -446,7 +449,7 @@ console.log("\nsurvival");
   t.g.pressureAt = ago();
   await t.room.alarm();
   ok("when the wave is due, rubble is aimed at you", me.incoming >= 2 && me.landAt > Date.now() + 2_000);
-  ok("and the next wave is scheduled, sooner", t.g.pressureAt > Date.now() && t.g.pressureMs < 9_000);
+  ok("and the next wave is scheduled, sooner", t.g.pressureAt > Date.now() && t.g.pressureMs < PRESSURE_START_MS);
   ok("you are told", /rubble on its way/.test(t.g.feed.at(-1).text));
 
   // The way to cancel it is the same loop as against a person.
@@ -498,6 +501,44 @@ console.log("\nsurvival");
   // Versus is untouched by any of this.
   const v = await table({ humans: 1 });
   ok("a versus match against the computer still has the computer", v.g.mode === "versus" && !!v.g.players.ai && v.g.pressureAt === 0);
+}
+
+console.log("\nthe pace of a solo match");
+{
+  const solo = await table({ humans: 1 });
+  const me = solo.g.players.p1;
+  ok("a solo match rises slower than a head-to-head", me.riseMs === Math.round(RISE_START_MS * SOLO_PACE) && me.riseMs > RISE_START_MS);
+  ok("and its first rise is that far off", me.riseAt - solo.g.startedAt === me.riseMs);
+  ok("the computer's well rises at the same pace as yours", solo.g.players.ai.riseMs === me.riseMs);
+  const two = await table({ humans: 2, solo: false });
+  ok("a head-to-head is at the usual pace", two.g.players.p1.riseMs === RISE_START_MS && two.room.landMs() === LAND_MS);
+  ok("rubble takes longer to land in a solo match", solo.room.landMs() > LAND_MS);
+
+  ok("the computer waits before its first move", solo.g.players.ai.aiMoveAt - solo.g.startedAt >= 5_000);
+  ok("and longer before its first launch", solo.g.players.ai.aiSolveAt - solo.g.startedAt >= 15_000);
+
+  // Having moved, it waits a good while before the next one.
+  const ai = solo.g.players.ai;
+  me.riseAt = Date.now() + 99_999; ai.riseAt = Date.now() + 99_999;
+  ai.aiMoveAt = ago();
+  await solo.room.alarm();
+  ok("having moved, the easy computer waits several seconds", ai.aiMoveAt - Date.now() >= 3_000);
+
+  const hard = await table({ humans: 1, level: "hard" });
+  const h = hard.g.players.ai;
+  hard.g.players.p1.riseAt = Date.now() + 99_999; h.riseAt = Date.now() + 99_999;
+  h.aiMoveAt = ago();
+  await hard.room.alarm();
+  ok("and even the hard one takes nearly two", h.aiMoveAt - Date.now() >= 1_600);
+
+  // A match against the computer has no first-minute rush either.
+  const run = await table({ humans: 1, mode: "survival" });
+  ok("survival's first wave is a long way off", run.g.pressureAt - run.g.startedAt >= 15_000);
+  const q = run.g.players.p1;
+  q.riseAt = Date.now() + 99_999;
+  run.g.pressureAt = ago();
+  await run.room.alarm();
+  ok("and gives you time to answer a wave before it lands", q.incoming >= 2 && q.landAt - Date.now() >= 8_000);
 }
 
 console.log(bad ? `\n${bad} failing\n` : "\nall match-3 room checks passed\n");

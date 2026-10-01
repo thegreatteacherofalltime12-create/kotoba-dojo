@@ -258,8 +258,15 @@ export function launchSize(charge, wordLen) {
   return Math.min(MAX_LAUNCH, Math.round(charge) + Math.max(0, (Number(wordLen) || 0) - 3));
 }
 
+/**
+ * Playing alone is for learning the words as much as the tiles, and nobody is
+ * waiting on you, so a solo match runs slower all round: the stack rises, and
+ * rubble takes to land, this many times as long.
+ */
+export const SOLO_PACE = 2;
+
 /** The rise interval after one more rise, which never drops below the floor. */
-export const nextRiseMs = (ms) => Math.max(RISE_FLOOR_MS, Math.round(ms * RISE_EASE));
+export const nextRiseMs = (ms, pace = 1) => Math.max(Math.round(RISE_FLOOR_MS * pace), Math.round(ms * RISE_EASE));
 
 // ── survival ─────────────────────────────────────────────────────────
 
@@ -269,9 +276,9 @@ export const nextRiseMs = (ms) => Math.max(RISE_FLOOR_MS, Math.round(ms * RISE_E
  * cancels it is the thing that cancels it against a person: building charge
  * and solving a word. Nobody on the other side, the same loop.
  */
-export const PRESSURE_START_MS = 9_000;
-export const PRESSURE_FLOOR_MS = 3_800;
-export const PRESSURE_EASE = 0.95;
+export const PRESSURE_START_MS = 20_000;
+export const PRESSURE_FLOOR_MS = 9_000;
+export const PRESSURE_EASE = 0.96;
 export const nextPressureMs = (ms) => Math.max(PRESSURE_FLOOR_MS, Math.round(ms * PRESSURE_EASE));
 
 /** How much rubble one wave carries: two to four to begin with, and more each minute. */
@@ -295,9 +302,9 @@ export function survivalScore({ seconds, sent, solved, maxChain, survived }) {
 // ── the computer ─────────────────────────────────────────────────────
 
 export const AI_LEVELS = [
-  { id: "easy", name: "Easy", moveMs: 2_600, solveMs: 10_000, sees: 1 },
-  { id: "medium", name: "Medium", moveMs: 1_700, solveMs: 7_000, sees: 2 },
-  { id: "hard", name: "Hard", moveMs: 1_050, solveMs: 4_800, sees: 3 },
+  { id: "easy", name: "Easy", moveMs: 4_600, solveMs: 17_000, sees: 1 },
+  { id: "medium", name: "Medium", moveMs: 3_200, solveMs: 12_000, sees: 2 },
+  { id: "hard", name: "Hard", moveMs: 2_200, solveMs: 8_000, sees: 3 },
 ];
 export const aiLevelById = (id) => AI_LEVELS.find((l) => l.id === id) || AI_LEVELS[0];
 export const AI_NAMES = ["Rustbucket", "Vulture", "Hammerhead"];

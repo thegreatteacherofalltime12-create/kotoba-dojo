@@ -31,12 +31,17 @@ export const M = {
   sel: null,          // the tile you tapped first
   drag: null,
   lockUntil: 0,
+  closing: null,      // the countdown to leaving once a match is over
 };
+
+/** How long the result stays up before the game closes itself. */
+const CLOSE_AFTER_S = 12;
 
 export async function enterMatch3(code, getToken, onLeave) {
   M.code = code;
   M.onLeave = onLeave;
   M.state = null; M.shown = null; M.pending = null; M.anim = false; M.sel = null;
+  stopClosing();
   $("m3-code").textContent = code;
   $("m3-chatlog").textContent = "";
   // Built now: it is what puts the click handler on the Apply Token button.
@@ -64,6 +69,7 @@ async function connect(getToken) {
 }
 
 export function closeMatch3(forget = true) {
+  if (forget) stopClosing();
   if (M.socket) { M.socket.onclose = null; M.socket.close(); M.socket = null; }
   if (forget) { M.code = null; clearInterval(M.tick); M.tick = null; }
 }
@@ -97,7 +103,7 @@ function handle(msg) {
       M.state = msg.state;
       draw();
       break;
-    case "M3_START": $("m3-results").hidden = true; say(""); break;
+    case "M3_START": stopClosing(); $("m3-results").hidden = true; say(""); break;
     case "M3_RESULT": playResult(msg); break;
     case "M3_REJECT": say(msg.why); break;
     case "M3_WRONG":
@@ -156,7 +162,7 @@ function draw() {
   $("m3-watch").hidden = !s.watching;
   $("m3-watchers").textContent = s.watchers > 1 ? `${s.watchers} are watching.` : "";
   $("btn-m3-boost").hidden = !!s.watching;
-  $("btn-m3-leave").textContent = s.watching ? "Leave" : "End Match";
+  $("btn-m3-leave").textContent = s.watching || s.phase !== "PLAYING" ? "Leave" : "End Match";
   $("m3-watching").hidden = !s.watchers;
   $("m3-watching").textContent = `${s.watchers} watching`;
   $("m3-phase").textContent = playing ? "In the arena" : s.phase === "OVER" ? "Match over" : "Lobby";
@@ -330,17 +336,55 @@ function showResults(msg) {
     list.append(row);
   }
   box.append(list);
+  startClosing();
+}
+
+/* ── closing itself ──────────────────────────────────────────────── */
+
+/**
+ * A finished match is not a place to sit: the result is shown long enough to
+ * read, with the seconds left, and then the game closes and the player is back
+ * where they started. Fight again, or Stay, keeps it open instead.
+ */
+function startClosing() {
+  stopClosing();
+  const box = $("m3-results");
+  const row = el("p", "m3-closing");
+  const text = el("span");
+  const stay = el("button", "btn btn-tiny", "Stay");
+  stay.type = "button";
+  stay.onclick = () => { stopClosing(); say("Staying. Use Leave when you are done.", true); };
+  row.append(text, " ", stay);
+  box.append(row);
+
+  let left = CLOSE_AFTER_S;
+  const paint = () => { text.textContent = `Closing in ${left} s`; };
+  paint();
+  M.closing = { row, timer: setInterval(() => {
+    left -= 1;
+    if (left <= 0) return leave();
+    paint();
+  }, 1000) };
+}
+
+function stopClosing() {
+  if (!M.closing) return;
+  clearInterval(M.closing.timer);
+  M.closing.row.remove();
+  M.closing = null;
+}
+
+/** Leaves the room and goes home. Only the host's leaving ends a live match; somebody watching just goes. */
+function leave() {
+  if (!M.state?.watching && M.state?.phase === "PLAYING") send({ type: "M3_END" });
+  closeMatch3();
+  M.onLeave?.();
 }
 
 /* ── controls ────────────────────────────────────────────────────── */
 
 export function bindMatch3Controls() {
-  // Only the host's leaving ends the match; somebody watching just goes.
-  $("btn-m3-leave").onclick = () => {
-    if (!M.state?.watching) send({ type: "M3_END" });
-    closeMatch3();
-    M.onLeave?.();
-  };
+  $("btn-m3-leave").onclick = leave;
 
   const say = () => {
     const box = $("m3-text");

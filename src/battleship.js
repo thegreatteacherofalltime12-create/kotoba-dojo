@@ -241,20 +241,14 @@ export function canTarget(history, target, aliveOpponents) {
 }
 
 /**
- * Whether this rival may be fired on this turn, given how many shots there
- * are to place.
+ * Whether this rival may be fired on this turn. The rotation always holds.
  *
- * The rotation yields before the two-shot limit does. If the captains the
- * rotation leaves open cannot take every shot at two apiece, the rotation
- * is set aside for the turn — otherwise the only way to place the shots
- * would be to raise the limit and pile them on whoever was left, which is
- * exactly the ganging up both rules exist to prevent.
+ * If the rivals it leaves open cannot take every shot at two apiece, the
+ * two-shot limit rises to what it must be (see perTargetCap) rather than the
+ * rotation giving way. `shots` is accepted so callers need not change.
  */
-export function canTargetFor(history, target, rivals, shots) {
-  const verdict = canTarget(history, target, rivals.length);
-  if (verdict.ok) return verdict;
-  const open = rivals.filter((u) => canTarget(history, u, rivals.length).ok).length;
-  return open * MIN_PER_TARGET >= (Number(shots) || 0) ? verdict : { ok: true, relaxed: true };
+export function canTargetFor(history, target, rivals) {
+  return canTarget(history, target, rivals.length);
 }
 
 /** Who this shooter is allowed to hit, with a reason attached to those they can't. */

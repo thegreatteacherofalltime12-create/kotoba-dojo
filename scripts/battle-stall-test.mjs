@@ -277,35 +277,30 @@ console.log("\nno more than two on one captain");
   ok(`spread within the cap it goes through (${fair.map((v) => v.cells.length).join("+")})`, me.shots === before + shots);
 }
 
-console.log("\nthe rotation yields before the two-shot limit does");
+console.log("\nthe rotation always holds");
 {
-  // Five rivals, five shots, and the rotation has closed three of them. Only
-  // two are left, and two apiece cannot place five shots — so rather than let
-  // three and two pile onto them, the rotation steps aside for the turn and
-  // the shots spread two, two and one over the whole table.
+  // Five rivals, five shots, three closed off by the rotation. The two left
+  // open take three and two between them; nobody is allowed back early.
   const t = await solo({ ais: 5, map: "hard" });
   await untilHuman(t);
   const me = t.g.players.h;
   const foes = Object.values(t.g.players).filter((p) => p.uid !== "h" && p.alive);
   me.history = foes.slice(0, 3).map((p) => p.uid);
-  const cap = t.game.volleyCap(me);
-  ok(`the limit stays at two (${cap})`, cap === 2);
-  ok("and every rival is open to be fired on", t.ws && t.game.foesOf("h").every((p) =>
-    t.game.volleyCap(me) === 2));
+  ok("the limit rises to three, because two rivals must take five", t.game.volleyCap(me) === 3);
 
   const before = me.shots;
-  await t.say({ type: "BATTLE_FIRE", volley: [
-    { target: foes[3].uid, cells: free(t.game, foes[3], 3) },
-    { target: foes[4].uid, cells: free(t.game, foes[4], 2) },
-  ] });
-  ok("three and two on the two that were open is refused", me.shots === before);
-
   await t.say({ type: "BATTLE_FIRE", volley: [
     { target: foes[0].uid, cells: free(t.game, foes[0], 2) },
     { target: foes[3].uid, cells: free(t.game, foes[3], 2) },
     { target: foes[4].uid, cells: free(t.game, foes[4], 1) },
   ] });
-  ok("two, two and one over three captains goes through", me.shots === before + 5);
+  ok("firing on a captain the rotation has closed is refused", me.shots === before && /more before returning/.test(t.ws.last("BATTLE_ERROR").message));
+
+  await t.say({ type: "BATTLE_FIRE", volley: [
+    { target: foes[3].uid, cells: free(t.game, foes[3], 3) },
+    { target: foes[4].uid, cells: free(t.game, foes[4], 2) },
+  ] });
+  ok("three and two on the two that are open goes through", me.shots === before + 5);
 }
 
 console.log("\nthe same captain every turn");
@@ -314,11 +309,12 @@ console.log("\nthe same captain every turn");
   await untilHuman(t);
   const me = t.g.players.h;
   const [a, b] = Object.values(t.g.players).filter((p) => p.uid !== "h" && p.alive);
-  me.history = [a.uid, b.uid, a.uid];
-  const first = t.game.volleyCap(me);
-  ok("with two rivals and four shots, two apiece is the only way to place them", first === 2);
-  const opts = t.ws.last("BATTLE_STATE").targets.map((x) => x.uid);
-  ok("both are on the list", opts.length === 2);
+  me.history = [b.uid, a.uid];
+  const before = me.shots;
+  await t.say({ type: "BATTLE_FIRE", volley: [{ target: a.uid, cells: free(t.game, a, 2) }, { target: b.uid, cells: free(t.game, b, 2) }] });
+  ok("with two rivals, going straight back to the one just fired on is refused", me.shots === before);
+  await t.say({ type: "BATTLE_FIRE", volley: [{ target: b.uid, cells: free(t.game, b, 4) }] });
+  ok("the other takes the lot, since nothing else is open", me.shots === before + 4);
 }
 
 console.log("\none rival left");
@@ -350,7 +346,7 @@ console.log("\nthe computers keep to the same ceiling");
     } else await t.game.runAi();
   }
   const salvos = t.g.feed.map((e) => /^Sensei[^:]*? fired (\d+) shots? at/.exec(e.text)).filter(Boolean).map((m) => Number(m[1]));
-  ok(`across ${salvos.length} computer salvos none is more than three shots`, salvos.length > 0 && salvos.every((n) => n <= 3));
+  ok(`across ${salvos.length} computer salvos none is more than the chart's five`, salvos.length > 0 && salvos.every((n) => n <= 5));
 }
 
 console.log(bad ? `\n${bad} failing\n` : "\nall battleship stall checks passed\n");

@@ -56,9 +56,9 @@ ok("with two it asks for the other one — no hitting the same captain every tur
 ok("with one rival there is nobody else, so it cannot apply", canTarget(["b", "b"], "b", 1).ok === true);
 ok("with four it is the full three", canTarget(["b", "c", "d"], "b", 4).ok === false && canTarget(["b", "c", "d", "e"], "b", 4).ok === true);
 
-console.log("\nthe rotation yields before the two-shot limit does");
-ok("three rivals, four shots, two closed off: one open cannot take four at two apiece, so the rotation relaxes",
-  canTargetFor(["b", "c"], "b", ["b", "c", "d"], 4).ok === true);
+console.log("\nthe rotation always holds");
+ok("three rivals, four shots, two closed off: the rotation still holds",
+  canTargetFor(["b", "c"], "b", ["b", "c", "d"], 4).ok === false);
 ok("but with room to place every shot at two apiece it holds",
   canTargetFor(["b", "c"], "b", ["b", "c", "d", "e", "f"], 4).ok === false);
 
@@ -158,8 +158,8 @@ ok("two rivals and five shots has to be three and two",
   ["easy", "medium", "hard"].every((lvl) => aiTargets([], foes.slice(0, 2), 5, lvl).map((p) => p.count).sort().join() === "2,3"));
 ok("a rotation that leaves two open takes four between them, two apiece",
   aiTargets(["a", "b", "c"], foes, 4, "medium").map((p) => p.count).join() === "2,2");
-ok("but with five shots two cannot take them at two apiece, so the rotation steps aside rather than the limit",
-  aiTargets(["a", "b", "c"], foes, 5, "medium").every((p) => p.count <= 2));
+ok("with five shots the two that are open take three and two, and the rotation is not set aside",
+  aiTargets(["a", "b", "c"], foes, 5, "medium").map((p) => p.count).sort().join() === "2,3");
 const hist = ["a", "b", "c"];
 const seen = new Set();
 for (let i = 0; i < 40; i++) for (const p of aiTargets(hist, foes, 4, "hard")) seen.add(p.target);

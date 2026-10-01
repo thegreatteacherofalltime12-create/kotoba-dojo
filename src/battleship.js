@@ -104,6 +104,31 @@ export const SHOTS_PER_TURN = MAPS.easy.shots;
 // You must fire at this many other people before coming back to someone.
 export const COOLDOWN_TARGETS = 3;
 
+/**
+ * The most shots one captain may put on one rival in a single turn.
+ *
+ * Two, which is what the game was always meant to be — "two shots a turn at
+ * one rival" — and which stopped being true when the larger charts began
+ * giving four and five shots and the rest of the rules said nothing about
+ * where they went. Five shots on one captain is not a volley, it is an
+ * execution.
+ *
+ * Two is a ceiling, not a promise: with five shots and only two rivals to
+ * put them on, two apiece leaves a shot with nowhere to go. So the cap rises
+ * to the smallest number that lets every shot be placed, and a lone rival
+ * takes the lot, which is the only thing they could ever have done.
+ *
+ * `rivals` is how many captains the shooter is actually allowed to hit this
+ * turn — after the rotation, not before it — because a cap worked out against
+ * the whole table can be impossible to satisfy against the part of it the
+ * rotation leaves open.
+ */
+export const MIN_PER_TARGET = 2;
+export function perTargetCap(shots, rivals) {
+  const n = Math.max(1, Math.floor(Number(rivals)) || 1);
+  return Math.max(MIN_PER_TARGET, Math.ceil((Number(shots) || 0) / n));
+}
+
 export const key = (r, c) => `${r},${c}`;
 
 export function cellsFor(row, col, dir, len) {
@@ -323,10 +348,10 @@ export function battleScore({ hits = 0, sunk = 0, shots = 0, blast = 0, placemen
  *
  * A volley is [{ target, cells }]. The same target named twice is folded
  * together; every target must take at least one shot and the shots must add
- * up to the chart's count exactly. All-in on one captain is allowed. Returns
- * the clean volley or an error to send back.
+ * up to the chart's count exactly, and no single captain may take more than
+ * `cap` of them. Returns the clean volley or an error to send back.
  */
-export function normalizeVolley(raw, shots) {
+export function normalizeVolley(raw, shots, cap = Infinity) {
   const list = Array.isArray(raw) ? raw : [];
   const byTarget = new Map();
   for (const part of list) {
@@ -340,6 +365,13 @@ export function normalizeVolley(raw, shots) {
   const total = volley.reduce((n, v) => n + v.cells.length, 0);
   if (!volley.length) return { ok: false, error: "Pick a live opponent." };
   if (total !== shots) return { ok: false, error: `Choose ${shots} different squares in all.` };
+  const over = volley.find((v) => v.cells.length > cap);
+  if (over) {
+    return {
+      ok: false, cap,
+      error: `No more than ${cap} shots on one captain \u2014 spread the rest over another.`,
+    };
+  }
   return { ok: true, volley };
 }
 
@@ -354,14 +386,24 @@ export function normalizeVolley(raw, shots) {
 export function aiTargets(history, foes, shots, difficulty) {
   const options = targetOptionsFrom(history, foes);
   const allowed = options.filter((o) => o.allowed).map((o) => o.uid);
-  const pool = allowed.length ? allowed : options.map((o) => o.uid);
-  if (!pool.length) return [];
-  const pick = () => pool.splice(Math.floor(Math.random() * pool.length), 1)[0];
-  const first = pick();
-  if (difficulty !== "hard" || shots < 2 || !pool.length) return [{ target: first, count: shots }];
-  const second = pick();
-  const half = Math.ceil(shots / 2);
-  return [{ target: first, count: half }, { target: second, count: shots - half }];
+  const pool = allowed.length ? [...allowed] : options.map((o) => o.uid);
+  if (!pool.length || !(shots > 0)) return [];
+
+  // The same ceiling as everybody else. Easy and Medium pile on as the rule
+  // allows and no further; Hard spreads its fire across as many captains as
+  // it takes to keep every board under pressure, never fewer than two.
+  const cap = perTargetCap(shots, pool.length);
+  const fewest = Math.ceil(shots / cap);
+  const spread = difficulty === "hard" ? Math.max(2, fewest) : fewest;
+  const n = Math.min(pool.length, shots, spread);
+
+  const picked = [];
+  for (let i = 0; i < n; i++) picked.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+
+  const counts = difficulty === "hard"
+    ? picked.map((_, i) => Math.floor(shots / n) + (i < shots % n ? 1 : 0))
+    : picked.map((_, i) => Math.min(cap, shots - cap * i));
+  return picked.map((target, i) => ({ target, count: counts[i] })).filter((p) => p.count > 0);
 }
 
 function targetOptionsFrom(history, foes) {

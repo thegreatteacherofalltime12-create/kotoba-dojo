@@ -2,7 +2,7 @@
 import {
   FLEET, SIZE, validateFleet, randomFleet, canTarget, targetOptions,
   fireAt, fleetSunk, battleScore, cellsFor, COOLDOWN_TARGETS,
-  accuracyBonus, normalizeVolley, aiTargets,
+  accuracyBonus, normalizeVolley, aiTargets, perTargetCap, MIN_PER_TARGET,
 } from "../src/battleship.js";
 
 let bad = 0;
@@ -108,20 +108,48 @@ let vol = normalizeVolley([{ target: "b", cells: ["0,0", "0,1"] }, { target: "c"
 ok("two and two is a volley of four", vol.ok && vol.volley.length === 2);
 vol = normalizeVolley([{ target: "b", cells: ["0,0", "0,1"] }, { target: "b", cells: ["0,2", "0,3"] }], 4);
 ok("the same target twice is folded together", vol.ok && vol.volley.length === 1 && vol.volley[0].cells.length === 4);
-ok("all-in on one is allowed", normalizeVolley([{ target: "b", cells: ["0,0", "0,1", "0,2", "0,3"] }], 4).ok);
+ok("all four on one captain is not a volley, it is refused", !normalizeVolley([{ target: "b", cells: ["0,0", "0,1", "0,2", "0,3"] }], 4, 2).ok);
+ok("and the refusal says how many one captain may take", /No more than 2 shots on one captain/.test(normalizeVolley([{ target: "b", cells: ["0,0", "0,1", "0,2", "0,3"] }], 4, 2).error));
+ok("three and one is refused at two a captain", !normalizeVolley([{ target: "b", cells: ["0,0", "0,1", "0,2"] }, { target: "c", cells: ["1,1"] }], 4, 2).ok);
+ok("two and two is not", normalizeVolley([{ target: "b", cells: ["0,0", "0,1"] }, { target: "c", cells: ["1,1", "1,2"] }], 4, 2).ok);
+ok("a lone rival can take the lot, when the cap allows it", normalizeVolley([{ target: "b", cells: ["0,0", "0,1", "0,2", "0,3"] }], 4, 4).ok);
+ok("with no cap given nothing changes", normalizeVolley([{ target: "b", cells: ["0,0", "0,1", "0,2", "0,3"] }], 4).ok);
+
 ok("too few shots is refused", !normalizeVolley([{ target: "b", cells: ["0,0"] }], 4).ok);
 ok("too many is refused", !normalizeVolley([{ target: "b", cells: ["0,0", "0,1", "0,2"] }, { target: "c", cells: ["1,1", "1,2"] }], 4).ok);
 ok("a repeated square counts once", !normalizeVolley([{ target: "b", cells: ["0,0", "0,0", "0,1", "0,2"] }], 4).ok);
 ok("nothing is refused", !normalizeVolley([], 2).ok && !normalizeVolley(null, 2).ok);
 
+console.log("\nhow many one rival may take");
+ok("two, to begin with", MIN_PER_TARGET === 2);
+ok("five shots over five rivals is two apiece", perTargetCap(5, 5) === 2);
+ok("two shots over any number of rivals is still two", perTargetCap(2, 1) === 2 && perTargetCap(2, 4) === 2);
+ok("five shots over two rivals has to be three — a shot needs somewhere to go", perTargetCap(5, 2) === 3);
+ok("a lone rival takes everything", perTargetCap(5, 1) === 5 && perTargetCap(11, 1) === 11);
+ok("eleven shots over five rivals is three", perTargetCap(11, 5) === 3);
+ok("it is never so low that the shots cannot all be placed",
+  [1, 2, 3, 4, 5, 6, 8, 11].every((shots) => [1, 2, 3, 4, 5].every((n) => perTargetCap(shots, n) * n >= shots)));
+ok("nobody to fire at does not divide by zero", Number.isFinite(perTargetCap(5, 0)));
+
 console.log("\nthe computer's targets");
 const foes = [{ uid: "a" }, { uid: "b" }, { uid: "c" }, { uid: "d" }, { uid: "e" }];
 let t = aiTargets([], foes, 5, "hard");
-ok("hard splits five shots three and two over two captains", t.length === 2 && t[0].count === 3 && t[1].count === 2 && t[0].target !== t[1].target);
+ok("hard puts five shots two, two and one over three captains", t.map((p) => p.count).join() === "2,2,1" && new Set(t.map((p) => p.target)).size === 3);
 t = aiTargets([], foes, 4, "medium");
-ok("medium concentrates", t.length === 1 && t[0].count === 4);
+ok("medium puts as many as the rule allows on one captain, and then moves on", t.map((p) => p.count).join() === "2,2");
 t = aiTargets([], foes, 4, "easy");
-ok("so does easy", t.length === 1 && t[0].count === 4);
+ok("so does easy", t.map((p) => p.count).join() === "2,2");
+ok("none of them ever puts more than two on one captain when there are captains to spare",
+  ["easy", "medium", "hard"].every((lvl) => [2, 3, 4, 5, 6].every((shots) =>
+    aiTargets([], foes, shots, lvl).every((p) => p.count <= 2))));
+ok("and every shot is placed", ["easy", "medium", "hard"].every((lvl) => [1, 2, 3, 4, 5, 6].every((shots) =>
+    aiTargets([], foes, shots, lvl).reduce((n, p) => n + p.count, 0) === shots)));
+ok("two rivals and four shots is two each, whoever is shooting",
+  ["easy", "medium", "hard"].every((lvl) => aiTargets([], foes.slice(0, 2), 4, lvl).map((p) => p.count).join() === "2,2"));
+ok("two rivals and five shots has to be three and two",
+  ["easy", "medium", "hard"].every((lvl) => aiTargets([], foes.slice(0, 2), 5, lvl).map((p) => p.count).sort().join() === "2,3"));
+ok("a rotation that leaves two open takes all five between them",
+  aiTargets(["a", "b", "c"], foes, 5, "medium").map((p) => p.count).sort().join() === "2,3");
 const hist = ["a", "b", "c"];
 const seen = new Set();
 for (let i = 0; i < 40; i++) for (const p of aiTargets(hist, foes, 5, "hard")) seen.add(p.target);

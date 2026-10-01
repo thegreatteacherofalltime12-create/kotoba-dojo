@@ -1,6 +1,6 @@
 import {
   SIZE, FLEET, SHOTS_PER_TURN, validateFleet, randomFleet, mapOf, fleetFor, MAPS,
-  normalizeVolley, aiTargets, accuracyBonus,
+  normalizeVolley, aiTargets, accuracyBonus, perTargetCap,
   canTarget, targetOptions, fireAt, fleetSunk, battleScore,
   ARSENAL, ARM_CAP, NUKE_MAX, EXTRA_HULLS, STRIKE_SPAN, NUKE_RADIUS, extraShotsFor, blastArea, extraHulls,
   SONAR_SPAN, SMOKE_TURNS, shipAt, crossCells, lineOf, shipSquares, newBerth,
@@ -18,6 +18,11 @@ const IDLE_SHUTDOWN_MS = 30 * 60_000;
 // Thirty seconds a turn. With eight captains a slow table is a dead table,
 // and picking a target and two squares is not a thirty-second problem.
 const TURN_MS = 30_000;
+// A computer takes its turn at once when a person is waiting on it, because
+// nobody wants to watch a machine think. When there is nobody left to wait,
+// the computers fight on one turn at a time at this pace, so the captain who
+// was knocked out can still watch the rest of it play out.
+const AI_PACE_MS = 1_200;
 const MIN_PLAYERS = 2;
 const MAX_AI = 5;              // a solo captain may face up to five computers
 // A latecomer gets ten seconds to lay a fleet. Long enough to hit Random,
@@ -229,6 +234,42 @@ export class BattleRoyale {
     return Object.values(this.g.players).filter((p) => p.alive && p.board);
   }
 
+  /** Is there a person still in it, whose turn the computers must wait for? */
+  humansAlive() {
+    return this.liveCaptains().some((p) => !p.ai);
+  }
+
+  /** Everyone this captain could fire on: alive, with a fleet down, not them. */
+  foesOf(uid) {
+    return this.liveCaptains().filter((p) => p.uid !== uid);
+  }
+
+  /**
+   * How long this captain has to take their turn.
+   *
+   * People get a clock. A computer does not, because it plays in the blink of
+   * an eye and a clock that can run out on something that never waits is only
+   * a way for the game to get stuck: when it ran out the turn was skipped,
+   * and nothing ever woke the computers up again.
+   */
+  clockFor(uid) {
+    return this.isAi(uid) ? null : Date.now() + TURN_MS;
+  }
+
+  /**
+   * The most shots this captain may put on any one rival this turn.
+   *
+   * Worked out against the rivals the rotation leaves open, not the whole
+   * table — otherwise a captain who has just fired at three people could be
+   * handed a cap that the two they are still allowed to hit cannot absorb.
+   */
+  volleyCap(me) {
+    const foes = this.foesOf(me.uid);
+    const priority = this.arsOf(me).priority === this.g.turnNo;
+    const open = priority ? foes : foes.filter((p) => canTarget(me.history, p.uid, foes.length).ok);
+    return perTargetCap(this.shotsFor(me), (open.length || foes.length));
+  }
+
   /**
    * The next moment this battle needs attention: the turn buzzer, or a
    * latecomer's placement clock, whichever comes first. A Durable Object gets
@@ -237,6 +278,8 @@ export class BattleRoyale {
   nextDeadline() {
     const times = [];
     if (this.g.phase === "ACTIVE" && this.g.turnEndsAt) times.push(this.g.turnEndsAt);
+    // A computer's turn that is waiting to be played, with nobody left to wait.
+    if (this.g.phase === "ACTIVE" && this.g.aiDueAt) times.push(this.g.aiDueAt);
     for (const p of Object.values(this.g.players))
       if (p.placing && p.placingUntil != null) times.push(p.placingUntil);
     return times.length ? Math.min(...times) : null;
@@ -317,6 +360,10 @@ export class BattleRoyale {
           }))
           : [],
         yourShots: me ? this.shotsFor(me) : this.map.shots,
+        // The most that may go on one captain this turn, so the board can
+        // stop at it rather than let somebody build a volley the room will
+        // refuse.
+        yourCap: me && !me.ai ? this.volleyCap(me) : null,
         yourFleetSpec: me ? this.fleetOf(me) : this.fleet,
         arsenal: me && !me.ai ? this.arsenalView(me) : null,
       });
@@ -951,10 +998,11 @@ export class BattleRoyale {
     this.g.round = 1;
     this.g.turnNo = 1;
     this.g.turnUid = this.g.order[0];
-    this.g.turnEndsAt = Date.now() + TURN_MS;
+    this.g.turnEndsAt = this.clockFor(this.g.turnUid);
+    this.g.aiDueAt = null;
 
     await this.persist();
-    await this.state.storage.setAlarm(this.g.turnEndsAt);
+    await this.armAlarm();
     this.log(this.g.solo
       ? (this.aiCount() > 1
         ? `Solo match against ${this.aiCount()} computers (${this.g.players[this.aiUid()].aiLevel}).`
@@ -965,39 +1013,90 @@ export class BattleRoyale {
   }
 
   /**
-   * Plays out the computer's turn, and any that follow it. The AI shoots from
-   * its own memory only — it never reads the fleet it is firing at.
+   * Plays the computers' turns, for as long as it is a computer's turn.
+   *
+   * With a person still in the fight the computers answer at once, one after
+   * another, until it comes back round to somebody who has to act. With
+   * nobody left to wait, they carry on one turn per call and let the alarm
+   * bring them back — `due` says this is that call — so a captain who has been
+   * knocked out can watch the rest of the battle instead of being shown its
+   * result.
+   *
+   * The loop used to stop after twelve turns and leave the battle on whichever
+   * computer was next, and to give up the moment a computer could not find a
+   * square, leaving the turn on it. Neither is a way to end a turn, and
+   * nothing was ever going to call this again.
    */
-  async runAi() {
-    let guard = 0;
-    while (this.g.phase === "ACTIVE" && this.isAi(this.g.turnUid) && guard++ < 12) {
-      const me = this.g.players[this.g.turnUid];
-      const foes = Object.values(this.g.players).filter((p) => p.alive && p.board && p.uid !== me.uid);
-      if (!foes.length) break;
-
-      // The same rotation as a human, and a memory of each board it has
-      // fired at rather than one for all of them: a hit on one captain's
-      // water says nothing about another's.
-      me.memories = me.memories || {};
-      const level = me.aiLevel || "medium";
-      const parts = aiTargets(me.history, foes, this.map.shots, level);
-      let fired = false;
-      for (const part of parts) {
-        const target = this.g.players[part.target];
-        if (!target?.alive || !target.board) continue;
-        const memory = me.memories[target.uid] = me.memories[target.uid] || freshMemory();
-        const cells = chooseShots(memory, this.map.size, level, part.count)
-          .filter((c) => !target.board.incoming.includes(c));
-        if (!cells.length) continue;
-        this.salvo(me, target, cells, memory);
-        fired = true;
+  async runAi({ due = false } = {}) {
+    const limit = this.g.order.length * 2 + 2;
+    let spun = 0;
+    while (this.g.phase === "ACTIVE" && this.isAi(this.g.turnUid) && spun++ < limit) {
+      // A computer is never on the clock — including in a battle that was
+      // saved while one was, which is how a stuck one would arrive.
+      this.g.turnEndsAt = null;
+      if (!this.humansAlive() && !due) {
+        // Nobody to wait on, so no hurry: make sure the alarm will come.
+        if (!this.g.aiDueAt) {
+          this.g.aiDueAt = Date.now() + AI_PACE_MS;
+          await this.persist();
+        }
+        await this.armAlarm();
+        return;
       }
-      if (!fired) break;
-      me.history.push(...parts.map((p) => p.target));
-
-      if (Object.values(this.g.players).filter((p) => p.alive && p.board).length <= 1) { await this.finish(); return; }
-      await this.nextTurn();
+      due = false;
+      await this.aiTurn();
     }
+  }
+
+  /** Where a computer's shots go on one board, never on a square already shot. */
+  aiPicks(me, target, level, count) {
+    const memory = me.memories[target.uid] = me.memories[target.uid] || freshMemory();
+    // Every shot at a board is public — the water shows it to the whole
+    // table — so the computer has no business wasting one on a square somebody
+    // else already fired at. It used to work that out only after choosing,
+    // throw the shot away, and fire fewer; with nothing left to choose it fired
+    // none at all.
+    const known = { ...memory, shots: [...new Set([...memory.shots, ...target.board.incoming])] };
+    return chooseShots(known, this.map.size, level, count);
+  }
+
+  /** One computer's turn: choose, fire, and always hand the turn on. */
+  async aiTurn() {
+    const me = this.g.players[this.g.turnUid];
+    const level = me.aiLevel || "medium";
+    const foes = this.foesOf(me.uid);
+    me.memories = me.memories || {};
+
+    // The same rotation and the same ceiling as a person, and a memory of
+    // each board it has fired at rather than one for all of them: a hit on
+    // one captain's water says nothing about another's.
+    const fired = [];
+    for (const part of aiTargets(me.history, foes, this.map.shots, level)) {
+      const target = this.g.players[part.target];
+      if (!target?.alive || !target.board) continue;
+      const cells = this.aiPicks(me, target, level, part.count);
+      if (!cells.length) continue;
+      this.salvo(me, target, cells, me.memories[target.uid]);
+      fired.push(target.uid);
+    }
+
+    // Nothing from the targets it chose: take any board that still has a
+    // square on it rather than pass.
+    if (!fired.length) {
+      for (const target of foes) {
+        const cells = this.aiPicks(me, target, level, perTargetCap(this.map.shots, foes.length));
+        if (!cells.length) continue;
+        this.salvo(me, target, cells, me.memories[target.uid]);
+        fired.push(target.uid);
+        break;
+      }
+    }
+    me.history.push(...fired);
+
+    if (this.liveCaptains().length <= 1) { await this.finish(); return; }
+    // Whatever happened above, the turn moves on. A computer that cannot fire
+    // passes; it does not hold the battle.
+    await this.nextTurn();
   }
 
   /**
@@ -1022,11 +1121,14 @@ export class BattleRoyale {
     const me = this.g.players[uid];
     // One target with its cells is the old shape; a volley spreads the same
     // shots over several. Both arrive here.
-    const clean = normalizeVolley(msg.volley || [{ target: msg.target, cells: msg.cells }], this.shotsFor(me));
+    const clean = normalizeVolley(
+      msg.volley || [{ target: msg.target, cells: msg.cells }],
+      this.shotsFor(me),
+      this.volleyCap(me),
+    );
     if (!clean.ok) return this.send(ws, "BATTLE_ERROR", { message: clean.error });
 
-    const aliveOpponents = Object.values(this.g.players)
-      .filter((p) => p.alive && p.board && p.uid !== uid).length;
+    const aliveOpponents = this.foesOf(uid).length;
     for (const part of clean.volley) {
       const target = this.g.players[part.target];
       if (target && target.uid !== uid && target.placing && !target.board)
@@ -1127,7 +1229,10 @@ export class BattleRoyale {
       this.log(`${this.nameOf(p)}'s smoke screen clears.`);
     }
     if (order.indexOf(this.g.turnUid) === 0) this.g.round += 1;
-    this.g.turnEndsAt = Date.now() + TURN_MS;
+    this.g.turnEndsAt = this.clockFor(this.g.turnUid);
+    this.g.aiDueAt = this.isAi(this.g.turnUid) && !this.humansAlive()
+      ? Date.now() + AI_PACE_MS
+      : null;
 
     await this.persist();
     await this.armAlarm();
@@ -1138,6 +1243,7 @@ export class BattleRoyale {
     this.g.phase = "OVER";
     this.g.turnUid = null;
     this.g.turnEndsAt = null;
+    this.g.aiDueAt = null;
     this.g.closesAt = Date.now() + RESULT_HOLD_MS;
     await this.state.storage.deleteAlarm().catch(() => {});
     await this.state.storage.setAlarm(this.g.closesAt);
@@ -1273,9 +1379,21 @@ export class BattleRoyale {
       }
       if (laid) { await this.persist(); this.pushState(); }
 
+      // A computer is next and it is due. This is also what brings a battle
+      // back that was left waiting on one, however it got there.
+      if (this.isAi(this.g.turnUid)) {
+        await this.runAi({ due: true });
+        return;
+      }
+
       if (now >= (this.g.turnEndsAt || 0)) {
         this.log(`${this.nameOf(this.g.players[this.g.turnUid])} ran out of time.`);
         await this.nextTurn();
+        // The turn passed on may be a computer's. Skipping a person and then
+        // not letting the computer play was the whole of the stall: the
+        // battle sat on an AI forever, and half a minute later the clock
+        // "ran out" on it too and passed the turn along to nobody.
+        await this.runAi();
         return;
       }
 

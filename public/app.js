@@ -1999,8 +1999,8 @@ const GAME_RULES = [
     play: [
       "<b>Solo Match \u2014 yes, you can play this alone.</b> You against one to five computer captains at one difficulty, and it scores and pays MMR exactly as a battle between people does.",
       "Three charts: <b>Skirmish</b> (10\u00d710, 5 ships, 2 shots a turn), <b>Fleet Action</b> (15\u00d715, 7 ships, 4 shots) and <b>Open Ocean</b> (20\u00d720, 9 ships, 5 shots). The host picks before fleets are laid.",
-      "Lay your fleet by hand or press Random. Turns go round the table; on yours, pick your squares on one or more captains' water and fire. Split the shots however you like \u2014 or all on one.",
-      "<b>Rotation:</b> with more than three opponents you must fire at three others before coming back to the same captain, so nobody can be ganged up on. The AI obeys it too.",
+      "Lay your fleet by hand or press Random. Turns go round the table, thirty seconds each for a person; on yours, pick your squares and fire. <b>No more than two shots on any one captain</b> \u2014 spread the rest over the next. Where there are too few captains to take them that way the limit rises to what it must be, and a lone rival takes the lot.",
+      "<b>Rotation:</b> with more than three opponents you must fire at three others before coming back to the same captain, so nobody can be ganged up on. The AI obeys it, and the two-shot limit, and is never put on a clock \u2014 only people are timed.",
       "A captain whose last ship goes down is out. Last afloat wins. <b>Solo Match</b> puts you against one to five computers at one difficulty; Hard ones split their fire.",
       "The host may hide names (everyone is Captain A, B, C) and may switch the <b>arsenal</b> off \u2014 eighteen tokens, from a Sonar Ping to a Smoke Screen, six armed a battle. Tokens are in the \u26A1 Tokens tab.",
     ],

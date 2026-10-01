@@ -272,14 +272,28 @@ if (five.g.phase === "ACTIVE" && five.g.turnUid === "f1") {
 let aiOnAi = 0;
 for (let t = 0; t < 40 && five.g.phase === "ACTIVE"; t++) {
   if (five.g.turnUid === "f1") {
-    const foe = Object.values(five.g.players).find((p) => p.ai && p.alive && canTargetOk(five, "f1", p.uid));
-    if (!foe) break;
-    const cells = [];
-    for (let k = 0; k < 15 * 15 && cells.length < 4; k++) {
-      const cell = `${Math.floor(k / 15)},${k % 15}`;
-      if (!foe.board.incoming.includes(cell)) cells.push(cell);
+    // Two to a captain, on two captains the rotation allows.
+    const open = Object.values(five.g.players).filter((p) => p.ai && p.alive && canTargetOk(five, "f1", p.uid));
+    if (!open.length) break;
+    const volley = [];
+    let need = 4;
+    for (const foe of open) {
+      if (need <= 0) break;
+      const cells = [];
+      for (let k = 0; k < 15 * 15 && cells.length < Math.min(2, need); k++) {
+        const cell = `${Math.floor(k / 15)},${k % 15}`;
+        if (!foe.board.incoming.includes(cell)) cells.push(cell);
+      }
+      if (cells.length) { volley.push({ target: foe.uid, cells }); need -= cells.length; }
     }
-    await fiveSay({ type: "BATTLE_FIRE", volley: [{ target: foe.uid, cells }] });
+    if (need > 0 && volley[0]) {
+      const used = new Set(volley.flatMap((v) => v.cells));
+      for (let k = 0; k < 15 * 15 && need > 0; k++) {
+        const cell = `${Math.floor(k / 15)},${k % 15}`;
+        if (!used.has(cell) && !open[0].board.incoming.includes(cell)) { volley[0].cells.push(cell); used.add(cell); need--; }
+      }
+    }
+    await fiveSay({ type: "BATTLE_FIRE", volley });
   } else {
     await five.runAi();
   }

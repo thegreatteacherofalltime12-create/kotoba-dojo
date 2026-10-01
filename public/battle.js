@@ -80,6 +80,7 @@ export const B = {
   size: 10,          // all three come from the server's welcome
   ships: [],
   shotsPerTurn: 2,
+  cap: null,         // the most that may go on one captain this turn, from the room
   maps: [],
   mapId: "easy",
   game: null,
@@ -186,6 +187,7 @@ function handle(msg) {
         B.ships = msg.yourFleetSpec;
       }
       B.shotsPerTurn = msg.yourShots || msg.game?.shots || B.shotsPerTurn;
+      B.cap = msg.yourCap || null;
       B.arsenal = msg.arsenal || null;
       if (msg.game?.turnUid !== B.you && B.mode !== "shield") B.mode = null;
       B.fleet = msg.yourFleet;
@@ -593,7 +595,9 @@ function drawBattle(me) {
   } else {
     if (myTurn && foes.length > 1) {
       sel.append(el("p", "panel-sub volley-hint",
-        `${B.shotsPerTurn} shots this turn. Spread them over several captains, or put them all on one.`));
+        B.cap && B.cap < B.shotsPerTurn
+          ? `${B.shotsPerTurn} shots this turn, and no more than ${B.cap} on any one captain.`
+          : `${B.shotsPerTurn} shots this turn. Spread them over several captains, or put them all on one.`));
     }
     const picks = watching || !B.targets.length
       ? foes.map((p) => ({
@@ -660,7 +664,16 @@ function drawBattle(me) {
       const picks = B.volley[enemy.uid] = B.volley[enemy.uid] || [];
       const at = picks.indexOf(cell);
       if (at !== -1) picks.splice(at, 1);
-      else if (spent < B.shotsPerTurn) picks.push(cell);
+      else if (spent < B.shotsPerTurn) {
+        // The room refuses a volley with too many on one captain, so the board
+        // does not let one be built — and says so, rather than going quiet.
+        if (B.cap && picks.length >= B.cap) {
+          say(`No more than ${B.cap} shots on ${enemy.name} \u2014 put the rest on another captain.`);
+          return;
+        }
+        picks.push(cell);
+        say("");
+      }
       drawBattle(me);
     };
 

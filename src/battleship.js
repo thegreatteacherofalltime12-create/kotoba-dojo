@@ -219,26 +219,50 @@ export function randomFleet(mapId = "easy", extra = []) {
  * @param {number}   aliveOpponents  how many others are still in
  */
 export function canTarget(history, target, aliveOpponents) {
-  if (aliveOpponents <= COOLDOWN_TARGETS) return { ok: true };
+  // Three others, or as many as there are: with only two rivals the rule is
+  // that you must fire at the other one before returning, and with one there
+  // is nobody else to fire at. It used to switch off entirely at three or
+  // fewer, which is every ordinary solo game, so one captain could be hit
+  // every single turn.
+  const need = Math.min(COOLDOWN_TARGETS, aliveOpponents - 1);
+  if (need <= 0) return { ok: true };
 
   const last = history.lastIndexOf(target);
   if (last === -1) return { ok: true };
 
   const since = new Set(history.slice(last + 1).filter((u) => u !== target));
-  if (since.size >= COOLDOWN_TARGETS) return { ok: true };
+  if (since.size >= need) return { ok: true };
 
   return {
     ok: false,
-    error: `Fire at ${COOLDOWN_TARGETS - since.size} more before returning to this one.`,
-    remaining: COOLDOWN_TARGETS - since.size,
+    error: `Fire at ${need - since.size} more before returning to this one.`,
+    remaining: need - since.size,
   };
 }
 
+/**
+ * Whether this rival may be fired on this turn, given how many shots there
+ * are to place.
+ *
+ * The rotation yields before the two-shot limit does. If the captains the
+ * rotation leaves open cannot take every shot at two apiece, the rotation
+ * is set aside for the turn — otherwise the only way to place the shots
+ * would be to raise the limit and pile them on whoever was left, which is
+ * exactly the ganging up both rules exist to prevent.
+ */
+export function canTargetFor(history, target, rivals, shots) {
+  const verdict = canTarget(history, target, rivals.length);
+  if (verdict.ok) return verdict;
+  const open = rivals.filter((u) => canTarget(history, u, rivals.length).ok).length;
+  return open * MIN_PER_TARGET >= (Number(shots) || 0) ? verdict : { ok: true, relaxed: true };
+}
+
 /** Who this shooter is allowed to hit, with a reason attached to those they can't. */
-export function targetOptions(shooterUid, players, history) {
+export function targetOptions(shooterUid, players, history, shots = 0) {
   const alive = Object.values(players).filter((p) => p.alive && p.uid !== shooterUid);
+  const uids = alive.map((p) => p.uid);
   return alive.map((p) => {
-    const verdict = canTarget(history, p.uid, alive.length);
+    const verdict = canTargetFor(history, p.uid, uids, shots);
     return { uid: p.uid, name: p.name, allowed: verdict.ok, reason: verdict.error || null };
   });
 }
@@ -384,7 +408,7 @@ export function normalizeVolley(raw, shots, cap = Infinity) {
  * from those the rotation allows.
  */
 export function aiTargets(history, foes, shots, difficulty) {
-  const options = targetOptionsFrom(history, foes);
+  const options = targetOptionsFrom(history, foes, shots);
   const allowed = options.filter((o) => o.allowed).map((o) => o.uid);
   const pool = allowed.length ? [...allowed] : options.map((o) => o.uid);
   if (!pool.length || !(shots > 0)) return [];
@@ -406,6 +430,7 @@ export function aiTargets(history, foes, shots, difficulty) {
   return picked.map((target, i) => ({ target, count: counts[i] })).filter((p) => p.count > 0);
 }
 
-function targetOptionsFrom(history, foes) {
-  return foes.map((p) => ({ uid: p.uid, allowed: canTarget(history, p.uid, foes.length).ok }));
+function targetOptionsFrom(history, foes, shots = 0) {
+  const uids = foes.map((p) => p.uid);
+  return foes.map((p) => ({ uid: p.uid, allowed: canTargetFor(history, p.uid, uids, shots).ok }));
 }

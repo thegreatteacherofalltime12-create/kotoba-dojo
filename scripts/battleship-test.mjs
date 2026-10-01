@@ -1,7 +1,7 @@
 // node scripts/battleship-test.mjs
 import {
   FLEET, SIZE, validateFleet, randomFleet, canTarget, targetOptions,
-  fireAt, fleetSunk, battleScore, cellsFor, COOLDOWN_TARGETS,
+  fireAt, fleetSunk, battleScore, cellsFor, COOLDOWN_TARGETS, canTargetFor,
   accuracyBonus, normalizeVolley, aiTargets, perTargetCap, MIN_PER_TARGET,
 } from "../src/battleship.js";
 
@@ -51,8 +51,16 @@ ok("it counts from the LAST time you hit them",
   canTarget(["b", "c", "d", "e", "b", "c"], "b", 6).ok === false);
 ok("the message says how many are left",
   canTarget(["b", "c"], "b", 6).remaining === 2);
-ok("with three opponents the rule lifts", canTarget(["b"], "b", 3).ok === true);
-ok("with four it applies again", canTarget(["b"], "b", 4).ok === false);
+ok("with three opponents it asks for two others, not three", canTarget(["b"], "b", 3).ok === false && canTarget(["b", "c", "d"], "b", 3).ok === true);
+ok("with two it asks for the other one — no hitting the same captain every turn", canTarget(["b"], "b", 2).ok === false && canTarget(["b", "c"], "b", 2).ok === true);
+ok("with one rival there is nobody else, so it cannot apply", canTarget(["b", "b"], "b", 1).ok === true);
+ok("with four it is the full three", canTarget(["b", "c", "d"], "b", 4).ok === false && canTarget(["b", "c", "d", "e"], "b", 4).ok === true);
+
+console.log("\nthe rotation yields before the two-shot limit does");
+ok("three rivals, four shots, two closed off: one open cannot take four at two apiece, so the rotation relaxes",
+  canTargetFor(["b", "c"], "b", ["b", "c", "d"], 4).ok === true);
+ok("but with room to place every shot at two apiece it holds",
+  canTargetFor(["b", "c"], "b", ["b", "c", "d", "e", "f"], 4).ok === false);
 
 console.log("\ntarget list");
 const players = {
@@ -148,11 +156,13 @@ ok("two rivals and four shots is two each, whoever is shooting",
   ["easy", "medium", "hard"].every((lvl) => aiTargets([], foes.slice(0, 2), 4, lvl).map((p) => p.count).join() === "2,2"));
 ok("two rivals and five shots has to be three and two",
   ["easy", "medium", "hard"].every((lvl) => aiTargets([], foes.slice(0, 2), 5, lvl).map((p) => p.count).sort().join() === "2,3"));
-ok("a rotation that leaves two open takes all five between them",
-  aiTargets(["a", "b", "c"], foes, 5, "medium").map((p) => p.count).sort().join() === "2,3");
+ok("a rotation that leaves two open takes four between them, two apiece",
+  aiTargets(["a", "b", "c"], foes, 4, "medium").map((p) => p.count).join() === "2,2");
+ok("but with five shots two cannot take them at two apiece, so the rotation steps aside rather than the limit",
+  aiTargets(["a", "b", "c"], foes, 5, "medium").every((p) => p.count <= 2));
 const hist = ["a", "b", "c"];
 const seen = new Set();
-for (let i = 0; i < 40; i++) for (const p of aiTargets(hist, foes, 5, "hard")) seen.add(p.target);
+for (let i = 0; i < 40; i++) for (const p of aiTargets(hist, foes, 4, "hard")) seen.add(p.target);
 ok("it obeys the rotation: those it fired at last are off the list", !seen.has("a") && !seen.has("b") && !seen.has("c") && seen.has("d") && seen.has("e"));
 ok("with one opponent it fires everything at them", aiTargets([], [{ uid: "z" }], 5, "hard").length === 1);
 ok("two shots on hard still split one and one", aiTargets([], foes, 2, "hard").map((p) => p.count).join() === "1,1");

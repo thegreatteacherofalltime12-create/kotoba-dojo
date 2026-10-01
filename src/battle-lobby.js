@@ -1,7 +1,7 @@
 import {
   SIZE, FLEET, SHOTS_PER_TURN, validateFleet, randomFleet, mapOf, fleetFor, MAPS,
   normalizeVolley, aiTargets, accuracyBonus, perTargetCap,
-  canTarget, targetOptions, fireAt, fleetSunk, battleScore,
+  canTarget, canTargetFor, targetOptions, fireAt, fleetSunk, battleScore,
   ARSENAL, ARM_CAP, NUKE_MAX, EXTRA_HULLS, STRIKE_SPAN, NUKE_RADIUS, extraShotsFor, blastArea, extraHulls,
   SONAR_SPAN, SMOKE_TURNS, shipAt, crossCells, lineOf, shipSquares, newBerth,
 } from "./battleship.js";
@@ -266,8 +266,10 @@ export class BattleRoyale {
   volleyCap(me) {
     const foes = this.foesOf(me.uid);
     const priority = this.arsOf(me).priority === this.g.turnNo;
-    const open = priority ? foes : foes.filter((p) => canTarget(me.history, p.uid, foes.length).ok);
-    return perTargetCap(this.shotsFor(me), (open.length || foes.length));
+    const uids = foes.map((p) => p.uid);
+    const shots = this.shotsFor(me);
+    const open = priority ? foes : foes.filter((p) => canTargetFor(me.history, p.uid, uids, shots).ok);
+    return perTargetCap(shots, (open.length || foes.length));
   }
 
   /**
@@ -355,7 +357,7 @@ export class BattleRoyale {
           id: s.id, name: s.name, len: s.len, cells: s.cells, hits: s.hits, sunk: !!s.sunk,
         })) : null,
         targets: me && this.g.phase === "ACTIVE" && this.g.turnUid === uid
-          ? targetOptions(uid, this.g.players, me.history).map((t) => ({
+          ? targetOptions(uid, this.g.players, me.history, this.shotsFor(me)).map((t) => ({
             ...t, name: this.captainName(this.g.players[t.uid], uid),
           }))
           : [],
@@ -1139,7 +1141,7 @@ export class BattleRoyale {
         return this.send(ws, "BATTLE_ERROR", { message: "Pick a live opponent." });
       const verdict = this.arsOf(me).priority === this.g.turnNo
         ? { ok: true }
-        : canTarget(me.history, target.uid, aliveOpponents);
+        : canTargetFor(me.history, target.uid, this.foesOf(uid).map((p) => p.uid), this.shotsFor(me));
       if (!verdict.ok) return this.send(ws, "BATTLE_ERROR", { message: verdict.error });
       for (const cell of part.cells) {
         const [r, c] = cell.split(",").map(Number);

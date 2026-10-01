@@ -17,6 +17,17 @@ export const KEEP_DAYS = 7;
 
 export const UPDATES = [
   {
+    at: "2026-10-01T22:00:00Z",
+    where: "Match-3 Attack Arena",
+    title: "Match-3 gets Solo Survival, a boost, chat and spectators",
+    text: "Solo Survival: no opponent, just you and a stack that keeps rising while the game sends waves of "
+      + "rubble \u2014 cancel them by building charge and solving word scrambles, and last the five minutes. "
+      + "There is a Match-3 boost token in the Arsenal Shop (1.5\u00d7 MMR, and the multipliers work too). "
+      + "Everyone in a match can chat, and anybody else with the room code can watch both wells live "
+      + "without seeing either player\u2019s word. Also fixed: an applied MMR multiplier could be dropped as "
+      + "a match began if you held no 1.5\u00d7 boost for that game.",
+  },
+  {
     at: "2026-10-01T18:00:00Z",
     where: "Match-3 Attack Arena",
     title: "A ninth game: Match-3 Attack Arena",

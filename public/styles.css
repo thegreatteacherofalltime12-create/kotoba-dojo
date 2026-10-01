@@ -4349,3 +4349,14 @@ a.dtab { text-decoration: none; display: inline-block; }
 .m3-results-list { margin: .4rem 0 0; padding-left: 1.2rem; display: grid; gap: .3rem; }
 .m3-results-list i { font-style: normal; color: var(--muted); }
 @media (prefers-reduced-motion: reduce) { .m3c, .m3c.pop, .m3c.drop, .m3-in { animation: none; transition: none; } }
+
+.m3-chat { overflow: hidden; }
+.m3-chatlog { height: 9rem; overflow-y: auto; display: grid; gap: .25rem; align-content: start; padding: .6rem; font-size: .8rem; }
+.m3-line { display: grid; grid-template-columns: auto 1fr; gap: .4rem; }
+.m3-line b { font-family: var(--display); font-size: .72rem; letter-spacing: .06em; color: var(--accent); }
+.m3-line.mine b { color: #8fd0ff; }
+.m3-line.watcher b { color: var(--muted); }
+.m3-say { display: flex; gap: .4rem; padding: 0 .6rem .6rem; }
+
+/* Survival: one well, centred, with nobody on the other side of the table. */
+.m3-arena.m3-alone { grid-template-columns: minmax(0, 26rem); justify-content: center; }

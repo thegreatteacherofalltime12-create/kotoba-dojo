@@ -297,7 +297,7 @@ function tokensOf(field) {
 }
 
 export const TOKEN_PRICE = 200;
-export const TOKEN_GAMES = ["crossword", "battleship", "minesweeper", "links", "casino", "prix", "buzzer", "artillery"];
+export const TOKEN_GAMES = ["crossword", "battleship", "minesweeper", "links", "casino", "prix", "buzzer", "artillery", "match3"];
 // Every arsenal sells alongside the boosts, each at its own price, and the
 // MMR multipliers sell beside all of them.
 export const TOKEN_PRICES = Object.fromEntries([

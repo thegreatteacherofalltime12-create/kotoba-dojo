@@ -38,7 +38,7 @@ function makeState() {
   };
 }
 
-async function table({ humans = 1, level = "easy", solo = true } = {}) {
+async function table({ humans = 1, level = "easy", solo = true, mode = "versus" } = {}) {
   const state = makeState();
   const room = new MatchArena(state, { FIREBASE_PROJECT_ID: "test" });
   await state._init;
@@ -52,7 +52,7 @@ async function table({ humans = 1, level = "easy", solo = true } = {}) {
     await room.onJoin(uid, `Player ${i + 1}`, ws);
   }
   const say = (uid, o) => room.webSocketMessage(socks[uid], JSON.stringify(o));
-  await say("p1", { type: "M3_START", solo, level });
+  await say("p1", { type: "M3_START", solo, level, mode });
   return { room, state, socks, say, g: room.g };
 }
 
@@ -296,6 +296,208 @@ console.log("\nsecrets");
   ok("they see the letters and the clue", view.me.word.scrambled && view.me.word.clue && !("answer" in view.me.word));
   ok("they see the other well, and how much charge it holds", Array.isArray(view.foe.board) && typeof view.foe.charge === "number");
   ok("but not the other player's word at all", !("word" in view.foe));
+}
+
+console.log("\nchat");
+{
+  const t = await table({ humans: 2, solo: false });
+  await t.say("p1", { type: "M3_SAY", text: "  good luck  " });
+  const line = t.socks.p2.last("M3_CHAT")?.line;
+  ok("a line reaches the other player, trimmed", line?.text === "good luck" && line.name === "Player 1");
+  ok("and the sender", !!t.socks.p1.last("M3_CHAT"));
+  ok("it is kept for the room", t.g.chat.length === 1);
+  await t.say("p1", { type: "M3_SAY", text: "    " });
+  ok("an empty line is not a line", t.g.chat.length === 1);
+  await t.say("p1", { type: "M3_SAY", text: "ha".repeat(200) });
+  ok("a very long line is cut, not refused", t.g.chat.at(-1).text.length === 200);
+  await t.say("p1", { type: "M3_SAY", text: "you are a retard" });
+  ok("what does not belong in the arena does not belong here", t.g.chat.length === 2 && /doesn't belong here/.test(t.socks.p1.last("M3_REJECT").why));
+  ok("chat is open while the match is on", t.g.phase === "PLAYING");
+
+  const late = new FakeSocket("w1", "Late");
+  t.state.acceptWebSocket(late);
+  await t.room.onJoin("w1", "Late", late, true);
+  ok("somebody who walks in is handed what was said", late.all("M3_CHAT").length >= 2);
+}
+
+console.log("\nwatching");
+{
+  const t = await table({ humans: 2, solo: false });
+  ok("a third person is a watcher, not a player", t.room.admit("w1").watching === true);
+  ok("a player coming back keeps their seat", t.room.admit("p1").watching === false);
+  ok("nobody takes a seat once the match has begun", t.g.phase === "PLAYING" && t.room.admit("w2").watching === true);
+
+  const w = new FakeSocket("w1", "Wendy");
+  t.state.acceptWebSocket(w);
+  await t.room.onJoin("w1", "Wendy", w, true);
+  ok("a watcher is not on the table", !t.g.players.w1 && t.room.humans().length === 2);
+  const v = w.last("M3_STATE").state;
+  ok("they are told they are watching", v.watching === true);
+  ok("and see both wells", Array.isArray(v.me.board) && Array.isArray(v.foe.board) && v.me.uid !== v.foe.uid);
+  ok("but neither word", v.me.word === null && !("word" in v.foe));
+  ok("and the answer is not in anything they were sent", !JSON.stringify(w.inbox).includes('"' + t.g.players.p1.word.answer + '"') && !JSON.stringify(w.inbox).includes('"' + t.g.players.p2.word.answer + '"'));
+  ok("they are counted", v.watchers === 1);
+  ok("the players are told how many are watching", t.socks.p1.last("M3_STATE").state.watchers === 1);
+
+  // Whatever they send, nothing moves.
+  const before = JSON.stringify(t.g.players.p1.board);
+  const m = firstMove(t.g.players.p1);
+  await t.room.webSocketMessage(w, JSON.stringify({ type: "M3_SWAP", a: m[0], b: m[1] }));
+  await t.room.webSocketMessage(w, JSON.stringify({ type: "M3_GUESS", word: t.g.players.p1.word.answer }));
+  await t.room.webSocketMessage(w, JSON.stringify({ type: "M3_SKIP" }));
+  ok("a watcher cannot move, guess or skip", JSON.stringify(t.g.players.p1.board) === before && t.g.players.p1.solved === 0 && t.g.players.p1.skipped === 0);
+  ok("nor start or end the match", (await t.room.webSocketMessage(w, JSON.stringify({ type: "M3_END" })), t.g.phase === "PLAYING"));
+  ok("a watcher is never the host, even with the host gone", t.room.canStart("w1") === false);
+  await t.room.webSocketMessage(w, JSON.stringify({ type: "M3_SAY", text: "go Player 1" }));
+  ok("but can chat, and is marked as watching", t.g.chat.at(-1)?.watching === true && t.g.chat.at(-1).name === "Wendy");
+  await t.room.webSocketMessage(w, JSON.stringify({ type: "TOKENS" }));
+  ok("and has no tokens to apply", !w.last("M3_TOKENS"));
+
+  // A solo match is private.
+  const solo = await table({ humans: 1 });
+  ok("a stranger is turned away from a solo match", /solo/.test(solo.room.admit("stranger").refuse || ""));
+  ok("the host is not", !solo.room.admit("p1").refuse);
+
+  // The lobby has a seat; an open one is taken.
+  const lobby = await (async () => {
+    const state = makeState();
+    const room = new MatchArena(state, { FIREBASE_PROJECT_ID: "test" });
+    await state._init;
+    room.g = room.blank("L");
+    for (const u of ["a", "b"]) { const ws = new FakeSocket(u, u); state.acceptWebSocket(ws); await room.onJoin(u, u, ws); }
+    return room;
+  })();
+  ok("two people fill the table", lobby.humans().length === 2);
+  ok("the third watches, even in the lobby", lobby.admit("c").watching === true);
+
+  // Crowds are capped.
+  const crowd = await table({ humans: 2, solo: false });
+  for (let i = 0; i < 24; i++) { const ws = new FakeSocket("x" + i, "x" + i); crowd.state.acceptWebSocket(ws); await crowd.room.onJoin("x" + i, "x" + i, ws, true); }
+  ok("only so many can watch", /all the watchers/.test(crowd.room.admit("one-more").refuse || ""));
+}
+
+console.log("\nthe boost token");
+{
+  const t = await table({ humans: 2, solo: false });
+  const [p1, p2] = [t.g.players.p1, t.g.players.p2];
+  await t.say("p1", { type: "APPLY_TOKEN" });
+  ok("holding none is refused, pointing at the shop", /Arsenal Shop/.test(t.socks.p1.last("M3_TOKENS").error) && !t.g.applied.p1);
+  await t.say("p1", { type: "APPLY_TOKEN", key: "mx3" });
+  ok("and a multiplier the same", /3.*multiplier/.test(t.socks.p1.last("M3_TOKENS").error));
+  await t.say("p1", { type: "APPLY_TOKEN", key: "nonsense" });
+  ok("an invented token is not one", t.socks.p1.last("M3_TOKENS").error === "No such token.");
+  await t.say("p1", { type: "TOKENS" });
+  ok("a look is not an apply", t.socks.p1.last("M3_TOKENS").applied === false);
+
+  // Score the same win with nothing, with the boost and with a multiplier.
+  const play = async (applied) => {
+    const x = await table({ humans: 2, solo: false });
+    x.g.applied = applied;
+    for (const q of x.room.list()) q.riseAt = ago();
+    x.g.players.p2.board[0][0] = 1;                     // p2 is the one that overflows
+    let n = 0;
+    while (x.g.phase === "PLAYING" && n++ < 60) { x.g.players.p2.riseAt = ago(); x.g.players.p1.riseAt = Date.now() + 99999; await x.room.alarm(); }
+    return x.socks.p1.last("M3_OVER").results.find((r) => r.uid === "p1");
+  };
+  const bare = await play({});
+  const boosted = await play({ p1: "match3" });
+  const tripled = await play({ p1: "mx3" });
+  ok("a win with nothing applied is not boosted", bare.boost === false && bare.boostKey === undefined);
+  ok(`the boost pays half again (${bare.gain} -> ${boosted.gain})`, boosted.boost === true && boosted.mult === 1.5 && boosted.gain === Math.round(bare.gain * 1.5));
+  ok(`a 3x pays three times (${tripled.gain})`, tripled.boostKey === "mx3" && tripled.mult === 3 && tripled.gain === Math.round(bare.gain * 3));
+  ok("the result carries the key, so the record write spends the right token", boosted.boostKey === "match3");
+
+  // Spent once: the next match starts clean.
+  const x = await table({ humans: 2, solo: false });
+  x.g.applied = { p1: "match3" };
+  await x.say("p1", { type: "M3_END" });
+  ok("it is cleared once the match is scored", Object.keys(x.g.applied).length === 0);
+
+  // The computer is never boosted.
+  const solo = await table({ humans: 1, level: "hard" });
+  solo.g.applied = { ai: "mx6", p1: "mx2" };
+  await solo.say("p1", { type: "M3_END" });
+  const res = solo.socks.p1.last("M3_OVER").results;
+  ok("the computer is never boosted", res.find((r) => r.ai).boost === false);
+  ok("only the person is", res.find((r) => !r.ai).boostKey === "mx2");
+
+  // A token no longer held is dropped as the match begins, a multiplier included.
+  const y = await table({ humans: 2, solo: false });
+  y.g.applied = { p1: "mx5" };
+  await y.say("p1", { type: "M3_END" });
+  y.g.applied = { p1: "mx5", p2: "match3" };
+  await y.say("p1", { type: "M3_START", solo: false });
+  ok("the start checks what is actually held (none here, so both go)", !y.g.applied.p1 && !y.g.applied.p2);
+}
+
+console.log("\nsurvival");
+{
+  const t = await table({ humans: 1, mode: "survival" });
+  ok("a survival run begins with one well and no opponent", t.g.phase === "PLAYING" && t.g.mode === "survival" && t.room.list().length === 1);
+  ok("with no computer in it", !t.room.list().some((p) => p.ai));
+  ok("and is private, as a solo match is", t.g.solo === true && !!t.room.admit("stranger").refuse);
+  const view = t.socks.p1.last("M3_STATE").state;
+  ok("the screen is told it is survival, with no other well", view.mode === "survival" && view.foe === null);
+  ok("and when the next wave is due", view.pressure && view.pressure.at > Date.now() && view.pressure.ms > 0);
+  ok("the first wave is not instant", view.pressure.at - Date.now() > 5_000);
+
+  const me = t.g.players.p1;
+  me.riseAt = Date.now() + 99_999;
+  t.g.pressureAt = ago();
+  await t.room.alarm();
+  ok("when the wave is due, rubble is aimed at you", me.incoming >= 2 && me.landAt > Date.now() + 2_000);
+  ok("and the next wave is scheduled, sooner", t.g.pressureAt > Date.now() && t.g.pressureMs < 9_000);
+  ok("you are told", /rubble on its way/.test(t.g.feed.at(-1).text));
+
+  // The way to cancel it is the same loop as against a person.
+  me.charge = 9;
+  me.word = { answer: "AUDIO", clue: "Sound.", scrambled: "DUOIA", len: 5 };
+  const coming = me.incoming;
+  await t.say("p1", { type: "M3_GUESS", word: "AUDIO" });
+  const s = t.socks.p1.last("M3_SOLVED");
+  ok("solving a word cancels what is on its way", s.cancel === Math.min(coming, s.send) && me.incoming === Math.max(0, coming - s.send));
+  ok("and there is nobody to send the rest to", s.rest === s.send - s.cancel && me.sent === s.send);
+
+  // Left alone, it lands.
+  const u = await table({ humans: 1, mode: "survival" });
+  const q = u.g.players.p1;
+  q.riseAt = Date.now() + 99_999;
+  q.incoming = 4; q.landAt = ago();
+  u.g.pressureAt = Date.now() + 99_999;
+  await u.room.alarm();
+  ok("rubble you did not cancel lands", q.incoming === 0 && q.board.flat().filter((v) => v === 9).length >= 4);
+
+  // Two people cannot start one.
+  const two = await table({ humans: 2, solo: false, mode: "survival" });
+  ok("survival is refused with two at the table", two.g.phase !== "PLAYING" && /one-player/.test(two.socks.p1.last("M3_REJECT").why));
+
+  // It ends on overflow, scored on how long it lasted.
+  const run = await table({ humans: 1, mode: "survival" });
+  const r = run.g.players.p1;
+  let n = 0;
+  while (run.g.phase === "PLAYING" && n++ < 80) { r.riseAt = ago(); run.g.pressureAt = Date.now() + 99_999; await run.room.alarm(); }
+  ok("left alone, the stack overflows and the run ends", run.g.phase === "OVER");
+  const over = run.socks.p1.last("M3_OVER");
+  ok("with one result, first place", over.results.length === 1 && over.results[0].placement === 1);
+  ok("on the hundred-point scale", over.results[0].score >= 0 && over.results[0].score <= 100);
+  ok("saying it overflowed", over.reason === "overflow" && over.results[0].status === "overflowed");
+  ok("and paying MMR", typeof over.results[0].gain === "number" && over.results[0].gain >= 0);
+
+  // Five minutes survived.
+  const full = await table({ humans: 1, mode: "survival" });
+  full.g.endsAt = ago();
+  await full.room.alarm();
+  const done = full.socks.p1.last("M3_OVER");
+  ok("lasting the five minutes ends it as a survival", full.g.phase === "OVER" && done.reason === "time" && done.results[0].status === "standing");
+
+  const b = await table({ humans: 1, mode: "survival" });
+  b.g.applied = { p1: "mx2" };
+  await b.say("p1", { type: "M3_END" });
+  ok("a multiplier applies to a survival run", b.socks.p1.last("M3_OVER").results[0].boostKey === "mx2" && b.socks.p1.last("M3_OVER").results[0].mult === 2);
+
+  // Versus is untouched by any of this.
+  const v = await table({ humans: 1 });
+  ok("a versus match against the computer still has the computer", v.g.mode === "versus" && !!v.g.players.ai && v.g.pressureAt === 0);
 }
 
 console.log(bad ? `\n${bad} failing\n` : "\nall match-3 room checks passed\n");

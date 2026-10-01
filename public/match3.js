@@ -5,6 +5,8 @@
 // whether a word is right — the browser is handed the letters and the clue and
 // sends a guess back, and the answer never reaches it.
 
+import { applyTokenTab } from "./boost.js";
+
 const $ = (id) => document.getElementById(id);
 const el = (tag, cls, text) => {
   const n = document.createElement(tag);
@@ -36,6 +38,9 @@ export async function enterMatch3(code, getToken, onLeave) {
   M.onLeave = onLeave;
   M.state = null; M.shown = null; M.pending = null; M.anim = false; M.sel = null;
   $("m3-code").textContent = code;
+  $("m3-chatlog").textContent = "";
+  // Built now: it is what puts the click handler on the Apply Token button.
+  tokenTab();
   $("m3-results").hidden = true;
   $("m3-error").hidden = true;
   await connect(getToken);
@@ -64,6 +69,11 @@ export function closeMatch3(forget = true) {
 }
 
 const send = (o) => { if (M.socket?.readyState === WebSocket.OPEN) M.socket.send(JSON.stringify(o)); };
+
+let boostTab = null;
+const tokenTab = () => (boostTab ||= applyTokenTab({
+  game: "match3", send, button: $("btn-m3-boost"), label: "match",
+}));
 const now = () => Date.now() - M.skew;
 
 function say(text, good = false) {
@@ -79,6 +89,8 @@ function say(text, good = false) {
 function handle(msg) {
   switch (msg.type) {
     case "M3_WELCOME": M.you = msg.you; break;
+    case "M3_TOKENS": tokenTab().receive(msg); break;
+    case "M3_CHAT": addChat(msg.line); break;
     case "M3_STATE":
       M.skew = Date.now() - (msg.state?.now || Date.now());
       if (M.anim) { M.pending = msg.state; break; }
@@ -100,7 +112,7 @@ function handle(msg) {
         ? `${msg.word} — launched ${msg.send}${msg.cancel ? `, ${msg.cancel} cancelled incoming` : ""}.`
         : `${msg.word} — solved, but there was no charge to send.`, true);
       break;
-    case "M3_OVER": showResults(msg); break;
+    case "M3_OVER": showResults(msg); tokenTab().reset(); break;
   }
 }
 
@@ -141,6 +153,12 @@ function draw() {
   const s = M.state;
   if (!s) return;
   const playing = s.phase === "PLAYING";
+  $("m3-watch").hidden = !s.watching;
+  $("m3-watchers").textContent = s.watchers > 1 ? `${s.watchers} are watching.` : "";
+  $("btn-m3-boost").hidden = !!s.watching;
+  $("btn-m3-leave").textContent = s.watching ? "Leave" : "End Match";
+  $("m3-watching").hidden = !s.watchers;
+  $("m3-watching").textContent = `${s.watchers} watching`;
   $("m3-phase").textContent = playing ? "In the arena" : s.phase === "OVER" ? "Match over" : "Lobby";
 
   $("m3-host").hidden = !(s.isHost && s.phase !== "PLAYING");
@@ -149,13 +167,18 @@ function draw() {
   const two = (s.people || []).length >= 2;
   $("btn-m3-start").textContent = s.phase === "OVER" ? "Fight again" : two ? "Begin the match" : "Play the computer";
   $("m3-level-row").hidden = two;
+  $("btn-m3-survival").hidden = two;
   $("m3-lobby-note").textContent = two
     ? `${s.people.map((p) => p.name).join(" and ")} are here.`
-    : `Waiting for an opponent — share the code ${s.code} — or play the computer.`;
+    : `Waiting for an opponent — share the code ${s.code} — or play the computer, or survive on your own.`;
   if (s.aiLevel) $("m3-level").value = s.aiLevel;
 
   if (s.phase === "LOBBY") return;
 
+  const alone = s.mode === "survival";
+  $("m3-theirs").hidden = alone;
+  $("m3-arena").classList.toggle("m3-alone", alone);
+  $("m3-pressure").hidden = !alone;
   const me = s.me, foe = s.foe;
   if (me) {
     if (!M.anim) M.shown = me.board;
@@ -218,6 +241,7 @@ function drawClock() {
     const into = Math.min(1, Math.max(0, 1 - (who.riseAt - now()) / span));
     $(id).style.width = `${Math.round(into * 100)}%`;
   }
+  if (s.pressure) $("m3-pressure-n").textContent = String(Math.max(0, Math.ceil((s.pressure.at - now()) / 1000)));
   if (M.lockUntil && Date.now() >= M.lockUntil) { M.lockUntil = 0; drawWord(); }
 }
 
@@ -255,7 +279,7 @@ async function playResult(msg) {
 
 /** A swap, as the room will judge it. */
 function trySwap(a, b) {
-  if (M.anim || M.state?.phase !== "PLAYING" || M.state?.me?.over) return;
+  if (M.anim || M.state?.phase !== "PLAYING" || M.state?.me?.over || M.state?.watching) return;
   M.lastSwap = [a, b];
   send({ type: "M3_SWAP", a, b });
 }
@@ -272,6 +296,18 @@ function cellAt(ev) {
 
 const adjacent = (a, b) => Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) === 1;
 
+/* ── chat ────────────────────────────────────────────────────────── */
+
+function addChat(line) {
+  const host = $("m3-chatlog");
+  const row = el("div", `m3-line${line.uid === M.you ? " mine" : ""}${line.watching ? " watcher" : ""}`);
+  row.append(el("b", null, line.watching ? `${line.name} (watching)` : line.name));
+  row.append(el("span", null, line.text));
+  host.append(row);
+  while (host.childElementCount > 60) host.firstElementChild.remove();
+  host.scrollTop = host.scrollHeight;
+}
+
 /* ── results ─────────────────────────────────────────────────────── */
 
 function showResults(msg) {
@@ -279,14 +315,18 @@ function showResults(msg) {
   box.hidden = false;
   box.textContent = "";
   const mine = msg.results.find((r) => r.uid === M.you);
-  box.append(el("h2", null, !mine ? "Match over" : mine.placement === 1 ? "You win" : "You lose"));
-  box.append(el("p", "panel-sub", msg.reason === "time" ? "Time ran out — the harder hitter wins." : msg.reason === "ended" ? "The host called it." : "A stack overflowed."));
+  const alone = M.state?.mode === "survival";
+  box.append(el("h2", null, alone ? (msg.reason === "time" ? "You survived" : "Run over")
+    : !mine ? "Match over" : mine.placement === 1 ? "You win" : "You lose"));
+  box.append(el("p", "panel-sub", alone
+    ? (msg.reason === "time" ? "Five minutes, and the stack held." : msg.reason === "ended" ? "You called it." : "Your stack ran out of room.")
+    : msg.reason === "time" ? "Time ran out — the harder hitter wins." : msg.reason === "ended" ? "The host called it." : "A stack overflowed."));
   const list = el("ol", "m3-results-list");
   for (const r of msg.results) {
     const row = el("li");
     row.append(el("b", null, `${r.placement}. ${r.name}${r.ai ? " (cpu)" : ""}`));
     row.append(el("span", null, ` ${r.score} pts · ${r.sent} sent · ${r.solved} words · best chain ${r.maxChain}`));
-    if (!r.ai) row.append(el("i", null, ` ${r.gain >= 0 ? "+" : ""}${r.gain} MMR · ${r.belt}`));
+    if (!r.ai) row.append(el("i", null, ` ${r.gain >= 0 ? "+" : ""}${r.gain} MMR${r.boost ? ` (${r.mult}\u00d7 token)` : ""} · ${r.belt}`));
     list.append(row);
   }
   box.append(list);
@@ -295,7 +335,23 @@ function showResults(msg) {
 /* ── controls ────────────────────────────────────────────────────── */
 
 export function bindMatch3Controls() {
-  $("btn-m3-leave").onclick = () => { send({ type: "M3_END" }); closeMatch3(); M.onLeave?.(); };
+  // Only the host's leaving ends the match; somebody watching just goes.
+  $("btn-m3-leave").onclick = () => {
+    if (!M.state?.watching) send({ type: "M3_END" });
+    closeMatch3();
+    M.onLeave?.();
+  };
+
+  const say = () => {
+    const box = $("m3-text");
+    const text = box.value.trim();
+    if (!text) return;
+    send({ type: "M3_SAY", text });
+    box.value = "";
+  };
+  $("btn-m3-send").onclick = say;
+  $("m3-text").addEventListener("keydown", (e) => { if (e.key === "Enter") say(); });
+  $("btn-m3-survival").onclick = () => send({ type: "M3_START", mode: "survival", solo: true });
   $("btn-m3-start").onclick = () => send({
     type: "M3_START",
     solo: (M.state?.people || []).length < 2,
@@ -314,6 +370,7 @@ export function bindMatch3Controls() {
   // the neighbour: a finger and a mouse do the same thing.
   const grid = $("m3-me-grid");
   grid.addEventListener("pointerdown", (ev) => {
+    if (M.state?.watching) return;
     const at = cellAt(ev);
     if (!at) return;
     M.drag = at;

@@ -2,10 +2,13 @@ import {
   GAME_NAME, ROWS, COLS, MATCH_MS, RISE_START_MS, MAX_LAND, LAND_MS, MAX_CHARGE,
   makeBoard, swap, resolve, hasMove, reshuffle, height, rise, dropRubble, launchSize, nextRiseMs,
   aiMove, aiLevelById, AI_LEVELS, AI_NAMES, matchScore, standings, rngFrom,
+  PRESSURE_START_MS, nextPressureMs, pressureSize, survivalScore,
 } from "./match3.js";
 import { poolFor, scramble } from "./links.js";
-import { recordMatch, readRatings } from "./firestore.js";
-import { sessionGain, fieldMmrFor, beltFor } from "./mmr.js";
+import { recordMatch, readRatings, strikePlayer } from "./firestore.js";
+import { sessionGain, fieldMmrFor, beltFor, boostedBy, multFor } from "./mmr.js";
+import { tokensReply, dropUnheld } from "./boost.js";
+import { moderate } from "./moderation.js";
 import { announceRoom } from "./rooms.js";
 
 /** Quickest a person may swap, so one finger cannot flood the room. */
@@ -15,6 +18,8 @@ const WRONG_LOCK_MS = 1_200;
 /** A launch buys the launcher a breather before the next row rises. */
 const SOLVE_BREATH_MS = 1_500;
 const MAX_HUMANS = 2;
+/** Anyone past the two players may watch, up to a crowd the room can send to. */
+const MAX_WATCHERS = 24;
 
 /**
  * A match of Match-3 Attack Arena.
@@ -36,8 +41,11 @@ export class MatchArena {
 
   blank(code) {
     return {
-      code, phase: "LOBBY", solo: false, hostUid: null, aiLevel: "medium",
+      code, phase: "LOBBY", solo: false, mode: "versus", hostUid: null, aiLevel: "medium",
+      pressureAt: 0, pressureMs: PRESSURE_START_MS,
       roundNo: 0, startedAt: 0, endsAt: 0, seed: 0, players: {}, order: [], feed: [],
+      applied: {},          // the boost or multiplier each player put on this match
+      chat: [],             // what the room has said to each other
     };
   }
 
@@ -79,9 +87,14 @@ export class MatchArena {
 
   canStart(uid) {
     const g = this.g;
-    if (!g) return false;
+    if (!g || !g.players[uid]) return false;      // somebody watching does not run the match
     if (!g.hostUid || g.hostUid === uid) return true;
     return !this.liveUids().has(g.hostUid);
+  }
+
+  /** How many are watching rather than playing. */
+  watchers() {
+    return [...this.liveUids()].filter((u) => !this.g.players[u]).length;
   }
 
   liveUids() {
@@ -101,9 +114,17 @@ export class MatchArena {
     // Computers come and go with the setting rather than piling up.
     for (const u of Object.keys(g.players)) if (g.players[u].ai) delete g.players[u];
     const people = Object.values(g.players).filter((p) => !p.ai);
-    g.solo = people.length < 2 && msg.solo !== false;
-    if (people.length < 2 && !g.solo) return this.send(ws, "M3_REJECT", { why: "Waiting for an opponent." });
-    if (g.solo) g.players.ai = this.fresh("ai", AI_NAMES[0], g.aiLevel);
+    g.mode = msg.mode === "survival" ? "survival" : "versus";
+    if (g.mode === "survival") {
+      // Survival is one person against the game. With two at the table it would
+      // be a race to nowhere, so the room says so rather than picking one of them.
+      if (people.length !== 1) return this.send(ws, "M3_REJECT", { why: "Survival is a one-player mode." });
+      g.solo = true;
+    } else {
+      g.solo = people.length < 2 && msg.solo !== false;
+      if (people.length < 2 && !g.solo) return this.send(ws, "M3_REJECT", { why: "Waiting for an opponent." });
+      if (g.solo) g.players.ai = this.fresh("ai", AI_NAMES[0], g.aiLevel);
+    }
     g.order = Object.keys(g.players);
 
     g.seed = (Date.now() ^ Math.floor(Math.random() * 0xffffff)) >>> 0;
@@ -120,6 +141,8 @@ export class MatchArena {
     g.phase = "PLAYING";
     g.startedAt = now;
     g.endsAt = now + MATCH_MS;
+    g.pressureMs = PRESSURE_START_MS;
+    g.pressureAt = g.mode === "survival" ? now + PRESSURE_START_MS : 0;
     g.roundNo += 1;
     g.feed = [];
 
@@ -131,9 +154,10 @@ export class MatchArena {
     for (const p of this.list()) {
       p.mmrAtStart = ratings[p.uid] || 0;
       if (!p.ai) p.seed = seeded.indexOf(p.uid) + 1;
+      if (!p.ai) dropUnheld(g.applied, p.uid, "match3", ratings.boosts);
     }
 
-    this.logEvent(g.solo ? `Solo match against ${AI_NAMES[0]} (${aiLevelById(g.aiLevel).name}).` : "Match begins.");
+    this.logEvent(g.mode === "survival" ? "Survival: last as long as you can." : g.solo ? `Solo match against ${AI_NAMES[0]} (${aiLevelById(g.aiLevel).name}).` : "Match begins.");
     await this.save();
     await this.rearm();
     this.pushAll();
@@ -217,6 +241,7 @@ export class MatchArena {
     const g = this.g;
     if (!g || g.phase !== "PLAYING") return null;
     const t = [g.endsAt];
+    if (g.mode === "survival" && g.pressureAt) t.push(g.pressureAt);
     for (const p of this.list()) {
       if (p.over) continue;
       t.push(p.riseAt);
@@ -235,6 +260,20 @@ export class MatchArena {
     const g = this.g;
     if (!g || g.phase !== "PLAYING") return;
     const now = Date.now();
+
+    // Alone, the game is the other player: a wave of rubble is aimed at you on
+    // a schedule, to be cancelled by launching before it lands.
+    if (g.mode === "survival" && g.pressureAt && now >= g.pressureAt) {
+      const me = this.list()[0];
+      if (me && !me.over) {
+        const n = pressureSize(now - g.startedAt);
+        if (me.incoming === 0) me.landAt = now + LAND_MS;
+        me.incoming = Math.min(60, me.incoming + n);
+        this.logEvent(`${n} rubble on its way.`);
+      }
+      g.pressureMs = nextPressureMs(g.pressureMs);
+      g.pressureAt = now + g.pressureMs;
+    }
 
     for (const p of this.list()) {
       if (p.over || g.phase !== "PLAYING") continue;
@@ -331,6 +370,39 @@ export class MatchArena {
     await this.rearm();
   }
 
+  /**
+   * The match's chat. Open throughout, to the players and to anyone watching,
+   * and moderated on the same screen as the arena chat: a refused line costs a
+   * strike, because the room a thing is said in does not change what may be said.
+   */
+  async onSay(ws, uid, msg, name) {
+    const g = this.g;
+    const text = String(msg.text || "").trim().slice(0, 200);
+    if (!text) return;
+    const who = g.players[uid]?.name || name || "Someone";
+    const verdict = await moderate(this.env, text);
+    if (!verdict.ok) {
+      const strikes = await strikePlayer(this.env, uid, who, { text, reason: verdict.reason, where: "match-3 chat" });
+      return this.send(ws, "M3_REJECT", { why: `That doesn't belong here (${verdict.reason}). Strike ${strikes ?? "?"} of 3.` });
+    }
+    const line = { uid, name: who, text, at: Date.now(), watching: !g.players[uid] };
+    g.chat = [...(g.chat || []), line].slice(-60);
+    await this.save();
+    this.broadcast("M3_CHAT", { line });
+  }
+
+  /** The Apply Token tab: what is held, and putting one on this match. */
+  async sendTokens(ws, uid, apply, key) {
+    const g = this.g;
+    if (!g.players[uid] || g.players[uid].ai) return;
+    g.applied = g.applied || {};
+    const reply = await tokensReply(this.env, uid, "match3", {
+      applied: g.applied, over: g.phase === "OVER", apply, key,
+    });
+    if (reply.changed) await this.save();
+    this.send(ws, "M3_TOKENS", reply);
+  }
+
   async onSkip(ws, uid) {
     const g = this.g;
     const p = g?.players?.[uid];
@@ -359,17 +431,28 @@ export class MatchArena {
     const results = ordered.map((row, i) => {
       const p = g.players[row.uid];
       const placement = i + 1;
-      const score = matchScore({
-        placement, field: field.length, sent: p.sent, solved: p.solved, maxChain: p.maxChain, survived: !p.over,
-      });
+      const score = g.mode === "survival"
+        ? survivalScore({
+          seconds: (Math.min(Date.now(), p.over ? p.overAt : Date.now()) - g.startedAt) / 1000,
+          sent: p.sent, solved: p.solved, maxChain: p.maxChain, survived: !p.over,
+        })
+        : matchScore({
+          placement, field: field.length, sent: p.sent, solved: p.solved, maxChain: p.maxChain, survived: !p.over,
+        });
       const gain = sessionGain({
         score, completed: true,
         playerMmr: p.mmrAtStart || 0,
         fieldMmr: fieldMmrFor(p.uid, ratings),
         mode: "match", seed: p.seed, placement,
       });
+      // What was applied to this match: a multiplier by its own key, or the
+      // game's boost by the name of the game. One token either way, and the
+      // record write spends whichever it was.
+      const boostKey = p.ai ? null : (g.applied?.[p.uid] || null);
+      if (boostKey) gain.total = boostedBy(gain.total, boostKey);
       const after = (p.mmrAtStart || 0) + gain.total;
       return {
+        boost: !!boostKey, boostKey: boostKey || undefined, mult: boostKey ? multFor(boostKey) : undefined,
         uid: p.uid, name: p.name, ai: p.ai || undefined,
         score, placement, seed: p.seed || null,
         sent: p.sent, solved: p.solved, skipped: p.skipped, cleared: p.cleared, maxChain: p.maxChain, swaps: p.swaps,
@@ -384,9 +467,12 @@ export class MatchArena {
       };
     });
 
-    this.logEvent(reason === "time"
-      ? `Time. ${ordered[0].name} wins on the harder hits.`
-      : `${ordered[0].name} wins: the other stack overflowed.`);
+    g.applied = {};
+    this.logEvent(g.mode === "survival"
+      ? (reason === "time" ? "Five minutes: you survived." : "Your stack has nowhere left to go.")
+      : reason === "time"
+        ? `Time. ${ordered[0].name} wins on the harder hits.`
+        : `${ordered[0].name} wins: the other stack overflowed.`);
     await this.save();
     this.pushAll();
     this.broadcast("M3_OVER", { results, reason });
@@ -395,7 +481,7 @@ export class MatchArena {
     this.state.waitUntil(recordMatch(this.env, {
       code: g.code,
       game: "match3",
-      mode: g.solo ? `Solo · ${aiLevelById(g.aiLevel).name}` : "Head to head",
+      mode: g.mode === "survival" ? "Survival" : g.solo ? `Solo · ${aiLevelById(g.aiLevel).name}` : "Head to head",
       roundNo: g.roundNo,
       finishedAt: Date.now(),
       durationMs: Date.now() - g.startedAt,
@@ -412,11 +498,18 @@ export class MatchArena {
   viewFor(uid) {
     const g = this.g;
     if (!g) return null;
-    const me = g.players[uid];
-    const foe = me ? this.foeOf(uid) : this.list()[0];
+    const player = g.players[uid];
+    // Somebody watching is shown the first two wells as a pair, read-only, and
+    // neither word: they see exactly what the other player sees.
+    const watching = !player;
+    const [first, second] = this.list();
+    const me = watching ? first : player;
+    const foe = watching ? second : this.foeOf(uid);
     const board = (p) => (p?.board ? p.board : null);
     return {
       code: g.code, game: GAME_NAME, phase: g.phase, you: uid, solo: !!g.solo,
+      watching, watchers: this.watchers(), mode: g.mode,
+      pressure: g.mode === "survival" ? { at: g.pressureAt, ms: g.pressureMs } : null,
       hostUid: g.hostUid, isHost: this.canStart(uid),
       aiLevel: g.aiLevel, levels: AI_LEVELS,
       now: Date.now(), endsAt: g.endsAt, roundNo: g.roundNo,
@@ -428,8 +521,8 @@ export class MatchArena {
         charge: me.charge, maxCharge: MAX_CHARGE, incoming: me.incoming, landAt: me.landAt,
         riseAt: me.riseAt, riseMs: me.riseMs, lockUntil: me.lockUntil,
         sent: me.sent, solved: me.solved, over: me.over,
-        // The letters and the clue, never the word.
-        word: me.word ? { clue: me.word.clue, scrambled: me.word.scrambled, len: me.word.len } : null,
+        // The letters and the clue, never the word — and only to the player.
+        word: !watching && me.word ? { clue: me.word.clue, scrambled: me.word.scrambled, len: me.word.len } : null,
       } : null,
       foe: foe ? {
         uid: foe.uid, name: foe.name, ai: foe.ai || null, board: board(foe),
@@ -454,9 +547,9 @@ export class MatchArena {
     announceRoom(this.env, this.state, {
       game: "match3", code: g.code,
       host: this.humans()[0]?.name || "Someone",
-      players: g.solo ? 0 : this.liveUids().size,
+      players: g.solo ? 0 : [...this.liveUids()].filter((u) => g.players[u]).length,
       phase: g.phase,
-      label: g.solo ? `Solo · ${aiLevelById(g.aiLevel).name}` : "Head to head",
+      label: g.mode === "survival" ? "Survival" : g.solo ? `Solo · ${aiLevelById(g.aiLevel).name}` : "Head to head",
       round: g.roundNo,
     });
   }
@@ -472,6 +565,24 @@ export class MatchArena {
 
   save() { return this.state.storage.put({ match: this.g }); }
 
+  /**
+   * Where somebody coming in sits: a player if there is a seat, a watcher if
+   * there is not, or turned away.
+   *
+   * A seat is only ever taken in the lobby; once a match is under way, or
+   * finished, anybody new is watching. A solo match is private, as it is
+   * everywhere else — the room can still be typed at, and a private match a
+   * stranger can walk into is not private.
+   */
+  admit(uid) {
+    const g = this.g;
+    const known = !!g.players[uid];
+    const watching = !known && !(g.phase === "LOBBY" && this.humans().length < MAX_HUMANS);
+    if (watching && g.solo && g.hostUid !== uid) return { refuse: "This is a solo match." };
+    if (watching && this.watchers() >= MAX_WATCHERS) return { refuse: "This match has all the watchers it can take." };
+    return { watching };
+  }
+
   async fetch(request) {
     if (request.headers.get("Upgrade") !== "websocket")
       return new Response("This endpoint speaks WebSocket only.", { status: 426 });
@@ -481,28 +592,32 @@ export class MatchArena {
     if (!uid) return new Response("Unauthenticated.", { status: 401 });
 
     if (!this.g) this.g = this.blank(code);
-    const known = !!this.g.players[uid];
-    if (!known && this.humans().length >= MAX_HUMANS)
-      return new Response("This match is full.", { status: 403 });
+    const entry = this.admit(uid);
+    if (entry.refuse) return new Response(entry.refuse, { status: 403 });
+    const watching = entry.watching;
 
     const pair = new WebSocketPair();
     this.state.acceptWebSocket(pair[1]);
-    pair[1].serializeAttachment({ uid, name });
-    await this.onJoin(uid, name, pair[1]);
+    pair[1].serializeAttachment({ uid, name, watching });
+    await this.onJoin(uid, name, pair[1], watching);
     return new Response(null, { status: 101, webSocket: pair[0] });
   }
 
-  async onJoin(uid, name, ws) {
+  async onJoin(uid, name, ws, watching = false) {
     const g = this.g;
-    if (!g.players[uid]) {
-      g.players[uid] = this.fresh(uid, name);
-      g.order.push(uid);
+    if (!watching) {
+      if (!g.players[uid]) {
+        g.players[uid] = this.fresh(uid, name);
+        g.order.push(uid);
+      }
+      if (!g.hostUid) g.hostUid = uid;
+      g.players[uid].name = name;
+      g.players[uid].lastSeen = Date.now();
     }
-    if (!g.hostUid) g.hostUid = uid;
-    g.players[uid].name = name;
-    g.players[uid].lastSeen = Date.now();
     await this.save();
-    this.send(ws, "M3_WELCOME", { you: uid, isHost: this.canStart(uid) });
+    this.send(ws, "M3_WELCOME", { you: uid, isHost: this.canStart(uid), watching });
+    // What was said before you got here, so a reload does not empty the room.
+    for (const line of (g.chat || []).slice(-30)) this.send(ws, "M3_CHAT", { line });
     this.pushAll();
     if (g.phase === "PLAYING") await this.rearm();
   }
@@ -516,6 +631,9 @@ export class MatchArena {
     if (!uid || !this.g) return;
 
     switch (msg.type) {
+      case "M3_SAY": return void await this.onSay(ws, uid, msg, who?.name);
+      case "TOKENS": return void await this.sendTokens(ws, uid, false);
+      case "APPLY_TOKEN": return void await this.sendTokens(ws, uid, true, msg.key);
       case "M3_START": return void await this.start(ws, uid, msg);
       case "M3_SWAP": return void await this.onSwap(ws, uid, msg);
       case "M3_GUESS": return void await this.onGuess(ws, uid, msg);

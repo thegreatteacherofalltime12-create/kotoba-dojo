@@ -19,6 +19,7 @@ export const TOKEN_ITEMS = [
   { game: "prix", name: "Grand Prix boost", icon: "\u{1F3CE}\uFE0F", where: "the Grand Prix", blurb: "1.5× MMR on one Multiverse Grand Prix" },
   { game: "buzzer", name: "Buzzer boost", icon: "🛎️", where: "The Buzzer", blurb: "1.5× MMR on one board of The Buzzer" },
   { game: "artillery", name: "Artillery boost", icon: "💥", where: "Artillery Tank Duel", blurb: "1.5× MMR on one Artillery Tank Duel" },
+  { game: "match3", name: "Match-3 boost", icon: "🧩", where: "Match-3 Attack Arena", blurb: "1.5× MMR on one Match-3 Attack Arena match" },
 ];
 
 export const tokenItem = (game) => TOKEN_ITEMS.find((t) => t.game === game) || TOKEN_ITEMS[0];

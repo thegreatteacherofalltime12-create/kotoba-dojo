@@ -8,6 +8,7 @@ import {
   makeBoard, findMatches, applyGravity, resolve, swap, moves, hasMove, reshuffle, height,
   rise, dropRubble, attackFor, launchSize, nextRiseMs, aiMove, AI_LEVELS, aiLevelById,
   matchScore, standings, rngFrom, copy,
+  PRESSURE_START_MS, PRESSURE_FLOOR_MS, nextPressureMs, pressureSize, survivalScore,
 } from "../src/match3.js";
 
 let bad = 0;
@@ -229,6 +230,23 @@ console.log("\nwhat a match was worth");
     { name: "B", over: false, sent: 5, h: 4 },
   ], true);
   ok("and then whoever has the lower stack", tie[0].name === "B");
+}
+
+console.log("\nsurvival");
+{
+  ok("each wave comes sooner than the last", nextPressureMs(PRESSURE_START_MS) < PRESSURE_START_MS);
+  ok("down to a floor and no further", (() => { let ms = PRESSURE_START_MS; for (let i = 0; i < 200; i++) ms = nextPressureMs(ms); return ms === PRESSURE_FLOOR_MS; })());
+  ok("a wave is two to four to begin with", [0, 0.4, 0.99].every((r) => { const n = pressureSize(0, () => r); return n >= 2 && n <= 4; }));
+  ok("and carries more as the minutes go by", pressureSize(240_000, () => 0.5) > pressureSize(0, () => 0.5));
+  ok("never fewer than two", pressureSize(-5, () => 0) >= 2);
+
+  const full = { seconds: 300, sent: 40, solved: 12, maxChain: 5, survived: true };
+  ok("lasting the five minutes with a good game scores high", survivalScore(full) >= 90);
+  ok("never past a hundred", survivalScore({ seconds: 9999, sent: 999, solved: 99, maxChain: 99, survived: true }) <= 100);
+  ok("lasting longer scores more", survivalScore({ seconds: 200, sent: 0, solved: 0, maxChain: 0 }) > survivalScore({ seconds: 60, sent: 0, solved: 0, maxChain: 0 }));
+  ok("playing well improves a short run", survivalScore({ seconds: 60, sent: 20, solved: 6, maxChain: 4 }) > survivalScore({ seconds: 60, sent: 0, solved: 0, maxChain: 0 }));
+  ok("a run that went nowhere scores nothing", survivalScore({ seconds: 0, sent: 0, solved: 0, maxChain: 0 }) === 0);
+  ok("surviving to the end is worth a little more", survivalScore({ ...full, survived: true }) > survivalScore({ ...full, survived: false }));
 }
 
 console.log(bad ? `\n${bad} failing\n` : "\nall match-3 checks passed\n");

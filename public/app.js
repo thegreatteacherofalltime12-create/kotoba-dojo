@@ -1849,7 +1849,7 @@ function tokensRules() {
   return `
     <div class="ruleboxes">
       ${box("\u{1F4CD} Where to find them", [
-        "Press <b>\u26A1 Arsenal Shop</b> on the home screen, beside Create Match. It shows the MMR multipliers, which work in any game, and one arsenal per game \u2014 Word-Cross, Battleship, Minesweeper, Golf, Casino, the Grand Prix, the Buzzer and the tank duel \u2014 with how many tokens each sells and how many you hold.",
+        "Press <b>\u26A1 Arsenal Shop</b> on the home screen, beside Create Match. It shows the MMR multipliers, which work in any game, and one arsenal per game \u2014 Word-Cross, Battleship, Minesweeper, Golf, Casino, the Grand Prix, the Buzzer, the tank duel and Match-3 \u2014 with how many tokens each sells and how many you hold.",
         "Tap a game and its arsenal opens in a window: that game's <b>1.5\u00d7 boost</b> first, then anything else it sells. Buy from there.",
         "Inside a game, the <b>\u26A1 Apply Token</b> button (top bar in every game, header on the golf page) lists that game's tokens you hold.",
       ])}
@@ -2090,7 +2090,7 @@ const GAME_RULES = [
   {
     id: "match3", icon: "\u{1F9E9}", name: "Match-3 Attack Arena", players: "1 or 2", solo: "\u2713 PLAY ALONE",
     play: [
-      "<b>Yes, you can play this alone.</b> Take on the computer at Easy, Medium or Hard, or play a friend with the room code. It scores and pays MMR exactly as a match against a person does.",
+      "<b>Yes, you can play this alone</b>, two ways. Take on the computer at Easy, Medium or Hard, or choose <b>Solo Survival</b>: no opponent, and the game itself sends waves of rubble that come quicker and heavier, which you cancel the same way \u2014 by building charge and solving a word. Or play a friend with the room code; anybody else with the code can watch, and everyone can chat. It scores and pays MMR exactly as a match against a person does.",
       "Each of you has a well, six tiles wide and ten deep. <b>Swap two neighbouring tiles</b> to line up three or more of a colour \u2014 drag one onto the next, or tap one and then the other. A swap that makes no match is refused.",
       "Clearing tiles builds <b>charge</b>: a bigger match pays more, and so does every link in a chain when the tiles that fall make a match of their own.",
       "<b>Charge does nothing until you solve a word scramble.</b> The letters are shown with a clue; unscramble the word and the whole charge leaves your well as <b>rubble</b> on your opponent\u2019s, with a little extra for a longer word. A wrong answer locks you out for a moment; <b>Skip</b> gives you a new word for a quarter of your charge.",
@@ -2100,6 +2100,7 @@ const GAME_RULES = [
     score: [
       "Where you finished carries most of it, on the same hundred-point scale as every other game here: the last well standing scores highest.",
       "Charge you launched, words you solved and your best chain add a little, so playing well improves a loss without ever carrying one.",
+      "Survival is scored on how long you lasted \u2014 five minutes is the most \u2014 with the same extras on top, and the boost and multipliers apply to it too.",
     ],
   },
   {

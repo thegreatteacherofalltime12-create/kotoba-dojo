@@ -261,6 +261,37 @@ export function launchSize(charge, wordLen) {
 /** The rise interval after one more rise, which never drops below the floor. */
 export const nextRiseMs = (ms) => Math.max(RISE_FLOOR_MS, Math.round(ms * RISE_EASE));
 
+// ── survival ─────────────────────────────────────────────────────────
+
+/**
+ * Playing alone, the other side of the table is the game itself. It sends
+ * rubble on a schedule that speeds up and grows, and the only thing that
+ * cancels it is the thing that cancels it against a person: building charge
+ * and solving a word. Nobody on the other side, the same loop.
+ */
+export const PRESSURE_START_MS = 9_000;
+export const PRESSURE_FLOOR_MS = 3_800;
+export const PRESSURE_EASE = 0.95;
+export const nextPressureMs = (ms) => Math.max(PRESSURE_FLOOR_MS, Math.round(ms * PRESSURE_EASE));
+
+/** How much rubble one wave carries: two to four to begin with, and more each minute. */
+export function pressureSize(elapsedMs, rnd = Math.random) {
+  return 2 + Math.floor(Math.max(0, elapsedMs) / 60_000) + Math.floor(rnd() * 3);
+}
+
+/**
+ * A survival run on the arena's hundred-point scale. How long you lasted
+ * carries most of it; charge you launched, words you solved and your best chain
+ * carry the rest, and lasting the whole five minutes is worth a little more.
+ */
+export function survivalScore({ seconds, sent, solved, maxChain, survived }) {
+  const time = Math.min(60, ((Number(seconds) || 0) / (MATCH_MS / 1000)) * 60);
+  const power = Math.min(15, (sent || 0) / 2);
+  const words = Math.min(10, solved || 0);
+  const chains = Math.min(10, Math.max(0, (maxChain || 0) - 1) * 3);
+  return Math.max(0, Math.min(100, Math.round(time + power + words + chains + (survived ? 5 : 0))));
+}
+
 // ── the computer ─────────────────────────────────────────────────────
 
 export const AI_LEVELS = [

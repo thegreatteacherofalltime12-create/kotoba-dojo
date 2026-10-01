@@ -1617,19 +1617,6 @@ function drawRuleBelts(tab = "arena") {
           </ul>
         </div>
 
-        <div class="rule-sec">
-          <h3>The casino</h3>
-          <p class="lede2">Cash and table tokens are their own economy. Every hand or race you win pays <b>5 MMR</b>, up to <b>100 a day</b>; the arcade pays the rest.</p>
-          <ul>
-            <li>You start with <b>$100</b> and no table tokens.</li>
-            <li>Every solved arcade puzzle pays <b>$5&ndash;15</b> to the table and a table token.</li>
-            <li>Cash is won at the table and banks to your wallet only when a match is ended properly. Quitting loses it.</li>
-            <li><b>Table Card Games</b> opens at <b>$50 and 2 table tokens</b>.</li>
-            <li><b>Blackjack:</b> lose and it costs your bet and one table token. Win or push and your tokens are safe.</li>
-            <li><b>Horse Race:</b> free to enter, cash wagers, 1:1 up to 24:1.</li>
-            <li>Banked casino money buys the <b>arena tokens</b> in the \u26A1 Arsenal Shop on the home screen \u2014 see the \u26A1 Tokens tab.</li>
-          </ul>
-        </div>
 
       </div>`);
 
@@ -2103,9 +2090,10 @@ const GAME_RULES = [
     id: "casino", icon: "\u{1F3B0}", name: "The Casino", players: "the whole arena \u00b7 one floor", solo: "\u2713 PLAY ALONE",
     play: [
       "<b>Yes, you can play this alone.</b> The floor is shared, but nothing on it needs anyone else \u2014 the arcade, the horse race and every table can be played on your own, for the same MMR.",
-      "One shared floor. You walk in with <b>$100</b> and no table tokens; <b>Earn Money</b> opens the maths arcade, where every solved puzzle pays $5\u201315 to the table and a table token \u2014 and the quickest MMR in the arena.",
+      "One shared floor, with its own economy: cash and table tokens do not mix with anything else in the arena. You walk in with <b>$100</b> and no table tokens; <b>Earn Money</b> opens the maths arcade, where every solved puzzle pays $5\u201315 to the table and a table token \u2014 and the quickest MMR in the arena.",
       "<b>Horse Race:</b> free to enter, cash wagers from 1:1 to 24:1, place a bet and start the race.",
       "<b>Table Card Games</b> open at $50 and 2 table tokens: blackjack, baccarat, roulette, Big Six, hold'em and more. Every table plays the same dealer.",
+      "<b>Blackjack:</b> lose and it costs your bet and one table token. Win or push and your tokens are safe.",
       "Winnings sit on the table. <b>Officially end match</b> banks them to your wallet; leaving any other way forfeits them.",
     ],
     score: [

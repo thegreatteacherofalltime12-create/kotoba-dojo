@@ -1,6 +1,6 @@
 import {
   SIZE, FLEET, SHOTS_PER_TURN, validateFleet, randomFleet, mapOf, fleetFor, MAPS,
-  normalizeVolley, aiTargets, accuracyBonus, perTargetCap,
+  normalizeVolley, aiTargets, accuracyBonus, perTargetCap, volleyShots,
   canTarget, canTargetFor, targetOptions, fireAt, fleetSunk, battleScore,
   ARSENAL, ARM_CAP, NUKE_MAX, EXTRA_HULLS, STRIKE_SPAN, NUKE_RADIUS, extraShotsFor, blastArea, extraHulls,
   SONAR_SPAN, SMOKE_TURNS, shipAt, crossCells, lineOf, shipSquares, newBerth,
@@ -269,7 +269,17 @@ export class BattleRoyale {
     const uids = foes.map((p) => p.uid);
     const shots = this.shotsFor(me);
     const open = priority ? foes : foes.filter((p) => canTargetFor(me.history, p.uid, uids, shots).ok);
-    return perTargetCap(shots, (open.length || foes.length));
+    return perTargetCap(shots, open.length);
+  }
+
+  /** Shots this captain fires this turn: the chart's, held to two a rival. */
+  volleyShotsFor(me) {
+    const foes = this.foesOf(me.uid);
+    const uids = foes.map((p) => p.uid);
+    const priority = this.arsOf(me).priority === this.g.turnNo;
+    const raw = this.shotsFor(me);
+    const open = priority ? foes : foes.filter((p) => canTargetFor(me.history, p.uid, uids, raw).ok);
+    return volleyShots(raw, open.length);
   }
 
   /**
@@ -361,7 +371,7 @@ export class BattleRoyale {
             ...t, name: this.captainName(this.g.players[t.uid], uid),
           }))
           : [],
-        yourShots: me ? this.shotsFor(me) : this.map.shots,
+        yourShots: me ? this.volleyShotsFor(me) : this.map.shots,
         // The most that may go on one captain this turn, so the board can
         // stop at it rather than let somebody build a volley the room will
         // refuse.
@@ -1086,7 +1096,7 @@ export class BattleRoyale {
     // square on it rather than pass.
     if (!fired.length) {
       for (const target of foes) {
-        const cells = this.aiPicks(me, target, level, perTargetCap(this.map.shots, foes.length));
+        const cells = this.aiPicks(me, target, level, perTargetCap());
         if (!cells.length) continue;
         this.salvo(me, target, cells, me.memories[target.uid]);
         fired.push(target.uid);
@@ -1125,7 +1135,7 @@ export class BattleRoyale {
     // shots over several. Both arrive here.
     const clean = normalizeVolley(
       msg.volley || [{ target: msg.target, cells: msg.cells }],
-      this.shotsFor(me),
+      this.volleyShotsFor(me),
       this.volleyCap(me),
     );
     if (!clean.ok) return this.send(ws, "BATTLE_ERROR", { message: clean.error });

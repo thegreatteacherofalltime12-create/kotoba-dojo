@@ -597,7 +597,7 @@ function drawBattle(me) {
       sel.append(el("p", "panel-sub volley-hint",
         B.cap && B.cap < B.shotsPerTurn
           ? `${B.shotsPerTurn} shots this turn, and no more than ${B.cap} on any one captain.`
-          : `${B.shotsPerTurn} shots this turn. Spread them over several captains, or put them all on one.`));
+          : `${B.shotsPerTurn} shots this turn, on any captain you are allowed to fire at.`));
     }
     const picks = watching || !B.targets.length
       ? foes.map((p) => ({

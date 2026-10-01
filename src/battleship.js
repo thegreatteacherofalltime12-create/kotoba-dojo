@@ -124,9 +124,18 @@ export const COOLDOWN_TARGETS = 3;
  * rotation leaves open.
  */
 export const MIN_PER_TARGET = 2;
-export function perTargetCap(shots, rivals) {
-  const n = Math.max(1, Math.floor(Number(rivals)) || 1);
-  return Math.max(MIN_PER_TARGET, Math.ceil((Number(shots) || 0) / n));
+export function perTargetCap() {
+  return MIN_PER_TARGET;
+}
+
+/**
+ * How many shots a turn actually fires: the chart's count, but never more than
+ * two apiece can place on the captains who may be fired on. The limit is
+ * absolute — it does not rise to make room — so with too few rivals open the
+ * volley is smaller rather than heavier.
+ */
+export function volleyShots(shots, open) {
+  return Math.max(0, Math.min(Number(shots) || 0, MIN_PER_TARGET * Math.max(0, open | 0)));
 }
 
 export const key = (r, c) => `${r},${c}`;
@@ -410,7 +419,9 @@ export function aiTargets(history, foes, shots, difficulty) {
   // The same ceiling as everybody else. Easy and Medium pile on as the rule
   // allows and no further; Hard spreads its fire across as many captains as
   // it takes to keep every board under pressure, never fewer than two.
-  const cap = perTargetCap(shots, pool.length);
+  shots = volleyShots(shots, pool.length);
+  if (!(shots > 0)) return [];
+  const cap = perTargetCap();
   const fewest = Math.ceil(shots / cap);
   const spread = difficulty === "hard" ? Math.max(2, fewest) : fewest;
   const n = Math.min(pool.length, shots, spread);

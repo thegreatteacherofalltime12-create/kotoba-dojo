@@ -3,7 +3,7 @@
 // The Apply Token tab's server half. Without a service account nothing can
 // be read, so every player "holds" nothing — which is exactly the refusals
 // worth checking. The tab's client half is exercised by opening a game.
-import { tokensReply, heldTokens } from "../src/boost.js";
+import { tokensReply, heldTokens, dropUnheld } from "../src/boost.js";
 import { TOKEN_ITEMS, TOKEN_PRICE, tokenItem } from "../public/boost.js";
 import { TOKEN_GAMES, TOKEN_PRICE as SERVER_PRICE, priceOf } from "../src/firestore.js";
 import { MULTIPLIERS } from "../src/mmr.js";
@@ -67,6 +67,22 @@ console.log("\nthe multipliers");
   const boost = { u2: "buzzer" };
   m = await tokensReply(env, "u2", "buzzer", { applied: boost, over: false, apply: false });
   ok("a game's own boost reads back as a boost", m.applied === true && m.appliedKey === "buzzer" && m.mult === 1.5);
+}
+
+console.log("\nan applied token that is still held survives the start");
+{
+  const boosts = { a: { crossword: 0, mx3: 1 }, b: { crossword: 2 }, c: {} };
+  const applied = { a: "mx3", b: "crossword", c: "mx3" };
+  for (const u of ["a", "b", "c"]) dropUnheld(applied, u, "crossword", boosts);
+  ok("a multiplier is kept for someone who holds it, whether or not they hold the boost", applied.a === "mx3");
+  ok("and a game's own boost is kept for someone who holds it", applied.b === "crossword");
+  ok("a token that is no longer held is dropped", !("c" in applied));
+  const old = { a: true, z: true };
+  for (const u of ["a", "z"]) dropUnheld(old, u, "crossword", { a: { crossword: 1 }, z: {} });
+  ok("an older room's plain true still means the game's boost", old.a === true && !("z" in old));
+  const nobody = {};
+  dropUnheld(nobody, "q", "crossword", {});
+  ok("nothing applied is nothing to drop", Object.keys(nobody).length === 0);
 }
 
 console.log(bad ? `\n${bad} failing\n` : "\nall boost checks passed\n");

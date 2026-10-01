@@ -7,7 +7,7 @@ import {
 } from "./minesweeper.js";
 import { recordMatch, readRatings } from "./firestore.js";
 import { boostedBy, multFor } from "./mmr.js";
-import { tokensReply, heldTokens } from "./boost.js";
+import { tokensReply, heldTokens, dropUnheld } from "./boost.js";
 import { announceRoom } from "./rooms.js";
 import { applyBounty } from "./report-bounty.js";
 import { sessionGain, fieldMmrFor, beltFor } from "./mmr.js";
@@ -256,7 +256,7 @@ export class MineField {
       a.used = {}; a.busted = []; a.invincibleUntil = 0; a.digs = 0;
       a.gloves = 0; a.second = false; a.watch = 0; a.hazard = 0; a.promo = false; a.intel = [];
       p.mmrAtStart = ratings[p.uid] || 0;
-      if (this.g.applied?.[p.uid] && !((ratings.boosts?.[p.uid]?.minesweeper || 0) > 0)) delete this.g.applied[p.uid];
+      dropUnheld(this.g.applied, p.uid, "minesweeper", ratings.boosts);
       p.seed = seeded.indexOf(p.uid) + 1 || null;
     }
 

@@ -2,7 +2,7 @@ import { ROUND_MS, scoreFor } from "./scoring.js";
 import { validatePuzzle, stripAnswers, answerKey, WORD_COUNT } from "./validate.js";
 import { recordMatch, readRatings, getScroll, bumpScroll } from "./firestore.js";
 import { boostedBy, multFor } from "./mmr.js";
-import { tokensReply, heldTokens } from "./boost.js";
+import { tokensReply, heldTokens, dropUnheld } from "./boost.js";
 import { ARSENALS } from "./arsenals.js";
 import { sessionGain, fieldMmrFor, beltFor } from "./mmr.js";
 import { STARTER_PUZZLES } from "./starter-puzzles.js";
@@ -708,7 +708,7 @@ export class DojoLobby {
       this.lobby.players[uid].mmrAtStart = ratings[uid] || 0;
       // An applied token that has since been spent elsewhere is dropped here,
       // off the read the round makes anyway.
-      if (this.lobby.applied?.[uid] && !((ratings.boosts?.[uid]?.crossword || 0) > 0)) delete this.lobby.applied[uid];
+      dropUnheld(this.lobby.applied, uid, "crossword", ratings.boosts);
       this.lobby.players[uid].seed = i + 1;
     });
     // Three or more solvers is a rumble: placement carries the reward.

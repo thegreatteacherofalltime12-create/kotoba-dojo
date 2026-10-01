@@ -8,7 +8,7 @@ import {
 import { chooseShots, remember, freshMemory, DIFFICULTIES } from "./ai.js";
 import { recordMatch, readRatings, strikePlayer } from "./firestore.js";
 import { boostedBy, multFor } from "./mmr.js";
-import { tokensReply, heldTokens } from "./boost.js";
+import { tokensReply, heldTokens, dropUnheld } from "./boost.js";
 import { moderate } from "./moderation.js";
 import { announceRoom } from "./rooms.js";
 import { applyBounty } from "./report-bounty.js";
@@ -989,7 +989,7 @@ export class BattleRoyale {
       for (const u of uids) if (!(u in ratings)) ratings[u] = 0;
       seeded.forEach((u, i) => {
         this.g.players[u].mmrAtStart = ratings[u] || 0;
-        if (this.g.applied?.[u] && !((ratings.boosts?.[u]?.battleship || 0) > 0)) delete this.g.applied[u];
+        dropUnheld(this.g.applied, u, "battleship", ratings.boosts);
         this.g.players[u].seed = i + 1;
       });
     } catch {

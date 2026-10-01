@@ -5,7 +5,7 @@ import {
 import { ARSENALS } from "./arsenals.js";
 import { recordMatch, readRatings } from "./firestore.js";
 import { boostedBy, multFor } from "./mmr.js";
-import { tokensReply, heldTokens } from "./boost.js";
+import { tokensReply, heldTokens, dropUnheld } from "./boost.js";
 import { announceRoom } from "./rooms.js";
 import { sessionGain, fieldMmrFor, beltFor } from "./mmr.js";
 
@@ -392,7 +392,7 @@ export class LinksCourse {
     const seeded = [...uids].sort((a, b) => (ratings[b] || 0) - (ratings[a] || 0));
     for (const p of Object.values(room.players)) {
       p.mmrAtStart = ratings[p.uid] || 0;
-      if (room.applied?.[p.uid] && !((ratings.boosts?.[p.uid]?.links || 0) > 0)) delete room.applied[p.uid];
+      dropUnheld(room.applied, p.uid, "links", ratings.boosts);
       p.seed = seeded.indexOf(p.uid) + 1 || null;
     }
 

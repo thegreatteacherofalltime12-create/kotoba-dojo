@@ -8,6 +8,22 @@
 import { readBoosts } from "./firestore.js";
 import { isMultiplier, multFor } from "./mmr.js";
 
+/**
+ * At the start of a match, forget an applied token the player no longer holds.
+ *
+ * What was applied is a key: the game's own name for its 1.5x boost, or one of
+ * the multipliers. The check has to be against *that* key. It used to look only
+ * at the game's own boost, so anybody who had applied a 3x and held no boost
+ * for the game had it quietly dropped as the match began. An older room stored
+ * a plain true; that still means the game's boost.
+ */
+export function dropUnheld(applied, uid, game, boosts) {
+  const v = applied?.[uid];
+  if (!v) return;
+  const key = typeof v === "string" ? v : game;
+  if (!((boosts?.[uid]?.[key] || 0) > 0)) delete applied[uid];
+}
+
 /** The tokens a player holds, by game — never throws. */
 export async function heldTokens(env, uid) {
   try { return (await readBoosts(env, [uid]))[uid] || {}; }

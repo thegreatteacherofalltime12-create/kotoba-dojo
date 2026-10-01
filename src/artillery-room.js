@@ -11,7 +11,7 @@ import { ARSENALS } from "./arsenals.js";
 import { recordMatch, readRatings, strikePlayer } from "./firestore.js";
 import { moderate } from "./moderation.js";
 import { sessionGain, fieldMmrFor, beltFor, boostedBy, multFor } from "./mmr.js";
-import { tokensReply, heldTokens } from "./boost.js";
+import { tokensReply, heldTokens, dropUnheld } from "./boost.js";
 import { announceRoom } from "./rooms.js";
 
 /** How long the room waits before a computer takes its shot. */
@@ -428,7 +428,7 @@ export class TankDuel {
     const seeded = [...uids].sort((a, b) => (ratings[b] || 0) - (ratings[a] || 0));
     for (const t of Object.values(g.tanks)) {
       t.mmrAtStart = ratings[t.uid] || 0;
-      if (g.applied?.[t.uid] && !((ratings.boosts?.[t.uid]?.artillery || 0) > 0)) delete g.applied[t.uid];
+      dropUnheld(g.applied, t.uid, "artillery", ratings.boosts);
       t.seed = seeded.indexOf(t.uid) + 1 || null;
     }
 

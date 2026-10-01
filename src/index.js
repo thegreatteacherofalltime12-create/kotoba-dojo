@@ -21,6 +21,7 @@ export { Commons } from "./commons.js";
 export { GrandPrix } from "./grand-prix.js";
 export { BuzzerRoom } from "./buzzer-room.js";
 export { TankDuel } from "./artillery-room.js";
+export { MatchArena } from "./match3-room.js";
 
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no I/O/0/1
 const CODE_LENGTH = 5;
@@ -599,7 +600,7 @@ export default {
 
     // Battleship, Minesweeper, Multiverse Golf, the Grand Prix, the Buzzer
     // and the tank duel all hand off the same way.
-    const room = /^\/api\/(battle|mines|links|prix|buzzer|tanks)\/([A-Za-z0-9-]{3,16})\/ws$/.exec(path);
+    const room = /^\/api\/(battle|mines|links|prix|buzzer|tanks|match3)\/([A-Za-z0-9-]{3,16})\/ws$/.exec(path);
     if (room) {
       if (request.headers.get("Upgrade") !== "websocket")
         return new Response("Expected a WebSocket upgrade.", { status: 426 });
@@ -613,6 +614,7 @@ export default {
       const code = room[2].toUpperCase();
       const ns = room[1] === "mines" ? env.MINES
         : room[1] === "tanks" ? env.TANKS
+        : room[1] === "match3" ? env.MATCH3
         : room[1] === "buzzer" ? env.BUZZER
         : room[1] === "links" ? env.LINKS
         : room[1] === "prix" ? env.PRIX

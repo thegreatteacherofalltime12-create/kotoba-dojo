@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Omni Multiverse of Madness</title>
-<meta name="build" content="2026-10-01 02:25 UTC">
+<meta name="build" content="2026-10-01 17:37 UTC">
 <meta name="description" content="Omni Multiverse of Madness — competitive arena. Belts, MMR, casino floor and live standings.">
 <meta name="theme-color" content="#F4F1EA">
 <meta name="mobile-web-app-capable" content="yes">
@@ -605,6 +605,72 @@ if (location.protocol === "file:") {
         <ul id="mine-standings" class="mine-standings"></ul>
       </section>
     </aside>
+  </div>
+</section>
+
+<!-- match-3 attack arena -->
+<section id="screen-match3" class="screen" hidden>
+  <header class="topbar">
+    <button id="btn-m3-leave" class="btn btn-tiny btn-end">End Match</button>
+    <span class="topbar-spacer"></span>
+    <span class="dojo-code">Arena <b id="m3-code"></b></span>
+    <span id="m3-phase" class="topbar-mark"></span>
+  </header>
+
+  <div class="wrap m3-wrap">
+    <p id="m3-error" class="notice notice-bad" hidden></p>
+
+    <section id="m3-host" class="panel host-panel" hidden>
+      <div class="panel-head"><h2>Match-3 Attack Arena</h2><span class="host-tag">You call the start</span></div>
+      <div class="pad">
+        <p class="panel-sub">Swap tiles to match three. Matches build <b>charge</b> &mdash; but charge only leaves your well when you <b>solve the word scramble</b>, and then it lands as rubble on your opponent. Don&rsquo;t let your own stack reach the top.</p>
+        <p id="m3-lobby-note" class="panel-sub"></p>
+        <label id="m3-level-row" class="opt-line">Computer
+          <select id="m3-level">
+            <option value="easy">Easy</option>
+            <option value="medium" selected>Medium</option>
+            <option value="hard">Hard</option>
+          </select>
+        </label>
+        <button id="btn-m3-start" class="btn btn-primary btn-wide">Play the computer</button>
+      </div>
+    </section>
+    <p id="m3-wait" class="panel pad" hidden>Waiting for the host to begin the match.</p>
+
+    <div id="m3-game" hidden>
+      <div class="m3-bar">
+        <span class="tank-lcd">Time <b id="m3-clock">5:00</b></span>
+        <span id="m3-feed" class="m3-feed"></span>
+      </div>
+
+      <div class="m3-arena">
+        <section class="m3-side m3-mine">
+          <div class="m3-head"><b id="m3-me-name"></b><span id="m3-me-in" class="m3-in" hidden></span></div>
+          <div class="m3-meter" title="Charge"><i id="m3-me-charge"></i><span>Charge <b id="m3-me-charge-n">0</b></span></div>
+          <div class="m3-rise" title="Next row rises"><i id="m3-me-rise"></i></div>
+          <div id="m3-me-grid" class="m3-board"></div>
+        </section>
+        <section class="m3-side m3-theirs">
+          <div class="m3-head"><b id="m3-foe-name"></b><span id="m3-foe-in" class="m3-in m3-in-foe" hidden></span></div>
+          <div class="m3-meter" title="Their charge"><i id="m3-foe-charge"></i><span>Charge <b id="m3-foe-charge-n">0</b></span></div>
+          <div class="m3-rise" title="Their next row"><i id="m3-foe-rise"></i></div>
+          <div id="m3-foe-grid" class="m3-board"></div>
+        </section>
+      </div>
+
+      <section id="m3-word" class="panel pad m3-word" hidden>
+        <p id="m3-clue" class="m3-clue"></p>
+        <div id="m3-letters" class="m3-letters"></div>
+        <div class="m3-answer">
+          <input id="m3-guess" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Unscramble it">
+          <button id="btn-m3-go" class="btn btn-primary">Launch</button>
+          <button id="btn-m3-skip" class="btn" title="A new word, at the cost of a quarter of your charge">Skip</button>
+        </div>
+        <p id="m3-hint" class="panel-sub"></p>
+      </section>
+
+      <div id="m3-results" class="panel pad" hidden></div>
+    </div>
   </div>
 </section>
 

@@ -17,6 +17,16 @@ export const KEEP_DAYS = 7;
 
 export const UPDATES = [
   {
+    at: "2026-10-01T18:00:00Z",
+    where: "Match-3 Attack Arena",
+    title: "A ninth game: Match-3 Attack Arena",
+    text: "A puzzle fighter. Swap tiles to match three and build charge \u2014 but charge only leaves your "
+      + "well when you solve the word scramble on your screen, and then it lands as rubble on your opponent. "
+      + "Your stack rises on a timer that gets quicker; the first well to hit the top loses. Chains pay more "
+      + "than big matches, launching cancels rubble already coming at you, and a match beside rubble clears it. "
+      + "Head to head, or solo against the computer at three levels, and it scores and pays MMR like every other game.",
+  },
+  {
     at: "2026-09-28T09:00:00Z",
     where: "Arsenal Shop",
     title: "The Token shop is now the Arsenal Shop",

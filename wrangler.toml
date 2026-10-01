@@ -113,6 +113,16 @@ class_name = "TankDuel"
 tag = "v11"
 new_sqlite_classes = ["TankDuel"]
 
+# One instance per match of Match-3 Attack Arena. Holds both wells, the
+# charge, the rubble in flight and each player's word — which never leaves it.
+[[durable_objects.bindings]]
+name = "MATCH3"
+class_name = "MatchArena"
+
+[[migrations]]
+tag = "v12"
+new_sqlite_classes = ["MatchArena"]
+
 
 # Curated puzzle bank. Game content, not user data — the DO reads answers
 # from here at round start.

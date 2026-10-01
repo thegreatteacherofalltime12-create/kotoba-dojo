@@ -110,6 +110,15 @@ export const GAME_MODES = [
     available: true,
   },
   {
+    id: "match3-arena",
+    name: "Match-3 Attack Arena",
+    players: "1 or 2",
+    blurb: "A puzzle fighter. Match tiles to build charge, then solve a word scramble to launch it as rubble onto your opponent's well. Your stack rises on a timer \u2014 the first well to hit the top loses. Head to head, or solo against the computer.",
+    kind: "match",
+    game: "match3",
+    available: true,
+  },
+  {
     id: "gauntlet",
     name: "Gauntlet",
     players: "1 player",

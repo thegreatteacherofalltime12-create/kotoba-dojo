@@ -4302,3 +4302,50 @@ a.dtab { text-decoration: none; display: inline-block; }
   .shop-qty { flex: 0 0 auto; }
   .shop-buy .btn { flex: 0 1 auto; white-space: nowrap; }
 }
+
+/* ── Match-3 Attack Arena ─────────────────────────────────────────────
+   Two wells side by side: yours larger, theirs smaller, on a phone as on a
+   desktop. Tiles are told apart by shape as well as colour, so the game
+   reads without telling red from green. */
+.m3-wrap { max-width: 52rem; margin-inline: auto; display: grid; gap: .9rem; padding-top: .8rem; }
+.m3-bar { display: flex; align-items: center; gap: .8rem; flex-wrap: wrap; }
+.m3-feed { display: grid; gap: .1rem; font-size: .74rem; color: var(--muted); flex: 1 1 14rem; min-width: 0; }
+.m3-ev { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.m3-arena { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, .62fr); gap: .8rem; align-items: start; }
+.m3-side { display: grid; gap: .35rem; min-width: 0; }
+.m3-head { display: flex; align-items: center; justify-content: space-between; gap: .4rem; font-size: .84rem; min-width: 0; }
+.m3-head b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.m3-in { font-size: .72rem; font-weight: 800; color: #fc8181; white-space: nowrap; animation: m3-warn 1s ease-in-out infinite; }
+.m3-in-foe { color: #f6e05e; animation: none; }
+@keyframes m3-warn { 50% { opacity: .45; } }
+.m3-meter, .m3-rise { position: relative; height: 1.15rem; border-radius: 6px; overflow: hidden; background: rgba(255,255,255,.08); box-shadow: inset 0 0 0 1px var(--edge); }
+.m3-meter i { position: absolute; inset: 0 auto 0 0; width: 0; background: linear-gradient(90deg, #7fb425, #f4ce5a); transition: width .25s ease; }
+.m3-meter span { position: relative; z-index: 1; display: block; text-align: center; font-size: .66rem; letter-spacing: .08em; line-height: 1.15rem; text-transform: uppercase; }
+.m3-rise { height: 5px; border-radius: 3px; }
+.m3-rise i { position: absolute; inset: 0 auto 0 0; width: 0; background: #8fd0ff; }
+.m3-board { border-radius: 10px; background: rgba(8, 12, 22, .72); border: 1px solid var(--edge); padding: 4px; touch-action: none; user-select: none; }
+.m3-board.is-over { opacity: .45; filter: grayscale(.8); }
+.m3-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 2px; }
+.m3c { aspect-ratio: 1; display: grid; place-items: center; border-radius: 22%; font-size: clamp(.6rem, 3.2vw, 1.25rem); line-height: 1; color: rgba(255,255,255,.92); transition: transform .12s ease; }
+.m3-theirs .m3c { font-size: clamp(.4rem, 1.9vw, .8rem); }
+.m3c.empty { background: rgba(255,255,255,.025); }
+.m3c.t0 { background: #e0457b; } .m3c.t1 { background: #3b82f6; } .m3c.t2 { background: #2fa35a; }
+.m3c.t3 { background: #e0a526; color: #3a2a00; } .m3c.t4 { background: #8b5cf6; }
+.m3c.rubble { background: repeating-linear-gradient(45deg, #5b6472, #5b6472 4px, #475060 4px, #475060 8px); color: rgba(255,255,255,.5); }
+.m3-mine .m3c:not(.empty):not(.rubble) { cursor: pointer; }
+.m3c.sel { transform: scale(1.12); box-shadow: 0 0 0 2px #fff; z-index: 1; }
+.m3c.pop { animation: m3-pop .23s ease-out forwards; }
+.m3c.drop { animation: m3-drop .35s ease-out; }
+@keyframes m3-pop { 50% { transform: scale(1.25); filter: brightness(1.6); } 100% { transform: scale(.1); opacity: 0; } }
+@keyframes m3-drop { from { transform: translateY(-160%); opacity: .2; } }
+.m3-word { display: grid; gap: .6rem; }
+.m3-clue { margin: 0; font-size: 1rem; }
+.m3-letters { display: flex; flex-wrap: wrap; gap: .35rem; }
+.m3-letter { width: 2.3rem; height: 2.7rem; display: grid; place-items: center; border-radius: 8px; font-family: var(--display); font-size: 1.3rem; background: rgba(255,255,255,.08); box-shadow: inset 0 0 0 1px var(--edge); }
+.m3-answer { display: flex; gap: .4rem; }
+.m3-answer input { flex: 1; min-width: 0; text-transform: uppercase; letter-spacing: .18em; font-family: var(--display); }
+.m3-word.shake { animation: m3-shake .35s; }
+@keyframes m3-shake { 20% { transform: translateX(-6px); } 60% { transform: translateX(6px); } }
+.m3-results-list { margin: .4rem 0 0; padding-left: 1.2rem; display: grid; gap: .3rem; }
+.m3-results-list i { font-style: normal; color: var(--muted); }
+@media (prefers-reduced-motion: reduce) { .m3c, .m3c.pop, .m3c.drop, .m3-in { animation: none; transition: none; } }

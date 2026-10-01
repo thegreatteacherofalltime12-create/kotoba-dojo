@@ -1183,7 +1183,7 @@ export async function recordMatch(env, match) {
     // "Word-Cross" is how every round of golf read as a crossword.
     const names = {
       crossword: "Word-Cross", battleship: "Battleship", minesweeper: "Minesweeper",
-      links: "Multiverse Golf", casino: "Casino", artillery: "Artillery Tank Duel",
+      links: "Multiverse Golf", casino: "Casino", artillery: "Artillery Tank Duel", match3: "Match-3 Attack Arena",
     };
     const game = names[match.game] || String(match.game || "a game");
     const ranked = [...match.results].sort((a, b) => (b.score || 0) - (a.score || 0));

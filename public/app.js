@@ -19,6 +19,7 @@ import {
 import { enterBattle, closeBattle, bindBattleControls } from "./battle.js";
 import { enterMines, closeMines, bindMineControls } from "./mines.js";
 import { enterTanks, closeTanks, bindTankControls } from "./tank.js";
+import { enterMatch3, closeMatch3, bindMatch3Controls } from "./match3.js";
 import { enterPrix, closePrix } from "./prix.js";
 import { enterBuzzer, closeBuzzer } from "./buzzer.js";
 import { THEMES, applyTheme, savedTheme, themeById, THEME_EPOCH, DEFAULT_THEME, isStale } from "./theme.js";
@@ -159,7 +160,7 @@ const S = {
 // ───────────────────────────────────────────────────────────── screens
 
 function show(name) {
-  for (const s of ["gate", "home", "forge", "dojo", "battle", "mines", "casino", "prix", "buzzer", "tanks"]) $(`screen-${s}`).hidden = s !== name;
+  for (const s of ["gate", "home", "forge", "dojo", "battle", "mines", "casino", "prix", "buzzer", "tanks", "match3"]) $(`screen-${s}`).hidden = s !== name;
   // The doorway belongs to the sign-in page; everything past it is the forest.
   document.body.classList.toggle("at-gate", name === "gate");
   if (typeof watchDojos === "function" && name !== "home") watchDojos(false);
@@ -2087,6 +2088,21 @@ const GAME_RULES = [
     ],
   },
   {
+    id: "match3", icon: "\u{1F9E9}", name: "Match-3 Attack Arena", players: "1 or 2", solo: "\u2713 PLAY ALONE",
+    play: [
+      "<b>Yes, you can play this alone.</b> Take on the computer at Easy, Medium or Hard, or play a friend with the room code. It scores and pays MMR exactly as a match against a person does.",
+      "Each of you has a well, six tiles wide and ten deep. <b>Swap two neighbouring tiles</b> to line up three or more of a colour \u2014 drag one onto the next, or tap one and then the other. A swap that makes no match is refused.",
+      "Clearing tiles builds <b>charge</b>: a bigger match pays more, and so does every link in a chain when the tiles that fall make a match of their own.",
+      "<b>Charge does nothing until you solve a word scramble.</b> The letters are shown with a clue; unscramble the word and the whole charge leaves your well as <b>rubble</b> on your opponent\u2019s, with a little extra for a longer word. A wrong answer locks you out for a moment; <b>Skip</b> gives you a new word for a quarter of your charge.",
+      "Rubble waits to land. It drops after your opponent\u2019s next move, or when its time runs out. <b>Launching first cancels any rubble already coming at you</b>, and a match beside rubble clears it.",
+      "A new row of tiles <b>rises from underneath</b> on a timer that gets quicker. The first well to have nowhere left to rise \u2014 or nowhere for rubble to land \u2014 loses. If five minutes pass first, whoever sent more wins, and then whoever has the lower stack.",
+    ],
+    score: [
+      "Where you finished carries most of it, on the same hundred-point scale as every other game here: the last well standing scores highest.",
+      "Charge you launched, words you solved and your best chain add a little, so playing well improves a loss without ever carrying one.",
+    ],
+  },
+  {
     id: "casino", icon: "\u{1F3B0}", name: "The Casino", players: "the whole arena \u00b7 one floor", solo: "\u2713 PLAY ALONE",
     play: [
       "<b>Yes, you can play this alone.</b> The floor is shared, but nothing on it needs anyone else \u2014 the arcade, the horse race and every table can be played on your own, for the same MMR.",
@@ -3387,6 +3403,7 @@ const ROOMS = {
   prix: (code, back) => { show("prix"); enterPrix(code, idToken, back); },
   buzzer: (code, back) => { show("buzzer"); enterBuzzer(code, idToken, back); },
   artillery: (code, back) => { show("tanks"); enterTanks(code, idToken, back); },
+  match3: (code, back) => { show("match3"); enterMatch3(code, idToken, back); },
   // Multiverse Golf runs on its own page: a full-screen course doesn't fit
   // inside a panel, and the round is long enough to want the whole window.
   // A room being created lands on the lobby with its code, to choose a course
@@ -3428,7 +3445,7 @@ async function joinByCode(code) {
  * Casino is solo and has no room to return to, and golf runs on its own
  * page and keeps its own hash, so neither is written here.
  */
-const REJOINABLE = new Set(["crossword", "battleship", "minesweeper", "prix", "buzzer", "artillery"]);
+const REJOINABLE = new Set(["crossword", "battleship", "minesweeper", "prix", "buzzer", "artillery", "match3"]);
 
 function rememberRoom(game, code) {
   if (!REJOINABLE.has(game) || !code) return;
@@ -4571,6 +4588,7 @@ window.__bountyCard = bountyCard;
 bindBattleControls();
 bindMineControls();
 bindTankControls();
+bindMatch3Controls();
 bindCasino();
 
 // ── knowing when the arena has been rebuilt ─────────────────────────

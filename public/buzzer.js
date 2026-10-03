@@ -192,6 +192,7 @@ function handle(msg) {
       B.sections = msg.sections || [];
       B.aiLevels = msg.aiLevels || [];
       B.aiMax = msg.aiMax || 5;
+      B.sizes = msg.sizes || [];
       break;
     case "BZ_PONG": return onPong(msg);
     case "BZ_STATE": return draw(msg.game);
@@ -313,8 +314,10 @@ function draw(g) {
 function drawBoard(g) {
   const host = $("bz-board");
   host.textContent = "";
+  // As many columns as the board has categories, and as many rows as it has values.
+  host.style.setProperty("--bz-cols", String(g.cats.length || 6));
   g.cats.forEach((c) => host.append(el("div", "bz-category", c.name)));
-  for (let row = 0; row < 5; row++) {
+  for (let row = 0; row < g.values.length; row++) {
     for (let col = 0; col < g.cats.length; col++) {
       const spent = g.spent[col][row];
       const cell = el("button", `bz-cell${spent ? " spent" : ""}`, money(g.values[row]));
@@ -619,7 +622,9 @@ function drawLobby(g) {
   const level = (B.aiLevels || []).find((l) => l.id === g.aiLevel);
   const meAv = g.players.find((p) => p.uid === B.you)?.avatar;
   const worn = (g.avatars || []).find((a) => a.id === meAv);
+  const size = (B.sizes || []).find((s) => s.id === g.size);
   const rows = [
+    { key: "size", name: "Board size", now: size ? `${size.name} · ${size.cols * size.rows} squares` : "Hard" },
     { key: "cats", name: "Categories", now: g.cats.length ? `${g.cats.length} chosen` : "None yet" },
     { key: "avatar", name: "Your avatar", now: worn ? `${worn.ico} ${worn.name}` : "None yet" },
   ];
@@ -640,17 +645,35 @@ function drawLobby(g) {
   const chosen = $("bz-chosen");
   chosen.textContent = "";
   g.cats.forEach((c) => chosen.append(el("span", "bz-chip", c.name)));
-  $("bz-note").textContent = g.cats.length === 6
+  const need = g.cols || 6;
+  $("bz-note").textContent = g.cats.length === need
     ? "Ready when you are."
-    : `${6 - g.cats.length} more ${6 - g.cats.length === 1 ? "category" : "categories"} to choose.`;
+    : `${need - g.cats.length} more ${need - g.cats.length === 1 ? "category" : "categories"} to choose.`;
 }
 
 function openPick(which) {
   const card = $("bz-pick-body");
   const g = B.game;
   card.textContent = "";
-  $("bz-pick-title").textContent = which === "cats" ? "Choose six categories"
+  const need = g.cols || 6;
+  const word = { 5: "five", 6: "six" }[need] || String(need);
+  $("bz-pick-title").textContent = which === "cats" ? `Choose ${word} categories`
+    : which === "size" ? "How big a board"
     : which === "count" ? "How many computer players" : "How quick they are";
+
+  if (which === "size") {
+    const blurb = { easy: "The top three rows only: the cheapest, easiest clues and a quick game.",
+      medium: "One row more, up to eight hundred.",
+      hard: "The full board, as it has always been." };
+    for (const s of B.sizes || []) {
+      const b = el("button", `ai-level${g.size === s.id ? " on" : ""}`);
+      b.append(el("b", null, `${s.name} · ${s.cols * s.rows} squares`));
+      b.append(el("i", null, `${s.cols} categories, ${s.rows} clues each. ${blurb[s.id] || ""}`));
+      b.onclick = () => { send({ type: "BZ_SIZE", size: s.id }); closePick(); };
+      card.append(b);
+    }
+    return showPick();
+  }
 
   if (which === "avatar") {
     const grid = el("div", "bz-cats");
@@ -701,13 +724,13 @@ function openPick(which) {
   card.append(surprise, count);
 
   const refresh = () => {
-    count.textContent = `${B.pick.chosen.length} of 6 chosen`;
+    count.textContent = `${B.pick.chosen.length} of ${need} chosen`;
     card.querySelectorAll("[data-cat]").forEach((n) => {
       const on = B.pick.chosen.includes(n.dataset.cat);
       n.classList.toggle("on", on);
-      n.disabled = !on && B.pick.chosen.length >= 6;
+      n.disabled = !on && B.pick.chosen.length >= need;
     });
-    done.disabled = B.pick.chosen.length !== 6;
+    done.disabled = B.pick.chosen.length !== need;
   };
 
   for (const s of B.sections) {
@@ -722,7 +745,7 @@ function openPick(which) {
       if (g.used?.includes(c.id)) b.append(el("i", null, "played here already"));
       b.onclick = () => {
         const at = B.pick.chosen.indexOf(c.id);
-        if (at === -1) { if (B.pick.chosen.length < 6) B.pick.chosen.push(c.id); }
+        if (at === -1) { if (B.pick.chosen.length < need) B.pick.chosen.push(c.id); }
         else B.pick.chosen.splice(at, 1);
         refresh();
       };
@@ -731,7 +754,7 @@ function openPick(which) {
     card.append(grid);
   }
 
-  const done = el("button", "btn btn-primary btn-wide", "Use these six");
+  const done = el("button", "btn btn-primary btn-wide", `Use these ${word}`);
   done.onclick = () => { send({ type: "BZ_CATS", ids: B.pick.chosen }); closePick(); };
   card.append(done);
   refresh();

@@ -3796,7 +3796,7 @@ a.dtab { text-decoration: none; display: inline-block; }
    scrolling inside itself. */
 #bz-board-wrap { min-width: 0; display: grid; gap: .8rem; }
 
-.bz-board { display: grid; grid-template-columns: repeat(6, minmax(6.2rem, 1fr)); gap: .35rem; }
+.bz-board { display: grid; grid-template-columns: repeat(var(--bz-cols, 6), minmax(6.2rem, 1fr)); gap: .35rem; }
 .bz-category {
   font-family: var(--display); font-size: .78rem; font-weight: 700; text-align: center;
   color: var(--accent); text-transform: uppercase; letter-spacing: .03em;
@@ -3916,7 +3916,7 @@ a.dtab { text-decoration: none; display: inline-block; }
 @media (max-width: 860px) {
   .bz-layout { grid-template-columns: minmax(0, 1fr); }
   /* All six, or it is not a board. */
-  .bz-board { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: .22rem; }
+  .bz-board { grid-template-columns: repeat(var(--bz-cols, 6), minmax(0, 1fr)); gap: .22rem; }
   .bz-category {
     font-size: .5rem; letter-spacing: 0; padding: .3rem .05rem;
     line-height: 1.1; overflow-wrap: anywhere;

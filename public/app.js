@@ -2054,7 +2054,7 @@ const GAME_RULES = [
     id: "buzzer", icon: "\u{1F6CE}\uFE0F", name: "The Buzzer", players: "1 or more", solo: "\u2713 PLAY ALONE",
     play: [
       "<b>Yes, you can play this alone.</b> Switch on <b>Solo board</b> and take on up to five computer players at Rookie, Club or Pro. It scores and pays exactly as a board against people does \u2014 beating five Pros is a win.",
-      "Six categories across, five clues down, values rising in two hundreds. Twelve categories make a game, six a round, drawn from a growing bank, so no two boards look alike.",
+      "The host picks the <b>board size</b> in the lobby: <b>Easy</b> is five categories of three clues (15 squares), <b>Medium</b> five of four (20), and <b>Hard</b> the full six of five (30), which is the default. A smaller board keeps the top rows \u2014 the cheaper, easier clues \u2014 so Easy tops out at $600 and its Final is gentler too. Values rise in two hundreds, and each round deals fresh categories from a growing bank, so no two boards look alike.",
       "A clue is read to everybody at once with <b>no options on it</b>. When the reading ends the buzzers open, and the <b>first buzz takes the clue</b> \u2014 then four options appear to that player alone, for ten seconds.",
       "<b>Right</b> adds the value. <b>Wrong</b> takes it off and reopens the clue for everyone else. So a blind buzz is one chance in four at a cost equal to the prize, which is why guessing punishes itself.",
       "Buzz <b>before</b> the buzzers open and you are locked out for a quarter of a second \u2014 long enough to lose the clue to somebody who waited.",

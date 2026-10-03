@@ -14,7 +14,7 @@
  * the answer itself is private until the cell closes.
  */
 import {
-  GAME_NAME, COLS, ROWS, START_MONEY, valueAt, readingMs,
+  GAME_NAME, COLS, ROWS, START_MONEY, valueAt, readingMs, BOARD_SIZES, DEFAULT_SIZE, sizeById,
   ANSWER_MS, NOBODY_MS, REVEAL_MS, BUZZ_WINDOW_MS,
   judgeBuzz, winningBuzz, shuffle, rngFrom, optionsFor, MIN_REACTION_MS,
   boardScore, standings, bankable,
@@ -111,7 +111,7 @@ export class BuzzerRoom {
       host: this.g.players[this.g.hostUid]?.name || "Someone",
       players: this.connected().size,
       phase: this.g.phase,
-      label: this.g.solo ? "Solo" : GAME_NAME,
+      label: `${this.g.solo ? "Solo" : GAME_NAME} · ${this.size().name}`,
       round: this.g.round,
     });
   }
@@ -142,7 +142,7 @@ export class BuzzerRoom {
         // games, so a board announcing a made-up code is a board nobody can
         // join by typing the code they were given.
         code, phase: "LOBBY", hostUid: uid,
-        solo: false, aiCount: 3, aiLevel: "club",
+        solo: false, aiCount: 3, aiLevel: "club", size: DEFAULT_SIZE,
         round: 1, roundNo: 0,
         cats: [], used: [],
         spent: freshBoard(),
@@ -171,6 +171,7 @@ export class BuzzerRoom {
       catalogue: CATEGORIES.map((c) => ({ id: c.id, name: c.name, section: c.section, scope: c.scope })),
       aiLevels: AI_LEVELS.map((l) => ({ id: l.id, name: l.name })),
       aiMax: AI_MAX, cols: COLS, rows: ROWS, start: START_MONEY,
+      sizes: BOARD_SIZES,
     });
 
     // The feed is newest-first in storage, so it is replayed reversed and the
@@ -218,12 +219,14 @@ export class BuzzerRoom {
     const field = Object.values(this.g.players).filter((p) => !p.watching);
     const order = standings(field).map((p) => p.uid);
     const c = this.g.cell;
+    const size = this.size();
     return {
       code: this.g.code, phase: this.g.phase, hostUid: this.g.hostUid,
       solo: !!this.g.solo, aiCount: this.g.aiCount, aiLevel: this.g.aiLevel,
       round: this.g.round, turnUid: this.g.turnUid, paused: !!this.g.pausedAt,
       cats: this.g.cats, spent: this.g.spent, used: this.g.used,
-      values: Array.from({ length: ROWS }, (_, r) => valueAt(r, this.g.round)),
+      size: size.id, cols: size.cols, rows: size.rows,
+      values: Array.from({ length: size.rows }, (_, r) => valueAt(r, this.g.round)),
       serverNow: Date.now(),
       avatars: AVATARS,
       taken: Object.values(this.g.players).map((p) => p.avatar).filter(Boolean),
@@ -382,6 +385,7 @@ export class BuzzerRoom {
         case "BZ_SKEW": return this.send(ws, "BZ_PONG", { t0: msg.t0, serverNow: Date.now() });
         case "BZ_SOLO": return await this.setSolo(ws, who.uid, msg);
         case "BZ_AI": return await this.setAi(ws, who.uid, msg);
+        case "BZ_SIZE": return await this.setSize(ws, who.uid, msg);
         case "BZ_CATS": return await this.setCats(ws, who.uid, msg);
         case "BZ_RANDOM": return await this.randomCats(ws, who.uid, msg);
         case "BZ_START": return await this.start(ws, who.uid);
@@ -411,6 +415,9 @@ export class BuzzerRoom {
     }
   }
 
+  /** The board this room plays. A room from before there were sizes plays the full one. */
+  size() { return sizeById(this.g?.size); }
+
   hostOnly(ws, uid) {
     if (uid !== this.g.hostUid) { this.send(ws, "BZ_ERROR", { message: "Only the host sets this." }); return false; }
     if (this.g.phase === "PLAYING") { this.send(ws, "BZ_ERROR", { message: "A board is already running." }); return false; }
@@ -430,6 +437,23 @@ export class BuzzerRoom {
     if (!this.hostOnly(ws, uid)) return;
     if (msg.count != null) this.g.aiCount = Math.max(1, Math.min(AI_MAX, Number(msg.count) || 1));
     if (msg.level && AI_LEVELS.some((l) => l.id === msg.level)) this.g.aiLevel = msg.level;
+    await this.persist();
+    this.pushState();
+  }
+
+  /**
+   * How big the board is. Changing it keeps the categories already chosen, as
+   * many as the new board has room for, so going down a size never means
+   * choosing them all again.
+   */
+  async setSize(ws, uid, msg) {
+    if (!this.hostOnly(ws, uid)) return;
+    if (this.g.phase === "FINAL")
+      return this.send(ws, "BZ_ERROR", { message: "Not once the board is up." });
+    if (!BOARD_SIZES.some((s) => s.id === msg.size))
+      return this.send(ws, "BZ_ERROR", { message: "No such board." });
+    this.g.size = msg.size;
+    this.g.cats = this.g.cats.slice(0, this.size().cols);
     await this.persist();
     this.pushState();
   }
@@ -537,8 +561,9 @@ export class BuzzerRoom {
   async setCats(ws, uid, msg) {
     if (!this.hostOnly(ws, uid)) return;
     const ids = [...new Set((msg.ids || []).map(String))].filter((id) => categoryById(id));
-    if (ids.length !== COLS)
-      return this.send(ws, "BZ_ERROR", { message: `Pick exactly ${COLS} categories.` });
+    const { cols } = this.size();
+    if (ids.length !== cols)
+      return this.send(ws, "BZ_ERROR", { message: `Pick exactly ${cols} categories.` });
     this.g.cats = ids.map((id) => ({ id, name: categoryById(id).name }));
     await this.persist();
     this.pushState();
@@ -556,9 +581,10 @@ export class BuzzerRoom {
       : CATEGORIES;
     const rnd = rngFrom(Date.now() & 0xffffffff);
     const fresh = wanted.filter((c) => !this.g.used.includes(c.id));
-    const draw = shuffle(fresh.length >= COLS ? fresh : wanted, rnd).slice(0, COLS);
-    if (draw.length < COLS)
-      return this.send(ws, "BZ_ERROR", { message: `There aren't ${COLS} categories to draw from there.` });
+    const { cols } = this.size();
+    const draw = shuffle(fresh.length >= cols ? fresh : wanted, rnd).slice(0, cols);
+    if (draw.length < cols)
+      return this.send(ws, "BZ_ERROR", { message: `There aren't ${cols} categories to draw from there.` });
     this.g.cats = draw.map((c) => ({ id: c.id, name: c.name }));
     await this.persist();
     this.pushState();
@@ -569,8 +595,9 @@ export class BuzzerRoom {
       return this.send(ws, "BZ_ERROR", { message: "Only the host starts the board." });
     if (this.g.phase === "PLAYING")
       return this.send(ws, "BZ_ERROR", { message: "A board is already running." });
-    if (this.g.cats.length !== COLS)
-      return this.send(ws, "BZ_ERROR", { message: `Pick ${COLS} categories first.` });
+    const size = this.size();
+    if (this.g.cats.length !== size.cols)
+      return this.send(ws, "BZ_ERROR", { message: `Pick ${size.cols} categories first.` });
 
     if (this.g.solo) this.seatComputers();
     else for (const uid2 of Object.keys(this.g.players)) {
@@ -607,8 +634,8 @@ export class BuzzerRoom {
     this.g.startedAt = Date.now();
     this.g.roundNo = (this.g.roundNo || 0) + 1;
     this.g.seed = (Date.now() & 0xffffff) ^ (this.g.roundNo * 7919);
-    this.g.spent = freshBoard();
-    this.g.doubles = plantDoubles(1, this.g.seed);
+    this.g.spent = freshBoard(size);
+    this.g.doubles = plantDoubles(1, this.g.seed, size);
     this.g.final = null;
     this.g.cell = null;
     this.g.used = [...new Set([...this.g.used, ...this.g.cats.map((c) => c.id)])];
@@ -617,7 +644,7 @@ export class BuzzerRoom {
     this.schedulePick();
 
     await this.persist();
-    this.log(`The board is up: ${this.g.cats.map((c) => c.name).join(" · ")}.`);
+    this.log(`The board is up (${size.name}, ${size.cols * size.rows} squares): ${this.g.cats.map((c) => c.name).join(" · ")}.`);
     this.broadcast("BZ_GO", { round: this.g.round, cats: this.g.cats, serverNow: Date.now() });
     this.announce();
     this.pushState();
@@ -679,8 +706,9 @@ export class BuzzerRoom {
     if (!p?.ai || this.g.cell) return;
 
     const free = [];
-    for (let col = 0; col < COLS; col++) {
-      for (let row = 0; row < ROWS; row++) if (!this.g.spent[col][row]) free.push({ col, row });
+    const { cols, rows } = this.size();
+    for (let col = 0; col < cols; col++) {
+      for (let row = 0; row < rows; row++) if (!this.g.spent[col]?.[row]) free.push({ col, row });
     }
     if (!free.length) return;
 
@@ -717,7 +745,8 @@ export class BuzzerRoom {
       return this.send(ws, "BZ_ERROR", { message: "It's not your pick." });
 
     const col = Number(msg.col), row = Number(msg.row);
-    if (!(col >= 0 && col < COLS && row >= 0 && row < ROWS))
+    const { cols, rows } = this.size();
+    if (!(col >= 0 && col < cols && row >= 0 && row < rows))
       return this.send(ws, "BZ_ERROR", { message: "That isn't a cell on the board." });
     if (this.g.spent[col][row])
       return this.send(ws, "BZ_ERROR", { message: "That one's been played." });
@@ -761,7 +790,7 @@ export class BuzzerRoom {
       if (picker?.ai) {
         // A computer wagers what it is worth: a Rookie hedges, a Pro swings.
         const lvl = aiLevelById(picker.aiLevel);
-        const cap = wagerLimit(picker.money, this.g.round, picker.deepPockets);
+        const cap = wagerLimit(picker.money, this.g.round, picker.deepPockets, this.size().rows);
         const want = Math.round(cap * (0.25 + lvl.knows * 0.6));
         this.setWager(picker, want);
       }
@@ -824,7 +853,7 @@ export class BuzzerRoom {
 
   setWager(p, amount) {
     const c = this.g.cell;
-    const cap = wagerLimit(p.money, this.g.round, p.deepPockets);
+    const cap = wagerLimit(p.money, this.g.round, p.deepPockets, this.size().rows);
     c.wager = Math.max(0, Math.min(cap, Math.round(Number(amount) || 0)));
     c.stage = "ANSWERING";
     c.openAt = Date.now();
@@ -1085,10 +1114,11 @@ export class BuzzerRoom {
   async advanceRound() {
     if (this.g.round === 1) {
       this.g.round = 2;
-      this.g.spent = freshBoard();
-      this.g.cats = this.drawCats(COLS);
+      const size = this.size();
+      this.g.spent = freshBoard(size);
+      this.g.cats = this.drawCats(size.cols);
       this.g.used = [...new Set([...this.g.used, ...this.g.cats.map((c) => c.id)])];
-      this.g.doubles = plantDoubles(2, this.g.seed ^ 0x5eed);
+      this.g.doubles = plantDoubles(2, this.g.seed ^ 0x5eed, size);
       this.g.turnUid = standings(Object.values(this.g.players).filter((p) => !p.watching))
         .slice(-1)[0]?.uid || this.g.turnUid;
       // The second board hands the pick to whoever is last, which with three
@@ -1127,7 +1157,9 @@ export class BuzzerRoom {
   async startFinal() {
     const cat = this.drawCats(1)[0];
     const full = categoryById(cat.id);
-    const clue = full.clues[ROWS - 1];
+    // The hardest clue the board itself would have asked: an easy board's Final
+    // is as gentle as its bottom row, and the full board's is the column's last.
+    const clue = full.clues[Math.min(full.clues.length, this.size().rows) - 1];
     const rnd = rngFrom(this.g.seed ^ 0xf1a1);
     const playing = Object.values(this.g.players).filter(playsFinal).map((p) => p.uid);
 
@@ -1574,8 +1606,8 @@ export class BuzzerRoom {
  * so spending one cell spends that row in every category at once. It is worth
  * a named function purely so nobody writes that line again.
  */
-function freshBoard() {
-  return Array.from({ length: COLS }, () => Array(ROWS).fill(false));
+function freshBoard(size = sizeById(DEFAULT_SIZE)) {
+  return Array.from({ length: size.cols }, () => Array(size.rows).fill(false));
 }
 
 /** A stable number from a uid, so a computer's draws differ from its neighbour's. */

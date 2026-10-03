@@ -7,6 +7,7 @@
 import {
   judgeBuzz, winningBuzz, valueAt, readingMs, boardScore, bankable,
   optionsFor, rngFrom, aiIntent, MIN_REACTION_MS, EARLY_LOCKOUT_MS, MAX_CREDIT_MS,
+  BOARD_SIZES, sizeById, topValue, wagerLimit, plantDoubles,
 } from "../src/buzzer.js";
 import { CATEGORIES, categoryById, poolFor } from "../src/buzzer-bank.js";
 import { BuzzerRoom } from "../src/buzzer-room.js";
@@ -679,6 +680,87 @@ console.log("\na lobby left open");
 }
 
 function avg(xs) { return xs.reduce((s, x) => s + x, 0) / Math.max(1, xs.length); }
+
+console.log("\nboard sizes");
+{
+  ok("three sizes: fifteen, twenty and thirty squares", BOARD_SIZES.map((b) => b.cols * b.rows).join() === "15,20,30");
+  ok("easy and medium are five across", sizeById("easy").cols === 5 && sizeById("medium").cols === 5);
+  ok("hard is the board as it always was, and the default", sizeById("hard").cols === 6 && sizeById("hard").rows === 5 && sizeById(undefined).id === "hard");
+  ok("a smaller board tops out lower", topValue(1, 3) === 600 && topValue(2, 4) === 1600 && topValue(1) === 1000);
+  ok("so a Daily Double is wagered against its own board's top", wagerLimit(0, 1, false, 3) === 600 && wagerLimit(0, 1) === 1000);
+  ok("Daily Doubles land on the board, never in the top row",
+    [3, 4, 5].every((rows) => [1, 2].every((round) => plantDoubles(round, 99 + rows, { cols: 5, rows })
+      .every((d) => d.col >= 0 && d.col < 5 && d.row >= 1 && d.row < rows))));
+  ok("the full board's Daily Doubles fall where they always did",
+    JSON.stringify(plantDoubles(2, 4242)) === JSON.stringify(plantDoubles(2, 4242, sizeById("hard"))));
+
+  const { room, seats, say } = await roomOf(["a", "Ana"], ["b", "Bo"]);
+  ok("a new room is the full board", room.g.size === "hard" && seats.a.last("BZ_STATE").game.cols === 6);
+  await say("b", { type: "BZ_SIZE", size: "easy" });
+  ok("only the host sets the size", room.g.size === "hard" && /Only the host/.test(seats.b.last("BZ_ERROR").message));
+  await say("a", { type: "BZ_CATS", ids: CATEGORIES.slice(0, 6).map((c) => c.id) });
+  await say("a", { type: "BZ_SIZE", size: "easy" });
+  ok("going down a size keeps as many categories as fit", room.g.size === "easy" && room.g.cats.length === 5);
+  await say("a", { type: "BZ_SIZE", size: "huge" });
+  ok("a size that does not exist is refused", room.g.size === "easy" && /No such board/.test(seats.a.last("BZ_ERROR").message));
+  await say("a", { type: "BZ_CATS", ids: CATEGORIES.slice(0, 6).map((c) => c.id) });
+  ok("six categories are too many for an easy board", /Pick exactly 5/.test(seats.a.last("BZ_ERROR").message));
+  await say("a", { type: "BZ_RANDOM" });
+  ok("and Surprise me deals five", room.g.cats.length === 5);
+
+  await say("a", { type: "BZ_START" });
+  ok("an easy board starts", room.g.phase === "PLAYING");
+  const st = seats.a.last("BZ_STATE").game;
+  ok("five across and three down: fifteen squares", room.g.spent.length === 5 && room.g.spent.every((c) => c.length === 3) && st.cols === 5 && st.rows === 3);
+  ok("worth two, four and six hundred", st.values.join() === "200,400,600");
+  ok("its Daily Double is on it", room.g.doubles.length === 1 && room.g.doubles.every((d) => d.col < 5 && d.row < 3));
+  await say("a", { type: "BZ_PICK", col: 5, row: 0 });
+  ok("a sixth column is not on it", /isn't a cell/.test(seats.a.last("BZ_ERROR").message));
+  await say("a", { type: "BZ_PICK", col: 0, row: 3 });
+  ok("and nor is a fourth row", /isn't a cell/.test(seats.a.last("BZ_ERROR").message));
+  await say("a", { type: "BZ_SIZE", size: "hard" });
+  ok("the size cannot change once the board is up", room.g.size === "easy");
+  await say("a", { type: "BZ_PICK", col: 0, row: 0 });
+  ok("the top row asks the column's easiest clue", room.g.cell?.q === categoryById(room.g.cats[0].id).clues[0].q);
+
+  // The second board, and Final, on the same small board.
+  for (let col = 0; col < 5; col++) for (let row = 0; row < 3; row++) room.g.spent[col][row] = true;
+  room.g.cell = { stage: "REVEAL", deadline: Date.now() - 1, col: 0, row: 0, a: "x", wrongUids: [], buzzes: [], aiBuzz: {} };
+  await room.tick();
+  ok("fifteen squares played brings up the second board", room.g.round === 2);
+  ok("the same size again, five by three", room.g.cats.length === 5 && room.g.spent.length === 5 && room.g.spent[0].length === 3);
+  ok("doubled: four, eight and twelve hundred", seats.a.last("BZ_STATE").game.values.join() === "400,800,1200");
+  ok("with its two Daily Doubles on the board", room.g.doubles.length === 2 && room.g.doubles.every((d) => d.col < 5 && d.row < 3));
+  await room.startFinal();
+  ok("Final asks the hardest clue an easy board would have", room.g.final.q === categoryById(room.g.final.catId).clues[2].q);
+}
+{
+  // The computers play only what is on the board.
+  const { room, say } = await roomOf(["a", "Ana"]);
+  await say("a", { type: "BZ_SOLO", on: true });
+  await say("a", { type: "BZ_SIZE", size: "medium" });
+  await say("a", { type: "BZ_RANDOM" });
+  await say("a", { type: "BZ_START" });
+  ok("a medium board is five by four", room.g.spent.length === 5 && room.g.spent.every((c) => c.length === 4));
+  ok("worth up to eight hundred", room.publicState().values.join() === "200,400,600,800");
+  const bot = Object.values(room.g.players).find((x) => x.ai);
+  const seen = new Set();
+  for (let i = 0; i < 21; i++) {
+    room.g.cell = null;
+    room.g.turnUid = bot.uid;
+    await room.aiPick();
+    if (room.g.cell) seen.add(room.g.cell.col + ":" + room.g.cell.row);
+  }
+  ok("a computer picks every one of the twenty squares and nothing else",
+    seen.size === 20 && [...seen].every((k) => { const [c, r] = k.split(":").map(Number); return c < 5 && r < 4; }));
+}
+{
+  // A room saved before there were sizes is the full board.
+  const { room, seats, say } = await roomOf(["a", "Ana"]);
+  delete room.g.size;
+  await boardOf(room, say, "a");
+  ok("a room from before sizes plays the full board", room.g.phase === "PLAYING" && room.g.spent.length === 6 && seats.a.last("BZ_STATE").game.values.length === 5);
+}
 
 console.log(bad ? `\n${bad} failing\n` : "\nall buzzer checks passed\n");
 process.exit(bad ? 1 : 0);

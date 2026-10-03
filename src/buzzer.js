@@ -17,9 +17,23 @@
 // it: the lobby, the feed, the directory and the results.
 export const GAME_NAME = "The Buzzer";
 
-export const COLS = 6;   // categories across
-export const ROWS = 5;   // clues down
+export const COLS = 6;   // categories across, on the biggest board
+export const ROWS = 5;   // clues down, on the biggest board
 export const BASE_VALUE = 200;
+
+/**
+ * How big the board is, which the host chooses in the lobby. Hard is the full
+ * board and the default. The smaller ones keep the top rows — the cheaper,
+ * easier clues — so a smaller board is a gentler one as well as a quicker one.
+ */
+export const BOARD_SIZES = [
+  { id: "easy", name: "Easy", cols: 5, rows: 3 },
+  { id: "medium", name: "Medium", cols: 5, rows: 4 },
+  { id: "hard", name: "Hard", cols: COLS, rows: ROWS },
+];
+export const DEFAULT_SIZE = "hard";
+export const sizeById = (id) =>
+  BOARD_SIZES.find((s) => s.id === id) || BOARD_SIZES.find((s) => s.id === DEFAULT_SIZE);
 
 /**
  * Two rounds, the second worth double. The show's names are its own; these
@@ -40,7 +54,7 @@ export function valueAt(row, round = 1) {
 }
 
 /** The biggest thing on a board, which is what a Daily Double may be worth. */
-export function topValue(round = 1) { return valueAt(ROWS - 1, round); }
+export function topValue(round = 1, rows = ROWS) { return valueAt(rows - 1, round); }
 
 // ── the clock ────────────────────────────────────────────────────────
 
@@ -397,8 +411,8 @@ export function dailyDoubleCount(round) {
  * Deep Pockets doubles the ceiling, which is the only thing in the arsenal
  * that changes an amount of money rather than an amount of information.
  */
-export function wagerLimit(money, round, deepPockets = false) {
-  const floor = Math.max(Number(money) || 0, topValue(round));
+export function wagerLimit(money, round, deepPockets = false, rows = ROWS) {
+  const floor = Math.max(Number(money) || 0, topValue(round, rows));
   return deepPockets ? floor * 2 : floor;
 }
 
@@ -427,14 +441,14 @@ export function finalOrder(players) {
 }
 
 /** A seeded pick of where the Daily Doubles hide, so a rebuilt room agrees. */
-export function plantDoubles(round, seed) {
+export function plantDoubles(round, seed, size = sizeById(DEFAULT_SIZE)) {
   const rnd = rngFrom(seed);
   const cells = [];
-  for (let col = 0; col < COLS; col++) {
+  for (let col = 0; col < size.cols; col++) {
     // The top row almost never hides one on television, and it is the row
     // people click first, so keeping it clear stops the set piece landing
     // before anybody has settled in.
-    for (let row = 1; row < ROWS; row++) cells.push({ col, row });
+    for (let row = 1; row < size.rows; row++) cells.push({ col, row });
   }
   return shuffle(cells, rnd).slice(0, dailyDoubleCount(round));
 }

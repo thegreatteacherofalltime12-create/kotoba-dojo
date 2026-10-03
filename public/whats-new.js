@@ -17,6 +17,14 @@ export const KEEP_DAYS = 7;
 
 export const UPDATES = [
   {
+    at: "2026-10-03T20:00:00Z",
+    where: "The Buzzer",
+    title: "The Buzzer comes in three sizes",
+    text: "The host now picks a board size in the lobby: Easy is 15 squares (five categories of three clues), "
+      + "Medium is 20 (five of four), and Hard is the full 30-square board, which stays the default. The smaller "
+      + "boards keep the cheaper, easier rows, so they are quicker and gentler \u2014 Final included.",
+  },
+  {
     at: "2026-10-03T16:00:00Z",
     where: "Match-3 Attack Arena",
     title: "A solved word always counts",

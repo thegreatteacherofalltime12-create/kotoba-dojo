@@ -16,3 +16,7 @@ dist/
 # Windows noise
 Thumbs.db
 desktop.ini
+
+# Weekly health check: reports quote players, and the chat archive holds their words.
+ops/archive/
+ops/reports/

@@ -6,7 +6,7 @@
 import {
   COLS, ROWS, COLORS, RUBBLE, START_ROWS, MAX_LAUNCH, MAX_LAND, RISE_START_MS, RISE_FLOOR_MS,
   makeBoard, findMatches, applyGravity, resolve, swap, moves, hasMove, reshuffle, height,
-  rise, dropRubble, attackFor, launchSize, nextRiseMs, aiMove, AI_LEVELS, aiLevelById,
+  rise, dropRubble, attackFor, launchSize, wordWorth, nextRiseMs, aiMove, AI_LEVELS, aiLevelById,
   matchScore, standings, rngFrom, copy,
   PRESSURE_START_MS, PRESSURE_FLOOR_MS, nextPressureMs, pressureSize, survivalScore, SOLO_PACE,
 } from "../src/match3.js";
@@ -124,9 +124,9 @@ console.log("\nwhat a clear is worth");
     attackFor(3, 3) > attackFor(5, 1));
 
   // A launch needs charge, and words add to it.
-  ok("with nothing stored there is nothing to launch", launchSize(0, 6) === 0);
+  ok("with nothing stored, a solved word still lands for what the word is worth", launchSize(0, 6) === 3 && launchSize(0, 4) === 1);
   ok("a launch is the charge and a little for the word", launchSize(5, 4) === 6 && launchSize(5, 6) === 8);
-  ok("a short word adds nothing", launchSize(5, 3) === 5);
+  ok("a word is always worth at least one", launchSize(5, 3) === 6 && launchSize(0, 0) === 1 && wordWorth(2) === 1);
   ok(`and a launch is never more than ${MAX_LAUNCH}`, launchSize(40, 6) === MAX_LAUNCH);
 }
 
@@ -259,6 +259,14 @@ console.log("\npace");
   ok("at the usual pace the floor is unchanged", (() => { let ms = RISE_START_MS; for (let i = 0; i < 300; i++) ms = nextRiseMs(ms); return ms === RISE_FLOOR_MS; })());
   ok("survival does not open with a rush", PRESSURE_START_MS >= 15_000);
   ok("and never gets quicker than a wave every seven seconds", PRESSURE_FLOOR_MS >= 7_000);
+}
+
+console.log("\nthe computer's share");
+{
+  ok("every level keeps some of what it clears, never more than all of it", AI_LEVELS.every((l) => l.charge > 0 && l.charge <= 1));
+  ok("and launches no more than a person can", AI_LEVELS.every((l) => l.cap > 0 && l.cap <= MAX_LAUNCH));
+  ok("a harder level keeps more", AI_LEVELS.every((l, i) => !i || l.charge > AI_LEVELS[i - 1].charge));
+  ok("and can launch more at once", AI_LEVELS.every((l, i) => !i || l.cap > AI_LEVELS[i - 1].cap));
 }
 
 console.log(bad ? `\n${bad} failing\n` : "\nall match-3 checks passed\n");

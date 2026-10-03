@@ -17,6 +17,24 @@ export const KEEP_DAYS = 7;
 
 export const UPDATES = [
   {
+    at: "2026-10-03T16:00:00Z",
+    where: "Match-3 Attack Arena",
+    title: "A solved word always counts",
+    text: "Unscrambling a word before you had any charge did nothing, and nothing on screen said why. "
+      + "Now a solved word is always worth something on its own — one for a four-letter word, up to three for a six — "
+      + "it cancels rubble already on its way first, the panel lights up, and the message says exactly what it "
+      + "cancelled and sent. The hint under the word tells you what it is worth before you type it.",
+  },
+  {
+    at: "2026-10-03T14:00:00Z",
+    where: "Match-3 Attack Arena",
+    title: "The computer drops smaller stacks, less often",
+    text: "The computer was burying you: it sent twenty or more rubble in its first minute at every level, "
+      + "Easy as much as Hard. It now builds charge slowly and launches less at once — roughly four, eight and "
+      + "thirteen in the first minute on Easy, Medium and Hard — so a stack arrives with time to answer it. "
+      + "Also fixed: the result list numbered everybody twice.",
+  },
+  {
     at: "2026-10-01T23:30:00Z",
     where: "Match-3 Attack Arena",
     title: "Match-3 is slower when you play alone, and fits a phone",

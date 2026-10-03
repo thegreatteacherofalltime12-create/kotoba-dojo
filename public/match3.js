@@ -82,12 +82,21 @@ const tokenTab = () => (boostTab ||= applyTokenTab({
 }));
 const now = () => Date.now() - M.skew;
 
-function say(text, good = false) {
+function say(text, good = false, ms = 2600) {
   const n = $("m3-error");
   n.hidden = !text;
   n.className = good ? "notice" : "notice notice-bad";
   n.textContent = text || "";
-  if (text) setTimeout(() => { if (n.textContent === text) n.hidden = true; }, 2600);
+  if (text) setTimeout(() => { if (n.textContent === text) n.hidden = true; }, ms);
+}
+
+/** A solved word lights the panel for a moment, so it is plain that it counted. */
+function flashSolved() {
+  const w = $("m3-word");
+  w.classList.remove("shake", "solved");
+  void w.offsetWidth;
+  w.classList.add("solved");
+  setTimeout(() => w.classList.remove("solved"), 800);
 }
 
 /* ── what the room says ──────────────────────────────────────────── */
@@ -108,16 +117,21 @@ function handle(msg) {
     case "M3_REJECT": say(msg.why); break;
     case "M3_WRONG":
       M.lockUntil = Date.now() + (msg.wait || 1200);
-      $("m3-word").classList.remove("shake"); void $("m3-word").offsetWidth; $("m3-word").classList.add("shake");
+      $("m3-word").classList.remove("shake", "solved"); void $("m3-word").offsetWidth; $("m3-word").classList.add("shake");
       say("Not that word.");
       drawWord();
       break;
-    case "M3_SOLVED":
+    case "M3_SOLVED": {
       $("m3-guess").value = "";
-      say(msg.send > 0
-        ? `${msg.word} — launched ${msg.send}${msg.cancel ? `, ${msg.cancel} cancelled incoming` : ""}.`
-        : `${msg.word} — solved, but there was no charge to send.`, true);
+      // Say what it did: what it cancelled of the rubble on its way, and what went across.
+      const alone = M.state?.mode === "survival";
+      const did = [];
+      if (msg.cancel) did.push(`cancelled ${msg.cancel} incoming`);
+      if (msg.rest > 0 && !alone) did.push(`sent ${msg.rest} across`);
+      say(`${msg.word} — ${did.join(" and ") || "solved; nothing was coming to cancel"}.`, true, 4000);
+      flashSolved();
       break;
+    }
     case "M3_OVER": showResults(msg); tokenTab().reset(); break;
   }
 }
@@ -230,9 +244,12 @@ function drawWord() {
   const locked = Date.now() < M.lockUntil;
   $("btn-m3-go").disabled = locked;
   const charge = M.state.me.charge;
+  // What solving it is worth right now, so nobody solves one blind: the word counts
+  // for something on its own, and the charge is what makes it big.
+  const bonus = Math.max(1, (w.len || 0) - 3);
   $("m3-hint").textContent = charge > 0
-    ? `Solve it to send your ${charge} charge across.`
-    : "Clear tiles to build charge — then solve a word to send it.";
+    ? `Worth ${Math.min(14, charge + bonus)}: your ${charge} charge and ${bonus} for the word.`
+    : `Worth ${bonus} now. Clear tiles first to send more.`;
 }
 
 /** The clock and the two rise bars, which move without the room saying anything. */
@@ -330,7 +347,7 @@ function showResults(msg) {
   const list = el("ol", "m3-results-list");
   for (const r of msg.results) {
     const row = el("li");
-    row.append(el("b", null, `${r.placement}. ${r.name}${r.ai ? " (cpu)" : ""}`));
+    row.append(el("b", null, `${r.name}${r.ai ? " (cpu)" : ""}`));
     row.append(el("span", null, ` ${r.score} pts · ${r.sent} sent · ${r.solved} words · best chain ${r.maxChain}`));
     if (!r.ai) row.append(el("i", null, ` ${r.gain >= 0 ? "+" : ""}${r.gain} MMR${r.boost ? ` (${r.mult}\u00d7 token)` : ""} · ${r.belt}`));
     list.append(row);

@@ -141,11 +141,15 @@ console.log("\ncharge is worth nothing until a word is solved");
   ok("the stats count it", p1.solved === 1 && p1.sent === solved.send);
   ok("and the foe is given time before it lands", p2.landAt > Date.now() + 2_000);
 
-  // With nothing stored there is nothing to send.
+  // With nothing stored the word is still worth something: it must never be a dead end.
   p1.charge = 0;
   const w = p1.word.answer;
+  const before = p2.incoming;
   await t.say("p1", { type: "M3_GUESS", word: w });
-  ok("solving with no charge sends nothing, and still counts", t.socks.p1.last("M3_SOLVED").send === 0 && p1.solved === 2);
+  const bare = t.socks.p1.last("M3_SOLVED");
+  ok("solving with no charge still sends what the word is worth", bare.send === Math.max(1, w.length - 3) && p1.solved === 2);
+  ok("and that lands on the other well", p2.incoming === before + bare.send && p1.sent >= bare.send);
+  ok("it says how much, so the screen can show it", bare.rest === bare.send - bare.cancel);
 
   // Skipping costs a quarter.
   p1.charge = 12;
@@ -539,6 +543,35 @@ console.log("\nthe pace of a solo match");
   run.g.pressureAt = ago();
   await run.room.alarm();
   ok("and gives you time to answer a wave before it lands", q.incoming >= 2 && q.landAt - Date.now() >= 8_000);
+}
+
+console.log("\nthe computer's share");
+{
+  const t = await table({ humans: 1, level: "easy" });
+  const ai = t.g.players.ai, me = t.g.players.p1;
+  ok("a person keeps all of what they clear", t.room.chargeFrom(me, 10) === 10);
+  ok("the computer keeps its level's share of it", t.room.chargeFrom(ai, 10) === 3);
+  ok("with the rest carried, so two clears pay what twenty tiles' worth would", t.room.chargeFrom(ai, 10) === 4);
+  const small = await table({ humans: 1, level: "easy" });
+  const bit = small.g.players.ai;
+  let got = 0;
+  for (let i = 0; i < 10; i++) got += small.room.chargeFrom(bit, 1);
+  ok("and a small clear still adds up rather than rounding away", got === 3);
+
+  // What it launches is what it charged: no bonus for a word it never typed, and a ceiling.
+  const a = await table({ humans: 1, level: "easy" });
+  a.g.players.ai.charge = 3;
+  ok("a person's long word adds to a launch, charged or not", a.room.launch(a.g.players.p1, 6, Date.now()).send === 3 && (a.g.players.p1.charge = 3, a.room.launch(a.g.players.p1, 6, Date.now()).send === 6));
+  ok("the computer's does not", a.room.launch(a.g.players.ai, 6, Date.now()).send === 3);
+  const b = await table({ humans: 1, level: "easy" });
+  b.g.players.ai.charge = 25;
+  ok("and the easy one launches five at most", b.room.launch(b.g.players.ai, 4, Date.now()).send === 5);
+  const m = await table({ humans: 1, level: "medium" });
+  m.g.players.ai.charge = 25;
+  ok("the medium one eight", m.room.launch(m.g.players.ai, 4, Date.now()).send === 8);
+  const h = await table({ humans: 1, level: "hard" });
+  h.g.players.ai.charge = 30;
+  ok("the hard one twelve", h.room.launch(h.g.players.ai, 4, Date.now()).send === 12);
 }
 
 console.log(bad ? `\n${bad} failing\n` : "\nall match-3 room checks passed\n");

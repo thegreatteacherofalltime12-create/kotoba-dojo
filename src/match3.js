@@ -252,10 +252,16 @@ export function dropRubble(board, n, rnd = Math.random) {
 
 // ── words ────────────────────────────────────────────────────────────
 
-/** What a launch carries: the charge, and a little more for a longer word. */
+/**
+ * What a launch carries: the charge, and a little more for a longer word. A
+ * solved word is never worth nothing, even with no charge behind it: a player
+ * who unscrambles one first, before a single match, should see it do something.
+ * The charge is what makes it big.
+ */
+export const wordWorth = (wordLen) => Math.max(1, (Number(wordLen) || 0) - 3);
 export function launchSize(charge, wordLen) {
-  if (!(charge > 0)) return 0;
-  return Math.min(MAX_LAUNCH, Math.round(charge) + Math.max(0, (Number(wordLen) || 0) - 3));
+  const stored = charge > 0 ? Math.round(charge) : 0;
+  return Math.min(MAX_LAUNCH, stored + wordWorth(wordLen));
 }
 
 /**
@@ -301,10 +307,16 @@ export function survivalScore({ seconds, sent, solved, maxChain, survived }) {
 
 // ── the computer ─────────────────────────────────────────────────────
 
+/**
+ * The computer clears tiles as fast as a person and has no word to type, so left
+ * alone it would bury you. `charge` is how much of what it clears it keeps as
+ * charge, and `cap` the most it can launch at once: the two together set how
+ * quickly the next stack of rubble drops on you.
+ */
 export const AI_LEVELS = [
-  { id: "easy", name: "Easy", moveMs: 4_600, solveMs: 17_000, sees: 1 },
-  { id: "medium", name: "Medium", moveMs: 3_200, solveMs: 12_000, sees: 2 },
-  { id: "hard", name: "Hard", moveMs: 2_200, solveMs: 8_000, sees: 3 },
+  { id: "easy", name: "Easy", moveMs: 4_600, solveMs: 17_000, sees: 1, charge: 0.35, cap: 5 },
+  { id: "medium", name: "Medium", moveMs: 3_200, solveMs: 12_000, sees: 2, charge: 0.55, cap: 8 },
+  { id: "hard", name: "Hard", moveMs: 2_200, solveMs: 8_000, sees: 3, charge: 0.8, cap: 12 },
 ];
 export const aiLevelById = (id) => AI_LEVELS.find((l) => l.id === id) || AI_LEVELS[0];
 export const AI_NAMES = ["Rustbucket", "Vulture", "Hammerhead"];

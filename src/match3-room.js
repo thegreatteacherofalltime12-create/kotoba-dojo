@@ -53,7 +53,7 @@ export class MatchArena {
     return {
       uid, name, ai, board: null,
       charge: 0, incoming: 0, landAt: 0,
-      riseAt: 0, riseMs: RISE_START_MS,
+      riseAt: 0, riseMs: RISE_START_MS, carry: 0,
       word: null, used: [], lockUntil: 0, swapAt: 0,
       sent: 0, solved: 0, skipped: 0, cleared: 0, maxChain: 0, swaps: 0,
       over: false, overAt: 0,
@@ -172,11 +172,24 @@ export class MatchArena {
 
   /* ── what a move does ──────────────────────────────────────────── */
 
+  /**
+   * What a cascade is worth to this well. A person keeps all of it; the computer
+   * keeps the share its level allows, with the fraction carried over so a small
+   * share still adds up rather than rounding to nothing.
+   */
+  chargeFrom(p, charge) {
+    if (!p.ai) return charge;
+    const raw = charge * aiLevelById(p.ai).charge + (p.carry || 0);
+    const whole = Math.floor(raw);
+    p.carry = raw - whole;
+    return whole;
+  }
+
   /** Charge, chain and bookkeeping for a finished cascade. */
   credit(p, out) {
     p.swaps += 1;
     p.cleared += out.cleared;
-    p.charge = Math.min(MAX_CHARGE, p.charge + out.charge);
+    p.charge = Math.min(MAX_CHARGE, p.charge + this.chargeFrom(p, out.charge));
     p.maxChain = Math.max(p.maxChain, out.chain);
   }
 
@@ -224,7 +237,9 @@ export class MatchArena {
    * its way here before any of it reaches the other well.
    */
   launch(p, len, now) {
-    const send = launchSize(p.charge, len);
+    // A person's word adds a little for being long. The computer types none, so it
+    // sends what it has charged, to the most its level allows.
+    const send = p.ai ? Math.min(aiLevelById(p.ai).cap, Math.round(p.charge)) : launchSize(p.charge, len);
     p.charge = 0;
     p.sent += send;
     p.riseAt += SOLVE_BREATH_MS;
@@ -296,7 +311,7 @@ export class MatchArena {
           // What a rise happens to make is cleared and credited like anything
           // else, but it is not a move the player made.
           p.cleared += out.cleared;
-          p.charge = Math.min(MAX_CHARGE, p.charge + out.charge);
+          p.charge = Math.min(MAX_CHARGE, p.charge + this.chargeFrom(p, out.charge));
           p.maxChain = Math.max(p.maxChain, out.chain);
         }
         this.keepPlayable(p);

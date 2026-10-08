@@ -22,8 +22,8 @@ ok('an emptied room stops resolving', (await find('BBB')).game === null);
 
 const list=(await (await d.fetch(new Request('https://x/list'))).json()).dojos;
 ok('the board carries the game type', list.every(r=>!!r.game));
-ok('a room with no game stated defaults to crossword',
-  (await post('/announce',{code:'DDD',sensei:'X',players:1,phase:'LOBBY'}),
-   (await find('DDD')).game === 'crossword'));
+const nogame=await post('/announce',{code:'DDD',sensei:'X',players:1,phase:'LOBBY'});
+ok('a room with no game stated is refused, not filed as a crossword',
+  nogame.status===400 && (await find('DDD')).game===null);
 console.log(bad?`\n${bad} failing`:'\nall routing checks passed');
 process.exit(bad?1:0);

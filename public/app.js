@@ -613,17 +613,21 @@ async function loadDojos() {
       const li = el("li");
       const main = el("div", "dojo-main-col");
       main.append(el("span", "name", `${d.sensei}'s dojo`));
-      const label = (g) => GAME_MODES.find((m) => m.game === g)?.name || "Word Cross";
+      // A row is only as good as the game it names. One this version cannot open
+      // is shown as exactly that, with the door shut, never as a crossword.
+      const known = isRoomGame(d.game);
+      const label = (g) => GAME_MODES.find((m) => m.game === g)?.name || g;
       const detail = d.phase === "ACTIVE"
         ? `Round ${d.roundNo} under way${d.puzzle ? ` — ${d.puzzle}` : ""}`
         : d.puzzle ? `Waiting to start — ${d.puzzle}` : "Getting set up";
       main.append(el("span", "meta", detail));
       li.append(main);
-      li.append(el("span", "game-tag", label(d.game || "crossword")));
+      li.append(el("span", "game-tag", known ? label(d.game) : "Unknown game"));
       li.append(el("span", "count", `${d.players} in`));
       if (d.phase === "ACTIVE") li.append(el("span", "tag-live", "live"));
       const join = el("button", "btn btn-tiny", "Enter");
-      join.onclick = () => openRoom(d.game || "crossword", d.code);
+      if (known) join.onclick = () => openRoom(d.game, d.code);
+      else { join.disabled = true; join.title = "This version doesn't know that game. Update the app."; }
       li.append(join);
       list.append(li);
     }
@@ -2260,8 +2264,8 @@ function drawCreate() {
       <div class="modal-body">
       <div class="gamegrid">
         ${GAME_MODES.map((m) => m.available
-          ? `<button class="gamepick" data-mode="${m.id}" data-kind="${m.kind}" data-game="${m.game || "crossword"}">
-              <span class="gp-ico" aria-hidden="true">${GAME_ICONS[m.game || "crossword"] || "\u{1F3AE}"}</span>
+          ? `<button class="gamepick" data-mode="${m.id}" data-kind="${m.kind}" data-game="${m.game ?? ""}">
+              <span class="gp-ico" aria-hidden="true">${GAME_ICONS[m.game] || "\u{1F3AE}"}</span>
               <span class="gp-name">${m.name}</span>
               <span class="gp-players">${m.players}</span>
             </button>`
@@ -2279,9 +2283,12 @@ function drawCreate() {
   $("drawer-create").querySelectorAll("button[data-mode]").forEach((b) => {
     b.onclick = async () => {
       closeCreate();
+      // A mode that does not say which game it opens is a fault in the menu. It is
+      // reported, not opened as a crossword.
+      if (!b.dataset.game) return say("rooms-error", "That mode doesn't say which game it is.");
       const res = await fetch("/api/dojo/new");
       const { code } = await res.json();
-      openRoom(b.dataset.game || "crossword", code, true);
+      openRoom(b.dataset.game, code, true);
     };
   });
 }
@@ -3421,12 +3428,14 @@ const idToken = () => auth.currentUser.getIdToken();
 
 /** Opens whichever game a code belongs to. */
 async function joinByCode(code) {
-  let game = "crossword";
+  let game;
   try {
     const res = await fetch(`/api/room/${encodeURIComponent(code)}`);
     const body = await res.json();
-    if (body.game) game = body.game;
-    else return say("rooms-error", "No room with that code. Check it and try again.");
+    // The room is there but is not a game this version can place: say that.
+    if (!body.game && body.error) return say("rooms-error", `${body.error} Update the app.`);
+    if (!body.game) return say("rooms-error", "No room with that code. Check it and try again.");
+    game = body.game;
   } catch {
     return say("rooms-error", "Couldn't reach the arena. Try again.");
   }
@@ -3459,13 +3468,29 @@ function forgetRoom() {
 
 /** The room a refreshed page should walk back into, if there is one. */
 function roomInUrl() {
-  const m = /^#([a-z]+):([A-Za-z0-9-]{1,12})$/.exec(location.hash || "");
-  if (!m || !REJOINABLE.has(m[1])) return null;
+  // The game id can hold a digit ("match3"), which the saved link has always carried.
+  const m = /^#([a-z][a-z0-9]*):([A-Za-z0-9-]{1,12})$/.exec(location.hash || "");
+  if (!m) return null;
+  if (!REJOINABLE.has(m[1])) {
+    // A stale or mistyped link. It is dropped and said, not opened as something else.
+    console.warn(`[rooms] ignoring #${m[1]}:${m[2]}: ${m[1]} is not a game this version can reopen.`);
+    forgetRoom();
+    return null;
+  }
   return { game: m[1], code: m[2].toUpperCase() };
 }
 
+/**
+ * True only for a game with an opener of its own. "constructor" and "toString" are
+ * on every object, and a name that merely exists there is not a game to open.
+ * hasOwnProperty rather than Object.hasOwn, which phones from before 2022 lack.
+ */
+function isRoomGame(game) {
+  return typeof game === "string" && Object.prototype.hasOwnProperty.call(ROOMS, game);
+}
+
 function openRoom(game, code, fresh = false) {
-  const open = ROOMS[game];
+  const open = isRoomGame(game) ? ROOMS[game] : null;
   if (!open) {
     // Better to say so than to guess and open the wrong game, which is
     // exactly what a silent fallback to the crossword used to do.

@@ -7,6 +7,8 @@ import {
   postChat, postFeed, withdrawWallet, refundWallet,
   publishScroll, listScrolls, lastFirestoreError,
 } from "./firestore.js";
+import { ROOM_SEGMENTS, resolveRoomRoute } from "./rooms.js";
+import { reportRuntimeIssue } from "./observability.js";
 import { makePuzzle, scoreSolve, cashReward, MAX_AWARD, LIMIT_MS, FAST_MS, FAST_MULTIPLIER } from "./puzzle.js";
 import { STARTER_INDEX } from "./starter-puzzles.js";
 
@@ -22,6 +24,10 @@ export { GrandPrix } from "./grand-prix.js";
 export { BuzzerRoom } from "./buzzer-room.js";
 export { TankDuel } from "./artillery-room.js";
 export { MatchArena } from "./match3-room.js";
+
+// /api/<segment>/<code>/ws for every game that has rooms, built from the one
+// table in rooms.js so the route and the namespace it picks cannot disagree.
+const ROOM_SOCKET = new RegExp(`^/api/(${ROOM_SEGMENTS.join("|")})/([A-Za-z0-9-]{3,16})/ws$`);
 
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no I/O/0/1
 const CODE_LENGTH = 5;
@@ -600,7 +606,7 @@ export default {
 
     // Battleship, Minesweeper, Multiverse Golf, the Grand Prix, the Buzzer
     // and the tank duel all hand off the same way.
-    const room = /^\/api\/(battle|mines|links|prix|buzzer|tanks|match3)\/([A-Za-z0-9-]{3,16})\/ws$/.exec(path);
+    const room = ROOM_SOCKET.exec(path);
     if (room) {
       if (request.headers.get("Upgrade") !== "websocket")
         return new Response("Expected a WebSocket upgrade.", { status: 426 });
@@ -612,13 +618,14 @@ export default {
       }
       if ((await barred(env, user.uid)).banned) return new Response("Removed from the arena.", { status: 403 });
       const code = room[2].toUpperCase();
-      const ns = room[1] === "mines" ? env.MINES
-        : room[1] === "tanks" ? env.TANKS
-        : room[1] === "match3" ? env.MATCH3
-        : room[1] === "buzzer" ? env.BUZZER
-        : room[1] === "links" ? env.LINKS
-        : room[1] === "prix" ? env.PRIX
-        : env.BATTLE;
+      // The namespace comes from the table. A game with no binding is refused
+      // out loud; there is no room type to fall back on.
+      const route = resolveRoomRoute(room[1], env);
+      if (!route.ok) {
+        reportRuntimeIssue("room-contract", route.detail, { segment: room[1], code }, "error");
+        return json({ error: route.error }, route.status);
+      }
+      const ns = route.ns;
       const stub = ns.get(ns.idFromName(code));
       const fwd = new Request(request);
       fwd.headers.set("X-Dojo-Uid", user.uid);

@@ -12,6 +12,7 @@
 import { ALL_TOKENS } from "./arsenals.js";
 import { MULTIPLIERS } from "./mmr.js";
 import { tellCommons } from "./commons-notify.js";
+import { reportRuntimeIssue } from "./observability.js";
 import { allowed, featsFor, isMark, assistedRound, BIG_BANK } from "../public/cosmetics.js";
 import { GI_COLORS } from "../public/arena.js";
 import { rankOf, atTop, nextBranch, branchOf } from "../public/ranks.js";
@@ -39,7 +40,11 @@ function b64url(bytes) {
 // Every failure here used to be silent, which meant a broken leaderboard
 // looked exactly like a working one with no games played. It now says why.
 export let lastFirestoreError = null;
-const fail = (why) => { lastFirestoreError = why; console.error(`[firestore] ${why}`); return null; };
+const fail = (why, meta = {}) => {
+  lastFirestoreError = why;
+  reportRuntimeIssue("firestore", why, meta, "error");
+  return null;
+};
 
 function account(env) {
   if (!env.FIREBASE_SERVICE_ACCOUNT)

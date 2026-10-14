@@ -102,7 +102,7 @@ export const FLEET = FLEETS.easy;
 export const SHOTS_PER_TURN = MAPS.easy.shots;
 
 // You must fire at this many other people before coming back to someone.
-export const COOLDOWN_TARGETS = 3;
+export const COOLDOWN_TARGETS = 1;
 
 /**
  * The most shots one captain may put on one rival in a single turn.

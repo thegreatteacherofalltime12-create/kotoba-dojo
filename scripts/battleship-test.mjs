@@ -43,24 +43,24 @@ ok("two hundred random fleets are all legal", allGood);
 console.log("\ntarget cooldown");
 ok("anyone is fair game to start", canTarget([], "b", 6).ok);
 ok("cannot immediately repeat", canTarget(["b"], "b", 6).ok === false);
-ok("two others isn't enough", canTarget(["b", "c", "d"], "b", 6).ok === false);
-ok("three others frees them", canTarget(["b", "c", "d", "e"], "b", 6).ok === true);
-ok("the same player twice counts once",
-  canTarget(["b", "c", "c", "c"], "b", 6).ok === false);
-ok("it counts from the LAST time you hit them",
-  canTarget(["b", "c", "d", "e", "b", "c"], "b", 6).ok === false);
+ok("one other is enough to return", canTarget(["b", "c"], "b", 6).ok === true);
+ok("three others also frees them", canTarget(["b", "c", "d", "e"], "b", 6).ok === true);
+ok("one distinct other is enough, even if they were fired at many times",
+  canTarget(["b", "c", "c", "c"], "b", 6).ok === true);
+ok("it counts from the LAST time you hit them — one other since then suffices",
+  canTarget(["b", "c", "d", "e", "b", "c"], "b", 6).ok === true);
 ok("the message says how many are left",
-  canTarget(["b", "c"], "b", 6).remaining === 2);
-ok("with three opponents it asks for two others, not three", canTarget(["b"], "b", 3).ok === false && canTarget(["b", "c", "d"], "b", 3).ok === true);
+  canTarget(["b"], "b", 6).remaining === 1);
+ok("with three opponents, one other is all it takes", canTarget(["b"], "b", 3).ok === false && canTarget(["b", "c"], "b", 3).ok === true);
 ok("with two it asks for the other one — no hitting the same captain every turn", canTarget(["b"], "b", 2).ok === false && canTarget(["b", "c"], "b", 2).ok === true);
 ok("with one rival there is nobody else, so it cannot apply", canTarget(["b", "b"], "b", 1).ok === true);
-ok("with four it is the full three", canTarget(["b", "c", "d"], "b", 4).ok === false && canTarget(["b", "c", "d", "e"], "b", 4).ok === true);
+ok("with four opponents, one other is all that's needed", canTarget(["b"], "b", 4).ok === false && canTarget(["b", "c"], "b", 4).ok === true);
 
 console.log("\nthe rotation always holds");
-ok("three rivals, four shots, two closed off: the rotation still holds",
-  canTargetFor(["b", "c"], "b", ["b", "c", "d"], 4).ok === false);
-ok("but with room to place every shot at two apiece it holds",
-  canTargetFor(["b", "c"], "b", ["b", "c", "d", "e", "f"], 4).ok === false);
+ok("the most recently fired captain is closed",
+  canTargetFor(["b", "c"], "c", ["b", "c", "d"], 4).ok === false);
+ok("once one other has been fired at, they are open again",
+  canTargetFor(["c", "b"], "c", ["b", "c", "d"], 4).ok === true);
 
 console.log("\ntarget list");
 const players = {
@@ -161,13 +161,13 @@ ok("two rivals and five shots: all five fire, split three and two",
   }));
 ok("a rotation that leaves two open takes four between them, two apiece",
   aiTargets(["a", "b", "c"], foes, 4, "medium").map((p) => p.count).sort((a, b) => b - a).join() === "2,2");
-ok("with five shots the two that are open take all five, three and two, and the rotation holds",
+ok("with five shots and only the last captain closed, four are open: all five fire spread 2-2-1",
   aiTargets(["a", "b", "c"], foes, 5, "medium").reduce((n, p) => n + p.count, 0) === 5 &&
-  aiTargets(["a", "b", "c"], foes, 5, "medium").map((p) => p.count).sort((a, b) => b - a).join() === "3,2");
-const hist = ["a", "b", "c"];
+  aiTargets(["a", "b", "c"], foes, 5, "medium").map((p) => p.count).sort((a, b) => b - a).join() === "2,2,1");
+const hist = ["a", "b", "c", "d", "e"];
 const seen = new Set();
 for (let i = 0; i < 40; i++) for (const p of aiTargets(hist, foes, 4, "hard")) seen.add(p.target);
-ok("it obeys the rotation: those it fired at last are off the list", !seen.has("a") && !seen.has("b") && !seen.has("c") && seen.has("d") && seen.has("e"));
+ok("it obeys the rotation: the most recently fired captain is off the list", !seen.has("e") && seen.has("a") && seen.has("b") && seen.has("c") && seen.has("d"));
 ok("with one opponent it fires everything at them", aiTargets([], [{ uid: "z" }], 5, "hard").length === 1);
 ok("two shots on hard still split one and one", aiTargets([], foes, 2, "hard").map((p) => p.count).join() === "1,1");
 

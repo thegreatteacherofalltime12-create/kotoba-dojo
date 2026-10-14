@@ -124,18 +124,26 @@ export const COOLDOWN_TARGETS = 3;
  * rotation leaves open.
  */
 export const MIN_PER_TARGET = 2;
-export function perTargetCap() {
-  return MIN_PER_TARGET;
+
+/**
+ * The most shots one captain may put on one rival in a single turn.
+ *
+ * Two is the floor. When too few rivals are open to absorb all the turn's
+ * shots at two apiece — one allowed target with four shots — the cap rises to
+ * the smallest number that lets every shot be placed.
+ */
+export function perTargetCap(shots, open) {
+  if (!(open > 0) || !(shots > 0)) return MIN_PER_TARGET;
+  return Math.max(MIN_PER_TARGET, Math.ceil(shots / open));
 }
 
 /**
  * How many shots a turn actually fires: the chart's count, but never more than
- * two apiece can place on the captains who may be fired on. The limit is
- * absolute — it does not rise to make room — so with too few rivals open the
- * volley is smaller rather than heavier.
+ * the cap apiece can place on the captains who may be fired on.
  */
 export function volleyShots(shots, open) {
-  return Math.max(0, Math.min(Number(shots) || 0, MIN_PER_TARGET * Math.max(0, open | 0)));
+  const cap = perTargetCap(shots, open);
+  return Math.max(0, Math.min(Number(shots) || 0, cap * Math.max(0, open | 0)));
 }
 
 export const key = (r, c) => `${r},${c}`;
@@ -421,7 +429,7 @@ export function aiTargets(history, foes, shots, difficulty) {
   // it takes to keep every board under pressure, never fewer than two.
   shots = volleyShots(shots, pool.length);
   if (!(shots > 0)) return [];
-  const cap = perTargetCap();
+  const cap = perTargetCap(shots, pool.length);
   const fewest = Math.ceil(shots / cap);
   const spread = difficulty === "hard" ? Math.max(2, fewest) : fewest;
   const n = Math.min(pool.length, shots, spread);

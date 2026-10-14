@@ -3114,6 +3114,48 @@ a.dtab { text-decoration: none; display: inline-block; }
 .bgrid { --n: 10; }
 @media (max-width: 700px) { .bgrid { font-size: .55rem; } }
 
+/* ── axis labels wrapper ───────────────────────────────────────────────
+ * Numbers across the top (X axis / columns), letters down the left
+ * (Y axis / rows). A 2×2 CSS grid so labels share column and row sizes
+ * with the board they label. */
+.bgrid-wrap {
+  display: grid;
+  grid-template-areas: "corner nums" "lets grid";
+  grid-template-columns: 1.6em 1fr;
+  grid-template-rows: 1.4em auto;
+  gap: 2px;
+  width: min(100%, calc(26rem + 1.6em + 4px));
+}
+.bgrid-corner { grid-area: corner; }
+.bgrid-nums {
+  grid-area: nums;
+  display: grid;
+  grid-template-columns: repeat(var(--n), 1fr);
+  gap: 2px;
+  padding: 0 4px;
+  align-items: center;
+}
+.bgrid-lets {
+  grid-area: lets;
+  display: grid;
+  grid-template-rows: repeat(var(--n), 1fr);
+  gap: 2px;
+  padding: 4px 0;
+  align-items: center;
+  justify-items: center;
+}
+.bgrid-wrap .bgrid { grid-area: grid; width: 100%; }
+.blabel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(0.38rem, 1.1vw, 0.58rem);
+  color: var(--fg2, #8898a8);
+  user-select: none;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
 /* ── the player's card ─────────────────────────────────────────────────
  * Pinned to the top-right of the landing page, on every screen size. The
  * insignia over the name, the gi in a ring, MMR and belt and rank beside it,

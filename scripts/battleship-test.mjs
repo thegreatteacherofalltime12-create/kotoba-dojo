@@ -132,11 +132,11 @@ console.log("\nhow many one rival may take");
 ok("two, to begin with", MIN_PER_TARGET === 2);
 ok("five shots over five rivals is two apiece", perTargetCap(5, 5) === 2);
 ok("two shots over any number of rivals is still two", perTargetCap(2, 1) === 2 && perTargetCap(2, 4) === 2);
-ok("two, however many shots there are and however few rivals", [1, 2, 5, 11].every((shots) => [0, 1, 2, 5].every((n) => perTargetCap(shots, n) === 2)));
-ok("a lone rival takes two, not everything", perTargetCap(5, 1) === 2);
+ok("cap stays two when rivals can absorb all shots at two apiece", [2, 4, 5, 6].every((shots) => [2, 3, 5].every((n) => !(n * 2 >= shots) || perTargetCap(shots, n) === 2)));
+ok("a lone rival takes all the shots", perTargetCap(5, 1) === 5 && perTargetCap(4, 1) === 4 && perTargetCap(3, 1) === 3);
 ok("the volley is the chart's shots when there are rivals enough", volleyShots(5, 4) === 5 && volleyShots(4, 2) === 4);
-ok("and smaller when there are not — five shots over two open rivals is four", volleyShots(5, 2) === 4);
-ok("one open rival takes two shots, never five", volleyShots(5, 1) === 2);
+ok("five shots over two open rivals is still five — cap rises to fit", volleyShots(5, 2) === 5);
+ok("one open rival takes all the shots", volleyShots(5, 1) === 5);
 ok("nobody open fires nothing", volleyShots(5, 0) === 0);
 
 console.log("\nthe computer's targets");
@@ -154,12 +154,16 @@ ok("and every shot is placed", ["easy", "medium", "hard"].every((lvl) => [1, 2, 
     aiTargets([], foes, shots, lvl).reduce((n, p) => n + p.count, 0) === shots)));
 ok("two rivals and four shots is two each, whoever is shooting",
   ["easy", "medium", "hard"].every((lvl) => aiTargets([], foes.slice(0, 2), 4, lvl).map((p) => p.count).join() === "2,2"));
-ok("two rivals and five shots is two each: the fifth is not fired",
-  ["easy", "medium", "hard"].every((lvl) => aiTargets([], foes.slice(0, 2), 5, lvl).map((p) => p.count).join() === "2,2"));
+ok("two rivals and five shots: all five fire, split three and two",
+  ["easy", "medium", "hard"].every((lvl) => {
+    const t = aiTargets([], foes.slice(0, 2), 5, lvl);
+    return t.reduce((n, p) => n + p.count, 0) === 5 && t.map((p) => p.count).sort((a, b) => b - a).join() === "3,2";
+  }));
 ok("a rotation that leaves two open takes four between them, two apiece",
-  aiTargets(["a", "b", "c"], foes, 4, "medium").map((p) => p.count).join() === "2,2");
-ok("with five shots the two that are open take two each, and the rotation is not set aside",
-  aiTargets(["a", "b", "c"], foes, 5, "medium").map((p) => p.count).join() === "2,2");
+  aiTargets(["a", "b", "c"], foes, 4, "medium").map((p) => p.count).sort((a, b) => b - a).join() === "2,2");
+ok("with five shots the two that are open take all five, three and two, and the rotation holds",
+  aiTargets(["a", "b", "c"], foes, 5, "medium").reduce((n, p) => n + p.count, 0) === 5 &&
+  aiTargets(["a", "b", "c"], foes, 5, "medium").map((p) => p.count).sort((a, b) => b - a).join() === "3,2");
 const hist = ["a", "b", "c"];
 const seen = new Set();
 for (let i = 0; i < 40; i++) for (const p of aiTargets(hist, foes, 4, "hard")) seen.add(p.target);

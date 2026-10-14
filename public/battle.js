@@ -418,6 +418,19 @@ function drawPlacing() {
     for (const cell of cellsFor(p.row, p.col, p.dir, s.len)) taken.set(cell, s.id);
   }
 
+  const wrap = el("div", "bgrid-wrap");
+  wrap.append(el("span", "bgrid-corner"));
+
+  const nums = el("div", "bgrid-nums");
+  nums.style.setProperty("--n", String(B.size));
+  for (let c = 0; c < B.size; c++) nums.append(el("span", "blabel", String(c + 1)));
+  wrap.append(nums);
+
+  const lets = el("div", "bgrid-lets");
+  lets.style.setProperty("--n", String(B.size));
+  for (let r = 0; r < B.size; r++) lets.append(el("span", "blabel", String.fromCharCode(65 + r)));
+  wrap.append(lets);
+
   const grid = el("div", "bgrid");
   grid.style.setProperty("--n", String(B.size));
   for (let r = 0; r < B.size; r++) {
@@ -431,8 +444,9 @@ function drawPlacing() {
       grid.append(box);
     }
   }
+  wrap.append(grid);
   $("place-grid").textContent = "";
-  $("place-grid").append(grid);
+  $("place-grid").append(wrap);
 }
 
 function preview(grid, r, c, taken) {
@@ -533,9 +547,26 @@ function sendChat() {
  * is and how big — and changing it builds a fresh one.
  */
 function paintGrid(host, key, size, cls, paint) {
-  let grid = host.firstElementChild;
-  if (!grid || grid.dataset.key !== key) {
+  let wrap = host.firstElementChild;
+  let grid;
+
+  if (!wrap || wrap.dataset.wrapKey !== key) {
     host.textContent = "";
+    wrap = el("div", "bgrid-wrap");
+    wrap.dataset.wrapKey = key;
+
+    wrap.append(el("span", "bgrid-corner"));
+
+    const nums = el("div", "bgrid-nums");
+    nums.style.setProperty("--n", String(size));
+    for (let c = 0; c < size; c++) nums.append(el("span", "blabel", String(c + 1)));
+    wrap.append(nums);
+
+    const lets = el("div", "bgrid-lets");
+    lets.style.setProperty("--n", String(size));
+    for (let r = 0; r < size; r++) lets.append(el("span", "blabel", String.fromCharCode(65 + r)));
+    wrap.append(lets);
+
     grid = el("div", cls);
     grid.dataset.key = key;
     grid.style.setProperty("--n", String(size));
@@ -549,10 +580,13 @@ function paintGrid(host, key, size, cls, paint) {
       }
     }
     grid.append(frag);
-    host.append(grid);
-  } else if (grid.className !== cls) {
-    grid.className = cls;
+    wrap.append(grid);
+    host.append(wrap);
+  } else {
+    grid = wrap.querySelector("[data-key]");
+    if (grid.className !== cls) grid.className = cls;
   }
+
   for (let i = 0; i < grid.children.length; i++) paint(grid.children[i], grid.children[i].dataset.cell);
   return grid;
 }
@@ -636,6 +670,8 @@ function drawBattle(me) {
     const span = B.mode === "nuke" ? (B.arsenal?.nukeSpan || 1)
       : B.mode === "strike" ? (B.arsenal?.strikeSpan || 6)
       : B.mode === "sonar" ? 3 : 1;
+    const tgt = myTurn && B.targets.length ? B.targets.find((t) => t.uid === enemy.uid) : null;
+    const targetBlocked = !!(tgt && !tgt.allowed);
     const grid = paintGrid(board, `${enemy.uid}:${B.size}`, B.size, "bgrid", (box, cell) => {
       const known = seen.has(cell);
       box.className = "bcell" +
@@ -643,7 +679,7 @@ function drawBattle(me) {
         (wrecked.has(cell) ? " wreck" : "") +
         (intel.has(cell) ? " shield" : shown.has(cell) ? " shield spent" : "") +
         (mine.includes(cell) ? " picked" : "");
-      box.disabled = !myTurn || (known && !blastMode);
+      box.disabled = !myTurn || targetBlocked || (known && !blastMode);
     });
 
     // One handler on the grid rather than one on every cell: the same work,

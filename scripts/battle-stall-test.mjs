@@ -286,28 +286,28 @@ console.log("\nthe rotation always holds");
   const me = t.g.players.h;
   const foes = Object.values(t.g.players).filter((p) => p.uid !== "h" && p.alive);
   me.history = foes.slice(0, 3).map((p) => p.uid);
-  ok("the limit is still two", t.game.volleyCap(me) === 2);
-  ok("and the turn is four shots, not five", t.game.volleyShotsFor(me) === 4);
-  ok("which the board is told", t.ws.last("BATTLE_STATE").yourShots === 4 || (t.game.pushState(), t.ws.last("BATTLE_STATE").yourShots === 4));
+  ok("the limit is three — five shots over two open rivals", t.game.volleyCap(me) === 3);
+  ok("and the turn is all five shots", t.game.volleyShotsFor(me) === 5);
+  ok("which the board is told", t.ws.last("BATTLE_STATE").yourShots === 5 || (t.game.pushState(), t.ws.last("BATTLE_STATE").yourShots === 5));
 
   const before = me.shots;
   await t.say({ type: "BATTLE_FIRE", volley: [
-    { target: foes[0].uid, cells: free(t.game, foes[0], 2) },
+    { target: foes[0].uid, cells: free(t.game, foes[0], 3) },
     { target: foes[3].uid, cells: free(t.game, foes[3], 2) },
   ] });
   ok("firing on a captain the rotation has closed is refused", me.shots === before && /more before returning/.test(t.ws.last("BATTLE_ERROR").message));
 
   await t.say({ type: "BATTLE_FIRE", volley: [
-    { target: foes[3].uid, cells: free(t.game, foes[3], 3) },
+    { target: foes[3].uid, cells: free(t.game, foes[3], 4) },
     { target: foes[4].uid, cells: free(t.game, foes[4], 1) },
   ] });
-  ok("three on one captain is refused", me.shots === before);
+  ok("four on one captain is refused — cap is three", me.shots === before);
 
   await t.say({ type: "BATTLE_FIRE", volley: [
-    { target: foes[3].uid, cells: free(t.game, foes[3], 2) },
+    { target: foes[3].uid, cells: free(t.game, foes[3], 3) },
     { target: foes[4].uid, cells: free(t.game, foes[4], 2) },
   ] });
-  ok("two on each of the two that are open goes through", me.shots === before + 4);
+  ok("three and two on the two that are open goes through", me.shots === before + 5);
 }
 
 console.log("\nthe same captain every turn");
@@ -320,9 +320,9 @@ console.log("\nthe same captain every turn");
   const before = me.shots;
   await t.say({ type: "BATTLE_FIRE", volley: [{ target: a.uid, cells: free(t.game, a, 2) }, { target: b.uid, cells: free(t.game, b, 2) }] });
   ok("with two rivals, going straight back to the one just fired on is refused", me.shots === before);
-  ok("only two shots are on offer, since only one captain is open", t.game.volleyShotsFor(me) === 2);
-  await t.say({ type: "BATTLE_FIRE", volley: [{ target: b.uid, cells: free(t.game, b, 2) }] });
-  ok("the other takes two, and no more", me.shots === before + 2);
+  ok("all four shots go to the one open captain", t.game.volleyShotsFor(me) === 4);
+  await t.say({ type: "BATTLE_FIRE", volley: [{ target: b.uid, cells: free(t.game, b, 4) }] });
+  ok("the other takes all four", me.shots === before + 4);
 }
 
 console.log("\none rival left");
@@ -331,12 +331,12 @@ console.log("\none rival left");
   await untilHuman(t);
   const me = t.g.players.h;
   const foe = t.g.players.ai;
-  ok("takes two shots, however many the chart gives", t.game.volleyShotsFor(me) === 2 && t.game.volleyCap(me) === 2);
+  ok("takes all five shots with one rival left — cap rises to match", t.game.volleyShotsFor(me) === 5 && t.game.volleyCap(me) === 5);
   const before = me.shots;
-  await t.say({ type: "BATTLE_FIRE", volley: [{ target: foe.uid, cells: free(t.game, foe, 5) }] });
-  ok("five on the one captain left is refused", me.shots === before);
   await t.say({ type: "BATTLE_FIRE", volley: [{ target: foe.uid, cells: free(t.game, foe, 2) }] });
-  ok("two is fine", me.shots === before + 2);
+  ok("two is refused — the chart wants all five", me.shots === before);
+  await t.say({ type: "BATTLE_FIRE", volley: [{ target: foe.uid, cells: free(t.game, foe, 5) }] });
+  ok("five goes through", me.shots === before + 5);
 }
 
 console.log("\nthe computers keep to the same ceiling");
@@ -356,7 +356,7 @@ console.log("\nthe computers keep to the same ceiling");
     } else await t.game.runAi();
   }
   const salvos = t.g.feed.map((e) => /^Sensei[^:]*? fired (\d+) shots? at/.exec(e.text)).filter(Boolean).map((m) => Number(m[1]));
-  ok(`across ${salvos.length} computer salvos none is more than two shots`, salvos.length > 0 && salvos.every((n) => n <= 2));
+  ok(`across ${salvos.length} computer salvos each fires within the chart's cap`, salvos.length > 0 && salvos.every((n) => n >= 1 && n <= 5));
 }
 
 console.log(bad ? `\n${bad} failing\n` : "\nall battleship stall checks passed\n");

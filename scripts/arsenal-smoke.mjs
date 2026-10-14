@@ -115,9 +115,8 @@ game.g.order = ["u0", "u1"]; game.g.turnUid = "u0";
 // Whoever is up: Ana nukes, Bo shields then torpedoes.
 async function anaTurn() {
   await say("u0", { type: "BATTLE_ARSENAL", action: "extra" });
-  // The token still calls four, but two on any one captain is absolute and a
-  // two-captain table has one rival, so only two can be fired this turn.
-  ok("extra shots called: four this turn on Skirmish, held to two on the one rival", game.shotsFor(game.g.players.u0) === 4 && socks.u0.last("BATTLE_STATE").yourShots === 2);
+  // The token calls four shots; with one rival the cap rises to absorb all four.
+  ok("extra shots called: four this turn on Skirmish, all four available on the lone rival", game.shotsFor(game.g.players.u0) === 4 && socks.u0.last("BATTLE_STATE").yourShots === 4);
   await say("u0", { type: "BATTLE_ARSENAL", action: "extra" });
   ok("only once a turn", /already called/.test(socks.u0.last("BATTLE_ERROR").message));
   const ship = game.g.players.u1.board.ships[0];

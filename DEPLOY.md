@@ -1,12 +1,14 @@
 # Kotoba Dojo — deploy this package
 
-Extract over the project root, then deploy. Two commands.
+Import the zip, then deploy. Two commands.
 
 ```powershell
-Expand-Archive -Path "D:\Appbuilder\omni-blackjack.zip" -DestinationPath "D:\Appbuilder\kotoba-dojo" -Force
-cd D:\Appbuilder\kotoba-dojo
+npm run import -- "D:\Appbuilder\omni-blackjack.zip"
 npx.cmd wrangler deploy
 ```
+
+> **Do not** use `Expand-Archive -Force` into the project folder — it silently
+> restores old copies of every file not in the zip, which has caused problems before.
 
 Confirm it landed:
 

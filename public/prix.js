@@ -103,7 +103,7 @@ function handle(msg) {
       draw();
       break;
     case "PRIX_START":
-      P.clockSkew = Date.now() - (msg.serverNow || Date.now());
+      P.clockSkew = msg.serverNow != null ? Date.now() - msg.serverNow : 0;
       say("");
       // The sky is up by now — the state that turned the phase to RACING came
       // first — so this only has to name the place.
@@ -111,7 +111,7 @@ function handle(msg) {
       break;
     case "PRIX_ITEM":
       P.item = msg;
-      P.clockSkew = Date.now() - (msg.serverNow || Date.now());
+      P.clockSkew = msg.serverNow != null ? Date.now() - msg.serverNow : 0;
       drawItem();
       break;
     case "PRIX_RESULT":

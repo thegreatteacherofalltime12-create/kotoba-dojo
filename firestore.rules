@@ -11,9 +11,12 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // Profiles are readable by signed-in players so a lobby can show names.
+    // Writes come only from the Worker's service account (which bypasses these
+    // rules), so no client — not even the profile owner — may write this
+    // document directly. That closes the path to self-inflating a casino wallet.
     match /users/{uid} {
       allow read: if request.auth != null;
-      allow write: if request.auth != null && request.auth.uid == uid;
+      allow write: if false;
 
       // A player's own scrolls. Nobody else can read them, so a sensei's
       // saved answers don't leak to the students.

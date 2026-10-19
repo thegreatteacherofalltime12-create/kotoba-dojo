@@ -2,7 +2,8 @@
 // batch lands rather than hand-editing the module, so the module and the
 // files it came from can never drift.
 const fs = require("fs");
-const ROOT = "D:/Appbuilder/kotoba-dojo/";
+const path = require("path");
+const ROOT = path.join(__dirname, "..") + path.sep;
 
 const FILES = fs.readdirSync(ROOT).filter((f) => /^buzzer-clues-.*.json$/.test(f)).sort();
 const scopes = JSON.parse(fs.readFileSync(ROOT + "buzzer-scopes.json", "utf8"));

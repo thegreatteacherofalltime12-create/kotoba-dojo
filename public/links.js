@@ -466,7 +466,8 @@ onAuthStateChanged(auth, async (user) => {
 
   // Arrived from Open Rooms with a code attached: join straight into it
   // rather than making them type the code they just clicked.
-  const arrived = decodeURIComponent(location.hash.slice(1)).toUpperCase();
+  let arrived = "";
+  try { arrived = decodeURIComponent(location.hash.slice(1)).toUpperCase(); } catch { /* malformed hash — treat as no code */ }
   const creating = arrived.startsWith("NEW:");
   const invited = creating ? "" : arrived;
   if (creating) {

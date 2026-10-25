@@ -465,7 +465,8 @@ function ensureStyles() {
 .tok-btn.tok-minus { padding: .4rem .55rem; }
 .tok-hulls { display: flex; gap: .3rem; flex-wrap: wrap; margin-top: .3rem; }
 .tok-hulls select { font: inherit; font-size: .7rem; background: rgba(255,255,255,.08); color: inherit; border: 1px solid rgba(255,255,255,.18); border-radius: 6px; padding: .2rem .3rem; }
-.tok-off { font-size: .74rem; opacity: .7; }`;
+.tok-off { font-size: .74rem; opacity: .7; }
+.tok-acts select { font: inherit; font-size: .7rem; background: rgba(255,255,255,.08); color: inherit; border: 1px solid rgba(255,255,255,.18); border-radius: 6px; padding: .2rem .4rem; }`;
   document.head.appendChild(css);
 }
 
@@ -582,7 +583,7 @@ export function applyTokenTab({ game, send, button, host, label, arsenal = false
         ? `<p class="tok-note good">⚡ Applied. ${state.day
           ? "Every casino win for the rest of today (UTC) pays half again."
           : `This ${label || "match"} pays ${worth}× MMR when it is scored.`}</p>`
-        : !state.loading && total === 0
+        : !state.loading && total === 0 && typeof window.__getToken !== "function"
           ? `<p class="tok-empty">You hold none. Buy them with casino money from the ⚡ Arsenal Shop on the home screen.</p>`
           : "";
     h.innerHTML = `
@@ -596,6 +597,7 @@ export function applyTokenTab({ game, send, button, host, label, arsenal = false
             ${mults ? `<p class="tok-sub">Multipliers work in any game. One to a ${label || "match"}, instead of the boost rather than as well as it.</p>${mults}` : ""}
             ${note}
             ${arsenal ? arsenalHtml() : ""}
+            ${buyHtml()}
           </div>
         </div>
       </div>`;
@@ -629,6 +631,30 @@ export function applyTokenTab({ game, send, button, host, label, arsenal = false
     });
     h.querySelectorAll("[data-disarm]").forEach((n) => {
       n.onclick = () => { state = { ...state, busy: true, error: null }; draw(); send({ type: "DISARM_TOKEN", key: n.dataset.disarm }); };
+    });
+    h.querySelectorAll("[data-buy]").forEach((n) => {
+      n.onclick = async () => {
+        const key = n.dataset.buy;
+        const qty = parseInt(h.querySelector(`[data-buy-qty="${key}"]`)?.value || "1", 10);
+        state = { ...state, buyBusy: key, buyErr: null, buyOk: null };
+        draw();
+        try {
+          const res = await fetch("/api/shop/buy", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${await window.__getToken()}` },
+            body: JSON.stringify({ game: key, count: qty }),
+          });
+          const data = await res.json();
+          if (!data.ok) throw Object.assign(new Error(data.error || "Purchase failed."), { key });
+          state = { ...state, buyBusy: null, buyOk: key, buyErr: null, walletHint: data.wallet,
+            tokens: { ...state.tokens, [key]: (state.tokens?.[key] || 0) + (data.count || qty) } };
+          draw();
+          setTimeout(() => { state = { ...state, buyOk: null }; if (el && !el.hidden) draw(); }, 1500);
+        } catch (err) {
+          state = { ...state, buyBusy: null, buyErr: { key, msg: err.message } };
+          draw();
+        }
+      };
     });
   }
 
@@ -671,6 +697,39 @@ export function applyTokenTab({ game, send, button, host, label, arsenal = false
       ? "Everything armed takes hold at the lights, so what you arm is what you spend."
       : "Armed tokens are fired from the Arsenal strip on the game screen. Only what you use is spent; the rest stays armed.";
     return head + rows + `<p class="tok-sub">${foot}</p>`;
+  }
+
+  // The shop, inline. Shown when the browser has a __getToken function (set
+  // by app.js after sign-in), letting players buy tokens without leaving the
+  // match. Prices and hold counts are drawn from GAME_ARSENALS; the buy POST
+  // is the same endpoint the home-screen shop uses.
+  function buyHtml() {
+    if (typeof window.__getToken !== "function") return "";
+    const shelf = GAME_ARSENALS.find((a) => a.game === game);
+    if (!shelf) return "";
+    const tokens = state.tokens || {};
+    const rows = shelf.items.map((t) => {
+      const held = tokens[t.key] || 0;
+      const busy = state.buyBusy === t.key;
+      const ok = state.buyOk === t.key;
+      const itemErr = state.buyErr?.key === t.key ? state.buyErr.msg : null;
+      return `<div class="tok-row buy">
+        <span class="tok-ico">${t.icon}</span>
+        <div>
+          <div class="tok-name">${t.name}</div>
+          <div class="tok-have">${held ? `You hold <b>${held}</b>` : "None held"} · <b>${t.price.toLocaleString()}</b> coins</div>
+          ${itemErr ? `<div class="tok-blurb" style="color:#ff8a8a">${itemErr}</div>` : ""}
+        </div>
+        <div class="tok-acts">
+          <select data-buy-qty="${t.key}" aria-label="Quantity">
+            <option value="1">×1</option><option value="2">×2</option><option value="3">×3</option><option value="5">×5</option>
+          </select>
+          <button class="tok-btn ${ok ? "is-on" : ""}" data-buy="${t.key}" ${busy || (state.buyBusy != null && !busy) ? "disabled" : ""}>${ok ? "Bought ✓" : busy ? "…" : "Buy"}</button>
+        </div>
+      </div>`;
+    }).join("");
+    const walletLine = typeof state.walletHint === "number" ? `<span>Wallet: <b>${state.walletHint.toLocaleString()}</b></span>` : "";
+    return `<h3 class="tok-h"><span>Buy tokens</span>${walletLine}</h3>${rows}`;
   }
 
   if (button) button.onclick = open;

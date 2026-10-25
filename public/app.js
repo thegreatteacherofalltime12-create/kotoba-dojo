@@ -3418,6 +3418,7 @@ const ROOMS = {
 };
 
 const idToken = () => auth.currentUser.getIdToken();
+window.__getToken = idToken;
 
 /** Opens whichever game a code belongs to. */
 async function joinByCode(code) {

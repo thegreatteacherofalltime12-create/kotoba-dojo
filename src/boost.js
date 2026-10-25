@@ -54,8 +54,8 @@ export async function tokensReply(env, uid, game, { applied, over, apply, key })
     else if (key && !isMultiplier(key) && key !== game) error = "No such token.";
     else if (!has) {
       error = want === game
-        ? "You hold no token for this game. The Arsenal Shop on the home screen sells them."
-        : `You hold no ${multFor(want)}\u00d7 multiplier. The Arsenal Shop on the home screen sells them.`;
+        ? "You hold no token for this game. Buy one from the \u26a1 Arsenal Shop."
+        : `You hold no ${multFor(want)}\u00d7 multiplier. Buy one from the \u26a1 Arsenal Shop.`;
     } else { applied[uid] = want; changed = true; }
   }
   const put = applied[uid] || null;

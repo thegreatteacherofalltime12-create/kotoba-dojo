@@ -1,7 +1,7 @@
 // Boost tokens on the client: the shop's list of them, and the Apply Token
 // tab every game carries.
 //
-// A token is bought in the Arsenal Shop on the home screen and does nothing
+// A token is bought from the ⚡ Apply Token tab inside any match and does nothing
 // player opens Apply Token inside a game and applies it to the match they are
 // in. The tab asks the room what the player holds (TOKENS), and applying
 // sends APPLY_TOKEN; the room answers both with the same reply, which this
@@ -728,8 +728,30 @@ export function applyTokenTab({ game, send, button, host, label, arsenal = false
         </div>
       </div>`;
     }).join("");
+    // Multipliers work in any game — show them here too so they remain
+    // purchasable now that the home-screen shop is gone.
+    const multRows = game !== "casino" ? MULTIPLIER_ITEMS.map((m) => {
+      const held = tokens[m.key] || 0;
+      const busy = state.buyBusy === m.key;
+      const ok = state.buyOk === m.key;
+      const itemErr = state.buyErr?.key === m.key ? state.buyErr.msg : null;
+      return `<div class="tok-row buy">
+        <span class="tok-ico">${m.icon}</span>
+        <div>
+          <div class="tok-name">${m.name}</div>
+          <div class="tok-have">${held ? `You hold <b>${held}</b>` : "None held"} · <b>${m.price.toLocaleString()}</b> coins</div>
+          ${itemErr ? `<div class="tok-blurb" style="color:#ff8a8a">${itemErr}</div>` : ""}
+        </div>
+        <div class="tok-acts">
+          <select data-buy-qty="${m.key}" aria-label="Quantity">
+            <option value="1">×1</option><option value="2">×2</option><option value="3">×3</option>
+          </select>
+          <button class="tok-btn ${ok ? "is-on" : ""}" data-buy="${m.key}" ${busy || (state.buyBusy != null && !busy) ? "disabled" : ""}>${ok ? "Bought ✓" : busy ? "…" : "Buy"}</button>
+        </div>
+      </div>`;
+    }).join("") : "";
     const walletLine = typeof state.walletHint === "number" ? `<span>Wallet: <b>${state.walletHint.toLocaleString()}</b></span>` : "";
-    return `<h3 class="tok-h"><span>Buy tokens</span>${walletLine}</h3>${rows}`;
+    return `<h3 class="tok-h"><span>Buy tokens</span>${walletLine}</h3>${rows}${multRows ? `<h3 class="tok-h" style="margin-top:.8rem"><span>MMR Multipliers</span><span style="font-size:.7rem;opacity:.7">any game</span></h3>${multRows}` : ""}`;
   }
 
   if (button) button.onclick = open;

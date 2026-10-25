@@ -1,4 +1,4 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+﻿import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
   getAuth, onAuthStateChanged, signOut, updateProfile,
   createUserWithEmailAndPassword, signInWithEmailAndPassword,
@@ -1849,9 +1849,8 @@ function tokensRules() {
   return `
     <div class="ruleboxes">
       ${box("\u{1F4CD} Where to find them", [
-        "Press <b>\u26A1 Arsenal Shop</b> on the home screen, beside Create Match. It shows the MMR multipliers, which work in any game, and one arsenal per game \u2014 Word-Cross, Battleship, Minesweeper, Golf, Casino, the Grand Prix, the Buzzer, the tank duel and Match-3 \u2014 with how many tokens each sells and how many you hold.",
-        "Tap a game and its arsenal opens in a window: that game's <b>1.5\u00d7 boost</b> first, then anything else it sells. Buy from there.",
-        "Inside a game, the <b>\u26A1 Apply Token</b> button (top bar in every game, header on the golf page) lists that game's tokens you hold.",
+        "Open any game and tap the <b>\u26A1 Apply Token</b> button (top bar in every game, header on the golf page). The Buy section at the bottom lists every token for that game \u2014 the 1.5\u00d7 boost, the full arsenal, and the MMR multipliers \u2014 with how many you hold and what each costs.",
+        "Choose a quantity (\u00d71 / \u00d72 / \u00d73 / \u00d75) and tap <b>Buy</b>. Casino money is spent; your held count updates immediately.",
       ])}
       ${box("\u{1F4B0} How they are earned", [
         "Tokens cost <b>casino money</b>, never real money. Nothing in the game is bought with real money.",
@@ -2067,7 +2066,7 @@ const GAME_RULES = [
       "You sit down on <b>$2,000</b>, and it <b>floats</b>: it is a stake you play with, not a gift you keep. You bank what you finish with <i>above</i> it, so a flat board banks nothing and a bad one banks nothing rather than costing you.",
       "<b>You keep playing below zero.</b> Still buzz, still answer, still win it all back, and a Daily Double is still yours. The only door that shuts is Final, and only if you are still under when the second board ends.",
       "The match score is where you finished, plus how well you knew the answers, capped at 100 like every game here \u2014 and that is what feeds MMR, belts and the record books.",
-      "Banked money buys the arena's tokens in the \u26A1 Arsenal Shop on the home screen, exactly as casino winnings do.",
+      "Banked money buys the arena's tokens from the \u26A1 Apply Token button inside any match, exactly as casino winnings do.",
     ],
   },
   {
@@ -2115,7 +2114,7 @@ const GAME_RULES = [
     ],
     score: [
       "Every hand or race you win pays <b>5 MMR</b>, up to <b>100 a day</b>. The arcade pays up to 50 MMR a puzzle by speed (see the Arena tab).",
-      "Banked money buys the arena's tokens in the \u26A1 Arsenal Shop on the home screen.",
+      "Banked money buys the arena's tokens from the \u26A1 Apply Token button inside any match.",
       "The <b>arsenal</b> \u2014 eighteen tokens, from a Comp Pass to a Night Deposit \u2014 is armed under \u26A1 Apply Token and fired from the strip above the floor. Rules in the \u26A1 Tokens tab.",
       "The full table rules \u2014 baccarat's third card, roulette's layout, the Big Six wheel \u2014 are under <b>Casino Game Rules</b> on the floor bar.",
     ],
@@ -2147,7 +2146,7 @@ function openGameRules(id) {
 // Header tabs open one drawer at a time; clicking an open one closes it.
 const DRAWERS = [
   ["tab-create", "drawer-create"],
-  ["tab-shop", "drawer-shop"],
+
   ["tab-achv", "drawer-achv"],
   ["tab-profile", "drawer-profile"],
   ["tab-records", "drawer-records"],
@@ -2222,7 +2221,6 @@ if ($("tab-news")) {
 }
 $("tab-scrolls").onclick = () => { if (drawer("drawer-scrolls")) loadScrolls(); };
 $("tab-create").onclick = () => { if (drawer("drawer-create")) drawCreate(); };
-$("tab-shop").onclick = () => { if (drawer("drawer-shop")) drawShopDrawer(); };
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
   if (!$("points-modal").hidden) return closePoints();
@@ -3067,198 +3065,7 @@ function profileSummary() {
     </div>`;
 }
 
-// ── the Arsenal Shop ─────────────────────────────────────────────────
-//
-// Casino money buys boost tokens: one per game, each worth half again on
-// the MMR of a round of that game (the casino's boosts every win for a
-// day). Applied from the Apply Token tab inside the game; the list of them
-// lives in boost.js so the shop and the tab agree.
 
-/** How many of one thing the shop will sell in a single press. */
-const BUY_COUNTS = [1, 2, 3, 5, 10, 25];
-
-/**
- * One line of an arsenal window: what it is, what it costs, how many you
- * want and the button that buys them.
- *
- * The count sits to the left of the price because that is the order the
- * decision is made in — how many, then how much — and because buying ten of
- * something was ten presses, ten confirmations and ten trips to the server.
- */
-function shopRow(t, held) {
-  const counts = BUY_COUNTS.map((n) => `<option value="${n}">${n}</option>`).join("");
-  return `
-    <div class="shop-item">
-      <span class="shop-ico">${t.icon}</span>
-      <div class="shop-txt">
-        <div class="shop-name">${t.name}</div>
-        <div class="shop-blurb">${t.blurb}</div>
-        <div class="shop-have" id="have-${t.key}">${held ? `You hold ${held}` : "None held"}</div>
-      </div>
-      <div class="shop-buy">
-        <select class="shop-qty" id="qty-${t.key}" aria-label="How many ${t.name}" title="How many">${counts}</select>
-        <button class="btn btn-primary btn-small" data-buy="${t.key}">Buy \u00b7 $${t.price.toLocaleString()}</button>
-      </div>
-    </div>`;
-}
-
-/** The wallet, read live; the figure already shown stands if the arena is out of reach. */
-async function refreshWallet() {
-  try {
-    const res = await fetch("/api/wallet", { headers: { Authorization: `Bearer ${await idToken()}` } });
-    const wallet = (await res.json()).wallet;
-    if (typeof wallet === "number") S.purse = { ...(S.purse || {}), wallet };
-  } catch { /* the figure we had stands */ }
-  document.querySelectorAll(".shop-wallet b").forEach((n) => { n.textContent = `$${(S.purse?.wallet ?? 0).toLocaleString()}`; });
-}
-
-// The shop: one card per game. Each opens that game's arsenal in its own
-// window — its 1.5\u00d7 boost and whatever else it sells — so nobody
-// scrolls a list of everything to find one thing.
-/**
- * The Arsenal Shop, on the home screen beside Create Match.
- *
- * It used to be a subtab inside Profile, three clicks from the money it
- * spends. The body is the same one either way — drawShop below fills
- * whatever it is handed — so this is a frame around it and nothing more.
- */
-function drawShopDrawer() {
-  const host = $("drawer-shop");
-  host.innerHTML = `
-    <div class="modal-back" data-close></div>
-    <div class="modal-card">
-      <div class="modal-head">
-        <h2>\u26A1 Arsenal Shop</h2>
-        <button class="modal-close" data-close aria-label="Close">&times;</button>
-      </div>
-      <div class="modal-body"><div id="shop-body"></div></div>
-    </div>`;
-  host.querySelectorAll("[data-close]").forEach((n) => {
-    n.onclick = () => closePanel("drawer-shop", "tab-shop");
-  });
-  drawShop($("shop-body"));
-}
-
-/** What a shelf says under its name: how much it sells, and what you hold. */
-function shelfLine(a, tokens) {
-  const held = a.items.reduce((n, t) => n + (tokens[t.key] || 0), 0);
-  return `${a.items.length} token${a.items.length === 1 ? "" : "s"}${held ? ` \u00b7 you hold ${held}` : ""}`;
-}
-
-/**
- * The shelves, brought up to date where they stand.
- *
- * Drawing the shop again would do it, and that is what it used to do — but
- * a redrawn list starts at the top, which throws away wherever the reader
- * had got to. Nothing here is rebuilt; one line of text per shelf changes.
- */
-function refreshShelfCounts() {
-  const me = standings.find((r) => r.uid === S.user?.uid);
-  const tokens = me?.tokens || {};
-  for (const n of document.querySelectorAll("[data-shelf]")) {
-    const shelf = SHOP_SHELVES.find((a) => a.game === n.dataset.shelf);
-    if (shelf) n.textContent = shelfLine(shelf, tokens);
-  }
-}
-
-async function drawShop(body) {
-  const me = standings.find((r) => r.uid === S.user?.uid);
-  const tokens = me?.tokens || {};
-  body.innerHTML = `
-    <p class="panel-sub">Casino money buys tokens: one arsenal per game, and the MMR multipliers, which work in any of them. Inside a game, press <b>\u26A1 Apply Token</b> to use what you hold.</p>
-    <div class="shop-wallet">\u{1F4B0} Wallet: <b>$${(S.purse?.wallet ?? 0).toLocaleString()}</b></div>
-    <div class="gamegrid shop-games">
-      ${SHOP_SHELVES.map((a) => `
-        <button class="gamepick" data-arsenal="${a.game}">
-          <span class="gp-ico">${a.icon}</span>
-          <span class="gp-name">${a.name}</span>
-          <span class="gp-players" data-shelf="${a.game}">${shelfLine(a, tokens)}</span>
-        </button>`).join("")}
-    </div>`;
-  body.querySelectorAll("[data-arsenal]").forEach((b) => { b.onclick = () => drawArsenalShop(b.dataset.arsenal); });
-  refreshWallet();
-}
-
-function drawArsenalShop(game) {
-  const a = SHOP_SHELVES.find((x) => x.game === game);
-  if (!a) return;
-  const me = standings.find((r) => r.uid === S.user?.uid);
-  const tokens = me?.tokens || {};
-  const host = $("avatar-modal");
-  host.hidden = false;
-  host.innerHTML = `
-    <div class="modal-back" data-close></div>
-    <div class="modal-card shop-card">
-      <div class="modal-head">
-        <h2>${a.icon} ${a.name}</h2>
-        <button class="modal-close" data-close aria-label="Close">&times;</button>
-      </div>
-      <div class="modal-body">
-        <div class="shop-wallet">\u{1F4B0} Wallet: <b>$${(S.purse?.wallet ?? 0).toLocaleString()}</b></div>
-        ${game === "battleship" ? `<p class="panel-sub">Armed in a battle under Apply Token \u2014 four a battle, two nukes at most \u2014 and fired from the Arsenal strip. Only what you use is spent.</p>` : ""}
-        <div class="shop-items">${a.items.map((t) => shopRow(t, tokens[t.key])).join("")}</div>
-        <p id="shop-status" class="notice" hidden></p>
-      </div>
-    </div>`;
-  // The shop is still underneath, exactly as it was left; only the counts
-  // on its shelves may have moved. Drawing it again would put the reader
-  // back at the top of a list they had scrolled down.
-  const close = () => {
-    host.hidden = true;
-    host.textContent = "";
-    refreshShelfCounts();
-  };
-  host.querySelectorAll("[data-close]").forEach((n) => { n.onclick = close; });
-  refreshWallet();
-  // The bill lives on the button and follows the count, so the price is
-  // said once rather than six times down a dropdown.
-  host.querySelectorAll(".shop-qty").forEach((sel) => {
-    sel.onchange = () => {
-      const key = sel.id.slice(4);
-      const b = host.querySelector(`[data-buy="${key}"]`);
-      const price = shopItem(key)?.price || 0;
-      if (b) b.textContent = `Buy \u00b7 $${(price * Number(sel.value || 1)).toLocaleString()}`;
-    };
-  });
-
-  host.querySelectorAll("[data-buy]").forEach((b) => {
-    b.onclick = async () => {
-      const key = b.dataset.buy;
-      const item = shopItem(key);
-      const count = Number($(`qty-${key}`)?.value || 1);
-      const bill = item.price * count;
-      const what = count === 1 ? `a ${item.name}` : `${count} \u00d7 ${item.name}`;
-      if (!window.confirm(`Buy ${what} for ${bill.toLocaleString()} from your wallet?`)) return;
-      b.disabled = true;
-      try {
-        const res = await fetch("/api/shop/buy", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${await idToken()}` },
-          body: JSON.stringify({ game: key, count }),
-        });
-        const out = await res.json();
-        if (out.ok) {
-          S.purse = { ...(S.purse || {}), wallet: out.wallet };
-          document.querySelectorAll(".shop-wallet b").forEach((n) => { n.textContent = `$${out.wallet.toLocaleString()}`; });
-          $(`have-${key}`).textContent = `You hold ${out.tokens ?? "?"}`;
-          say("shop-status", `${count === 1 ? item.name : `${count} \u00d7 ${item.name}`} bought. In the game, press \u26A1 Apply Token to use ${count === 1 ? "it" : "them"}.`, false);
-          // The counts on the shelf behind this window, brought up to date
-          // where they stand rather than by drawing the shop again \u2014 which
-          // is what used to throw the reader back to the top of the list.
-          if (standings.length) {
-            const me = standings.find((r) => r.uid === S.user?.uid);
-            if (me) me.tokens = { ...(me.tokens || {}), [key]: out.tokens ?? ((me.tokens?.[key] || 0) + count) };
-          }
-          refreshShelfCounts();
-          loadRankings();
-        } else {
-          say("shop-status", out.error || "The shop could not sell that.");
-        }
-      } catch { say("shop-status", "Couldn't reach the shop. Try again."); }
-      b.disabled = false;
-    };
-  });
-}
 
 function drawProfile(tab) {
   const host = $("drawer-profile");
@@ -3323,13 +3130,6 @@ function drawProfile(tab) {
     return;
   }
 
-  // The shop lives on the home screen now. Anything still asking Profile
-  // for it is sent there rather than shown an empty panel.
-  if (tab === "shop") {
-    closePanel("drawer-profile", "tab-profile");
-    if (drawer("drawer-shop")) drawShopDrawer();
-    return;
-  }
 
   body.innerHTML = `
     <p class="panel-sub">Your sign-in name never changes &mdash; it's how the arena knows you. This is the name others see.</p>

@@ -1856,7 +1856,7 @@ function tokensRules() {
         "Tokens cost <b>casino money</b>, never real money. Nothing in the game is bought with real money.",
         "Casino money comes from the floor: solve arcade puzzles under <b>Earn Money</b> ($5\u201315 each), win hands at the tables, collect on horse races.",
         "Winnings sit on the table until you <b>Officially end match</b>; only then do they bank to your wallet. Quitting the floor forfeits what's on the table.",
-        "The wallet you see in the Arsenal Shop is that banked money. A boost costs $200, the multipliers $5,000 to $20,000, and the arsenals run from $143 to $50,000.",
+        "That banked money is your wallet. A boost costs $200, the multipliers $5,000 to $20,000, and the arsenals run from $143 to $50,000.",
       ])}
       ${box("\u26A1 How a boost is used", [
         "A token does nothing until you apply it. In the game, press <b>\u26A1 Apply Token</b> and apply the boost to the match you're in.",

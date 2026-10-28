@@ -13,7 +13,7 @@ import { GI_COLORS, giSvg, GAME_MODES } from "./arena.js";
 import {
   AVATARS, LEAGUES, FRAMES, FRAME_TIERS, TITLES, GAME_NAMES, BANNERS,
   avatarHtml, framedHtml, titleById, meets, needText,
-  bannerById, bannerEarned, bannerNeedText, bannerHtml, achievementsFor, lifetime,
+  bannerEarned, bannerNeedText, bannerHtml, achievementsFor, lifetime,
   KARTS, DEFAULT_KART, kartById, kartEarned, kartNeedText,
 } from "./cosmetics.js";
 import { enterBattle, closeBattle, bindBattleControls } from "./battle.js";

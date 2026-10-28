@@ -1,20 +1,20 @@
-# Kotoba Dojo
+﻿# Kotoba Dojo
 
 A competitive arena of three games, sharing one set of accounts, one belt
 ladder and one MMR pipeline.
 
-**Word Cross Challenges** — ten words, fifteen minutes. Everyone races the same
+**Word Cross Challenges** â€” ten words, fifteen minutes. Everyone races the same
 grid independently. Baseball and Football archives, 24 puzzles each, evenly
 split across easy, medium and hard.
 
-**Battleship Royale** — two shots a turn at one rival, and you must fire at
+**Battleship Royale** â€” two shots a turn at one rival, and you must fire at
 three other captains before returning to anyone. Solo against an AI at three
 strengths, or up to eight players with optional anonymous play.
 
-**Minesweeper** — everyone races the identical field. Clear it fastest, or get
+**Minesweeper** â€” everyone races the identical field. Clear it fastest, or get
 as far as you can before one goes off. Best times per difficulty are kept.
 
-**Casino** — horse racing and blackjack against the house, with a maths arcade
+**Casino** â€” horse racing and blackjack against the house, with a maths arcade
 that pays MMR on a thirty-second clock. Cash and tokens are a separate economy
 banked in a wallet; no casino game pays MMR, only the arcade.
 
@@ -26,16 +26,16 @@ target; the next player to out-earn your points-per-hour, or simply beat you
 head to head, takes it and +50 MMR. Defending pays +25. Unclaimed for
 forty-eight hours and it rotates to a random top-ten player.
 
-**Themes** — fourteen palettes in Profile. A theme sets four colours and every
+**Themes** â€” fourteen palettes in Profile. A theme sets four colours and every
 structural colour is derived from them, so contrast can't be set wrong. Boards
 stay white in every theme.
 
 ## How the two platforms divide up
 
-**Firebase** — Auth for identity. Firestore for everything that outlives a
+**Firebase** â€” Auth for identity. Firestore for everything that outlives a
 match: profiles, saved puzzles, match history, leaderboard.
 
-**Cloudflare** — Workers serve the client and verify tokens at the edge. One
+**Cloudflare** â€” Workers serve the client and verify tokens at the edge. One
 Durable Object per lobby holds the roster, the round timer, the answer key and
 every player's WebSocket. KV holds the curated puzzle archive.
 
@@ -56,7 +56,7 @@ itself is a claim rather than a result.
 This is a server application, not a page you can open from a folder. Double-
 clicking `public/index.html` will show a blank screen: browsers block
 JavaScript modules on `file://` URLs, and Firebase sign-in refuses to run from
-a `file:` origin. Extract the zip properly first — browsing inside it in
+a `file:` origin. Extract the zip properly first â€” browsing inside it in
 Windows Explorer opens a read-only copy in your temp folder, which has the
 same problem.
 
@@ -67,7 +67,7 @@ npx wrangler dev
 ```
 
 Open the `http://localhost:8787` address wrangler prints. Six puzzles are
-built into the Worker, so the game is playable straight away — no KV setup
+built into the Worker, so the game is playable straight away â€” no KV setup
 needed to try it.
 
 You still need `public/firebase-config.js` filled in before anyone can sign
@@ -80,13 +80,13 @@ browser profile or an incognito window and join with the same code.
 
 ### 1. Firebase
 
-- Create a project. Under Authentication → Sign-in method, enable
+- Create a project. Under Authentication â†’ Sign-in method, enable
   **Email/Password** and **Anonymous**.
 - Create a Firestore database.
-- Project settings → Your apps → Web. Copy the config into
+- Project settings â†’ Your apps â†’ Web. Copy the config into
   `public/firebase-config.js`.
 - Deploy the rules in `firestore.rules`.
-- Add your Workers domain under Authentication → Settings → Authorized
+- Add your Workers domain under Authentication â†’ Settings â†’ Authorized
   domains, or Google sign-in will fail with an unauthorized-domain error.
 
 ### 2. Cloudflare
@@ -119,7 +119,7 @@ re-run to grow the archive.
 
 ### 4. Server-side score writing (optional but recommended)
 
-Firebase console → Project settings → Service accounts → Generate new private
+Firebase console â†’ Project settings â†’ Service accounts â†’ Generate new private
 key. Then:
 
 ```bash
@@ -136,7 +136,7 @@ Arena Rankings panel. It reports the real error from each step rather than
 failing quietly.
 
 Without this the game runs fine; you just get no match history or leaderboard.
-There is no client-side fallback on purpose — a client-written leaderboard is
+There is no client-side fallback on purpose â€” a client-written leaderboard is
 a leaderboard of whatever people felt like claiming.
 
 ### 5. Deploy
@@ -158,7 +158,7 @@ to that day. That has happened twice, once at twenty-four files.
 Instead:
 
 ```bash
-npm run import -- D:path	o	he-chat.zip
+npm run import -- D:\path\to\the-chat.zip
 ```
 
 It reads the zip and, file by file, works out what the chat actually changed
@@ -166,7 +166,7 @@ and merges only that onto the current code. Files the chat left alone are
 kept as they are here. A file the chat edited is three-way merged; a clean
 merge is written in place, a conflict is written with `<<<<<<<` markers and
 named in the summary for you to settle. A copy that mostly takes away is
-treated as older than anything on record and kept current — the summary
+treated as older than anything on record and kept current â€” the summary
 names it with its numbers, and `--take <file>` merges it anyway if you know
 you edited it. Nothing is committed and nothing is deployed; run `npm test`,
 look over the result, then commit and `npm run deploy`.
@@ -184,7 +184,7 @@ before it opens anything. Two places wire a new game:
 
 `scripts/registry-test.mjs` fails if those two ever disagree, or if a room
 stops announcing. An unrecognised game id is reported to the player rather than
-falling back to the crossword — a silent fallback is what made battleship codes
+falling back to the crossword â€” a silent fallback is what made battleship codes
 open crosswords.
 
 ## Sign-in
@@ -192,7 +192,7 @@ open crosswords.
 Players choose a name and a six-digit pin. Firebase Auth has no
 username/password mode, so a name maps to a fixed synthetic address
 (`name@kotoba-dojo.local`) and Firebase's own uniqueness constraint on that
-address is what stops two people taking the same name — no separate registry,
+address is what stops two people taking the same name â€” no separate registry,
 no race between checking and claiming.
 
 Pins are deliberately not unique. A pin is a password scoped to one name.
@@ -203,7 +203,7 @@ A six-digit pin is weak, and this is worth being clear about: it is a
 convenience for a word game among people who know each other, not a security
 boundary. Firebase throttles repeated failures, which is the only thing
 standing between a determined guesser and an account. There is also no
-password reset, because there is no email address behind the account — a
+password reset, because there is no email address behind the account â€” a
 forgotten pin means a new name. If this ever needs to guard anything that
 matters, move to real email/password or a federated provider.
 
@@ -211,12 +211,12 @@ matters, move to real email/password or a federated provider.
 
 Whoever opens a dojo is the sensei: they pick the scroll and call the start.
 Open dojos are listed on the home screen and anyone signed in can walk into
-any of them — there is no invitation and no code to share. Rounds run fifteen minutes,
+any of them â€” there is no invitation and no code to share. Rounds run fifteen minutes,
 grids are ten words, and the scoreboard fills in as people finish.
 
-Scoring runs 1–100 on a curve set in `src/scoring.js`. Anything at or under
+Scoring runs 1â€“100 on a curve set in `src/scoring.js`. Anything at or under
 45 seconds scores 100, sliding to 1 at the buzzer; unfinished scores 0. That
-45-second floor is a guess — once you have real solve times, move it so the
+45-second floor is a guess â€” once you have real solve times, move it so the
 top of the range is reachable but rare.
 
 ## Writing your own puzzle
@@ -228,7 +228,7 @@ under your own Firestore document and nobody else can read them.
 
 An author knows every answer, so when a sensei runs their own scroll they
 referee it instead of competing. Custom rounds also stay out of the
-leaderboard — a sensei can simply tell a friend the answers beforehand, which
+leaderboard â€” a sensei can simply tell a friend the answers beforehand, which
 is fine among friends and fatal to a ranked ladder.
 
 ## Fairness, and where it stops
@@ -250,7 +250,7 @@ contorting the design over.
 
 ```
 src/index.js       Worker: routing, token check, hands off to the DO
-src/lobby.js       DojoLobby — the whole state machine
+src/lobby.js       DojoLobby â€” the whole state machine
 src/jwt.js         Firebase ID token verification
 src/validate.js    Independent re-check of any host-submitted grid
 src/scoring.js     Curve and belt ranks
@@ -274,12 +274,12 @@ and rejection of tampered host-submitted grids.
 
 ## Lobby lifecycle
 
-`LOBBY → ACTIVE → RESULTS → LOBBY`. The roster survives rounds; roles are
+`LOBBY â†’ ACTIVE â†’ RESULTS â†’ LOBBY`. The roster survives rounds; roles are
 assigned fresh at each start.
 
 - Arriving mid-round means spectating that one and playing the next.
 - Reconnecting mid-round restores your grid, your solved entries and the real
-  remaining time — everything is keyed by uid, not by connection.
+  remaining time â€” everything is keyed by uid, not by connection.
 - If the sensei disappears, the longest-standing member takes over. They can
   pick from the archive and from their own scrolls, not the old sensei's.
 - Empty lobbies discard themselves after thirty minutes.

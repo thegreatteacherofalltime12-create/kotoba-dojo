@@ -583,7 +583,7 @@ then sends `at: Date.now() - skew`.
 Verified by reading the files.
 
 **`wrangler.toml`** — append a binding block and a **new** migration tag. The
-highest existing tag is `v9`. Never edit or reuse an existing tag.
+highest existing tag is `v12`. Never edit or reuse an existing tag.
 
 ```toml
 [[durable_objects.bindings]]

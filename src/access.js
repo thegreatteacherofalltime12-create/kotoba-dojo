@@ -282,7 +282,7 @@ export async function claimPass(env, user, raw) {
       },
     ] }),
   });
-  if (res.status === 400 || res.status === 409) return { ok: false, error: "That pass has already been claimed." };
+  if (res.status === 409) return { ok: false, error: "That pass has already been claimed." };
   if (!res.ok) return { ok: false, error: "Firestore refused the pass. Try again." };
   forget(user.uid);
   return { ok: true, code };

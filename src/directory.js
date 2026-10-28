@@ -6,7 +6,12 @@
 // mid-round never sends its goodbye, and a stale row would offer players a
 // door into a room that no longer exists.
 
+import { isGameId } from "./rooms.js";
+
 const STALE_MS = 90_000;
+
+/** A refusal that says why. The announcing room reports it; nothing is stored. */
+const refuse = (status, error) => Response.json({ ok: false, error }, { status });
 
 export class DojoDirectory {
   constructor(state) {
@@ -45,19 +50,43 @@ export class DojoDirectory {
     if (url.pathname === "/find") {
       const code = url.searchParams.get("code");
       const row = this.live().find((r) => r.code === code);
+      // A row this build cannot place is said to be exactly that. Handing back
+      // its game anyway, or a guess, would open some other game's room.
+      if (row && !isGameId(row.game)) {
+        return Response.json({
+          game: null, room: null, unknownGame: row.game ?? null,
+          error: `That room is a game this version doesn't know${row.game ? ` (${String(row.game).slice(0, 40)})` : ""}.`,
+        });
+      }
       return Response.json({ game: row?.game || null, room: row || null });
     }
 
     if (url.pathname === "/announce") {
-      const row = await request.json();
-      if (!row?.code) return new Response("bad announce", { status: 400 });
+      let row;
+      try { row = await request.json(); } catch { return refuse(400, "The announcement was not JSON."); }
+      if (!row?.code) return refuse(400, "bad announce: no code");
+
+      // Which game this is must be said, and said right. There is no default:
+      // a room that leaves it out was once filed as a crossword, which is how a
+      // battle code opened the wrong game.
+      if (row.game === undefined || row.game === null || row.game === "")
+        return refuse(400, `Room ${row.code} announced itself without a game.`);
+      if (!isGameId(row.game))
+        return refuse(400, `Room ${row.code} announced an unknown game "${String(row.game).slice(0, 40)}".`);
+
+      // A code belongs to one live room. Another game announcing, or emptying,
+      // under the same code must not take it over or knock it off the board.
+      const held = this.dojos[row.code];
+      const live = held && Date.now() - held.updatedAt <= STALE_MS;
+      if (live && held.game && held.game !== row.game)
+        return refuse(409, `Code ${row.code} belongs to a live ${held.game} room; ${row.game} cannot use it.`);
 
       if (row.players < 1) delete this.dojos[row.code];
       else {
         const existing = this.dojos[row.code];
         this.dojos[row.code] = {
           code: row.code,
-          game: row.game || "crossword",
+          game: row.game,
           sensei: row.sensei || "Someone",
           players: row.players || 0,
           phase: row.phase || "LOBBY",

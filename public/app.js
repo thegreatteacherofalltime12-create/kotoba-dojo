@@ -2848,20 +2848,22 @@ function ago(iso) {
 // prestiges until the feed has been opened and seen, the way the chat tab
 // does for a line you have not read. Only promotions do this: a finished
 // game every few minutes would keep the tab lit all day.
-const FEED_SEEN_KEY = "omni.feed.seen";
-let feedSeen = 0;
-try { feedSeen = Number(localStorage.getItem(FEED_SEEN_KEY) || 0); } catch { /* fine */ }
-
-function feedInView() {
-  return !document.hidden && commonsOpen() && commonsTab === "feed";
+function makeTabTracker(key, tab, ctId) {
+  let seen = 0;
+  try { seen = Number(localStorage.getItem(key) || 0); } catch { /* fine */ }
+  return {
+    get seen() { return seen; },
+    inView: () => !document.hidden && commonsOpen() && commonsTab === tab,
+    markRead(rows) {
+      const newest = Math.max(seen, ...rows.map((r) => new Date(r.at).getTime() || 0));
+      seen = newest;
+      try { localStorage.setItem(key, String(newest)); } catch { /* fine */ }
+      $(ctId)?.classList.remove("unread");
+    },
+  };
 }
-
-function markFeedRead(rows) {
-  const newest = Math.max(feedSeen, ...rows.map((r) => new Date(r.at).getTime() || 0));
-  feedSeen = newest;
-  try { localStorage.setItem(FEED_SEEN_KEY, String(newest)); } catch { /* fine */ }
-  $("ct-feed")?.classList.remove("unread");
-}
+const feed = makeTabTracker("omni.feed.seen", "feed", "ct-feed");
+const chat = makeTabTracker("omni.chat.seen", "chat", "ct-chat");
 
 async function loadFeed() {
   const host = $("commons-feed");
@@ -2875,8 +2877,8 @@ async function loadFeed() {
   if (rows) {
     const promoted = rows.filter((r) => r.kind === "prestige" || r.kind === "retire");
     const newest = Math.max(0, ...promoted.map((r) => new Date(r.at).getTime() || 0));
-    if (feedInView()) markFeedRead(rows);
-    else if (newest > feedSeen) $("ct-feed")?.classList.add("unread");
+    if (feed.inView()) feed.markRead(rows);
+    else if (newest > feed.seen) $("ct-feed")?.classList.add("unread");
   }
 
   if (rows === null) {
@@ -2898,23 +2900,6 @@ async function loadFeed() {
     </div>`).join("");
 }
 
-const CHAT_SEEN_KEY = "omni.chat.seen";
-let chatSeen = 0;
-try { chatSeen = Number(localStorage.getItem(CHAT_SEEN_KEY) || 0); } catch { /* fine */ }
-
-/** Is the chat actually in front of the player right now? */
-function chatInView() {
-  return !document.hidden && commonsOpen() && commonsTab === "chat";
-}
-
-/** Everything up to now counts as read. */
-function markChatRead(rows) {
-  const newest = Math.max(chatSeen, ...rows.map((r) => new Date(r.at).getTime() || 0));
-  chatSeen = newest;
-  try { localStorage.setItem(CHAT_SEEN_KEY, String(newest)); } catch { /* fine */ }
-  $("ct-chat")?.classList.remove("unread");
-}
-
 async function loadChat() {
   const host = $("commons-chat");
   if (!host) return;
@@ -2929,8 +2914,8 @@ async function loadChat() {
   // never count — you have read what you wrote.
   const others = rows.filter((r) => r.uid !== S.user?.uid);
   const newest = Math.max(0, ...others.map((r) => new Date(r.at).getTime() || 0));
-  if (chatInView()) markChatRead(rows);
-  else if (newest > chatSeen) $("ct-chat")?.classList.add("unread");
+  if (chat.inView()) chat.markRead(rows);
+  else if (newest > chat.seen) $("ct-chat")?.classList.add("unread");
 
   // Nothing to draw into while the panel is closed or on another tab.
   if (!commonsOpen() || commonsTab !== "chat") return;

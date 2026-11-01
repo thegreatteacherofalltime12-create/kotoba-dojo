@@ -6,6 +6,8 @@
 // freshness, but never a result. The node test scripts build every object
 // with a bare env, and that is why an unbound room is simply a no-op.
 
+import { reportRuntimeIssue } from "./observability.js";
+
 const WAIT_MS = 2000;
 
 export async function tellCommons(env, path, body) {
@@ -22,7 +24,10 @@ export async function tellCommons(env, path, body) {
     ]);
     return res.ok;
   } catch (err) {
-    console.error(`[commons] ${path}: ${err.message}`);
+    reportRuntimeIssue("commons", `The reading room did not accept ${path}`, {
+      path,
+      message: err?.message || String(err),
+    }, "error");
     return false;
   }
 }

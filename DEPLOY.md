@@ -3,7 +3,7 @@
 Import the zip, then deploy. Two commands.
 
 ```powershell
-npm run import -- "D:\Appbuilder\omni-blackjack.zip"
+npm run import -- "F:\Appbuilder\omni-blackjack.zip"
 npx.cmd wrangler deploy
 ```
 

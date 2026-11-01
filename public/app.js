@@ -3748,7 +3748,7 @@ async function connect() {
     clearInterval(S.beat);
     S.beat = null;
     if (S.code) {
-      feed("Connection lost. Reconnecting.");
+      feedLog("Connection lost. Reconnecting.");
       // The DO keys everything by uid, so a reconnect restores the round.
       setTimeout(() => { if (S.code) connect(); }, 1500);
     }
@@ -3786,7 +3786,7 @@ function handle(msg) {
   switch (msg.type) {
     case "WELCOME":
       S.isSensei = !!msg.isSensei;
-      if (msg.promoted) feed("The sensei left. You are leading now.");
+      if (msg.promoted) feedLog("The sensei left. You are leading now.");
       break;
 
     case "LOBBY_STATE":
@@ -3815,7 +3815,7 @@ function handle(msg) {
       break;
 
     case "PLAYER_FINISHED":
-      feed(`<b>${escapeHtml(msg.name)}</b> finished in ${fmt(msg.elapsedMs)} — ${msg.score} points.`, true);
+      feedLog(`<b>${escapeHtml(msg.name)}</b> finished in ${fmt(msg.elapsedMs)} — ${msg.score} points.`, true);
       break;
 
     case "ROUND_END":
@@ -3836,12 +3836,12 @@ function handle(msg) {
       break;
 
     case "ARSENAL_NOTE":
-      feed(escapeHtml(msg.text), true);
+      feedLog(escapeHtml(msg.text), true);
       say("dojo-error", msg.text);
       break;
 
     case "ARSENAL_ANAGRAM":
-      feed(`<b>Anagram</b> — ${escapeHtml(msg.letters)}`, true);
+      feedLog(`<b>Anagram</b> — ${escapeHtml(msg.letters)}`, true);
       break;
 
     case "ARSENAL_SPELL":
@@ -3857,7 +3857,7 @@ function handle(msg) {
       break;
 
     case "ERROR":
-      if (S.lobby?.phase === "ACTIVE") feed(msg.message);
+      if (S.lobby?.phase === "ACTIVE") feedLog(msg.message);
       else say("dojo-error", msg.message);
       break;
   }
@@ -3945,7 +3945,7 @@ function showSpell(msg) {
   const row = el("div", "wc-spell");
   [...msg.guess].forEach((ch, i) => row.append(el("span", msg.marks[i] || "no", ch)));
   const host = $("clue-bar") || $("grid-wrap");
-  feed("<b>Spellcheck</b> — " + [...msg.guess].map((ch, i) =>
+  feedLog("<b>Spellcheck</b> — " + [...msg.guess].map((ch, i) =>
     msg.marks[i] === "right" ? `<b>${escapeHtml(ch)}</b>` : msg.marks[i] === "near" ? `<i>${escapeHtml(ch)}</i>` : escapeHtml(ch)).join(""), true);
   void host; void row;
 }
@@ -4294,7 +4294,7 @@ export function bountyCard(b) {
 
 function endRound(msg) {
   for (const r of msg.results || []) {
-    if (r.promoted) feed(`<b>${escapeHtml(r.name)}</b> promoted to ${r.belt} belt at ${r.mmrAfter.toLocaleString()} MMR.`, true);
+    if (r.promoted) feedLog(`<b>${escapeHtml(r.name)}</b> promoted to ${r.belt} belt at ${r.mmrAfter.toLocaleString()} MMR.`, true);
   }
   clearInterval(S.ticker);
   S.ticker = null;
@@ -4447,7 +4447,7 @@ function escapeHtml(s) {
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
-function feed(html, rich = false) {
+function feedLog(html, rich = false) {
   const p = el("p", rich ? "hit" : "");
   if (rich) p.innerHTML = html;
   else p.textContent = html;

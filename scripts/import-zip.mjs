@@ -167,3 +167,4 @@ if (report.binary.length) console.log(`\nPictures left as they are (${report.bin
 console.log(`\nUnchanged: ${report.same.length}`);
 console.log(`\nNothing is committed. Next: npm test, look over the changes, then commit and npm run deploy.`);
 process.exit(report.conflict.length ? 2 : 0);
+

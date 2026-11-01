@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Brings a zip from a Claude chat into the project without losing anything.
 //
-//   npm run import -- D:\Appbuilder\omni-battle-charts.zip
+//   npm run import -- F:\Appbuilder\omni-battle-charts.zip
 //
 // A chat builds its zip from whatever version was uploaded to it, which is
 // days old by the time it comes back. Dropping the whole zip over the folder
@@ -167,4 +167,3 @@ if (report.binary.length) console.log(`\nPictures left as they are (${report.bin
 console.log(`\nUnchanged: ${report.same.length}`);
 console.log(`\nNothing is committed. Next: npm test, look over the changes, then commit and npm run deploy.`);
 process.exit(report.conflict.length ? 2 : 0);
-

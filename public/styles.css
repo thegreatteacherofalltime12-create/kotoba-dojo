@@ -4472,3 +4472,16 @@ a.dtab { text-decoration: none; display: inline-block; }
 @media (max-width: 600px) {
   .ap-cell { width: clamp(2rem, 14vw, 2.8rem); height: clamp(2rem, 14vw, 2.8rem); font-size: clamp(.9rem, 5vw, 1.3rem); border-radius: 7px; }
 }
+
+/* Arrow Puzzle plays on glass, like the tank duel: put the page text colour
+   back on the host panel so the labels are not ink on near-black. */
+#screen-arrows .host-panel, #screen-arrows .host-panel label, #screen-arrows .opt-line { color: var(--text); }
+#screen-arrows .opt-line > span { flex: 0 0 auto; white-space: nowrap; }
+#screen-arrows .opt-line select { flex: 1 1 0; width: 0; min-width: 0; }
+#screen-arrows .ap-toggle-wrap { color: var(--text); }
+
+/* The chat folds up behind its header; on a phone it starts folded. */
+.ap-chat .panel-head { cursor: pointer; user-select: none; }
+.ap-chat-fold { margin-left: auto; font-size: .8rem; color: var(--muted); }
+.ap-chat.is-collapsed .m3-chatlog, .ap-chat.is-collapsed .m3-say { display: none; }
+.ap-chat-unread { display: inline-grid; place-items: center; min-width: 1.3rem; height: 1.3rem; padding: 0 .35rem; border-radius: 1rem; background: var(--accent); color: #111; font-size: .7rem; font-weight: 700; margin-left: .4rem; }

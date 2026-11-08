@@ -1,5 +1,8 @@
 name = "kotoba-dojo"
 main = "src/index.js"
+# Matt's login can see several Cloudflare accounts; this worker lives on the
+# prior-mixed-theme one. Naming it here lets `wrangler dev` start unattended.
+account_id = "a53a20f319a812a127b31063a0d327c4"
 compatibility_date = "2025-08-01"
 
 # Static client. The Worker only runs for /api/*; everything else is served

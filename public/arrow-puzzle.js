@@ -28,6 +28,8 @@ export async function enterArrow(code, getToken, onLeave) {
   stopClosing();
   $("ap-code").textContent = code;
   $("ap-chatlog").textContent = "";
+  // A phone starts with the chat folded so the puzzle gets the screen.
+  setChatCollapsed(window.matchMedia("(max-width: 760px)").matches);
   $("ap-results").hidden = true;
   $("ap-error").hidden = true;
   await connect(getToken);
@@ -493,6 +495,10 @@ export function bindArrowControls() {
     });
   }
 
+  $("ap-chat-head")?.addEventListener("click", () => {
+    setChatCollapsed(!$("ap-chat").classList.contains("is-collapsed"));
+  });
+
   const chatInput = $("ap-text");
   const chatSend = $("btn-ap-say");
   if (chatInput && chatSend) {
@@ -516,6 +522,24 @@ export function bindArrowControls() {
 }
 
 // ── chat ───────────────────────────────────────────────────────────────
+let unread = 0;
+
+function setChatCollapsed(collapsed) {
+  const panel = $("ap-chat");
+  if (!panel) return;
+  panel.classList.toggle("is-collapsed", collapsed);
+  $("ap-chat-head")?.setAttribute("aria-expanded", String(!collapsed));
+  const fold = $("ap-chat-fold");
+  if (fold) fold.innerHTML = collapsed ? "Show &#9660;" : "Hide &#9650;";
+  if (!collapsed) {
+    unread = 0;
+    const badge = $("ap-chat-unread");
+    if (badge) badge.hidden = true;
+    const log = $("ap-chatlog");
+    if (log) log.scrollTop = log.scrollHeight;
+  }
+}
+
 function addChat(line) {
   const log = $("ap-chatlog");
   if (!log) return;
@@ -525,6 +549,12 @@ function addChat(line) {
   log.append(p);
   while (log.children.length > 60) log.firstChild.remove();
   log.scrollTop = log.scrollHeight;
+  // Folded away, a new line from somebody else shows as a count on the header.
+  if ($("ap-chat")?.classList.contains("is-collapsed") && line.uid !== AP.you) {
+    unread += 1;
+    const badge = $("ap-chat-unread");
+    if (badge) { badge.textContent = String(unread); badge.hidden = false; }
+  }
 }
 
 // ── results ────────────────────────────────────────────────────────────

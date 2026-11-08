@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Omni Multiverse of Madness</title>
-<meta name="build" content="2026-11-08 16:17 UTC">
+<meta name="build" content="2026-11-08 19:26 UTC">
 <meta name="description" content="Omni Multiverse of Madness — competitive arena. Belts, MMR, casino floor and live standings.">
 <meta name="theme-color" content="#F4F1EA">
 <meta name="mobile-web-app-capable" content="yes">
@@ -705,23 +705,23 @@ if (location.protocol === "file:") {
         <p class="panel-sub">Tap a block to slide it off the grid in the direction it points &mdash; but only if its path to the edge is clear. Clear every block to win.</p>
         <p id="ap-lobby-note" class="panel-sub"></p>
 
-        <label class="opt-line">Game mode
+        <label class="opt-line"><span>Game mode</span>
           <select id="ap-mode">
-            <option value="race">Race (each player: same puzzle, fastest wins)</option>
-            <option value="turns">Turn-based (shared board, alternate taps, most cleared wins)</option>
-            <option value="collab">Collaborative (shared board, tap freely together)</option>
+            <option value="race">Race &mdash; same puzzle, fastest wins</option>
+            <option value="turns">Turn-based &mdash; shared board, take turns</option>
+            <option value="collab">Collaborative &mdash; shared board, tap freely</option>
             <option value="solo">Solo</option>
           </select>
         </label>
 
-        <label class="opt-line">Puzzle type
+        <label class="opt-line"><span>Puzzle type</span>
           <select id="ap-dim">
             <option value="2">2D &mdash; 5×5 flat grid</option>
             <option value="3">3D &mdash; 4×4×4 cube</option>
           </select>
         </label>
 
-        <label class="opt-line">Default visual
+        <label class="opt-line"><span>Default visual</span>
           <label class="ap-toggle-wrap">
             <input type="checkbox" id="ap-visual-toggle" role="switch">
             <span id="ap-visual-label">2D</span>
@@ -755,8 +755,11 @@ if (location.protocol === "file:") {
       <div id="ap-results" class="panel pad" hidden></div>
     </div>
 
-    <section class="panel m3-chat">
-      <div class="panel-head"><h2>Chat</h2></div>
+    <section id="ap-chat" class="panel m3-chat ap-chat">
+      <div id="ap-chat-head" class="panel-head" role="button" aria-expanded="true" title="Show or hide the chat">
+        <h2>Chat<span id="ap-chat-unread" class="ap-chat-unread" hidden></span></h2>
+        <span id="ap-chat-fold" class="ap-chat-fold">Hide &#9650;</span>
+      </div>
       <div id="ap-chatlog" class="m3-chatlog"></div>
       <div class="joinrow m3-say">
         <input id="ap-text" maxlength="200" placeholder="Say something">

@@ -4485,3 +4485,6 @@ a.dtab { text-decoration: none; display: inline-block; }
 .ap-chat-fold { margin-left: auto; font-size: .8rem; color: var(--muted); }
 .ap-chat.is-collapsed .m3-chatlog, .ap-chat.is-collapsed .m3-say { display: none; }
 .ap-chat-unread { display: inline-grid; place-items: center; min-width: 1.3rem; height: 1.3rem; padding: 0 .35rem; border-radius: 1rem; background: var(--accent); color: #111; font-size: .7rem; font-weight: 700; margin-left: .4rem; }
+.ap-canvas { touch-action: none; cursor: grab; margin-inline: auto; }
+.ap-canvas:active { cursor: grabbing; }
+.ap-3d-hint { text-align: center; margin-top: .4rem; }

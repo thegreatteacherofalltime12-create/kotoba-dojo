@@ -113,6 +113,7 @@ export class ArrowPuzzle {
       dim: 2,            // 2 = 2D puzzle, 3 = 3D puzzle (host sets in lobby)
       visual: "2d",      // default visual mode (each client can override)
       mode: "race",      // "race" | "turns" | "collab" | "solo"
+      level: "easy",     // how many free blocks are shown glowing: easy all, medium 45%, hard none
       hostUid: null,
       roundNo: 0,
       players: {},       // uid → { uid, name, done, score, board (race) }
@@ -155,6 +156,7 @@ export class ArrowPuzzle {
     if (msg.mode && ["race", "turns", "collab", "solo"].includes(msg.mode)) g.mode = msg.mode;
     if (msg.dim && [2, 3].includes(Number(msg.dim))) g.dim = Number(msg.dim);
     if (msg.visual && ["2d", "3d"].includes(msg.visual)) g.visual = msg.visual;
+    if (msg.level && ["easy", "medium", "hard"].includes(msg.level)) g.level = msg.level;
 
     if (g.mode === "solo" && this.humans().length !== 1)
       return this.send(ws, "AP_REJECT", { why: "Solo is a one-player mode." });
@@ -162,7 +164,6 @@ export class ArrowPuzzle {
       g.mode = "solo"; // graceful fallback if alone
 
     const size = g.dim === 3 ? SIZE_3D : SIZE_2D;
-    const seed = gen2D; // used for label only; actual gen below
     const blocks = g.dim === 3 ? gen3D(size) : gen2D(size);
     g.initialBlocks = blocks;
 
@@ -348,7 +349,7 @@ export class ArrowPuzzle {
     return {
       code: g.code, game: GAME_NAME, phase: g.phase,
       you: uid, isHost: this.canStart(uid),
-      mode: g.mode, dim: g.dim, visual: g.visual, size,
+      mode: g.mode, level: g.level || "easy", dim: g.dim, visual: g.visual, size,
       people: this.humans().map((h) => ({ uid: h.uid, name: h.name, score: g.scores[h.uid] || 0, done: !!h.done })),
       turn: g.turn || null,
       feed: g.feed || [],

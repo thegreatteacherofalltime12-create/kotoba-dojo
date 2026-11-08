@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Omni Multiverse of Madness</title>
-<meta name="build" content="2026-11-08 19:26 UTC">
+<meta name="build" content="2026-11-08 19:38 UTC">
 <meta name="description" content="Omni Multiverse of Madness — competitive arena. Belts, MMR, casino floor and live standings.">
 <meta name="theme-color" content="#F4F1EA">
 <meta name="mobile-web-app-capable" content="yes">
@@ -714,6 +714,14 @@ if (location.protocol === "file:") {
           </select>
         </label>
 
+        <label class="opt-line"><span>Level</span>
+          <select id="ap-level">
+            <option value="easy">Easy &mdash; every free arrow glows</option>
+            <option value="medium">Medium &mdash; 45% glow, reshuffled every 10 s</option>
+            <option value="hard">Hard &mdash; no glow</option>
+          </select>
+        </label>
+
         <label class="opt-line"><span>Puzzle type</span>
           <select id="ap-dim">
             <option value="2">2D &mdash; 5×5 flat grid</option>
@@ -751,6 +759,7 @@ if (location.protocol === "file:") {
 
       <!-- 3D isometric canvas -->
       <canvas id="ap-grid-3d" class="ap-canvas" hidden></canvas>
+      <p id="ap-3d-hint" class="ap-feed-line ap-3d-hint" hidden>Drag the cube to turn it. Tap a block to clear it.</p>
 
       <div id="ap-results" class="panel pad" hidden></div>
     </div>

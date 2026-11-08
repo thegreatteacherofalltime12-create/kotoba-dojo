@@ -20,6 +20,7 @@ import { enterBattle, closeBattle, bindBattleControls } from "./battle.js";
 import { enterMines, closeMines, bindMineControls } from "./mines.js";
 import { enterTanks, closeTanks, bindTankControls } from "./tank.js";
 import { enterMatch3, closeMatch3, bindMatch3Controls } from "./match3.js";
+import { enterArrow, closeArrow, bindArrowControls } from "./arrow-puzzle.js";
 import { enterPrix, closePrix } from "./prix.js";
 import { enterBuzzer, closeBuzzer } from "./buzzer.js";
 import { THEMES, applyTheme, savedTheme, themeById, THEME_EPOCH, DEFAULT_THEME, isStale } from "./theme.js";
@@ -160,7 +161,7 @@ const S = {
 // ───────────────────────────────────────────────────────────── screens
 
 function show(name) {
-  for (const s of ["gate", "home", "forge", "dojo", "battle", "mines", "casino", "prix", "buzzer", "tanks", "match3"]) $(`screen-${s}`).hidden = s !== name;
+  for (const s of ["gate", "home", "forge", "dojo", "battle", "mines", "casino", "prix", "buzzer", "tanks", "match3", "arrows"]) $(`screen-${s}`).hidden = s !== name;
   // The doorway belongs to the sign-in page; everything past it is the forest.
   document.body.classList.toggle("at-gate", name === "gate");
   if (typeof watchDojos === "function" && name !== "home") watchDojos(false);
@@ -2103,6 +2104,18 @@ const GAME_RULES = [
     ],
   },
   {
+    id: "arrow-puzzle", icon: "\u{1F9E9}", name: "Arrow Puzzle Tap Away", players: "1 to 4", solo: "\u2713 PLAY ALONE",
+    play: [
+      "<b>Tap a block to slide it off the grid</b> in the direction its arrow points &mdash; but only if its path to the edge is clear of other blocks. Remove all blocks to clear the board.",
+      "Three multiplayer modes: <b>Race</b> gives each player the same puzzle on their own board &mdash; first to clear all blocks wins. <b>Turn-based</b> puts everyone on one shared board, taking turns one tap at a time, scoring a point per block. <b>Collaborative</b> is the same shared board with no turns &mdash; tap freely and work it out together.",
+      "The host picks the mode and puzzle type (a <b>5\u00d75 flat grid</b> or a <b>4\u00d74\u00d74 cube</b>) before the game starts. During play, each player can toggle between a <b>2D flat view</b> and a <b>3D isometric view</b> of the same puzzle any time with the switch on the board.",
+    ],
+    score: [
+      "In Race and Turn-based, the number of blocks you cleared and your placement both count. Finishing the board earns the most.",
+      "Solo and Collaborative score everyone on how many blocks they tapped.",
+    ],
+  },
+  {
     id: "casino", icon: "\u{1F3B0}", name: "The Casino", players: "the whole arena \u00b7 one floor", solo: "\u2713 PLAY ALONE",
     play: [
       "<b>Yes, you can play this alone.</b> The floor is shared, but nothing on it needs anyone else \u2014 the arcade, the horse race and every table can be played on your own, for the same MMR.",
@@ -3190,6 +3203,7 @@ const ROOMS = {
   buzzer: (code, back) => { show("buzzer"); enterBuzzer(code, idToken, back); },
   artillery: (code, back) => { show("tanks"); enterTanks(code, idToken, back); },
   match3: (code, back) => { show("match3"); enterMatch3(code, idToken, back); },
+  "arrow-puzzle": (code, back) => { show("arrows"); enterArrow(code, idToken, back); },
   // Multiverse Golf runs on its own page: a full-screen course doesn't fit
   // inside a panel, and the round is long enough to want the whole window.
   // A room being created lands on the lobby with its code, to choose a course
@@ -3232,7 +3246,7 @@ async function joinByCode(code) {
  * Casino is solo and has no room to return to, and golf runs on its own
  * page and keeps its own hash, so neither is written here.
  */
-const REJOINABLE = new Set(["crossword", "battleship", "minesweeper", "prix", "buzzer", "artillery", "match3"]);
+const REJOINABLE = new Set(["crossword", "battleship", "minesweeper", "prix", "buzzer", "artillery", "match3", "arrow-puzzle"]);
 
 function rememberRoom(game, code) {
   if (!REJOINABLE.has(game) || !code) return;
@@ -4376,6 +4390,7 @@ bindBattleControls();
 bindMineControls();
 bindTankControls();
 bindMatch3Controls();
+bindArrowControls();
 bindCasino();
 
 // ── knowing when the arena has been rebuilt ─────────────────────────

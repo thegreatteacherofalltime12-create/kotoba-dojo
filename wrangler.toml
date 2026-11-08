@@ -123,6 +123,16 @@ class_name = "MatchArena"
 tag = "v12"
 new_sqlite_classes = ["MatchArena"]
 
+# One instance per Arrow Puzzle round. Holds the board, every player's
+# progress and the sockets — the tap-away puzzle logic runs here.
+[[durable_objects.bindings]]
+name = "ARROWS"
+class_name = "ArrowPuzzle"
+
+[[migrations]]
+tag = "v13"
+new_sqlite_classes = ["ArrowPuzzle"]
+
 
 # Curated puzzle bank. Game content, not user data — the DO reads answers
 # from here at round start.

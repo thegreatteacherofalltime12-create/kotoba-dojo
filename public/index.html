@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Omni Multiverse of Madness</title>
-<meta name="build" content="2026-10-28 15:19 UTC">
+<meta name="build" content="2026-11-08 16:17 UTC">
 <meta name="description" content="Omni Multiverse of Madness — competitive arena. Belts, MMR, casino floor and live standings.">
 <meta name="theme-color" content="#F4F1EA">
 <meta name="mobile-web-app-capable" content="yes">
@@ -682,6 +682,85 @@ if (location.protocol === "file:") {
       <div class="joinrow m3-say">
         <input id="m3-text" maxlength="200" placeholder="Say something">
         <button id="btn-m3-send" class="btn btn-small">Send</button>
+      </div>
+    </section>
+  </div>
+</section>
+
+<!-- Arrow Puzzle Tap Away -->
+<section id="screen-arrows" class="screen" hidden>
+  <header class="topbar">
+    <button id="btn-ap-leave" class="btn btn-tiny btn-end">Leave</button>
+    <span class="topbar-spacer"></span>
+    <span class="dojo-code">Arena <b id="ap-code"></b></span>
+    <span id="ap-phase" class="topbar-mark"></span>
+  </header>
+
+  <div class="wrap">
+    <p id="ap-error" class="notice notice-bad" hidden></p>
+
+    <section id="ap-host" class="panel host-panel" hidden>
+      <div class="panel-head"><h2>Arrow Puzzle Tap Away</h2><span class="host-tag">You call the start</span></div>
+      <div class="pad">
+        <p class="panel-sub">Tap a block to slide it off the grid in the direction it points &mdash; but only if its path to the edge is clear. Clear every block to win.</p>
+        <p id="ap-lobby-note" class="panel-sub"></p>
+
+        <label class="opt-line">Game mode
+          <select id="ap-mode">
+            <option value="race">Race (each player: same puzzle, fastest wins)</option>
+            <option value="turns">Turn-based (shared board, alternate taps, most cleared wins)</option>
+            <option value="collab">Collaborative (shared board, tap freely together)</option>
+            <option value="solo">Solo</option>
+          </select>
+        </label>
+
+        <label class="opt-line">Puzzle type
+          <select id="ap-dim">
+            <option value="2">2D &mdash; 5×5 flat grid</option>
+            <option value="3">3D &mdash; 4×4×4 cube</option>
+          </select>
+        </label>
+
+        <label class="opt-line">Default visual
+          <label class="ap-toggle-wrap">
+            <input type="checkbox" id="ap-visual-toggle" role="switch">
+            <span id="ap-visual-label">2D</span>
+          </label>
+        </label>
+
+        <button id="btn-ap-start" class="btn btn-primary btn-wide">Start Game</button>
+      </div>
+    </section>
+
+    <p id="ap-wait" class="panel pad" hidden>Waiting for the host to begin the game.</p>
+
+    <div id="ap-game" hidden>
+      <div class="ap-bar">
+        <span id="ap-mode-label" class="topbar-mark"></span>
+        <label class="ap-toggle-wrap ap-vis-toggle" title="Switch 2D / 3D view">
+          2D <input type="checkbox" id="ap-vis-game" role="switch"> 3D
+        </label>
+      </div>
+
+      <div id="ap-scoreboard" class="ap-scoreboard" hidden></div>
+
+      <p id="ap-feed" class="ap-feed-line"></p>
+
+      <!-- 2D grid container -->
+      <div id="ap-grid-2d" class="ap-grid-wrap"></div>
+
+      <!-- 3D isometric canvas -->
+      <canvas id="ap-grid-3d" class="ap-canvas" hidden></canvas>
+
+      <div id="ap-results" class="panel pad" hidden></div>
+    </div>
+
+    <section class="panel m3-chat">
+      <div class="panel-head"><h2>Chat</h2></div>
+      <div id="ap-chatlog" class="m3-chatlog"></div>
+      <div class="joinrow m3-say">
+        <input id="ap-text" maxlength="200" placeholder="Say something">
+        <button id="btn-ap-say" class="btn btn-small">Send</button>
       </div>
     </section>
   </div>

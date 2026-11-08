@@ -119,6 +119,15 @@ export const GAME_MODES = [
     available: true,
   },
   {
+    id: "arrow-puzzle",
+    name: "Arrow Puzzle Tap Away",
+    players: "1 to 4",
+    blurb: "Tap a block to slide it off the grid in the direction it points — but only if its path is clear. Clear every block to win. Race, take turns, or work together. 2D or 3D puzzle, with a view toggle on the board.",
+    kind: "match",
+    game: "arrow-puzzle",
+    available: true,
+  },
+  {
     id: "gauntlet",
     name: "Gauntlet",
     players: "1 player",

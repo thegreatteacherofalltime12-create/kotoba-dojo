@@ -2258,6 +2258,7 @@ const closeCreate = () => closePanel("drawer-create", "tab-create");
 const GAME_ICONS = {
   crossword: "\u{1F520}", battleship: "\u2693", minesweeper: "\u{1F4A3}",
   casino: "\u{1F3B0}", links: "\u26F3", prix: "\u{1F3CE}\uFE0F", buzzer: "\u{1F6CE}\uFE0F",
+  artillery: "\u{1F4A5}", match3: "\u{1F9E9}", "arrow-puzzle": "\u{1F9ED}",
 };
 
 function drawCreate() {

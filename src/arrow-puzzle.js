@@ -62,8 +62,16 @@ function gen2D(size = SIZE_2D) {
   return blocks;
 }
 
-/** Generate a solvable 3D puzzle by reverse construction. */
-function gen3D(size = SIZE_3D) {
+/**
+ * Generate a solvable 3D puzzle by reverse construction.
+ *
+ * `solid` fills every cell, so the puzzle starts as one rigid cube: cells are
+ * placed innermost first, and a cell's path to its nearest face only crosses
+ * cells nearer that face, which are not placed yet — so a clear direction
+ * always exists. Otherwise cells go in a random order and some end up skipped,
+ * which leaves gaps.
+ */
+function gen3D(size = SIZE_3D, solid = false) {
   const occ = new Set();
   const blocks = [];
   const cells = [];
@@ -71,6 +79,10 @@ function gen3D(size = SIZE_3D) {
     for (let y = 0; y < size; y++)
       for (let z = 0; z < size; z++) cells.push([x, y, z]);
   shuffle(cells);
+  if (solid) {
+    const depth = (c) => Math.min(...c.map((v) => Math.min(v, size - 1 - v)));
+    cells.sort((a, b) => depth(b) - depth(a));
+  }
   for (const [x, y, z] of cells) {
     const dirs = shuffle([...DIRS_3D]);
     for (const dir of dirs) {
@@ -96,6 +108,8 @@ function canTap(blocks, blockId, dim, size) {
   const occ = new Set(blocks.filter((b) => b.id !== blockId).map((b) => `${b.x},${b.y},${b.z}`));
   return pathClear3D(occ, block.x, block.y, block.z, block.dir, size);
 }
+
+export { gen2D, gen3D, canTap, SIZE_2D, SIZE_3D };
 
 // ── Durable Object ─────────────────────────────────────────────────────
 export class ArrowPuzzle {
@@ -164,7 +178,7 @@ export class ArrowPuzzle {
       g.mode = "solo"; // graceful fallback if alone
 
     const size = g.dim === 3 ? SIZE_3D : SIZE_2D;
-    const blocks = g.dim === 3 ? gen3D(size) : gen2D(size);
+    const blocks = g.dim === 3 ? gen3D(size, g.level === "easy") : gen2D(size);
     g.initialBlocks = blocks;
 
     g.scores = {};

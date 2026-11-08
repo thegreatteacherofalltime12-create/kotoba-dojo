@@ -386,6 +386,10 @@ function draw3D(s) {
   const hits = [];
   ctx.lineJoin = "round";
 
+  // Easy starts as a solid cube, and its outline stays where it was as blocks
+  // go, so the shape you are clearing never seems to shift.
+  if (dim === 3 && s.level === "easy") drawFrame(ctx, proj, size);
+
   for (const { b, c } of cubes) {
     const pal = glowing.has(b.id) ? CUBE.glow : CUBE.base;
     const d = DIR_VEC[b.dir] || [0, 0, 0];
@@ -407,6 +411,26 @@ function draw3D(s) {
   }
   canvas._hits = hits;
   bindCube(canvas);
+}
+
+/** The twelve edges of the full cube, faint, behind the blocks. */
+function drawFrame(ctx, proj, size) {
+  const h = size / 2;
+  const corner = (i) => proj(rotate([i & 1 ? h : -h, i & 2 ? h : -h, i & 4 ? h : -h]));
+  ctx.save();
+  ctx.strokeStyle = "rgba(190, 210, 235, .35)";
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([5, 5]);
+  ctx.beginPath();
+  for (let i = 0; i < 8; i++) {
+    for (const bit of [1, 2, 4]) {
+      if (i & bit) continue;
+      const [ax, ay] = corner(i), [bx, by] = corner(i | bit);
+      ctx.moveTo(ax, ay); ctx.lineTo(bx, by);
+    }
+  }
+  ctx.stroke();
+  ctx.restore();
 }
 
 /** The block's arrow as it lies on this face: in-plane as an arrow, through the face as ⊙ (out) or ⊗ (in). */

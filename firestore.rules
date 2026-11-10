@@ -10,13 +10,23 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Profiles are readable by signed-in players so a lobby can show names.
-    // Writes come only from the Worker's service account (which bypasses these
-    // rules), so no client — not even the profile owner — may write this
-    // document directly. That closes the path to self-inflating a casino wallet.
+    // A profile is its owner's alone. It holds the Etsy order number that
+    // resets a pin, the wallet and the key that opens the arena, so nobody
+    // else may read it: lobbies get names from the rooms, never from here.
+    //
+    // The owner may write only the look of their own screen, the fields
+    // saveProfile() keeps so a theme follows them between devices. The
+    // access key, the wallet and the server's cosmetics map are written
+    // only by the Worker's service account, which bypasses these rules: a
+    // client that could write them could unlock the arena without a key or
+    // print its own money. No delete either, or a revoked key could be
+    // wiped and the account let back in.
     match /users/{uid} {
-      allow read: if request.auth != null;
-      allow write: if false;
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow create: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(profileLook());
+      allow update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(profileLook());
 
       // A player's own scrolls. Nobody else can read them, so a sensei's
       // saved answers don't leak to the students.
@@ -39,6 +49,11 @@ service cloud.firestore {
     match /leaderboard/{uid} {
       allow read: if request.auth != null;
       allow write: if false;
+    }
+
+    // What saveProfile() in public/app.js writes, and nothing more.
+    function profileLook() {
+      return ['uid', 'displayName', 'avatar', 'frame', 'title', 'banner', 'kart', 'open', 'theme', 'themeEpoch'];
     }
   }
 }

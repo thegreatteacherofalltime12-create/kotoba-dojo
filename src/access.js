@@ -83,8 +83,23 @@ const PASS_REFUSAL = {
   unknown: "That pass code isn't one of ours.",
 };
 
-/** True while a key has been tried too often. */
-function throttled(key) {
+/**
+ * True while a key has been tried too often. The count is kept by the
+ * Commons room, one for the whole arena; only if that can't be reached does
+ * this isolate fall back on its own, which is better than no count at all.
+ */
+async function throttled(env, key) {
+  if (env?.COMMONS) {
+    try {
+      const res = await env.COMMONS.get(env.COMMONS.idFromName("global"))
+        .fetch("https://commons/try", { method: "POST", body: JSON.stringify({ key }) });
+      if (res.ok) return !(await res.json()).ok;
+    } catch { /* fall back on this isolate's own count */ }
+  }
+  return throttledHere(key);
+}
+
+function throttledHere(key) {
   const now = Date.now();
   const list = (tries.get(key) || []).filter((t) => now - t < 3_600_000);
   if (list.length >= TRIES_PER_HOUR) { tries.set(key, list); return true; }
@@ -212,7 +227,7 @@ export const forget = (uid) => cache.delete(uid);
 export async function redeem(env, user, raw) {
   const order = cleanOrder(raw);
   if (!validOrder(order)) return { ok: false, error: "An Etsy order number is 8 to 12 digits." };
-  if (throttled(`r:${user.uid}`)) return { ok: false, error: "Too many tries. Wait an hour." };
+  if (await throttled(env, `r:${user.uid}`)) return { ok: false, error: "Too many tries. Wait an hour." };
   const token = await accessToken(env);
   if (!token) return { ok: false, error: "The arena can't take keys right now." };
   const at = Date.now();
@@ -259,7 +274,7 @@ export async function passState(env, raw) {
 export async function claimPass(env, user, raw) {
   const code = cleanPass(raw);
   if (!code) return { ok: false, error: "That isn't a pass code." };
-  if (throttled(`p:${user.uid}`)) return { ok: false, error: "Too many tries. Wait an hour." };
+  if (await throttled(env, `p:${user.uid}`)) return { ok: false, error: "Too many tries. Wait an hour." };
   const token = await accessToken(env);
   if (!token) return { ok: false, error: "The arena can't take passes right now." };
   const doc = await readDoc(env, `keys/${code}`);
@@ -296,7 +311,7 @@ export async function recover(env, { name, order: raw, pin, address }) {
   const order = cleanOrder(raw);
   if (!validOrder(order)) return { ok: false, error: "An Etsy order number is 8 to 12 digits." };
   if (!/^\d{6}$/.test(pin)) return { ok: false, error: "The new pin is exactly six digits." };
-  if (throttled(`n:${name.toLowerCase()}`) || throttled(`o:${order}`)) return { ok: false, error: "Too many tries. Wait an hour." };
+  if (await throttled(env, `n:${name.toLowerCase()}`) || await throttled(env, `o:${order}`)) return { ok: false, error: "Too many tries. Wait an hour." };
   const key = await readDoc(env, `keys/${order}`);
   if (!key) return { ok: false, error: "That name and order number don't go together." };
   const k = { uid: key.fields?.uid?.stringValue, revoked: key.fields?.revoked?.booleanValue };

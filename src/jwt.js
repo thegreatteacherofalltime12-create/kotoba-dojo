@@ -99,7 +99,27 @@ export async function verifyIdToken(token, projectId) {
   const fallback = claims.email ? String(claims.email).split("@")[0] : "";
   return {
     uid: claims.sub,
-    name: (claims.name || fallback || "Student").slice(0, 24),
+    name: cleanName(claims.name, fallback || "Student"),
     picture: claims.picture || null,
   };
+}
+
+// Characters that hide or turn text around: controls, zero-widths, the
+// direction marks that can make one name read as another, and the blank
+// fillers some scripts provide.
+const HIDDEN = /[\u0000-\u001f\u007f-\u009f­؜ᅟᅠ឴឵᠎​-‏‪-‮⁠-⁯ㅤ︀-️﻿ﾠ]/g;
+// The arena's own voices. A player can't take one, whatever the spacing.
+const STAFF = /^(admin|administrator|moderator|mod|system|arena|staff|official)$/i;
+
+/**
+ * The name a player shows. It is their own choice (the profile lets them
+ * rename) and comes from the token, which they can set to anything, so it is
+ * cleaned here: nothing hidden or reversed, no staff titles, two to
+ * twenty-four characters. Anything that fails stands down to the name they
+ * signed up with.
+ */
+export function cleanName(raw, fallback) {
+  const s = String(raw ?? "").normalize("NFKC").replace(HIDDEN, "").replace(/\s+/g, " ").trim().slice(0, 24).trim();
+  if (s.length < 2 || STAFF.test(s.replace(/[^a-z]/gi, ""))) return fallback;
+  return s;
 }

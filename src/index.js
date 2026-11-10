@@ -4,7 +4,7 @@ import { moderate } from "./moderation.js";
 import {
   prestigePlayer, retirePlayer, recordMatch, readRatings, saveCosmetics, strikePlayer, clearStrikes,
   buyToken, TOKEN_PRICE, TOKEN_GAMES,
-  postChat, postFeed, withdrawWallet, refundWallet,
+  postChat, withdrawWallet, refundWallet,
   publishScroll, listScrolls, lastFirestoreError,
 } from "./firestore.js";
 import { makePuzzle, scoreSolve, cashReward, MAX_AWARD, LIMIT_MS, FAST_MS, FAST_MULTIPLIER } from "./puzzle.js";
@@ -115,6 +115,8 @@ export default {
     // Best clear times per difficulty. Public: it's a scoreboard.
     // Says in plain terms whether ranked scoring is actually working. Without
     // this, a broken leaderboard is indistinguishable from an empty one.
+    // The admin's alone: every run writes a result, and the last Firestore
+    // error it reports may have come from somebody else's request.
     if (path === "/api/diag/ranked") {
       const token = (request.headers.get("Authorization") || "").replace(/^Bearer /, "");
       let user;
@@ -123,6 +125,7 @@ export default {
       } catch {
         return json({ error: "Sign in first." }, 401);
       }
+      if (!isAdmin(env, user.uid)) return json({ error: "Not yours to run." }, 403);
 
       const steps = [];
       steps.push({ step: "Secret present", ok: !!env.FIREBASE_SERVICE_ACCOUNT });
@@ -448,19 +451,6 @@ export default {
       }).then((r) => r.json()).catch(() => ({ ok: true }));
       if (!gate.ok) return json({ error: "Slow down a little." }, 429);
       const ok = await postChat(env, { uid: user.uid, name: user.name, text: body.text });
-      return json({ ok }, ok ? 200 : 400);
-    }
-
-    // An award, posted by whatever awards it. Kept open-ended on purpose so a
-    // new award needs no new endpoint.
-    if (path === "/api/feed/award" && request.method === "POST") {
-      const token = (request.headers.get("Authorization") || "").replace(/^Bearer /, "");
-      try { await verifyMember(token, env); }
-      catch { return json({ error: "Sign in first." }, 401); }
-      const body = await request.json().catch(() => ({}));
-      const ok = await postFeed(env, {
-        kind: "award", name: body.name, text: body.text, detail: body.detail,
-      });
       return json({ ok }, ok ? 200 : 400);
     }
 

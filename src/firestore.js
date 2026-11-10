@@ -327,30 +327,23 @@ export async function buyToken(env, uid, name, game, count = 1) {
   const bill = price * many;
   const token = await accessToken(env);
   if (!token) return { ok: false, error: "The shop isn't open in this arena." };
-  const held = (await readWallet(env, uid)) ?? 0;
-  if (held < bill) {
-    return { ok: false, error: many === 1
+  // The balance is read and the bill paid in one transaction, so a burst of
+  // purchases can't each be passed against the same money.
+  const spent = await spendWallet(env, uid, (held) => held < bill
+    ? { error: many === 1
       ? `That token costs ${price.toLocaleString()}. Your wallet holds ${held.toLocaleString()}.`
-      : `${many} of those cost ${bill.toLocaleString()}. Your wallet holds ${held.toLocaleString()}.` };
-  }
-
-  const left = held - bill;
-  const res = await fetch(`https://firestore.googleapis.com/v1/${base(env)}:commit`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      writes: [
-        ...walletWrites(`${base(env)}/users/${uid}`, `${base(env)}/wallets/${uid}`, uid, name, -bill, left),
-        {
-          update: { name: `${base(env)}/leaderboard/${uid}`, fields: { uid: S(uid), name: S(name || "Player") } },
-          updateMask: { fieldPaths: ["uid", "name"] },
-          updateTransforms: [{ fieldPath: `tokens.${game}`, increment: I(many) }],
-        },
-      ],
-    }),
-  });
-  if (!res.ok) return { ok: false, error: "Firestore refused the purchase." };
-  const body = await res.json().catch(() => null);
+      : `${many} of those cost ${bill.toLocaleString()}. Your wallet holds ${held.toLocaleString()}.` }
+    : { writes: [
+      ...walletWrites(`${base(env)}/users/${uid}`, `${base(env)}/wallets/${uid}`, uid, name, -bill, held - bill),
+      {
+        update: { name: `${base(env)}/leaderboard/${uid}`, fields: { uid: S(uid), name: S(name || "Player") } },
+        updateMask: { fieldPaths: ["uid", "name"] },
+        updateTransforms: [{ fieldPath: `tokens.${game}`, increment: I(many) }],
+      },
+    ] });
+  if (!spent.ok) return { ok: false, error: spent.error === "Firestore refused it." ? "Firestore refused the purchase." : spent.error };
+  const left = spent.held - bill;
+  const body = spent.body;
   await tellWallet(env, uid, name, body, left);
   const got = transformNumbers(body, 2, 1);
   await (got
@@ -1072,22 +1065,17 @@ export async function withdrawWallet(env, uid, amount, name = "Player") {
   const want = Math.max(0, Math.round(Number(amount) || 0));
   if (!want) return { ok: false, error: "Choose an amount first." };
 
-  // Read live, always: this is the overdraft check, and the room's copy is
-  // for showing a figure, not for moving money on.
-  const held = (await readWallet(env, uid)) ?? 0;
-  if (want > held) {
-    return { ok: false, error: `Your wallet holds $${held.toLocaleString()}.` };
-  }
-
+  // Read live, always, and in the same transaction as the spend: this is the
+  // overdraft check, and the room's copy is for showing a figure, not for
+  // moving money on.
   const path = `${base(env)}/users/${uid}`;
   const board = `${base(env)}/wallets/${uid}`;
-  const res = await fetch(`https://firestore.googleapis.com/v1/${base(env)}:commit`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ writes: walletWrites(path, board, uid, name, -want, held - want) }),
-  });
-  if (!res.ok) return { ok: false, error: "Firestore refused the withdrawal." };
-  await tellWallet(env, uid, name, await res.json().catch(() => null), held - want);
+  const spent = await spendWallet(env, uid, (held) => want > held
+    ? { error: `Your wallet holds $${held.toLocaleString()}.` }
+    : { writes: walletWrites(path, board, uid, name, -want, held - want) });
+  if (!spent.ok) return { ok: false, error: spent.error === "Firestore refused it." ? "Firestore refused the withdrawal." : spent.error };
+  const held = spent.held;
+  await tellWallet(env, uid, name, spent.body, held - want);
   return { ok: true, amount: want, remaining: held - want };
 }
 
@@ -1097,6 +1085,48 @@ export async function refundWallet(env, uid, amount, name) {
 }
 
 /** One player's banked total, for their own eyes. */
+/**
+ * Spends from a wallet inside one Firestore transaction: the balance is read
+ * and the spend committed together, so two requests at once can't both pass
+ * the same overdraft check. Read on its own, then written, ten withdrawals
+ * fired together would each have seen the whole wallet and each paid it out.
+ *
+ * `plan(held)` returns { writes } to commit, or { error } to refuse. A
+ * transaction that loses a race is aborted by Firestore and tried again
+ * against the new balance. Returns { ok, held, body } or { ok: false, error }.
+ */
+export async function spendWallet(env, uid, plan) {
+  const token = await accessToken(env);
+  if (!token) return { ok: false, error: "Wallets aren't switched on for this arena." };
+  const api = `https://firestore.googleapis.com/v1/${base(env)}`;
+  const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
+  const post = (verb, body) => fetch(`${api}:${verb}`, { method: "POST", headers, body: JSON.stringify(body) });
+  // A read inside a transaction holds its document until the end, so a
+  // refusal lets go at once rather than leaving banking waiting on a lock.
+  const letGo = (transaction) => post("rollback", { transaction }).catch(() => {});
+
+  for (let tries = 0; tries < 5; tries++) {
+    const begun = await post("beginTransaction", { options: { readWrite: {} } });
+    if (!begun.ok) return { ok: false, error: "The bank couldn't open just now. Try again." };
+    const { transaction } = await begun.json();
+
+    const read = await fetch(`${api}/users/${uid}?transaction=${encodeURIComponent(transaction)}`, { headers });
+    if (read.status === 409) { await letGo(transaction); continue; }
+    if (!read.ok && read.status !== 404) { await letGo(transaction); return { ok: false, error: "The bank couldn't read your wallet. Try again." }; }
+    const doc = read.ok ? await read.json() : null;
+    const held = Number(doc?.fields?.casino?.mapValue?.fields?.wallet?.integerValue || 0);
+
+    const step = plan(held);
+    if (step.error) { await letGo(transaction); return { ok: false, error: step.error }; }
+
+    const done = await post("commit", { writes: step.writes, transaction });
+    if (done.ok) return { ok: true, held, body: await done.json().catch(() => null) };
+    if (done.status !== 409) return { ok: false, error: "Firestore refused it." };
+    // Aborted: somebody else moved this wallet first. Read it again.
+  }
+  return { ok: false, error: "The bank is busy. Try again in a moment." };
+}
+
 export async function readWallet(env, uid) {
   const token = await accessToken(env);
   if (!token) return null;

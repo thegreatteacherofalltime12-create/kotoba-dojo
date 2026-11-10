@@ -396,6 +396,24 @@ export class Commons {
     return true;
   }
 
+  /**
+   * Tries at a door that can be guessed at (a key, a pass, a pin reset),
+   * counted here for the whole arena. A count kept in each isolate starts
+   * again wherever a request happens to land, so it held nobody back.
+   */
+  allowTry(key, max = 6, windowMs = 3_600_000) {
+    const now = Date.now();
+    this.tries ??= new Map();
+    if (this.tries.size > 5000) {
+      for (const [k, list] of this.tries) if (!list.some((t) => now - t < windowMs)) this.tries.delete(k);
+    }
+    const list = (this.tries.get(key) || []).filter((t) => now - t < windowMs);
+    if (list.length >= max) { this.tries.set(key, list); return false; }
+    list.push(now);
+    this.tries.set(key, list);
+    return true;
+  }
+
   // ── conduct: reports, bars and appeals ────────────────────────────
 
   /** A refused line goes on the list; the third strike bars the sender. */
@@ -442,6 +460,7 @@ export class Commons {
     if (request.method === "POST") {
       const body = await request.json().catch(() => ({}));
       if (path === "/chat/allow") return Response.json({ ok: this.allowChat(String(body.uid || "")) });
+      if (path === "/try") return Response.json({ ok: this.allowTry(String(body.key || "")) });
       if (path === "/chat/append") this.appendChat(body);
       else if (path === "/feed/append") this.appendFeed(body);
       else if (path === "/board/upsert") this.upsertBoard(body.rows);
@@ -464,8 +483,11 @@ export class Commons {
     if (path === "/feed") return Response.json({ feed: this.feedNow() });
     if (path === "/rankings") return Response.json({ standings: this.rankings() });
     if (path === "/records") {
+      const cutAt = this.hof?.at;
       const out = this.records();
-      await this.save();   // the hall of fame may just have been cut
+      // The hall of fame may just have been cut, once a quarter. Anybody can
+      // ask for the records, so only that cut is written, and only then.
+      if (this.hof?.at !== cutAt) await this.state.storage.put("hof", this.hof);
       return Response.json(out);
     }
     if (path === "/wallets/top") return Response.json({ wallets: this.walletBoard() });

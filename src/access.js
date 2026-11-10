@@ -245,12 +245,25 @@ export async function redeem(env, user, raw) {
       },
     ] }),
   });
-  if (res.status === 400 || res.status === 409) {
-    return { ok: false, error: "That order number has already been used. If it's yours, the pin reset on the sign-in page takes it." };
-  }
-  if (!res.ok) return { ok: false, error: "Firestore refused the key. Try again." };
+  if (!res.ok) return { ok: false, error: redeemRefusal(res.status, await res.json().catch(() => null)) };
   forget(user.uid);
   return { ok: true, order };
+}
+
+/**
+ * What a refused redeem commit means: a key already on another account trips
+ * the exists-false precondition, which Firestore reports as 409 ALREADY_EXISTS
+ * (or 400 FAILED_PRECONDITION); any other refusal is not a used key.
+ */
+export function redeemRefusal(httpStatus, body) {
+  if (lostRace(httpStatus, body)) return "That order number has already been used. If it's yours, the pin reset on the sign-in page takes it.";
+  return "Firestore refused the key. Try again.";
+}
+
+/** True when a commit was refused because the document's precondition failed. */
+function lostRace(httpStatus, body) {
+  const code = body?.error?.status;
+  return httpStatus === 409 || code === "ALREADY_EXISTS" || code === "FAILED_PRECONDITION";
 }
 
 /**
@@ -309,9 +322,7 @@ export async function claimPass(env, user, raw) {
  * request, an expired token — is not a claimed pass and must not say so.
  */
 export function claimRefusal(httpStatus, body) {
-  const code = body?.error?.status;
-  if (httpStatus === 409 || code === "ALREADY_EXISTS" || code === "FAILED_PRECONDITION") return PASS_REFUSAL.claimed;
-  return "Firestore refused the pass. Try again.";
+  return lostRace(httpStatus, body) ? PASS_REFUSAL.claimed : "Firestore refused the pass. Try again.";
 }
 
 /**

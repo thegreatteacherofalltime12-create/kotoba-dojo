@@ -4,7 +4,7 @@
 // an order number, the refusals, and that local play is never locked out.
 import {
   cleanOrder, validOrder, membership, redeem, recover, epochOf, forget,
-  cleanPass, validPass, newPassCode, passVerdict, claimPass, makePass, passState, claimRefusal,
+  cleanPass, validPass, newPassCode, passVerdict, claimPass, makePass, passState, claimRefusal, redeemRefusal,
 } from "../src/access.js";
 
 let bad = 0;
@@ -68,6 +68,15 @@ ok("and so is a 409", claimed.test(claimRefusal(409, { error: { status: "ALREADY
 ok("a malformed request (400 INVALID_ARGUMENT) is not", !claimed.test(claimRefusal(400, { error: { status: "INVALID_ARGUMENT" } })));
 ok("an expired service token (401) is not", !claimed.test(claimRefusal(401, { error: { status: "UNAUTHENTICATED" } })));
 ok("nor is a refusal with no readable body", !claimed.test(claimRefusal(400, null)));
+
+console.log("\nwhat a refused order number is told");
+const used = /already been used/;
+ok("a key already on another account (409 ALREADY_EXISTS) is a used number",
+  used.test(redeemRefusal(409, { error: { status: "ALREADY_EXISTS" } })));
+ok("and so is a lost race (400 FAILED_PRECONDITION)", used.test(redeemRefusal(400, { error: { status: "FAILED_PRECONDITION" } })));
+ok("a malformed request (400 INVALID_ARGUMENT) is not", !used.test(redeemRefusal(400, { error: { status: "INVALID_ARGUMENT" } })));
+ok("an expired service token (401) is not", !used.test(redeemRefusal(401, { error: { status: "UNAUTHENTICATED" } })));
+ok("nor is a refusal with no readable body", !used.test(redeemRefusal(400, null)));
 
 console.log("\nthe epoch");
 ok("no epoch means nobody is grandfathered by date", epochOf({}) === 0);

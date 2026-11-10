@@ -4,7 +4,7 @@
 // an order number, the refusals, and that local play is never locked out.
 import {
   cleanOrder, validOrder, membership, redeem, recover, epochOf, forget,
-  cleanPass, validPass, newPassCode, passVerdict, claimPass, makePass, passState,
+  cleanPass, validPass, newPassCode, passVerdict, claimPass, makePass, passState, claimRefusal,
 } from "../src/access.js";
 
 let bad = 0;
@@ -59,6 +59,15 @@ ok("seven tries in an hour is throttled", !pr.ok && /Too many/.test(pr.error));
 pr = await makePass(passless, { uid: "boss", name: "B" });
 ok("and none can be made either", !pr.ok && /can't make passes/.test(pr.error));
 ok("an unreadable pass is unknown rather than open", (await passState(passless, "DOJO-7K2M-4QXB")).state === "unknown");
+
+console.log("\nwhat a refused claim is told");
+const claimed = /already been claimed/;
+ok("losing the race by precondition (400 FAILED_PRECONDITION) is a claimed pass",
+  claimed.test(claimRefusal(400, { error: { status: "FAILED_PRECONDITION" } })));
+ok("and so is a 409", claimed.test(claimRefusal(409, { error: { status: "ALREADY_EXISTS" } })));
+ok("a malformed request (400 INVALID_ARGUMENT) is not", !claimed.test(claimRefusal(400, { error: { status: "INVALID_ARGUMENT" } })));
+ok("an expired service token (401) is not", !claimed.test(claimRefusal(401, { error: { status: "UNAUTHENTICATED" } })));
+ok("nor is a refusal with no readable body", !claimed.test(claimRefusal(400, null)));
 
 console.log("\nthe epoch");
 ok("no epoch means nobody is grandfathered by date", epochOf({}) === 0);

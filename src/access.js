@@ -297,10 +297,21 @@ export async function claimPass(env, user, raw) {
       },
     ] }),
   });
-  if (res.status === 409) return { ok: false, error: "That pass has already been claimed." };
-  if (!res.ok) return { ok: false, error: "Firestore refused the pass. Try again." };
+  if (!res.ok) return { ok: false, error: claimRefusal(res.status, await res.json().catch(() => null)) };
   forget(user.uid);
   return { ok: true, code };
+}
+
+/**
+ * What a refused claim commit means. Losing the race to another claimant
+ * trips the precondition on the pass, which Firestore reports as a 409
+ * ALREADY_EXISTS or a 400 FAILED_PRECONDITION; any other refusal — a bad
+ * request, an expired token — is not a claimed pass and must not say so.
+ */
+export function claimRefusal(httpStatus, body) {
+  const code = body?.error?.status;
+  if (httpStatus === 409 || code === "ALREADY_EXISTS" || code === "FAILED_PRECONDITION") return PASS_REFUSAL.claimed;
+  return "Firestore refused the pass. Try again.";
 }
 
 /**

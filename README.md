@@ -158,7 +158,7 @@ to that day. That has happened twice, once at twenty-four files.
 Instead:
 
 ```bash
-npm run import -- D:\path\to\the-chat.zip
+npm run import -- F:\path\to\the-chat.zip
 ```
 
 It reads the zip and, file by file, works out what the chat actually changed
